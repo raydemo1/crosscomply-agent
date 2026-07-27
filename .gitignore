@@ -42,8 +42,7 @@ indexes/
 *.db
 
 # Generated documentation / local review reports
-docs/data_governance_report.md
-docs/**/*.html
+docs/
 
 # Logs
 *.log
