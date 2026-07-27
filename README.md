@@ -262,7 +262,7 @@ python -m law_agent.data config check
 ### 3. 启动 ES + pgvector
 
 ```powershell
-# 首次启动（构建 ES 镜像，预装 smartcn 中文分词插件）
+# 首次启动（构建 ES 镜像，预装 IK 中文分词插件）
 docker compose up -d --build
 
 # 后续启动（镜像已构建，直接启动）
@@ -276,7 +276,7 @@ docker compose ps
 
 | 服务 | 地址 | 用途 |
 |---|---|---|
-| Elasticsearch | `http://localhost:9200` | 关键词检索（smartcn 中文分词） |
+| Elasticsearch | `http://localhost:9200` | 关键词检索（IK 中文分词） |
 | PostgreSQL + pgvector | `localhost:5432` | 向量检索（BGE-M3 1024 维） |
 
 数据持久化到 Docker 命名卷 `esdata`、`pgdata`，`docker compose down` 不会丢数据。
