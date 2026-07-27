@@ -8,7 +8,7 @@ import re
 from law_agent.config import require_llm_config
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.llm import StructuredLLMNode
-from law_agent.review.retrieval.keyword import tokenize
+from law_agent.review.retrieval.text import tokenize
 from law_agent.review.schemas import (
     CaseAnalysis,
     CritiqueDecision,

@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field, ValidationError
 from law_agent.config import RerankMode, load_llm_config, load_service_config
 from law_agent.review.evalset.cases import EvalSuite
 from law_agent.review.evalset.runner import run_evaluation
-from law_agent.review.evalset.runner import ReviewEvalMode, RetrievalEvalMode
+from law_agent.review.evalset.runner import ReviewEvalMode
 from law_agent.review.evalset.schemas import EvalSummary
 from law_agent.review.io import read_review_results, read_retrieval_traces
 from law_agent.review.llm import ReviewWorkflowFailed
@@ -47,10 +47,8 @@ from law_agent.review.service import (
     DEFAULT_REVIEW_RUNS_DIR,
     ReviewMode,
     create_review_case,
-    run_hybrid_retrieval,
+    run_service_retrieval,
 )
-
-RetrievalBackend = Literal["local", "service"]
 
 # Upload guardrails. The frontend mirrors these so that network/upload
 # failures are intercepted before they can become a "trace" — a parsing
@@ -155,13 +153,9 @@ class EvalRunRequest(BaseModel):
     """Request body for POST /api/eval/run (all fields optional)."""
 
     chunks_path: str | None = Field(default=None, description="Custom path to chunks.jsonl")
-    retrieval_mode: RetrievalEvalMode = Field(
-        default="service",
-        description="Retrieval backend under test: service or local",
-    )
     review_mode: ReviewEvalMode = Field(
         default="llm",
-        description="Review owner under test: llm or local",
+        description="Review owner under test: llm or multi_agent",
     )
     top_k: int = Field(default=10, ge=1, le=100, description="Retrieval top_k")
     max_workers: int = Field(
@@ -240,8 +234,7 @@ def _preload_eval_cache(app: FastAPI, cache_dir: Path) -> None:
 def create_app(
     *,
     chunks_path: Path | str = DEFAULT_CHUNKS_PATH,
-    review_mode: ReviewMode = "rule_baseline",
-    retrieval_backend: RetrievalBackend = "local",
+    review_mode: ReviewMode = "llm",
     eval_cache_dir: Path | str | None = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application.
@@ -274,7 +267,6 @@ def create_app(
     # Store config in app state
     app.state.chunks_path = Path(chunks_path)
     app.state.review_mode = review_mode
-    app.state.retrieval_backend = retrieval_backend
     # Per-app eval cache so two app instances never share eval results.
     # Cache is keyed by rerank_mode ("off" / "embedding") so both arms of an
     # A/B eval can coexist without overwriting each other.
@@ -331,7 +323,7 @@ def create_app(
         }
 
         status = "ok"
-        if app.state.retrieval_backend == "service" and not (
+        if not (
             services.get("elasticsearch") and services.get("postgres")
         ):
             status = "degraded"
@@ -513,28 +505,14 @@ def create_app(
                 case_id = response.review_case.review_case_id
                 trace_id = response.trace.trace_id
 
-                # Run retrieval. ``service`` is fail-fast and never falls back
-                # to the local vector mock.
-                if app.state.retrieval_backend == "service":
-                    from law_agent.review.service import run_service_retrieval
-
-                    trace = run_service_retrieval(
-                        case_id=case_id,
-                        chunks_path=app.state.chunks_path,
-                        output_dir=tmp_path,
-                        review_mode=effective_review_mode,
-                        rerank_mode=rerank_mode,
-                        output_format="markdown",
-                    )
-                else:
-                    trace = run_hybrid_retrieval(
-                        case_id=case_id,
-                        chunks_path=app.state.chunks_path,
-                        output_dir=tmp_path,
-                        review_mode=effective_review_mode,
-                        rerank_mode=rerank_mode,
-                        output_format="markdown",
-                    )
+                trace = run_service_retrieval(
+                    case_id=case_id,
+                    chunks_path=app.state.chunks_path,
+                    output_dir=tmp_path,
+                    review_mode=effective_review_mode,
+                    rerank_mode=rerank_mode,
+                    output_format="markdown",
+                )
 
                 # Read the structured result
                 results = read_review_results(tmp_path / "review_results.jsonl")
@@ -606,7 +584,6 @@ def create_app(
         chunks = (
             Path(request.chunks_path) if request and request.chunks_path else app.state.chunks_path
         )
-        retrieval_mode = request.retrieval_mode if request else "service"
         review_mode = request.review_mode if request else "llm"
         top_k = request.top_k if request else 10
         max_workers = request.max_workers if request else 4
@@ -633,7 +610,6 @@ def create_app(
                 app,
                 job_id,
                 chunks,
-                retrieval_mode,
                 review_mode,
                 top_k,
                 max_workers,
@@ -667,7 +643,6 @@ def _run_eval_job(
     app: FastAPI,
     job_id: str,
     chunks: Path,
-    retrieval_mode: RetrievalEvalMode,
     review_mode: ReviewEvalMode,
     top_k: int,
     max_workers: int,
@@ -677,7 +652,6 @@ def _run_eval_job(
     try:
         summary = run_evaluation(
             chunks_path=chunks,
-            retrieval_mode=retrieval_mode,
             review_mode=review_mode,
             top_k=top_k,
             rerank_mode=rerank_mode,

@@ -18,7 +18,7 @@ RetrievalQueryType = Literal[
     "industry_condition",
     "missing_information",
 ]
-RetrieverName = Literal["keyword", "vector_mock", "hybrid", "elasticsearch", "pgvector"]
+RetrieverName = Literal["keyword", "hybrid", "elasticsearch", "pgvector"]
 EvidenceStatus = Literal["not_checked", "sufficient", "needs_second_retrieval", "insufficient"]
 CitationUsage = Literal[
     "legal_basis",

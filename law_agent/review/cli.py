@@ -11,8 +11,7 @@ from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.service import (
     DEFAULT_REVIEW_RUNS_DIR,
     create_review_case,
-    run_hybrid_retrieval,
-    run_keyword_retrieval,
+    run_service_retrieval,
 )
 
 
@@ -57,33 +56,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 def _cmd_retrieve(args: argparse.Namespace) -> int:
     try:
-        if args.service:
-            from law_agent.review.service import run_service_retrieval
-
-            trace = run_service_retrieval(
-                case_id=args.case_id,
-                chunks_path=Path(args.chunks),
-                output_dir=Path(args.output_dir),
-                top_k=args.top_k,
-                review_mode=args.mode,
-                rerank_mode=args.rerank_mode,
-            )
-        elif args.hybrid:
-            trace = run_hybrid_retrieval(
-                case_id=args.case_id,
-                chunks_path=Path(args.chunks),
-                output_dir=Path(args.output_dir),
-                top_k=args.top_k,
-                review_mode=args.mode,
-                rerank_mode=args.rerank_mode,
-            )
-        else:
-            trace = run_keyword_retrieval(
-                case_id=args.case_id,
-                chunks_path=Path(args.chunks),
-                output_dir=Path(args.output_dir),
-                top_k=args.top_k,
-            )
+        trace = run_service_retrieval(
+            case_id=args.case_id,
+            chunks_path=Path(args.chunks),
+            output_dir=Path(args.output_dir),
+            top_k=args.top_k,
+            review_mode=args.mode,
+            rerank_mode=args.rerank_mode,
+        )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -91,36 +71,30 @@ def _cmd_retrieve(args: argparse.Namespace) -> int:
     print(f"Retrieved evidence for case {trace.review_case_id}")
     print(f"Trace {trace.trace_id}")
     print(f"Keyword hits: {len(trace.keyword_results)}")
-    hybrid_style = args.hybrid or args.service
-    if hybrid_style:
-        vector_label = "pgvector" if args.service else "Vector mock"
-        print(f"{vector_label} hits: {len(trace.vector_results)}")
-        print(f"Hybrid (RRF) hits: {len(trace.hybrid_results)}")
-        print(f"Neighbor chunks: {len(trace.neighbor_chunks)}")
-        if trace.metadata_boosts:
-            print(f"Metadata boosts: {trace.metadata_boosts}")
-        if trace.rerank:
-            print(f"Rerank: {trace.rerank}")
+    print(f"pgvector hits: {len(trace.vector_results)}")
+    print(f"Hybrid (RRF) hits: {len(trace.hybrid_results)}")
+    print(f"Neighbor chunks: {len(trace.neighbor_chunks)}")
+    if trace.metadata_boosts:
+        print(f"Metadata boosts: {trace.metadata_boosts}")
+    if trace.rerank:
+        print(f"Rerank: {trace.rerank}")
 
-        # Evidence self-check status
-        check = trace.evidence_self_check
-        print(f"Evidence self-check: {check.status}")
-        if check.triggered_reasons:
-            print(f"  Triggered reasons: {check.triggered_reasons}")
-        for issue in check.issues:
-            print(f"  [{issue.issue_type}] {issue.description}")
-        if check.second_retrieval_triggered:
-            print(f"  Second retrieval: triggered")
-            if trace.second_retrieval:
-                print(f"  Expanded queries: {len(trace.second_retrieval.get('expanded_queries', []))}")
-        elif check.second_retrieval_plan:
-            print(f"  Second retrieval: planned but not executed")
+    check = trace.evidence_self_check
+    print(f"Evidence self-check: {check.status}")
+    if check.triggered_reasons:
+        print(f"  Triggered reasons: {check.triggered_reasons}")
+    for issue in check.issues:
+        print(f"  [{issue.issue_type}] {issue.description}")
+    if check.second_retrieval_triggered:
+        print("  Second retrieval: triggered")
+        if trace.second_retrieval:
+            print(f"  Expanded queries: {len(trace.second_retrieval.get('expanded_queries', []))}")
+    elif check.second_retrieval_plan:
+        print("  Second retrieval: planned but not executed")
 
-        if trace.final_evidence:
-            print(f"Final evidence: {len(trace.final_evidence)} hits")
-        hits = trace.final_evidence or trace.hybrid_results
-    else:
-        hits = trace.keyword_results
+    if trace.final_evidence:
+        print(f"Final evidence: {len(trace.final_evidence)} hits")
+    hits = trace.final_evidence or trace.hybrid_results
 
     for hit in hits:
         print(
@@ -130,40 +104,39 @@ def _cmd_retrieve(args: argparse.Namespace) -> int:
         print(f"      {hit.title[:60]}")
 
     # Issue 8: Display structured review result
-    if hybrid_style:
-        from law_agent.review.io import read_review_results
+    from law_agent.review.io import read_review_results
 
-        results_path = Path(args.output_dir) / "review_results.jsonl"
-        if results_path.exists():
-            results = read_review_results(results_path)
-            result = next(
-                (r for r in results if r.review_case_id == args.case_id), None
-            )
-            if result is not None:
-                print(f"\nReview Result: {result.review_result_id}")
-                print(f"  Risk level: {result.risk_level}")
-                print(f"  Conclusion: {result.conclusion[:120]}")
-                if result.trigger_reasons:
-                    print(f"  Trigger reasons: {result.trigger_reasons}")
-                if result.missing_information:
-                    print(f"  Missing information: {result.missing_information}")
-                if result.recommended_actions:
-                    print(f"  Recommended actions:")
-                    for action in result.recommended_actions:
-                        print(f"    - {action}")
-                if result.risk_boundaries:
-                    print(f"  Risk boundaries:")
-                    for boundary in result.risk_boundaries:
-                        print(f"    - {boundary}")
-                if result.applicable_evidence:
-                    print(f"  Applicable evidence:")
-                    for group in result.applicable_evidence:
-                        print(f"    [{group.usage}] ({len(group.citations)} citations)")
-                        if group.scope_note:
-                            print(f"      scope: {group.scope_note}")
-                        for cite in group.citations[:3]:
-                            label = f" - {cite.citation_label}" if cite.citation_label else ""
-                            print(f"      {cite.title[:50]}{label}")
+    results_path = Path(args.output_dir) / "review_results.jsonl"
+    if results_path.exists():
+        results = read_review_results(results_path)
+        result = next(
+            (r for r in results if r.review_case_id == args.case_id), None
+        )
+        if result is not None:
+            print(f"\nReview Result: {result.review_result_id}")
+            print(f"  Risk level: {result.risk_level}")
+            print(f"  Conclusion: {result.conclusion[:120]}")
+            if result.trigger_reasons:
+                print(f"  Trigger reasons: {result.trigger_reasons}")
+            if result.missing_information:
+                print(f"  Missing information: {result.missing_information}")
+            if result.recommended_actions:
+                print("  Recommended actions:")
+                for action in result.recommended_actions:
+                    print(f"    - {action}")
+            if result.risk_boundaries:
+                print("  Risk boundaries:")
+                for boundary in result.risk_boundaries:
+                    print(f"    - {boundary}")
+            if result.applicable_evidence:
+                print("  Applicable evidence:")
+                for group in result.applicable_evidence:
+                    print(f"    [{group.usage}] ({len(group.citations)} citations)")
+                    if group.scope_note:
+                        print(f"      scope: {group.scope_note}")
+                    for cite in group.citations[:3]:
+                        label = f" - {cite.citation_label}" if cite.citation_label else ""
+                        print(f"      {cite.title[:50]}{label}")
     return 0
 
 
@@ -179,7 +152,6 @@ def _cmd_eval(args: argparse.Namespace) -> int:
             chunks_path=Path(args.chunks),
             suite=args.suite,
             top_k=args.top_k,
-            retrieval_mode=args.retrieval_mode,
             review_mode=args.review_mode,
             rerank_mode=args.rerank_mode,
             max_workers=args.max_workers,
@@ -209,7 +181,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
             format_summary_markdown(
                 summary,
                 run_config={
-                    "retrieval_mode": args.retrieval_mode,
+                    "retrieval_mode": "service",
                     "review_mode": args.review_mode,
                     "rerank_mode": args.rerank_mode,
                     "max_workers": args.max_workers,
@@ -239,14 +211,13 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     app = create_app(
         chunks_path=Path(args.chunks),
         review_mode=args.mode,
-        retrieval_backend="service" if args.service else "local",
     )
 
     print(f"Starting LawAgent Review API at http://{args.host}:{args.port}")
     print(f"  OpenAPI docs: http://{args.host}:{args.port}/docs")
     print(f"  Corpus: {args.chunks}")
     print(f"  Review mode: {args.mode}")
-    print(f"  Retrieval backend: {'service' if args.service else 'local'}")
+    print("  Retrieval backend: service")
     print("  Press Ctrl+C to stop")
 
     uvicorn.run(
@@ -333,9 +304,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--output-dir", default=str(DEFAULT_REVIEW_RUNS_DIR))
     run.add_argument(
         "--mode",
-        choices=["rule_baseline", "llm", "multi_agent"],
-        default="rule_baseline",
-        help="Review owner mode. llm uses DeepSeek nodes; rule_baseline is for comparison.",
+        choices=["llm", "multi_agent"],
+        default="llm",
+        help="Review owner mode.",
     )
     run.set_defaults(func=_cmd_run)
 
@@ -351,21 +322,10 @@ def build_parser() -> argparse.ArgumentParser:
     retrieve.add_argument("--output-dir", default=str(DEFAULT_REVIEW_RUNS_DIR))
     retrieve.add_argument("--top-k", type=int, default=10)
     retrieve.add_argument(
-        "--hybrid",
-        action="store_true",
-        help="Run hybrid retrieval (keyword + vector_mock + RRF + neighbors)",
-    )
-    retrieve.add_argument(
-        "--service",
-        action="store_true",
-        help="Run service retrieval backed by real Elasticsearch + pgvector "
-        "(requires ES_URL, PG_DSN, and embedding config in the environment).",
-    )
-    retrieve.add_argument(
         "--mode",
-        choices=["rule_baseline", "llm", "multi_agent"],
-        default="rule_baseline",
-        help="Review owner mode for hybrid evidence/result nodes.",
+        choices=["llm", "multi_agent"],
+        default="llm",
+        help="Review owner mode.",
     )
     retrieve.add_argument(
         "--rerank-mode",
@@ -397,14 +357,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Number of eval cases to run in parallel. Defaults to 4.",
     )
     eval_parser.add_argument(
-        "--retrieval-mode",
-        choices=["service", "local"],
-        default="service",
-        help="Retrieval backend for eval. Defaults to service.",
-    )
-    eval_parser.add_argument(
         "--review-mode",
-        choices=["llm", "local", "multi_agent"],
+        choices=["llm", "multi_agent"],
         default="llm",
         help="Review owner for eval. Defaults to llm.",
     )
@@ -457,14 +411,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     serve.add_argument(
         "--mode",
-        choices=["rule_baseline", "llm", "multi_agent"],
+        choices=["llm", "multi_agent"],
         default="llm",
-        help="Review owner mode. llm uses DeepSeek nodes; rule_baseline is for comparison.",
-    )
-    serve.add_argument(
-        "--service",
-        action="store_true",
-        help="Use real Elasticsearch + pgvector retrieval for /api/review.",
+        help="Review owner mode.",
     )
     serve.set_defaults(func=_cmd_serve)
 

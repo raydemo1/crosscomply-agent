@@ -641,66 +641,6 @@ def _sanitize_draft_markdown(draft: LLMReviewResultDraft) -> LLMReviewResultDraf
 # Full result builder
 # ---------------------------------------------------------------------------
 
-def build_review_result(
-    *,
-    review_result_id: str,
-    review_case_id: str,
-    trace_id: str,
-    facts: ReviewFacts,
-    self_check: EvidenceSelfCheck,
-    evidence_hits: list[RetrievalHit],
-    chunks_by_id: dict[str, Chunk] | None = None,
-) -> ReviewResult:
-    """Build a complete governed ReviewResult from facts and evidence.
-
-    This is the rule-based builder. An optional LLM adapter can be added
-    later with the same signature, but the rule builder remains the test
-    fallback.
-    """
-
-    if chunks_by_id is None:
-        chunks_by_id = {}
-
-    # Group and validate citations
-    citation_groups, violations = group_citations(evidence_hits, facts, chunks_by_id)
-
-    # Check if we have legal basis evidence
-    has_legal_basis = any(
-        g.usage == "legal_basis" and len(g.citations) > 0 for g in citation_groups
-    )
-
-    # Determine risk level
-    risk_level = determine_risk_level(facts, self_check, has_legal_basis)
-
-    # Build all components
-    conclusion = build_conclusion(facts, risk_level, self_check)
-    trigger_reasons = build_trigger_reasons(facts, risk_level)
-    recommended_actions = build_recommended_actions(facts, risk_level, self_check)
-    risk_boundaries = build_risk_boundaries(facts, risk_level)
-    claims = build_rule_grounded_claims(conclusion, evidence_hits)
-
-    # Flatten citations from groups
-    all_citations: list[Citation] = []
-    for group in citation_groups:
-        all_citations.extend(group.citations)
-
-    return ReviewResult(
-        review_result_id=review_result_id,
-        review_case_id=review_case_id,
-        trace_id=trace_id,
-        risk_level=risk_level,
-        conclusion=conclusion,
-        review_facts=facts,
-        trigger_reasons=trigger_reasons,
-        missing_information=facts.missing_information,
-        recommended_actions=recommended_actions,
-        risk_boundaries=risk_boundaries,
-        claims=claims,
-        citations=all_citations,
-        applicable_evidence=citation_groups,
-    )
-
-
 # ---------------------------------------------------------------------------
 # DeepSeek structured result generation
 # ---------------------------------------------------------------------------

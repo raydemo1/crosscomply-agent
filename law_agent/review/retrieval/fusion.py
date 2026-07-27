@@ -1,6 +1,6 @@
 """Reciprocal Rank Fusion (RRF) for hybrid retrieval.
 
-Issue 6: Fuse keyword and vector_mock results using deterministic RRF scoring.
+Fuse keyword and vector results using deterministic RRF scoring.
 RRF formula: ``rrf_score = sum(1 / (k + rank))`` over all retrievers where
 the chunk appears. Metadata boosts are applied as a post-RRF multiplier.
 
@@ -14,7 +14,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 
 from law_agent.data.schemas import Chunk
-from law_agent.review.retrieval.keyword import tokenize
+from law_agent.review.retrieval.text import tokenize
 from law_agent.review.schemas import RetrievalHit
 
 DEFAULT_RRF_K = 60
@@ -36,7 +36,7 @@ def rrf_fuse(
     top_k: int = 10,
     k: int = DEFAULT_RRF_K,
 ) -> list[RetrievalHit]:
-    """Fuse keyword and vector_mock results using RRF.
+    """Fuse keyword and vector results using RRF.
 
     Each retriever contributes ``1 / (k + rank)`` per hit. A chunk
     appearing in both retrievers gets the sum. Results are sorted by

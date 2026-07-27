@@ -1,4 +1,4 @@
-"""Tests for hybrid retrieval: vector mock, boosts, RRF, neighbors (Issue 6)."""
+"""Tests for hybrid retrieval orchestration, boosts, RRF, and neighbors."""
 
 from pathlib import Path
 
@@ -19,57 +19,40 @@ from law_agent.review.retrieval.boosts import (
 )
 from law_agent.review.retrieval.fusion import rrf_fuse
 from law_agent.review.retrieval.neighbors import expand_neighbors
-from law_agent.review.retrieval.vector_mock import VectorMockRetriever
-from law_agent.review.schemas import ReviewFacts, RetrievalHit
+from law_agent.review.schemas import ReviewFacts, ReviewResult, RetrievalHit, RetrievalQuery
 
 from tests.test_review_retrieval_keyword import FIXTURE_CHUNKS, _make_chunk
 
 
-# ---------------------------------------------------------------------------
-# Vector mock retriever tests
-# ---------------------------------------------------------------------------
-
-def test_vector_mock_returns_hits() -> None:
-    retriever = VectorMockRetriever(FIXTURE_CHUNKS)
-    hits = retriever.search("数据出境安全评估", top_k=3)
-
-    assert len(hits) > 0
-    assert all(h.retriever == "vector_mock" for h in hits)
-    assert all(h.score > 0 for h in hits)
-
-
-def test_vector_mock_uses_topic_tags_for_broader_coverage() -> None:
-    """Vector mock should find chunks that keyword misses via topic_tags."""
-
-    chunk_with_tags = _make_chunk(
-        chunk_id="chunk_tagged",
-        title="某标准",
-        text="本标准规定了相关要求。",
-        citation_role="implementation_reference",
-        citation_label=None,
-        can_cite_clause=False,
+@pytest.fixture(autouse=True)
+def stub_llm_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "law_agent.review.service.extract_facts_with_deepseek",
+        lambda material, question=None: ReviewFacts(
+            cross_border_transfer=True if "出境" in material or "新加坡" in material else None,
+            region="上海" if "上海" in material else None,
+            data_types=["手机号"] if "手机号" in material else [],
+            missing_information=[],
+        ),
     )
-    # Manually set topic_tags (the _make_chunk helper doesn't expose it)
-    chunk_with_tags = chunk_with_tags.model_copy(
-        update={"topic_tags": ["数据出境", "安全评估"]}
+    monkeypatch.setattr(
+        "law_agent.review.service.plan_queries_with_deepseek",
+        lambda question, facts, material=None: [
+            RetrievalQuery(query_id="q_test", query_type="legal_issue", text=question)
+        ],
     )
-
-    retriever = VectorMockRetriever([chunk_with_tags])
-    hits = retriever.search("数据出境安全评估", top_k=1)
-
-    assert len(hits) == 1
-    assert hits[0].chunk_id == "chunk_tagged"
-
-
-def test_vector_mock_empty_query_returns_empty() -> None:
-    retriever = VectorMockRetriever(FIXTURE_CHUNKS)
-    assert retriever.search("   ", top_k=3) == []
-
-
-def test_vector_mock_records_query_type() -> None:
-    retriever = VectorMockRetriever(FIXTURE_CHUNKS)
-    hits = retriever.search("数据出境", top_k=1, query_type="legal_issue")
-    assert all(h.matched_query_type == "legal_issue" for h in hits)
+    monkeypatch.setattr("law_agent.review.service.needs_llm_self_check", lambda **kwargs: False)
+    monkeypatch.setattr(
+        "law_agent.review.service.build_review_result_with_deepseek",
+        lambda **kwargs: ReviewResult(
+            review_result_id=kwargs["review_result_id"],
+            review_case_id=kwargs["review_case_id"],
+            trace_id=kwargs["trace_id"],
+            risk_level="medium",
+            conclusion="测试审查结论。",
+            review_facts=kwargs["facts"],
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -549,7 +532,7 @@ def test_run_hybrid_retrieval_expands_source_window_when_rerank_is_enabled(
         id_factory=lambda prefix: f"{prefix}_test",
     )
     keyword = _RecordingSearchManyRetriever(chunks, "keyword")
-    vector = _RecordingSearchManyRetriever(chunks, "vector_mock")
+    vector = _RecordingSearchManyRetriever(chunks, "pgvector")
     captured = {}
 
     def fake_load_rerank_config(*, mode):
@@ -633,7 +616,7 @@ def test_run_hybrid_retrieval_default_rerank_window_covers_candidate_pool(
         id_factory=lambda prefix: f"{prefix}_test",
     )
     keyword = _RecordingSearchManyRetriever(chunks, "keyword")
-    vector = _RecordingSearchManyRetriever(chunks, "vector_mock")
+    vector = _RecordingSearchManyRetriever(chunks, "pgvector")
     captured = {}
 
     def fake_rerank_hits(hits, **kwargs):
@@ -687,6 +670,8 @@ def test_run_hybrid_retrieval_returns_all_components(tmp_path: Path) -> None:
         chunks_path=chunks_path,
         output_dir=tmp_path,
         top_k=5,
+        keyword_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "elasticsearch"),
+        vector_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "pgvector"),
     )
 
     assert len(trace.keyword_results) > 0
@@ -819,6 +804,8 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
         output_dir=tmp_path,
         top_k=5,
         review_mode="multi_agent",
+        keyword_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "elasticsearch"),
+        vector_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "pgvector"),
     )
 
     assert revision_inputs == [None, ["收窄结论"]]
@@ -876,7 +863,7 @@ def test_run_hybrid_retrieval_uses_wide_candidate_pool_before_final_top_k(
         id_factory=lambda prefix: f"{prefix}_test",
     )
     keyword = _RecordingSearchManyRetriever(chunks, "keyword")
-    vector = _RecordingSearchManyRetriever(chunks, "vector_mock")
+    vector = _RecordingSearchManyRetriever(chunks, "pgvector")
 
     trace = run_hybrid_retrieval(
         case_id="review_test",
@@ -912,6 +899,8 @@ def test_run_hybrid_retrieval_persists_to_trace(tmp_path: Path) -> None:
         case_id="review_test",
         chunks_path=chunks_path,
         output_dir=tmp_path,
+        keyword_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "elasticsearch"),
+        vector_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "pgvector"),
     )
 
     traces = read_retrieval_traces(tmp_path / "retrieval_traces.jsonl")
@@ -939,6 +928,8 @@ def test_run_hybrid_retrieval_with_region_facts_boosts_local_evidence(tmp_path: 
         chunks_path=chunks_path,
         output_dir=tmp_path,
         top_k=10,
+        keyword_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "elasticsearch"),
+        vector_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "pgvector"),
     )
 
     # The Shanghai chunk should appear in results (region boost applied)
@@ -969,6 +960,8 @@ def test_run_hybrid_retrieval_non_matching_evidence_remains_present(tmp_path: Pa
         chunks_path=chunks_path,
         output_dir=tmp_path,
         top_k=10,
+        keyword_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "elasticsearch"),
+        vector_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "pgvector"),
     )
 
     # Multiple citation roles should be present (no hard filtering)
@@ -994,6 +987,8 @@ def test_run_hybrid_retrieval_expands_neighbors(tmp_path: Path) -> None:
         chunks_path=chunks_path,
         output_dir=tmp_path,
         top_k=5,
+        keyword_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "elasticsearch"),
+        vector_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "pgvector"),
     )
 
     # Neighbors should be present (linked chunks have prev/next IDs)

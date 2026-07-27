@@ -73,9 +73,9 @@ def test_boosted_hit_ranks_higher_after_fusion() -> None:
         _make_hit("chunk_c", score=0.3, rank=2),
     ]
     vector_hits = [
-        _make_hit("chunk_b", score=0.8, rank=0, retriever="vector_mock"),
-        _make_hit("chunk_a", score=0.4, rank=1, retriever="vector_mock"),
-        _make_hit("chunk_d", score=0.3, rank=2, retriever="vector_mock"),
+        _make_hit("chunk_b", score=0.8, rank=0, retriever="pgvector"),
+        _make_hit("chunk_a", score=0.4, rank=1, retriever="pgvector"),
+        _make_hit("chunk_d", score=0.3, rank=2, retriever="pgvector"),
     ]
 
     baseline_fused = rrf_fuse(baseline_keyword, vector_hits, top_k=10)

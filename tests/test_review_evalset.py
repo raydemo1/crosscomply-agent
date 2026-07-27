@@ -409,52 +409,6 @@ def test_aggregate_metrics_empty() -> None:
 # Runner integration test (fixture corpus)
 # ---------------------------------------------------------------------------
 
-def test_run_evaluation_with_fixture_corpus(tmp_path) -> None:
-    """Run evaluation against fixture corpus (6 chunks)."""
-
-    from law_agent.data.io import write_jsonl
-    from law_agent.review.evalset.runner import run_evaluation
-
-    from tests.test_review_retrieval_keyword import FIXTURE_CHUNKS
-
-    chunks_path = tmp_path / "chunks.jsonl"
-    write_jsonl(chunks_path, FIXTURE_CHUNKS)
-
-    # Use a small subset of scenarios that match fixture chunks
-    scenarios = [
-        EvalScenario(
-            case_id="fixture_001",
-            question="数据出境安全评估",
-            material_text="手机号发送给新加坡服务商。",
-            expected_sources=["src_001"],
-            must_have_sources=["src_001"],
-            should_abstain=False,
-        ),
-        EvalScenario(
-            case_id="fixture_002",
-            question="问题",
-            material_text="材料",
-            expected_sources=[],
-            should_abstain=True,
-        ),
-    ]
-
-    summary = run_evaluation(
-        chunks_path=chunks_path,
-        scenarios=scenarios,
-        top_k=5,
-        retrieval_mode="local",
-        review_mode="local",
-    )
-
-    key = "retrieval=local,review=local"
-    assert key in summary.mode_metrics
-    assert summary.mode_metrics[key].total_cases == 2
-    assert summary.mode_metrics[key].mean_total_latency_ms is not None
-    assert summary.mode_metrics[key].mean_retrieval_latency_ms is not None
-    assert summary.cases_path == "custom"
-
-
 def test_format_summary_text_contains_key_metrics() -> None:
     from law_agent.review.evalset.runner import format_summary_text
     from law_agent.review.evalset.schemas import EvalSummary, ModeMetrics
@@ -464,8 +418,8 @@ def test_format_summary_text_contains_key_metrics() -> None:
         chunks_path="test.jsonl",
         cases_path="default",
         mode_metrics={
-            "retrieval=local,review=local": ModeMetrics(
-                mode="retrieval=local,review=local",
+            "retrieval=service,review=llm": ModeMetrics(
+                mode="retrieval=service,review=llm",
                 mean_recall_at_3=0.7500,
                 mean_recall_at_5=0.8000,
                 mean_mrr_at_10=0.9000,

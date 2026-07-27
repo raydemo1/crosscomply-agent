@@ -27,7 +27,7 @@ from law_agent.external.legalbench_rag.schemas import (
     LegalBenchEvalSummary,
 )
 from law_agent.review.retrieval.fusion import rrf_fuse, source_aware_fuse
-from law_agent.review.retrieval.keyword import merge_hits_by_chunk_id
+from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
 from law_agent.review.retrieval.service_backends import (
     build_service_adapters,
     bulk_index_chunks,

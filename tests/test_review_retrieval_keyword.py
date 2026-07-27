@@ -1,4 +1,4 @@
-"""Tests for keyword baseline retrieval (Issue 5)."""
+"""Shared retrieval fixtures and utility tests."""
 
 from pathlib import Path
 
@@ -7,12 +7,8 @@ import pytest
 from law_agent.data.io import write_jsonl
 from law_agent.data.schemas import Chunk
 from law_agent.review.retrieval.corpus import CorpusError, load_corpus
-from law_agent.review.retrieval.keyword import (
-    KeywordRetriever,
-    merge_hits_by_chunk_id,
-    normalize_text,
-    tokenize,
-)
+from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
+from law_agent.review.retrieval.text import normalize_text, tokenize
 from law_agent.review.schemas import RetrievalHit
 
 
@@ -144,88 +140,6 @@ def test_tokenize_keeps_ascii_runs() -> None:
 def test_tokenize_single_cjk_char_kept_as_unigram() -> None:
     tokens = tokenize("据")
     assert "据" in tokens
-
-
-# ---------------------------------------------------------------------------
-# KeywordRetriever tests
-# ---------------------------------------------------------------------------
-
-def test_retriever_returns_hits_for_relevant_query() -> None:
-    retriever = KeywordRetriever(FIXTURE_CHUNKS)
-    hits = retriever.search("数据出境安全评估", top_k=3)
-
-    assert len(hits) > 0
-    assert all(h.retriever == "keyword" for h in hits)
-    assert all(h.score > 0 for h in hits)
-    # Ranks should be 0, 1, 2, ...
-    assert [h.rank for h in hits] == list(range(len(hits)))
-
-
-def test_retriever_data_export_query_returns_assessment_near_top() -> None:
-    retriever = KeywordRetriever(FIXTURE_CHUNKS)
-    hits = retriever.search("数据出境安全评估 申报条件", top_k=3)
-
-    assert len(hits) > 0
-    top_ids = [h.chunk_id for h in hits[:3]]
-    assert "chunk_assessment" in top_ids
-
-
-def test_retriever_title_boost_elevates_matching_title() -> None:
-    retriever = KeywordRetriever(FIXTURE_CHUNKS)
-    hits = retriever.search("个人信息出境标准合同", top_k=3)
-
-    assert len(hits) > 0
-    # Chunk with matching title should rank highly
-    assert hits[0].chunk_id == "chunk_contract"
-
-
-def test_retriever_citation_label_boost() -> None:
-    retriever = KeywordRetriever(FIXTURE_CHUNKS)
-    hits = retriever.search("个人信息保护法 第三十八条", top_k=3)
-
-    assert len(hits) > 0
-    assert hits[0].chunk_id == "chunk_pipl"
-
-
-def test_retriever_empty_query_returns_empty() -> None:
-    retriever = KeywordRetriever(FIXTURE_CHUNKS)
-    hits = retriever.search("   ", top_k=3)
-
-    assert hits == []
-
-
-def test_retriever_hit_includes_required_fields() -> None:
-    retriever = KeywordRetriever(FIXTURE_CHUNKS)
-    hits = retriever.search("数据出境安全评估", top_k=1)
-
-    assert len(hits) == 1
-    hit = hits[0]
-    assert hit.chunk_id
-    assert hit.doc_id
-    assert hit.source_id
-    assert hit.title
-    assert hit.text
-    assert hit.score > 0
-    assert hit.rank == 0
-    assert hit.retriever == "keyword"
-    assert hit.citation_role in (
-        "primary_legal_basis",
-        "conditional_local_basis",
-        "conditional_industry_basis",
-        "implementation_reference",
-        "interpretation_auxiliary",
-    )
-    assert isinstance(hit.can_cite_clause, bool)
-    assert hit.source_url
-
-
-def test_retriever_phrase_boost() -> None:
-    retriever = KeywordRetriever(FIXTURE_CHUNKS)
-    # Use an exact phrase from chunk_assessment text
-    hits = retriever.search("应当申报数据出境安全评估", top_k=3)
-
-    assert len(hits) > 0
-    assert hits[0].chunk_id == "chunk_assessment"
 
 
 # ---------------------------------------------------------------------------

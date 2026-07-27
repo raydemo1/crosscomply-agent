@@ -4,8 +4,52 @@ import pytest
 
 from law_agent.review.cli import main
 from law_agent.review.io import read_review_cases, read_review_results, read_retrieval_traces
-from law_agent.review.schemas import ReviewFacts
+from law_agent.review.schemas import ReviewFacts, RetrievalQuery
 from law_agent.review.service import create_review_case
+
+
+@pytest.fixture(autouse=True)
+def stub_llm_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_facts(material_text: str, question: str | None = None) -> ReviewFacts:
+        return ReviewFacts(
+            data_types=[
+                data_type
+                for term, data_type in (("手机号", "手机号"), ("定位", "定位信息"))
+                if term in material_text
+            ],
+            cross_border_transfer=(
+                True if any(term in material_text for term in ("出境", "新加坡", "境外")) else None
+            ),
+            overseas_recipient="新加坡" if "新加坡" in material_text else None,
+            processing_purpose="推荐优化" if "推荐优化" in material_text else None,
+            industry="智能网联汽车" if "汽车" in material_text else None,
+            region="上海" if "上海" in material_text else None,
+            missing_information=["legal_basis_or_consent"],
+        )
+
+    def fake_queries(question: str, facts: ReviewFacts, material_text: str | None = None):
+        queries = [
+            RetrievalQuery(
+                query_id="q_test",
+                query_type="legal_issue",
+                text=question,
+            ),
+            RetrievalQuery(
+                query_id="q_material",
+                query_type="material_fact",
+                text=" ".join(facts.data_types) or question,
+            ),
+        ]
+        if facts.industry:
+            queries.append(RetrievalQuery(query_id="q_industry", query_type="industry_condition", text=facts.industry))
+        if facts.region:
+            queries.append(RetrievalQuery(query_id="q_region", query_type="region_condition", text=facts.region))
+        if len(queries) < 3:
+            queries.append(RetrievalQuery(query_id="q_missing", query_type="missing_information", text="补充事实"))
+        return queries
+
+    monkeypatch.setattr("law_agent.review.service.extract_facts_with_deepseek", fake_facts)
+    monkeypatch.setattr("law_agent.review.service.plan_queries_with_deepseek", fake_queries)
 
 
 def test_create_review_case_writes_case_trace_and_result(tmp_path: Path) -> None:

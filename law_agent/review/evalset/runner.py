@@ -22,20 +22,16 @@ from law_agent.review.evalset.schemas import (
     EvalSummary,
     ModeMetrics,
 )
-from law_agent.review.facts import extract_facts
 from law_agent.review.ids import utc_now_iso
 from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.io import (
     read_review_results,
 )
-from law_agent.review.query_planner import plan_queries
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
-from law_agent.review.service import create_review_case, run_hybrid_retrieval
+from law_agent.review.service import create_review_case, run_service_retrieval
 from law_agent.review.schemas import ReviewFacts, RetrievalQuery
 
-RetrievalEvalMode = Literal["service", "local"]
-ReviewEvalMode = Literal["llm", "local", "multi_agent"]
-DEFAULT_RETRIEVAL_MODE: RetrievalEvalMode = "service"
+ReviewEvalMode = Literal["llm", "multi_agent"]
 DEFAULT_REVIEW_MODE: ReviewEvalMode = "llm"
 DEFAULT_RERANK_MODE: RerankMode = "off"
 DEFAULT_EVAL_SUITE: EvalSuite = "full"
@@ -57,7 +53,6 @@ def run_evaluation(
     scenarios: list[EvalScenario] | None = None,
     suite: EvalSuite = DEFAULT_EVAL_SUITE,
     top_k: int = 10,
-    retrieval_mode: RetrievalEvalMode = DEFAULT_RETRIEVAL_MODE,
     review_mode: ReviewEvalMode = DEFAULT_REVIEW_MODE,
     rerank_mode: RerankMode = DEFAULT_RERANK_MODE,
     max_workers: int = DEFAULT_MAX_WORKERS,
@@ -74,7 +69,7 @@ def run_evaluation(
 
     generated_at = utc_now_iso()
 
-    eval_key = _eval_key(retrieval_mode, review_mode, rerank_mode)
+    eval_key = _eval_key(review_mode, rerank_mode)
     max_workers = max(1, max_workers)
     eval_inputs: dict[str, EvalCaseInput] = {}
     if review_mode in ("llm", "multi_agent"):
@@ -93,17 +88,13 @@ def run_evaluation(
     # Serial service retrieval can reuse adapters. Parallel service retrieval
     # must not share the pgvector Postgres connection across threads, so each
     # case builds its own adapters from the same config.
-    service_adapters = None
-    service_config = None
-    if retrieval_mode == "service":
-        from law_agent.config import require_service_config
-        from law_agent.review.retrieval.service_backends import build_service_adapters
+    from law_agent.config import require_service_config
+    from law_agent.review.retrieval.service_backends import build_service_adapters
 
-        service_config = require_service_config()
-        if max_workers == 1:
-            service_adapters = build_service_adapters(service_config)
-        if review_mode == "local" and service_adapters is not None:
-            _prewarm_service_eval_queries(service_adapters, scenarios)
+    service_adapters = None
+    service_config = require_service_config()
+    if max_workers == 1:
+        service_adapters = build_service_adapters(service_config)
 
     try:
         results_by_mode: dict[str, list[CaseMetricResult]] = {}
@@ -113,7 +104,6 @@ def run_evaluation(
                     lambda scenario: _run_single_case_safely(
                         scenario,
                         chunks_path,
-                        retrieval_mode=retrieval_mode,
                         review_mode=review_mode,
                         rerank_mode=rerank_mode,
                         top_k=top_k,
@@ -149,24 +139,6 @@ def run_evaluation(
         bad_cases=all_bad,
         all_case_results=results_by_mode,
     )
-
-
-def _prewarm_service_eval_queries(service_adapters: object, scenarios: list[EvalScenario]) -> None:
-    """Embed all deterministic service-eval queries once before case execution."""
-
-    vector = getattr(service_adapters, "vector", None)
-    prewarm = getattr(vector, "prewarm_queries", None)
-    if prewarm is None:
-        raise RuntimeError("service vector adapter must support prewarm_queries")
-
-    queries: list[str] = []
-    for scenario in scenarios:
-        facts = extract_facts(scenario.material_text, scenario.question)
-        queries.extend(
-            query.text
-            for query in plan_queries(scenario.question, facts, scenario.material_text)
-        )
-    prewarm(queries)
 
 
 def _default_eval_inputs_path(
@@ -259,7 +231,6 @@ def _run_single_case(
     scenario: EvalScenario,
     chunks_path: Path | str,
     *,
-    retrieval_mode: RetrievalEvalMode,
     review_mode: ReviewEvalMode,
     top_k: int,
     rerank_mode: RerankMode = DEFAULT_RERANK_MODE,
@@ -271,15 +242,9 @@ def _run_single_case(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
-        service_review_mode = (
-            review_mode if review_mode in ("llm", "multi_agent") else "rule_baseline"
-        )
-
         facts_extractor = None
         query_planner = None
-        create_review_mode = service_review_mode
         if eval_input is not None:
-            create_review_mode = "rule_baseline"
             facts_extractor = lambda _material, _question=None: eval_input.facts
             query_planner = lambda _question, _facts, _material=None: eval_input.queries
 
@@ -289,39 +254,25 @@ def _run_single_case(
             output_dir=tmp_path,
             now=lambda: "2026-07-06T00:00:00+00:00",
             id_factory=lambda prefix: f"{prefix}_eval",
-            review_mode=create_review_mode,
+            review_mode=review_mode,
             facts_extractor=facts_extractor,
             query_planner=query_planner,
         )
 
         case_id = "review_eval"
 
-        if retrieval_mode == "service":
-            from law_agent.review.service import run_service_retrieval
-
-            trace = run_service_retrieval(
-                case_id=case_id,
-                chunks_path=chunks_path,
-                output_dir=tmp_path,
-                top_k=top_k,
-                review_mode=service_review_mode,
-                rerank_mode=rerank_mode,
-                config=service_config,
-                adapters=service_adapters,
-            )
-            hits = trace.final_evidence or trace.hybrid_results
-            second_retrieval_triggered = trace.evidence_self_check.second_retrieval_triggered
-        else:
-            trace = run_hybrid_retrieval(
-                case_id=case_id,
-                chunks_path=chunks_path,
-                output_dir=tmp_path,
-                top_k=top_k,
-                review_mode=service_review_mode,
-                rerank_mode=rerank_mode,
-            )
-            hits = trace.final_evidence or trace.hybrid_results
-            second_retrieval_triggered = trace.evidence_self_check.second_retrieval_triggered
+        trace = run_service_retrieval(
+            case_id=case_id,
+            chunks_path=chunks_path,
+            output_dir=tmp_path,
+            top_k=top_k,
+            review_mode=review_mode,
+            rerank_mode=rerank_mode,
+            config=service_config,
+            adapters=service_adapters,
+        )
+        hits = trace.final_evidence or trace.hybrid_results
+        second_retrieval_triggered = trace.evidence_self_check.second_retrieval_triggered
 
         # Get risk level and final citations from result.
         results_path = tmp_path / "review_results.jsonl"
@@ -399,11 +350,10 @@ def _run_single_case_safely(
 
 
 def _eval_key(
-    retrieval_mode: RetrievalEvalMode,
     review_mode: ReviewEvalMode,
     rerank_mode: RerankMode = DEFAULT_RERANK_MODE,
 ) -> str:
-    base = f"retrieval={retrieval_mode},review={review_mode}"
+    base = f"retrieval=service,review={review_mode}"
     if rerank_mode == "off":
         return base
     return f"{base},rerank={rerank_mode}"

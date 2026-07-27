@@ -27,7 +27,6 @@ from law_agent.review.agents import (
 )
 from law_agent.review.facts import (
     FactsExtractor,
-    extract_facts,
     extract_facts_with_deepseek,
 )
 from law_agent.review.ids import make_id, utc_now_iso
@@ -44,11 +43,9 @@ from law_agent.review.io import (
 from law_agent.review.materials import material_from_text
 from law_agent.review.query_planner import (
     QueryPlanner,
-    plan_queries,
     plan_queries_with_deepseek,
 )
 from law_agent.review.result_builder import (
-    build_review_result,
     build_review_result_with_deepseek,
     revise_review_result_with_deepseek,
 )
@@ -62,10 +59,9 @@ from law_agent.review.retrieval.adapters import (
 )
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, CorpusError, load_corpus
 from law_agent.review.retrieval.fusion import rrf_fuse, rrf_fuse_many, source_aware_fuse
-from law_agent.review.retrieval.keyword import KeywordRetriever, merge_hits_by_chunk_id
+from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
 from law_agent.review.retrieval.neighbors import expand_neighbors
 from law_agent.review.retrieval.rerank import rerank_hits
-from law_agent.review.retrieval.vector_mock import VectorMockRetriever
 from law_agent.review.schemas import (
     EvidenceSelfCheck,
     AgentStep,
@@ -86,7 +82,7 @@ DEFAULT_REVIEW_RUNS_DIR = Path("data/review_runs")
 PLACEHOLDER_CONCLUSION = "Review case created. Evidence retrieval has not run yet."
 DEFAULT_TOP_K = 10
 DEFAULT_CANDIDATE_TOP_K = 50
-ReviewMode = Literal["rule_baseline", "llm", "multi_agent"]
+ReviewMode = Literal["llm", "multi_agent"]
 ResultFormat = Literal["plain", "markdown"]
 DEFAULT_SUPPORTING_CHUNKS_PER_SOURCE = 2
 
@@ -137,7 +133,7 @@ def create_review_case(
     output_dir: Path = DEFAULT_REVIEW_RUNS_DIR,
     now: Callable[[], str] = utc_now_iso,
     id_factory: Callable[[str], str] = make_id,
-    review_mode: ReviewMode = "rule_baseline",
+    review_mode: ReviewMode = "llm",
     facts_extractor: FactsExtractor | None = None,
     query_planner: QueryPlanner | None = None,
 ) -> ReviewRunResponse:
@@ -166,17 +162,9 @@ def create_review_case(
     review_result_id = id_factory("result")
 
     if facts_extractor is None:
-        facts_extractor = (
-            extract_facts_with_deepseek
-            if review_mode in ("llm", "multi_agent")
-            else extract_facts
-        )
+        facts_extractor = extract_facts_with_deepseek
     if query_planner is None:
-        query_planner = (
-            plan_queries_with_deepseek
-            if review_mode in ("llm", "multi_agent")
-            else plan_queries
-        )
+        query_planner = plan_queries_with_deepseek
 
     facts = facts_extractor(material.material_text, question)
     queries: list[RetrievalQuery] = query_planner(question, facts, material.material_text)
@@ -230,80 +218,7 @@ def create_review_case(
 
 
 # ---------------------------------------------------------------------------
-# Issue 5: keyword baseline retrieval
-# ---------------------------------------------------------------------------
-
-def run_keyword_retrieval(
-    *,
-    case_id: str,
-    chunks_path: Path | str = DEFAULT_CHUNKS_PATH,
-    output_dir: Path = DEFAULT_REVIEW_RUNS_DIR,
-    top_k: int = DEFAULT_TOP_K,
-) -> RetrievalTrace:
-    """Run keyword retrieval for an existing review case.
-
-    Loads the persisted ``RetrievalTrace`` for ``case_id``, runs the planned
-    queries against the corpus, merges hits, and writes the updated trace
-    back to JSONL. Returns the updated trace.
-
-    Raises ``ValueError`` when the case or trace cannot be found.
-    """
-
-    trace_path = retrieval_traces_path(output_dir)
-    if not trace_path.exists():
-        raise ValueError(
-            f"retrieval traces file does not exist: {trace_path}. "
-            "Create a review case first with create_review_case."
-        )
-
-    traces = read_retrieval_traces(trace_path)
-    target_trace: RetrievalTrace | None = None
-    for trace in traces:
-        if trace.review_case_id == case_id:
-            target_trace = trace
-            break
-
-    if target_trace is None:
-        raise ValueError(
-            f"review case {case_id} not found in {trace_path}"
-        )
-
-    if not target_trace.queries:
-        raise ValueError(
-            f"review case {case_id} has no planned queries; "
-            "ensure create_review_case ran fact extraction and query planning."
-        )
-
-    chunks = load_corpus(chunks_path)
-    retriever = KeywordRetriever(chunks)
-
-    hits_per_query: list[list[RetrievalHit]] = []
-    for query in target_trace.queries:
-        hits = retriever.search(
-            query.text,
-            top_k=top_k,
-            query_type=query.query_type,
-        )
-        hits_per_query.append(hits)
-
-    merged_hits = merge_hits_by_chunk_id(hits_per_query, top_k=top_k)
-
-    updated_trace = target_trace.model_copy(
-        update={"keyword_results": merged_hits}
-    )
-
-    # Rewrite the traces file with the updated trace
-    updated_traces = [
-        updated_trace if t.trace_id == target_trace.trace_id else t
-        for t in traces
-    ]
-    write_retrieval_traces(trace_path, updated_traces)
-
-    return updated_trace
-
-
-# ---------------------------------------------------------------------------
-# Issue 6: hybrid retrieval with vector mock, boosts, RRF, neighbors
+# Hybrid retrieval orchestration
 # ---------------------------------------------------------------------------
 
 DEFAULT_NEIGHBOR_COUNT = 10
@@ -426,22 +341,20 @@ def run_hybrid_retrieval(
     output_dir: Path = DEFAULT_REVIEW_RUNS_DIR,
     top_k: int = DEFAULT_TOP_K,
     max_neighbors: int = DEFAULT_NEIGHBOR_COUNT,
-    review_mode: ReviewMode = "rule_baseline",
+    review_mode: ReviewMode = "llm",
     rerank_mode: RerankMode = "off",
-    keyword_retriever: KeywordSearchAdapter | None = None,
-    vector_retriever: VectorSearchAdapter | None = None,
+    keyword_retriever: KeywordSearchAdapter,
+    vector_retriever: VectorSearchAdapter,
     output_format: ResultFormat = "plain",
 ) -> RetrievalTrace:
     """Run hybrid retrieval for an existing review case.
 
-    Combines keyword and vector_mock retrievers, applies metadata boosts
-    based on ``ReviewFacts``, fuses with RRF, and expands neighbor chunks.
+    Combines keyword and vector search adapters, applies metadata boosts based
+    on ``ReviewFacts``, fuses with RRF, and expands neighbor chunks.
     Persists all component results and the fused result to the trace.
 
-    ``keyword_retriever`` / ``vector_retriever`` may be injected to back the
-    two retrieval routes with service adapters (Elasticsearch / pgvector)
-    instead of the local in-memory retrievers. When omitted, the local
-    ``KeywordRetriever`` and ``VectorMockRetriever`` are used.
+    Both adapters are required. Runtime callers use Elasticsearch and
+    pgvector; tests may inject protocol-compatible fakes.
     """
 
     total_started = time.perf_counter()
@@ -494,11 +407,6 @@ def run_hybrid_retrieval(
     source_fusion_top_k = (
         max(top_k, rerank_config.window) if rerank_mode != "off" else top_k
     )
-
-    if keyword_retriever is None:
-        keyword_retriever = KeywordRetriever(chunks)
-    if vector_retriever is None:
-        vector_retriever = VectorMockRetriever(chunks)
 
     retrieval_started = time.perf_counter()
 
@@ -594,7 +502,7 @@ def run_hybrid_retrieval(
     boosts_summary = compute_boosts_summary(facts, query_types)
 
     # Issue 7: Evidence self-check
-    if review_mode in ("llm", "multi_agent") and needs_llm_self_check(
+    if needs_llm_self_check(
         question=case.question,
         material_text=case.material.material_text,
         facts=facts,
@@ -800,70 +708,31 @@ def run_hybrid_retrieval(
             )
         )
 
-    if review_mode in ("llm", "multi_agent"):
-        reviewer_started = time.perf_counter()
-        reviewer_calls_before = current_telemetry().llm_call_count
-        try:
-            review_result = build_review_result_with_deepseek(
-                review_result_id=case.latest_result_id or make_id("result"),
-                review_case_id=case_id,
-                trace_id=target_trace.trace_id,
-                facts=facts,
-                self_check=self_check,
-                evidence_hits=result_evidence,
-                chunks_by_id=chunks_by_id,
-                question=case.question,
-                material_text=case.material.material_text,
-                retrieval_queries=updated_trace.queries,
-                second_retrieval=updated_trace.second_retrieval,
-                source_evidence_packets=source_evidence_packets,
-                output_format=output_format,
+    reviewer_started = time.perf_counter()
+    reviewer_calls_before = current_telemetry().llm_call_count
+    review_result = build_review_result_with_deepseek(
+        review_result_id=case.latest_result_id or make_id("result"),
+        review_case_id=case_id,
+        trace_id=target_trace.trace_id,
+        facts=facts,
+        self_check=self_check,
+        evidence_hits=result_evidence,
+        chunks_by_id=chunks_by_id,
+        question=case.question,
+        material_text=case.material.material_text,
+        retrieval_queries=updated_trace.queries,
+        second_retrieval=updated_trace.second_retrieval,
+        source_evidence_packets=source_evidence_packets,
+        output_format=output_format,
+    )
+    if multi_agent:
+        agent_steps.append(
+            AgentStep(
+                agent_name="compliance_reviewer",
+                status="completed",
+                latency_ms=int((time.perf_counter() - reviewer_started) * 1000),
+                llm_calls=current_telemetry().llm_call_count - reviewer_calls_before,
             )
-        except ReviewWorkflowFailed as exc:
-            if not multi_agent:
-                raise
-            review_result = build_review_result(
-                review_result_id=case.latest_result_id or make_id("result"),
-                review_case_id=case_id,
-                trace_id=target_trace.trace_id,
-                facts=facts,
-                self_check=self_check,
-                evidence_hits=result_evidence,
-                chunks_by_id=chunks_by_id,
-            )
-            agent_steps.append(
-                AgentStep(
-                    agent_name="compliance_reviewer",
-                    status="failed",
-                    decision=(
-                        f"deterministic fallback: {exc.reason}: {exc.message}"
-                    ),
-                    latency_ms=int((time.perf_counter() - reviewer_started) * 1000),
-                    llm_calls=current_telemetry().llm_call_count - reviewer_calls_before,
-                )
-            )
-        if multi_agent:
-            if not any(
-                step.agent_name == "compliance_reviewer" for step in agent_steps
-            ):
-                agent_steps.append(
-                    AgentStep(
-                        agent_name="compliance_reviewer",
-                        status="completed",
-                        latency_ms=int((time.perf_counter() - reviewer_started) * 1000),
-                        llm_calls=current_telemetry().llm_call_count
-                        - reviewer_calls_before,
-                    )
-                )
-    else:
-        review_result = build_review_result(
-            review_result_id=case.latest_result_id or make_id("result"),
-            review_case_id=case_id,
-            trace_id=target_trace.trace_id,
-            facts=facts,
-            self_check=self_check,
-            evidence_hits=result_evidence,
-            chunks_by_id=chunks_by_id,
         )
 
     critique_decision = None
@@ -1104,7 +973,7 @@ def run_service_retrieval(
     output_dir: Path = DEFAULT_REVIEW_RUNS_DIR,
     top_k: int = DEFAULT_TOP_K,
     max_neighbors: int = DEFAULT_NEIGHBOR_COUNT,
-    review_mode: ReviewMode = "rule_baseline",
+    review_mode: ReviewMode = "llm",
     rerank_mode: RerankMode = "off",
     config: "object | None" = None,
     adapters: "object | None" = None,

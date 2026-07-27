@@ -81,7 +81,7 @@ python -m law_agent.review service-doctor
 ### 4. 启动 API
 
 ```powershell
-python -m law_agent.review serve --host 127.0.0.1 --port 8000 --service
+python -m law_agent.review serve --host 127.0.0.1 --port 8000
 ```
 
 健康检查：
@@ -107,13 +107,13 @@ npm run dev
 快速 smoke：
 
 ```powershell
-python -m law_agent.review eval --suite quick --retrieval-mode service --review-mode llm --max-workers 8 --output data/review_runs/eval_quick_service.json --report data/review_runs/eval_quick_service.md
+python -m law_agent.review eval --suite quick --review-mode llm --max-workers 8 --output data/review_runs/eval_quick_service.json --report data/review_runs/eval_quick_service.md
 ```
 
 完整验证：
 
 ```powershell
-python -m law_agent.review eval --suite full --retrieval-mode service --review-mode multi_agent --max-workers 8 --output data/review_runs/eval_full_service.json --report data/review_runs/eval_full_service.md
+python -m law_agent.review eval --suite full --review-mode multi_agent --max-workers 8 --output data/review_runs/eval_full_service.json --report data/review_runs/eval_full_service.md
 ```
 
 评测汇总会包含检索质量指标，以及 `mean_total_latency_ms`、`mean_retrieval_latency_ms`、`total_llm_calls`、`total_retries`。
@@ -326,12 +326,11 @@ $caseId = (Get-Content data/review_runs/review_cases.jsonl | ConvertFrom-Json)[0
 
 python -m law_agent.review retrieve `
   --case-id $caseId `
-  --service `
   --output-dir data/review_runs `
   --top-k 5
 ```
 
-`--service` 模式会同时查询 ES（关键词命中）和 pgvector（向量近邻），通过 RRF 融合排序后返回最终证据。
+检索会同时查询 ES（关键词命中）和 pgvector（向量近邻），通过 RRF 融合排序后返回最终证据；服务不可用时会明确失败，不提供本地模拟回退。
 
 ### 切换 Embedding 模型
 
@@ -378,7 +377,7 @@ EMBEDDING_DIM=1024
 
 # 启动 FastAPI（端口 8000），前端只使用真实 service 检索
 pip install uvicorn
-python -m law_agent.review serve --host 0.0.0.0 --port 8000 --service
+python -m law_agent.review serve --host 0.0.0.0 --port 8000
 ```
 
 后端启动后可访问：
