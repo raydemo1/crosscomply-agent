@@ -5,9 +5,9 @@ from threading import Barrier
 from law_agent.llm.openai_compatible import ChatMessage
 from law_agent.review.agents import (
     build_evidence_dossiers,
+    gate_revision_actions,
     run_case_analyst,
     run_evidence_critic,
-    gate_revision_actions,
     select_issue_aware_hits,
     should_run_evidence_critic,
 )
@@ -18,12 +18,11 @@ from law_agent.review.schemas import (
     IssueDraft,
     IssuePlan,
     IssuePlanDraft,
+    RetrievalQuery,
     ReviewFacts,
     ReviewIssue,
     ReviewResult,
-    RetrievalQuery,
 )
-
 from tests.test_review_result_builder import _hit
 
 
@@ -226,7 +225,7 @@ def test_dossiers_can_use_issue_specific_candidate_pools() -> None:
 
 def test_revision_gate_converts_unavailable_addition_to_evidence_gap() -> None:
     decision = CritiqueDecision(
-        decision="revise",
+        decision="research_required",
         revision_actions=[
             {
                 "operation": "add_supported_claim",
@@ -266,7 +265,7 @@ def test_revision_gate_converts_unavailable_addition_to_evidence_gap() -> None:
 
 def test_revision_gate_rejects_irrelevant_citable_hit_for_external_law() -> None:
     decision = CritiqueDecision(
-        decision="revise",
+        decision="research_required",
         revision_instructions=["明确语料范围并收窄结论"],
         targeted_retrieval_requests=[
             {
@@ -339,7 +338,7 @@ def test_critic_only_runs_for_risk_or_evidence_signals() -> None:
 def test_evidence_critic_returns_strict_revision_decision() -> None:
     client = FakeClient(
         {
-            "decision": "revise",
+                "decision": "research_required",
             "unsupported_claims": ["缺少依据的结论"],
             "missing_issue_ids": ["issue_1"],
             "revision_instructions": ["删除无依据结论并覆盖 issue_1"],
@@ -383,7 +382,7 @@ def test_evidence_critic_returns_strict_revision_decision() -> None:
     )
 
     assert decision == CritiqueDecision(
-        decision="revise",
+        decision="research_required",
         unsupported_claims=["缺少依据的结论"],
         missing_issue_ids=["issue_1"],
         revision_instructions=["删除无依据结论并覆盖 issue_1"],

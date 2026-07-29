@@ -374,11 +374,15 @@ def build_issue_query_planning_messages(
         "instructions": [
             "只为当前 issue 生成 1 到 3 条互补、可直接检索的查询。",
             "query_type 必须属于 issue.query_types；不要生成其他议题的查询。",
+            "当前 issue 是唯一研究边界；不要回答 issue、给出法律结论、风险等级或建议措施。",
             "legal_issue 查询必须选择受控 legal pathway，并使用其制度名或文件名作为锚点。",
             "region_condition 和 industry_condition 只能在审查事实明确匹配受控 facet 时生成。",
             "missing_information 查询只针对当前 issue 所需但材料缺失的事实，不得假设该事实成立。",
             "保留材料中的否定或边界条件，例如暂不出境、仅境内处理、是否一定触发。",
-            "查询应短而具体，优先包含可命中文件标题的中文关键词。",
+            (
+                "查询应短而具体，优先包含可命中文件标题的中文关键词；多条查询必须覆盖不同的"
+                "法律要件、适用条件或事实边界，不得只替换同义词重复检索。"
+            ),
             "严格输出 json object；不要输出 query_id，query_id 由系统分配。",
             "legal_issue 的 pathway 必须是受控 legal pathway 的名称；其他 query_type 的 pathway 必须为 null。",
         ],

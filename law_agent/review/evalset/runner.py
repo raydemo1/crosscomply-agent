@@ -341,10 +341,13 @@ def _run_single_case(
                 "critic_triggered": trace.critique_decision is not None,
                 "critic_revised": (
                     trace.critique_decision is not None
-                    and trace.critique_decision.decision == "revise"
+                    and trace.critique_decision.decision
+                    in {"research_required", "revision_required"}
                 ),
                 "targeted_retrieval_triggered": any(
-                    step.agent_name == "targeted_researcher"
+                    step.agent_name == "evidence_researcher"
+                    and step.decision is not None
+                    and "critic-requested" in step.decision
                     for step in trace.agent_steps
                 ),
                 "critic_reason": (

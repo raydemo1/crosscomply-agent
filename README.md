@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/raydemo1/crosscomply-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/raydemo1/crosscomply-agent/actions/workflows/ci.yml)
 
-CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 Agentic RAG 项目，主线是“材料输入 -> 审查事实抽取 -> 混合检索 -> 证据自检 -> 受控二次召回 -> 结构化审查结果与引用”。复杂审查可使用确定性 Multi-Agent 模式，由 LLM Case Analyst、按议题 Evidence Researchers、Compliance Reviewer 和条件式 Evidence Critic 协作；Critic 最多触发一次定向补检索和一次证据约束的局部 patch 修订，检索不可满足的法规要求会降级为 evidence gap，而不是交给模型猜测。
+CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 Agentic RAG 项目，主线是“材料输入 -> 审查事实抽取 -> 混合检索 -> 证据自检 -> 受控二次召回 -> 结构化审查结果与引用”。复杂审查可使用确定性 Multi-Agent 模式：Case Analyst 依次提取事实、拆分议题并按议题并行生成查询；Evidence Researchers 按议题执行检索，Evidence Gate 确定性形成证据 dossier；Compliance Reviewer 复用受控报告生成链路，结合议题计划和 dossier 写出结果；条件式 Evidence Critic 只作 `accept`、`research_required` 或 `revision_required` 路由，最多复用一次 Researcher 补证和一次 Reviewer 修订。检索不可满足的法规要求会披露为 evidence gap，而不是交给模型猜测。
 
 ## Product preview
 

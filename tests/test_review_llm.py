@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 
 from law_agent.llm.openai_compatible import ChatMessage, _loads_tool_arguments
-from law_agent.review.facts import (
-    build_fact_extraction_messages,
-    extract_facts_with_deepseek,
-)
 from law_agent.review.evidence import (
     build_evidence_check_messages,
     run_self_check_with_deepseek,
+)
+from law_agent.review.facts import (
+    build_fact_extraction_messages,
+    extract_facts_with_deepseek,
 )
 from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode, model_for_node
 from law_agent.review.query_planner import (
@@ -23,11 +23,14 @@ from law_agent.review.result_builder import (
     build_review_result_with_deepseek,
     revise_review_result_with_deepseek,
 )
-from law_agent.review.schemas import ReviewFacts, ReviewResult, RevisionAction
-from law_agent.review.schemas import EvidenceSelfCheck
-from law_agent.review.schemas import SourceEvidencePacket
+from law_agent.review.schemas import (
+    EvidenceSelfCheck,
+    ReviewFacts,
+    ReviewResult,
+    RevisionAction,
+    SourceEvidencePacket,
+)
 from law_agent.review.telemetry import current_telemetry, reset_telemetry
-
 from tests.test_review_result_builder import _hit
 
 

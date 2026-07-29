@@ -13,6 +13,7 @@ from law_agent.review.agents import (
     gate_revision_actions,
     run_case_analyst,
     run_evidence_critic,
+    run_evidence_researcher,
     select_issue_aware_hits,
     should_run_evidence_critic,
 )
@@ -67,6 +68,7 @@ from law_agent.review.schemas import (
     CaseAnalysis,
     EvidenceSelfCheck,
     IssuePlan,
+    IssueResearchResult,
     MaterialRecord,
     RetrievalHit,
     RetrievalQuery,
@@ -434,7 +436,6 @@ def run_hybrid_retrieval(
         )
 
     initial_queries = list(target_trace.queries)
-    research_calls_before = current_telemetry().llm_call_count
 
     chunks = load_corpus(chunks_path)
     chunks_by_id: dict[str, object] = {c.chunk_id: c for c in chunks}
@@ -446,36 +447,67 @@ def run_hybrid_retrieval(
 
     retrieval_started = time.perf_counter()
 
-    # Run both retrievers per query and merge
+    # LLM mode retains the original case-wide batch retrieval. Multi-agent
+    # mode executes an Evidence Researcher for each Case Analyst issue and
+    # then lets deterministic fusion combine their tool outputs.
     keyword_hits_per_query: list[list[RetrievalHit]] = []
     vector_hits_per_query: list[list[RetrievalHit]] = []
     query_types: list[str | None] = []
-
-    retrieval_queries = [
-        (query.text, query.query_type)
-        for query in target_trace.queries
-    ]
+    issue_research_results: list[IssueResearchResult] = []
+    retrieval_queries = [(query.text, query.query_type) for query in target_trace.queries]
     query_types.extend(query_type for _text, query_type in retrieval_queries)
-    keyword_hits_per_query = keyword_retriever.search_many(
-        retrieval_queries, top_k=candidate_top_k
-    )
-    vector_hits_per_query = vector_retriever.search_many(
-        retrieval_queries, top_k=candidate_top_k
-    )
+    if multi_agent:
+        assert issue_plan is not None
 
-    merged_keyword_all = merge_hits_by_chunk_id(
-        keyword_hits_per_query, top_k=candidate_top_k
-    )
-    merged_vector_all = merge_hits_by_chunk_id(
-        vector_hits_per_query, top_k=candidate_top_k
-    )
-    initial_query_count = len(initial_queries)
-    merged_keyword = merge_hits_by_chunk_id(
-        keyword_hits_per_query[:initial_query_count], top_k=candidate_top_k
-    )
-    merged_vector = merge_hits_by_chunk_id(
-        vector_hits_per_query[:initial_query_count], top_k=candidate_top_k
-    )
+        def research_issue(issue):
+            return run_evidence_researcher(
+                issue=issue,
+                queries=target_trace.queries,
+                facts=facts,
+                chunks_by_id=chunks_by_id,
+                keyword_retriever=keyword_retriever,
+                vector_retriever=vector_retriever,
+                candidate_top_k=candidate_top_k,
+            )
+
+        issue_research_results = [
+            research_issue(issue) for issue in issue_plan.issues
+        ]
+        merged_keyword_all = merge_hits_by_chunk_id(
+            [result.keyword_hits for result in issue_research_results],
+            top_k=candidate_top_k,
+        )
+        merged_vector_all = merge_hits_by_chunk_id(
+            [result.vector_hits for result in issue_research_results],
+            top_k=candidate_top_k,
+        )
+        merged_keyword = merged_keyword_all
+        merged_vector = merged_vector_all
+        issue_hits_by_issue = {
+            result.issue_id: result.evidence_hits
+            for result in issue_research_results
+        }
+    else:
+        keyword_hits_per_query = keyword_retriever.search_many(
+            retrieval_queries, top_k=candidate_top_k
+        )
+        vector_hits_per_query = vector_retriever.search_many(
+            retrieval_queries, top_k=candidate_top_k
+        )
+        merged_keyword_all = merge_hits_by_chunk_id(
+            keyword_hits_per_query, top_k=candidate_top_k
+        )
+        merged_vector_all = merge_hits_by_chunk_id(
+            vector_hits_per_query, top_k=candidate_top_k
+        )
+        initial_query_count = len(initial_queries)
+        merged_keyword = merge_hits_by_chunk_id(
+            keyword_hits_per_query[:initial_query_count], top_k=candidate_top_k
+        )
+        merged_vector = merge_hits_by_chunk_id(
+            vector_hits_per_query[:initial_query_count], top_k=candidate_top_k
+        )
+        issue_hits_by_issue = {}
 
     # Apply metadata boosts to both component results
     boosted_keyword = apply_boosts_to_hits(merged_keyword, chunks_by_id, facts)
@@ -495,19 +527,6 @@ def run_hybrid_retrieval(
         hybrid_candidates,
         top_k=source_fusion_top_k,
         chunks_by_id=chunks_by_id,
-    )
-    issue_hits_by_issue = (
-        _build_issue_hit_pools(
-            issue_plan=issue_plan,
-            queries=target_trace.queries,
-            keyword_hits_per_query=keyword_hits_per_query,
-            vector_hits_per_query=vector_hits_per_query,
-            chunks_by_id=chunks_by_id,
-            facts=facts,
-            top_k=candidate_top_k,
-        )
-        if issue_plan is not None
-        else {}
     )
     if issue_plan is not None:
         hybrid_hits = select_issue_aware_hits(
@@ -729,19 +748,24 @@ def run_hybrid_retrieval(
             issue_plan,
             result_evidence,
             issue_hits_by_issue=issue_hits_by_issue,
+            research_results=issue_research_results,
         )
         if issue_plan is not None
         else []
     )
     if multi_agent:
-        agent_steps.append(
+        agent_steps.extend(
             AgentStep(
                 agent_name="evidence_researcher",
                 status="completed",
-                decision=f"built {len(evidence_dossiers)} dossiers",
+                decision=(
+                    f"{result.issue_id}: executed {len(result.executed_queries)} queries, "
+                    f"returned {len(result.evidence_hits)} issue evidence hits"
+                ),
                 latency_ms=retrieval_latency_ms,
-                llm_calls=current_telemetry().llm_call_count - research_calls_before,
+                llm_calls=0,
             )
+            for result in issue_research_results
         )
 
     reviewer_started = time.perf_counter()
@@ -759,6 +783,8 @@ def run_hybrid_retrieval(
         retrieval_queries=updated_trace.queries,
         second_retrieval=updated_trace.second_retrieval,
         source_evidence_packets=source_evidence_packets,
+        issue_plan=issue_plan if multi_agent else None,
+        evidence_dossiers=evidence_dossiers if multi_agent else None,
         output_format=output_format,
     )
     if multi_agent:
@@ -793,7 +819,7 @@ def run_hybrid_retrieval(
             )
             targeted_requests = critique_decision.targeted_retrieval_requests
             targeted_hits_by_issue: dict[str, list[RetrievalHit]] = {}
-            if targeted_requests:
+            if critique_decision.decision == "research_required":
                 targeted_started = time.perf_counter()
                 next_query_number = len(updated_trace.queries) + 1
                 targeted_queries = [
@@ -805,47 +831,88 @@ def run_hybrid_retrieval(
                     for index, request in enumerate(targeted_requests)
                     if request.query.strip()
                 ]
-                targeted_pairs = [
-                    (query.text, query.query_type) for query in targeted_queries
+                targeted_queries_by_issue: dict[str, list[str]] = {}
+                for request, query in zip(
+                    targeted_requests, targeted_queries, strict=True
+                ):
+                    targeted_queries_by_issue.setdefault(request.issue_id, []).append(
+                        query.query_id
+                    )
+                issue_by_id = {
+                    issue.issue_id: issue for issue in issue_plan.issues
+                }
+                research_inputs = [
+                    issue_by_id[issue_id].model_copy(
+                        update={"query_ids": query_ids}
+                    )
+                    for issue_id, query_ids in targeted_queries_by_issue.items()
                 ]
-                targeted_kw = keyword_retriever.search_many(
-                    targeted_pairs, top_k=candidate_top_k
-                )
-                targeted_vec = vector_retriever.search_many(
-                    targeted_pairs, top_k=candidate_top_k
-                )
-                merged_targeted_kw = apply_boosts_to_hits(
-                    merge_hits_by_chunk_id(targeted_kw, top_k=candidate_top_k),
-                    chunks_by_id,
-                    facts,
-                )
-                merged_targeted_vec = apply_boosts_to_hits(
-                    merge_hits_by_chunk_id(targeted_vec, top_k=candidate_top_k),
-                    chunks_by_id,
-                    facts,
-                )
-                targeted_candidates = rrf_fuse(
-                    merged_targeted_kw,
-                    merged_targeted_vec,
-                    top_k=candidate_top_k,
-                )
-                for index, request in enumerate(targeted_requests[: len(targeted_queries)]):
-                    issue_candidates = rrf_fuse(
-                        apply_boosts_to_hits(targeted_kw[index], chunks_by_id, facts),
-                        apply_boosts_to_hits(targeted_vec[index], chunks_by_id, facts),
-                        top_k=candidate_top_k,
-                    )
-                    targeted_hits_by_issue[request.issue_id] = source_aware_fuse(
-                        issue_candidates,
-                        top_k=candidate_top_k,
+                all_research_queries = list(updated_trace.queries) + targeted_queries
+
+                def research_targeted_issue(issue):
+                    return run_evidence_researcher(
+                        issue=issue,
+                        queries=all_research_queries,
+                        facts=facts,
                         chunks_by_id=chunks_by_id,
+                        keyword_retriever=keyword_retriever,
+                        vector_retriever=vector_retriever,
+                        candidate_top_k=candidate_top_k,
                     )
-                    combined_issue = issue_hits_by_issue.get(request.issue_id, []) + issue_candidates
-                    issue_hits_by_issue[request.issue_id] = source_aware_fuse(
-                        combined_issue,
+
+                targeted_results = [
+                    research_targeted_issue(issue) for issue in research_inputs
+                ]
+                results_by_issue = {
+                    result.issue_id: result for result in issue_research_results
+                }
+                for targeted_result in targeted_results:
+                    prior_result = results_by_issue[targeted_result.issue_id]
+                    combined_candidates = rrf_fuse_many(
+                        [
+                            prior_result.candidate_hits,
+                            targeted_result.candidate_hits,
+                        ],
                         top_k=candidate_top_k,
-                        chunks_by_id=chunks_by_id,
                     )
+                    combined_result = IssueResearchResult(
+                        issue_id=targeted_result.issue_id,
+                        executed_queries=[
+                            *prior_result.executed_queries,
+                            *targeted_result.executed_queries,
+                        ],
+                        keyword_hits=merge_hits_by_chunk_id(
+                            [
+                                prior_result.keyword_hits,
+                                targeted_result.keyword_hits,
+                            ],
+                            top_k=candidate_top_k,
+                        ),
+                        vector_hits=merge_hits_by_chunk_id(
+                            [
+                                prior_result.vector_hits,
+                                targeted_result.vector_hits,
+                            ],
+                            top_k=candidate_top_k,
+                        ),
+                        candidate_hits=combined_candidates,
+                        evidence_hits=source_aware_fuse(
+                            combined_candidates,
+                            top_k=candidate_top_k,
+                            chunks_by_id=chunks_by_id,
+                        ),
+                    )
+                    results_by_issue[combined_result.issue_id] = combined_result
+                    targeted_hits_by_issue[combined_result.issue_id] = (
+                        targeted_result.evidence_hits
+                    )
+                issue_research_results = [
+                    results_by_issue[issue.issue_id] for issue in issue_plan.issues
+                ]
+                issue_hits_by_issue = {
+                    result.issue_id: result.evidence_hits
+                    for result in issue_research_results
+                }
 
                 final_evidence = select_issue_aware_hits(
                     issue_plan,
@@ -859,8 +926,8 @@ def run_hybrid_retrieval(
                 active_candidates = rrf_fuse_many(
                     [
                         active_candidates,
-                        targeted_candidates,
-                        *issue_hits_by_issue.values(),
+                        *(result.candidate_hits for result in targeted_results),
+                        *(result.candidate_hits for result in issue_research_results),
                     ],
                     top_k=candidate_top_k,
                 )
@@ -875,6 +942,7 @@ def run_hybrid_retrieval(
                     issue_plan,
                     result_evidence,
                     issue_hits_by_issue=issue_hits_by_issue,
+                    research_results=issue_research_results,
                 )
                 targeted_info = {
                     "triggered": True,
@@ -896,15 +964,22 @@ def run_hybrid_retrieval(
                         },
                     }
                 )
-                agent_steps.append(
+                agent_steps.extend(
                     AgentStep(
-                        agent_name="targeted_researcher",
+                        agent_name="evidence_researcher",
                         status="completed",
-                        decision=f"ran {len(targeted_queries)} targeted queries",
+                        decision=(
+                            f"{result.issue_id}: executed {len(result.executed_queries)} "
+                            "critic-requested queries"
+                        ),
                         latency_ms=int((time.perf_counter() - targeted_started) * 1000),
                     )
+                    for result in targeted_results
                 )
-            if critique_decision.decision == "revise":
+            if critique_decision.decision in {
+                "research_required",
+                "revision_required",
+            }:
                 revision_actions = gate_revision_actions(
                     critique_decision,
                     issue_hits_by_issue=issue_hits_by_issue,
@@ -918,15 +993,15 @@ def run_hybrid_retrieval(
                         actions=revision_actions,
                         evidence_hits=result_evidence,
                         chunks_by_id=chunks_by_id,
+                        issue_plan=issue_plan,
+                        evidence_dossiers=evidence_dossiers,
                     )
                 except ReviewWorkflowFailed as exc:
                     agent_steps.append(
                         AgentStep(
-                            agent_name="compliance_revision",
+                            agent_name="compliance_reviewer",
                             status="failed",
-                            decision=(
-                                f"kept original result: {exc.reason}: {exc.message}"
-                            ),
+                            decision=f"revision failed: {exc.reason}: {exc.message}",
                             latency_ms=int(
                                 (time.perf_counter() - revision_started) * 1000
                             ),
@@ -934,12 +1009,33 @@ def run_hybrid_retrieval(
                             - revision_calls_before,
                         )
                     )
+                    failed_trace = updated_trace.model_copy(
+                        update={
+                            "issue_plan": issue_plan,
+                            "issue_research_results": issue_research_results,
+                            "evidence_dossiers": evidence_dossiers,
+                            "critique_decision": critique_decision,
+                            "agent_steps": agent_steps,
+                            "llm_call_count": current_telemetry().llm_call_count,
+                            "retry_count": current_telemetry().retry_count,
+                        }
+                    )
+                    write_retrieval_traces(
+                        retrieval_traces_path(output_dir),
+                        [
+                            failed_trace
+                            if trace.trace_id == target_trace.trace_id
+                            else trace
+                            for trace in traces
+                        ],
+                    )
+                    raise
                 else:
                     agent_steps.append(
                         AgentStep(
-                            agent_name="compliance_revision",
+                            agent_name="compliance_reviewer",
                             status="completed",
-                            decision="revised once",
+                            decision="revised once after evidence critique",
                             latency_ms=int(
                                 (time.perf_counter() - revision_started) * 1000
                             ),
@@ -979,6 +1075,7 @@ def run_hybrid_retrieval(
             "llm_call_count": telemetry.llm_call_count,
             "retry_count": telemetry.retry_count,
             "issue_plan": issue_plan,
+            "issue_research_results": issue_research_results,
             "evidence_dossiers": evidence_dossiers,
             "critique_decision": critique_decision,
             "agent_steps": agent_steps,

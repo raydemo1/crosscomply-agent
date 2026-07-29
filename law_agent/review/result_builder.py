@@ -17,26 +17,27 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from law_agent.config import require_llm_config
-from law_agent.data.schemas import Chunk
-from law_agent.data.schemas import StrictModel
+from law_agent.data.schemas import Chunk, StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.citations import group_citations
 from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
 from law_agent.review.schemas import (
     Citation,
-    CitationGroup,
     ClaimReplacement,
+    EvidenceDossier,
     EvidenceSelfCheck,
     GroundedClaim,
+    IssuePlan,
+    RetrievalHit,
+    RetrievalQuery,
     ReviewFacts,
     ReviewResult,
     ReviewResultPatch,
     RevisionAction,
-    RetrievalHit,
-    RetrievalQuery,
     RiskLevel,
     SourceEvidencePacket,
 )
+
 
 class LLMReviewResultDraft(StrictModel):
     """Required-field schema for LLM structured review generation (plain path)."""
@@ -50,7 +51,7 @@ class LLMReviewResultDraft(StrictModel):
     risk_boundaries: list[str]
 
     @model_validator(mode="after")
-    def claims_required_unless_abstaining(self) -> "LLMReviewResultDraft":
+    def claims_required_unless_abstaining(self) -> LLMReviewResultDraft:
         if self.risk_level != "insufficient_evidence" and not self.claims:
             raise ValueError("non-abstention result requires grounded claims")
         return self
@@ -74,7 +75,7 @@ class MarkdownReviewDraft(StrictModel):
     trigger_reasons: list[str]
 
     @model_validator(mode="after")
-    def claims_required_unless_abstaining(self) -> "MarkdownReviewDraft":
+    def claims_required_unless_abstaining(self) -> MarkdownReviewDraft:
         if self.risk_level != "insufficient_evidence" and not self.claims:
             raise ValueError("non-abstention report requires grounded claims")
         return self
@@ -367,6 +368,8 @@ def build_result_generation_messages(
     retrieval_queries: list[RetrievalQuery] | None = None,
     second_retrieval: dict[str, object] | None = None,
     source_evidence_packets: list[SourceEvidencePacket] | None = None,
+    issue_plan: IssuePlan | None = None,
+    evidence_dossiers: list[EvidenceDossier] | None = None,
     output_format: Literal["plain", "markdown"] = "plain",
     critique_instructions: list[str] | None = None,
 ) -> list[ChatMessage]:
@@ -566,6 +569,24 @@ def build_result_generation_messages(
             format_instruction_replacements[2],
         ],
     }
+    if issue_plan is not None:
+        system_content += (
+            "当前处于 multi-agent 工作流：你是最终的 Compliance Reviewer，"
+            "应根据已交接的议题计划和证据工作包完成报告，而不是重新规划检索。"
+        )
+        payload["issue_plan"] = [issue.model_dump() for issue in issue_plan.issues]
+        payload["evidence_dossiers"] = [
+            dossier.model_dump() for dossier in (evidence_dossiers or [])
+        ]
+        payload["instructions"].append(
+            "multi-agent 模式：你是 Compliance Reviewer。issue_plan 是必须逐项完成的审查"
+            "清单，不要重新拆分或忽略其中的问题；有两个及以上独立 issue 时，应让业务读者"
+            "能在报告中区分各问题的判断。evidence_dossiers 仅是 Researcher 的交接："
+            "coverage_status=covered 时给出有边界的判断；partial 或 missing 时明确写出该问题"
+            "尚不能确定的条件、证据缺口和下一步核验，不得把缺口推断为事实或确定结论。"
+            "dossier 中的 chunk_id 不是可引用依据；claims 的 supporting_chunk_ids 仍只能引用"
+            "evidence_packets 中允许的原始条文。"
+        )
     return [
         ChatMessage(
             role="system",
@@ -606,6 +627,8 @@ def build_review_result_with_deepseek(
     retrieval_queries: list[RetrievalQuery] | None = None,
     second_retrieval: dict[str, object] | None = None,
     source_evidence_packets: list[SourceEvidencePacket] | None = None,
+    issue_plan: IssuePlan | None = None,
+    evidence_dossiers: list[EvidenceDossier] | None = None,
     client: OpenAICompatibleClient | None = None,
     max_retries: int | None = None,
     output_format: Literal["plain", "markdown"] = "plain",
@@ -664,6 +687,8 @@ def build_review_result_with_deepseek(
                 retrieval_queries=retrieval_queries,
                 second_retrieval=second_retrieval,
                 source_evidence_packets=source_evidence_packets,
+                issue_plan=issue_plan,
+                evidence_dossiers=evidence_dossiers,
                 output_format=output_format,
                 critique_instructions=critique_instructions,
             ),
@@ -742,6 +767,8 @@ def build_revision_patch_messages(
     result: ReviewResult,
     actions: list[RevisionAction],
     evidence_hits: list[RetrievalHit],
+    issue_plan: IssuePlan | None = None,
+    evidence_dossiers: list[EvidenceDossier] | None = None,
 ) -> list[ChatMessage]:
     """Build a minimal-delta revision prompt with an explicit evidence inventory."""
 
@@ -771,6 +798,17 @@ def build_revision_patch_messages(
             "若 risk_level 改为 insufficient_evidence，remove_claim_indexes 应覆盖全部原 claims，且不得新增 claims。",
         ],
     }
+    if issue_plan is not None:
+        payload["issue_plan"] = [issue.model_dump() for issue in issue_plan.issues]
+        payload["evidence_dossiers"] = [
+            dossier.model_dump() for dossier in (evidence_dossiers or [])
+        ]
+        payload["instructions"].append(
+            "multi-agent 模式：这是同一 Compliance Reviewer 的一次最小修订，不重写整份报告。"
+            "修订后仍须保留对 issue_plan 的逐项覆盖；对 evidence_dossiers 为 partial 或 missing"
+            "的问题，只能收窄结论或披露缺口。evidence_dossiers 说明补证后的问题级覆盖状态，"
+            "但只能使用 allowed_citable_evidence 中的条文。"
+        )
     example = {
         "risk_level": "medium",
         "conclusion": "当前证据不足以作确定认定，需补充直接法律依据。",
@@ -785,7 +823,7 @@ def build_revision_patch_messages(
         ChatMessage(
             role="system",
             content=(
-                "你是 Evidence-Constrained Revision Agent。只做局部修订；"
+                "你是企业数据合规审查的 Compliance Reviewer，正在执行一次受证据约束的局部修订；"
                 "证据不足时删除、收窄或标记缺口，绝不补写语料中不存在的法规。"
             ),
         ),
@@ -1022,7 +1060,7 @@ def _apply_revision_patch_or_fail(
         )
     except ValueError as exc:
         raise ReviewWorkflowFailed(
-            failed_node="compliance_revision",
+            failed_node="compliance_reviewer_revision",
             reason="revision_patch_application_failed",
             message=str(exc),
             attempts=0,
@@ -1036,6 +1074,8 @@ def revise_review_result_with_deepseek(
     actions: list[RevisionAction],
     evidence_hits: list[RetrievalHit],
     chunks_by_id: dict[str, Chunk] | None = None,
+    issue_plan: IssuePlan | None = None,
+    evidence_dossiers: list[EvidenceDossier] | None = None,
     client: OpenAICompatibleClient | None = None,
     max_retries: int | None = None,
 ) -> ReviewResult:
@@ -1110,7 +1150,7 @@ def revise_review_result_with_deepseek(
     if client is None:
         client = OpenAICompatibleClient(require_llm_config())
     node = StructuredLLMNode(
-        node_name="compliance_revision",
+        node_name="compliance_reviewer_revision",
         output_model=ReviewResultPatch,
         client=client,
         max_retries=min(max_retries if max_retries is not None else 1, 1),
@@ -1121,6 +1161,8 @@ def revise_review_result_with_deepseek(
             result=result,
             actions=actions,
             evidence_hits=evidence_hits,
+            issue_plan=issue_plan,
+            evidence_dossiers=evidence_dossiers,
         ),
         post_validate=lambda candidate: _validate_revision_patch(
             _normalize_revision_patch(candidate, result=result, actions=actions),

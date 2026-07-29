@@ -216,12 +216,25 @@ class IssuePlanDraft(StrictModel):
 
 
 class EvidenceDossier(StrictModel):
-    """Evidence gathered for one review issue."""
+    """Deterministic evidence handoff for one review issue."""
 
     issue_id: str
     evidence_chunk_ids: list[str] = Field(default_factory=list)
     source_ids: list[str] = Field(default_factory=list)
     evidence_gap: bool = False
+    coverage_status: Literal["covered", "partial", "missing"] = "missing"
+    missing_evidence_roles: list[ClauseCitationRole] = Field(default_factory=list)
+
+
+class IssueResearchResult(StrictModel):
+    """Tool-backed research output produced by one Evidence Researcher."""
+
+    issue_id: str
+    executed_queries: list[RetrievalQuery] = Field(default_factory=list)
+    keyword_hits: list[RetrievalHit] = Field(default_factory=list)
+    vector_hits: list[RetrievalHit] = Field(default_factory=list)
+    candidate_hits: list[RetrievalHit] = Field(default_factory=list)
+    evidence_hits: list[RetrievalHit] = Field(default_factory=list)
 
 
 class CaseAnalysis(StrictModel):
@@ -292,7 +305,7 @@ class ReviewResultPatch(StrictModel):
 class CritiqueDecision(StrictModel):
     """Evidence critic decision; at most one revision is allowed."""
 
-    decision: Literal["approve", "revise"]
+    decision: Literal["accept", "research_required", "revision_required"]
     unsupported_claims: list[str] = Field(default_factory=list)
     missing_issue_ids: list[str] = Field(default_factory=list)
     revision_instructions: list[str] = Field(default_factory=list)
@@ -303,32 +316,34 @@ class CritiqueDecision(StrictModel):
     reason: str
 
     @model_validator(mode="after")
-    def revision_requires_instructions(self) -> CritiqueDecision:
-        if (
-            self.decision == "revise"
-            and not self.revision_instructions
-            and not self.revision_actions
-        ):
-            raise ValueError("revise decision requires revision actions")
-        if self.decision == "approve" and self.targeted_retrieval_requests:
-            raise ValueError("approve decision cannot request targeted retrieval")
-        if self.decision == "approve" and self.revision_actions:
-            raise ValueError("approve decision cannot request revision actions")
-        if self.decision == "approve" and self.revision_instructions:
-            raise ValueError("approve decision cannot request revision instructions")
+    def decision_requires_consistent_route(self) -> CritiqueDecision:
+        needs_revision = self.decision in {
+            "research_required",
+            "revision_required",
+        }
+        if needs_revision and not self.revision_instructions and not self.revision_actions:
+            raise ValueError(f"{self.decision} decision requires revision actions")
+        if self.decision == "accept" and self.targeted_retrieval_requests:
+            raise ValueError("accept decision cannot request targeted retrieval")
+        if self.decision == "accept" and self.revision_actions:
+            raise ValueError("accept decision cannot request revision actions")
+        if self.decision == "accept" and self.revision_instructions:
+            raise ValueError("accept decision cannot request revision instructions")
+        if self.decision == "research_required" and not self.targeted_retrieval_requests:
+            raise ValueError("research_required decision requires targeted retrieval")
+        if self.decision == "revision_required" and self.targeted_retrieval_requests:
+            raise ValueError("revision_required decision cannot request targeted retrieval")
         return self
 
 
 class AgentStep(StrictModel):
-    """Compact trace record for one deterministic or LLM-owned agent step."""
+    """Compact trace record for one business-agent execution."""
 
     agent_name: Literal[
         "case_analyst",
         "evidence_researcher",
         "compliance_reviewer",
         "evidence_critic",
-        "targeted_researcher",
-        "compliance_revision",
     ]
     status: Literal["completed", "skipped", "failed"]
     decision: str | None = None
@@ -399,6 +414,7 @@ class RetrievalTrace(StrictModel):
     source_evidence_packets: list[SourceEvidencePacket] = Field(default_factory=list)
     citation_validation: dict[str, object] = Field(default_factory=dict)
     issue_plan: IssuePlan | None = None
+    issue_research_results: list[IssueResearchResult] = Field(default_factory=list)
     evidence_dossiers: list[EvidenceDossier] = Field(default_factory=list)
     critique_decision: CritiqueDecision | None = None
     agent_steps: list[AgentStep] = Field(default_factory=list)

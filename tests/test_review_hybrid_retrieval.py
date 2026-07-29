@@ -6,7 +6,7 @@ import pytest
 
 from law_agent.data.io import write_jsonl
 from law_agent.data.schemas import Chunk
-from law_agent.review.io import read_review_cases, read_review_results, read_retrieval_traces
+from law_agent.review.io import read_retrieval_traces, read_review_cases, read_review_results
 from law_agent.review.retrieval.boosts import (
     CONDITIONAL_INDUSTRY_MISMATCH_WEIGHT,
     CONDITIONAL_LOCAL_MISMATCH_WEIGHT,
@@ -20,8 +20,7 @@ from law_agent.review.retrieval.boosts import (
 )
 from law_agent.review.retrieval.fusion import rrf_fuse
 from law_agent.review.retrieval.neighbors import expand_neighbors
-from law_agent.review.schemas import ReviewFacts, ReviewResult, RetrievalHit, RetrievalQuery
-
+from law_agent.review.schemas import RetrievalHit, RetrievalQuery, ReviewFacts, ReviewResult
 from tests.test_review_retrieval_keyword import FIXTURE_CHUNKS, _make_chunk
 
 
@@ -682,23 +681,20 @@ def test_run_hybrid_retrieval_returns_all_components(tmp_path: Path) -> None:
     assert trace.metadata_boosts  # boost summary recorded
 
 
-@pytest.mark.parametrize("failure_stage", ["none", "revision"])
-def test_multi_agent_runs_one_critic_revision_and_records_steps(
+def test_multi_agent_reuses_researcher_and_reviewer_after_critic(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    failure_stage: str,
 ) -> None:
     from law_agent.review.schemas import (
         CaseAnalysis,
         CritiqueDecision,
         EvidenceSelfCheck,
         IssuePlan,
+        RetrievalQuery,
         ReviewIssue,
         ReviewResult,
-        RetrievalQuery,
     )
     from law_agent.review.service import create_review_case, run_hybrid_retrieval
-    from law_agent.review.llm import ReviewWorkflowFailed
 
     chunks_path = _write_fixture_corpus(tmp_path)
     response = create_review_case(
@@ -710,6 +706,7 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
         review_mode="multi_agent",
     )
     revision_inputs: list[list[str] | None] = []
+    reviewer_handoffs: list[tuple[object, object]] = []
 
     monkeypatch.setattr(
         "law_agent.review.service.run_self_check_with_deepseek",
@@ -751,6 +748,9 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
 
     def fake_build_result(**kwargs):
         revision_inputs.append(kwargs.get("critique_instructions"))
+        reviewer_handoffs.append(
+            (kwargs.get("issue_plan"), kwargs.get("evidence_dossiers"))
+        )
         return ReviewResult(
             review_result_id="result_test",
             review_case_id="review_test",
@@ -762,13 +762,6 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
 
     def fake_revise_result(**kwargs):
         revision_inputs.append([action.reason for action in kwargs["actions"]])
-        if failure_stage == "revision":
-            raise ReviewWorkflowFailed(
-                failed_node="compliance_revision",
-                reason="revision_patch_validation_failed",
-                message="revision failed",
-                attempts=1,
-            )
         return kwargs["result"]
 
     monkeypatch.setattr(
@@ -782,7 +775,7 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
     monkeypatch.setattr(
         "law_agent.review.service.run_evidence_critic",
         lambda **kwargs: CritiqueDecision(
-            decision="revise",
+            decision="research_required",
             unsupported_claims=["结论过宽"],
             missing_issue_ids=[],
             revision_instructions=["收窄结论"],
@@ -809,16 +802,19 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
     )
 
     assert revision_inputs == [None, ["收窄结论"]]
+    assert reviewer_handoffs[0][0] is not None
+    assert reviewer_handoffs[0][1] is not None
     assert trace.critique_decision is not None
-    assert trace.critique_decision.decision == "revise"
-    researcher_step = next(
+    assert trace.critique_decision.decision == "research_required"
+    researcher_steps = [
         step for step in trace.agent_steps if step.agent_name == "evidence_researcher"
-    )
-    assert researcher_step.llm_calls == 0
-    reviewer_step = next(
+    ]
+    assert len(researcher_steps) == 2
+    assert all(step.llm_calls == 0 for step in researcher_steps)
+    reviewer_steps = [
         step for step in trace.agent_steps if step.agent_name == "compliance_reviewer"
-    )
-    assert reviewer_step.status == "completed"
+    ]
+    assert [step.status for step in reviewer_steps] == ["completed", "completed"]
     assert any(query.text == analyst_query.text for query in trace.queries)
     assert any(
         query.text == "个人信息保护法 第三十九条 境外提供"
@@ -829,19 +825,116 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
         "evidence_researcher",
         "compliance_reviewer",
         "evidence_critic",
-        "targeted_researcher",
-        "compliance_revision",
+        "evidence_researcher",
+        "compliance_reviewer",
     ]
-    revision_step = trace.agent_steps[-1]
-    assert revision_step.status == (
-        "failed" if failure_stage == "revision" else "completed"
-    )
     persisted_case = read_review_cases(response.case_path)[0]
     persisted_trace = read_retrieval_traces(response.trace_path)[0]
     persisted_result = read_review_results(response.result_path)[0]
     assert persisted_case.review_facts.region == "上海"
     assert persisted_trace.issue_plan == trace.issue_plan
+    assert persisted_trace.issue_research_results == trace.issue_research_results
     assert persisted_result.review_facts.region == "上海"
+
+
+def test_multi_agent_reviewer_revision_failure_is_persisted_and_raised(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from law_agent.review.llm import ReviewWorkflowFailed
+    from law_agent.review.schemas import (
+        CaseAnalysis,
+        CritiqueDecision,
+        IssuePlan,
+        RetrievalQuery,
+        ReviewIssue,
+        ReviewResult,
+    )
+    from law_agent.review.service import create_review_case, run_hybrid_retrieval
+
+    chunks_path = _write_fixture_corpus(tmp_path)
+    create_review_case(
+        question="这个场景是否需要数据出境安全评估？",
+        material_text="手机号发送给新加坡服务商。",
+        output_dir=tmp_path,
+        now=lambda: "2026-07-06T00:00:00+00:00",
+        id_factory=lambda prefix: f"{prefix}_test",
+        review_mode="multi_agent",
+    )
+    query = RetrievalQuery(
+        query_id="q_1",
+        query_type="legal_issue",
+        text="数据出境安全评估 申报条件",
+    )
+    monkeypatch.setattr(
+        "law_agent.review.service.run_case_analyst",
+        lambda **kwargs: CaseAnalysis(
+            facts=ReviewFacts(cross_border_transfer=True),
+            issue_plan=IssuePlan(
+                issues=[
+                    ReviewIssue(
+                        issue_id="issue_1",
+                        question="是否需要申报？",
+                        query_ids=[query.query_id],
+                        query_types=["legal_issue"],
+                    )
+                ]
+            ),
+            queries=[query],
+        ),
+    )
+    monkeypatch.setattr(
+        "law_agent.review.service.build_review_result_with_deepseek",
+        lambda **kwargs: ReviewResult(
+            review_result_id="result_test",
+            review_case_id="review_test",
+            trace_id="trace_test",
+            risk_level="high",
+            conclusion="需要进一步核验。",
+            review_facts=kwargs["facts"],
+        ),
+    )
+    monkeypatch.setattr(
+        "law_agent.review.service.run_evidence_critic",
+        lambda **kwargs: CritiqueDecision(
+            decision="revision_required",
+            revision_actions=[
+                {
+                    "operation": "narrow_claim",
+                    "reason": "收窄结论",
+                }
+            ],
+            reason="证据只支持条件性判断",
+        ),
+    )
+    monkeypatch.setattr(
+        "law_agent.review.service.revise_review_result_with_deepseek",
+        lambda **kwargs: (_ for _ in ()).throw(
+            ReviewWorkflowFailed(
+                failed_node="compliance_reviewer",
+                reason="revision_patch_validation_failed",
+                message="revision failed",
+                attempts=1,
+            )
+        ),
+    )
+
+    with pytest.raises(ReviewWorkflowFailed, match="revision failed"):
+        run_hybrid_retrieval(
+            case_id="review_test",
+            chunks_path=chunks_path,
+            output_dir=tmp_path,
+            top_k=5,
+            review_mode="multi_agent",
+            keyword_retriever=_RecordingSearchManyRetriever(
+                FIXTURE_CHUNKS, "elasticsearch"
+            ),
+            vector_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "pgvector"),
+        )
+
+    trace = read_retrieval_traces(tmp_path / "retrieval_traces.jsonl")[0]
+    assert trace.agent_steps[-1].agent_name == "compliance_reviewer"
+    assert trace.agent_steps[-1].status == "failed"
 
 
 def test_run_hybrid_retrieval_uses_wide_candidate_pool_before_final_top_k(

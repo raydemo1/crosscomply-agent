@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 
 from law_agent.config import require_llm_config
+from law_agent.data.schemas import Chunk
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.facts import FactsExtractor, extract_facts_with_deepseek
 from law_agent.review.llm import StructuredLLMNode
@@ -15,6 +16,10 @@ from law_agent.review.query_planner import (
     LLMRetrievalQuery,
     plan_issue_queries_with_deepseek,
 )
+from law_agent.review.retrieval.adapters import KeywordSearchAdapter, VectorSearchAdapter
+from law_agent.review.retrieval.boosts import apply_boosts_to_hits
+from law_agent.review.retrieval.fusion import rrf_fuse, source_aware_fuse
+from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
 from law_agent.review.retrieval.text import tokenize
 from law_agent.review.schemas import (
     CaseAnalysis,
@@ -24,6 +29,7 @@ from law_agent.review.schemas import (
     IssueDraft,
     IssuePlan,
     IssuePlanDraft,
+    IssueResearchResult,
     RetrievalHit,
     RetrievalQuery,
     ReviewFacts,
@@ -62,7 +68,10 @@ def build_issue_planning_messages(
             role="system",
             content=(
                 "你是企业数据合规审查的 Case Analyst。只负责把材料拆成最多四个相互独立、"
-                "可由法律证据回答的问题。不要生成检索词，不要给出法律结论。"
+                "可由法律证据回答的问题。每个 issue 必须是一个可独立研究的法律或合规问题，"
+                "不得按同一制度的近义表述重复拆分。只使用材料已明确给出的事实；材料缺失时，"
+                "将其留给后续检索和报告披露，不得补充假设。不要生成检索词，不要给出法律结论，"
+                "不要判断风险等级或建议措施。"
             ),
         ),
         ChatMessage(
@@ -70,6 +79,9 @@ def build_issue_planning_messages(
             content=(
                 "输出严格 JSON，issues 至少一项。每个 issue 必须有明确 question 和至少一个 "
                 "query_type；query_types、required_evidence_roles 必须使用受控枚举。"
+                "issue.question 应写成后续 Researcher 可以直接回答的具体问题，而不是材料摘要、"
+                "宽泛的合规检查清单或预设结论。优先覆盖用户问题所需的核心判断，再覆盖由材料"
+                "明确触发的独立问题。"
                 f"\njson_example={json.dumps(example, ensure_ascii=False)}"
                 f"\npayload={json.dumps(payload, ensure_ascii=False)}"
             ),
@@ -198,19 +210,96 @@ def run_case_analyst(
     )
 
 
+def run_evidence_researcher(
+    *,
+    issue: ReviewIssue,
+    queries: list[RetrievalQuery],
+    facts: ReviewFacts,
+    chunks_by_id: Mapping[str, Chunk],
+    keyword_retriever: KeywordSearchAdapter,
+    vector_retriever: VectorSearchAdapter,
+    candidate_top_k: int,
+) -> IssueResearchResult:
+    """Execute one issue's bounded retrieval-tool workflow.
+
+    The Evidence Researcher does not invent a second LLM planning step. Its
+    only authority is to execute the Case Analyst's assigned queries and to
+    return the issue-scoped evidence pool consumed by the Evidence Gate.
+    """
+
+    query_by_id = {query.query_id: query for query in queries}
+    issue_queries = [
+        query_by_id[query_id]
+        for query_id in issue.query_ids
+        if query_id in query_by_id
+    ]
+    if not issue_queries:
+        raise ValueError(f"issue {issue.issue_id} has no executable queries")
+
+    pairs = [(query.text, query.query_type) for query in issue_queries]
+    keyword_per_query = keyword_retriever.search_many(pairs, top_k=candidate_top_k)
+    vector_per_query = vector_retriever.search_many(pairs, top_k=candidate_top_k)
+    if len(keyword_per_query) != len(issue_queries) or len(vector_per_query) != len(
+        issue_queries
+    ):
+        raise RuntimeError(
+            f"issue {issue.issue_id} retrieval adapter returned a mismatched result count"
+        )
+
+    def tag_query_type(
+        per_query_hits: list[list[RetrievalHit]],
+    ) -> list[list[RetrievalHit]]:
+        return [
+            [
+                hit.model_copy(update={"matched_query_type": query.query_type})
+                for hit in hits
+            ]
+            for query, hits in zip(issue_queries, per_query_hits, strict=True)
+        ]
+
+    keyword_per_query = tag_query_type(keyword_per_query)
+    vector_per_query = tag_query_type(vector_per_query)
+    keyword_hits = merge_hits_by_chunk_id(keyword_per_query, top_k=candidate_top_k)
+    vector_hits = merge_hits_by_chunk_id(vector_per_query, top_k=candidate_top_k)
+    candidate_hits = rrf_fuse(
+        apply_boosts_to_hits(keyword_hits, chunks_by_id, facts),
+        apply_boosts_to_hits(vector_hits, chunks_by_id, facts),
+        top_k=candidate_top_k,
+    )
+    evidence_hits = source_aware_fuse(
+        candidate_hits,
+        top_k=candidate_top_k,
+        chunks_by_id=chunks_by_id,
+    )
+    return IssueResearchResult(
+        issue_id=issue.issue_id,
+        executed_queries=issue_queries,
+        keyword_hits=keyword_hits,
+        vector_hits=vector_hits,
+        candidate_hits=candidate_hits,
+        evidence_hits=evidence_hits,
+    )
+
+
 def build_evidence_dossiers(
     issue_plan: IssuePlan,
     evidence_hits: list[RetrievalHit],
     *,
     issue_hits_by_issue: dict[str, list[RetrievalHit]] | None = None,
+    research_results: list[IssueResearchResult] | None = None,
 ) -> list[EvidenceDossier]:
-    """Assign retrieved evidence to issues using recorded query types."""
+    """Build the deterministic Evidence Gate handoff for every issue."""
 
+    results_by_issue = {
+        result.issue_id: result for result in (research_results or [])
+    }
     dossiers: list[EvidenceDossier] = []
     for issue in issue_plan.issues:
         matched = (
             issue_hits_by_issue.get(issue.issue_id, [])
             if issue_hits_by_issue is not None
+            else results_by_issue[issue.issue_id].evidence_hits
+            if issue.issue_id in results_by_issue
             else [
                 hit
                 for hit in evidence_hits
@@ -219,12 +308,26 @@ def build_evidence_dossiers(
         )
         chunk_ids = list(dict.fromkeys(hit.chunk_id for hit in matched))
         source_ids = list(dict.fromkeys(hit.source_id for hit in matched))
+        found_roles = {hit.citation_role for hit in matched}
+        missing_roles = [
+            role
+            for role in issue.required_evidence_roles
+            if role not in found_roles
+        ]
+        if not matched:
+            coverage_status = "missing"
+        elif missing_roles:
+            coverage_status = "partial"
+        else:
+            coverage_status = "covered"
         dossiers.append(
             EvidenceDossier(
                 issue_id=issue.issue_id,
                 evidence_chunk_ids=chunk_ids,
                 source_ids=source_ids,
-                evidence_gap=not chunk_ids,
+                evidence_gap=coverage_status != "covered",
+                coverage_status=coverage_status,
+                missing_evidence_roles=missing_roles,
             )
         )
     return dossiers
@@ -437,7 +540,7 @@ def build_critic_messages(
         ],
     }
     example = {
-        "decision": "revise",
+        "decision": "revision_required",
         "unsupported_claims": ["缺少直接依据的确定性结论"],
         "missing_issue_ids": [],
         "revision_instructions": [],
@@ -456,8 +559,11 @@ def build_critic_messages(
             role="system",
             content=(
                 "你是企业数据合规审查的 Evidence Critic。只检查结论是否超出证据、"
-                "高优先级 issue 是否遗漏、风险等级是否与证据冲突。若缺少可补齐的关键证据，"
-                "可给出最多三个 targeted_retrieval_requests；不要要求文风修改。"
+                "高优先级 issue 是否遗漏、风险等级是否与证据冲突。issues 是 Reviewer 必须覆盖的"
+                "问题清单；dossiers 是每个问题已经归属的证据和覆盖状态。不要重新分析案件、"
+                "重新规划 issue 或要求文风修改。accept 仅在没有实质性证据或覆盖问题时使用；"
+                "research_required 仅用于缺少且可能通过一次具体检索补齐的证据；"
+                "revision_required 用于现有证据已经足够完成收窄、删除或披露缺口的修订。"
                 "修订必须使用 revision_actions 的受控操作；不得要求引用 payload 中不存在的法规。"
             ),
         ),
@@ -465,9 +571,14 @@ def build_critic_messages(
             role="user",
             content=(
                 "请输出严格 JSON。revision_instructions 是兼容字段，保持为空；"
-                "approve 时 revision_instructions 和 targeted_retrieval_requests 必须为空；"
-                "approve 时 revision_actions 也必须为空。需要补证据但当前没有直接依据时，"
-                "使用 mark_evidence_gap 或 narrow_claim；定向查询必须短、具体。"
+                "decision 只能是 accept、research_required、revision_required。"
+                "accept 时 revision_instructions、revision_actions 和 targeted_retrieval_requests 必须为空；"
+                "research_required 必须提供 targeted_retrieval_requests 和后续修订 actions；"
+                "revision_required 不得提供 targeted_retrieval_requests。若 dossier.coverage_status 为"
+                "partial 或 missing，不得因该 issue 未被单独写成段落就直接判错；只在报告遗漏"
+                "必要结论、把缺口写成确定事实，或证据与结论冲突时采取行动。需要补证据但当前没有"
+                "直接依据时，使用 mark_evidence_gap 或 narrow_claim；定向查询必须短、具体，"
+                "只服务于指定 issue，且不得把材料未说明的事实写进 query。"
                 f"\njson_example={json.dumps(example, ensure_ascii=False)}"
                 f"\npayload={json.dumps(payload, ensure_ascii=False)}"
             ),
