@@ -10,6 +10,7 @@ from pydantic import Field, field_validator, model_validator
 from law_agent.data.schemas import ClauseCitationRole, StrictModel
 
 ReviewInputMode = Literal["pasted_text", "uploaded_file"]
+ReviewMode = Literal["llm", "multi_agent"]
 RiskLevel = Literal["high", "medium", "low", "insufficient_evidence"]
 RetrievalQueryType = Literal[
     "legal_issue",
@@ -199,6 +200,21 @@ class IssuePlan(StrictModel):
     issues: list[ReviewIssue] = Field(default_factory=list, max_length=5)
 
 
+class IssueDraft(StrictModel):
+    """One issue-planning node output before queries have been generated."""
+
+    question: str = Field(min_length=1)
+    query_types: list[RetrievalQueryType] = Field(min_length=1)
+    required_evidence_roles: list[ClauseCitationRole] = Field(default_factory=list)
+    priority: Literal["high", "medium", "low"] = "medium"
+
+
+class IssuePlanDraft(StrictModel):
+    """Strict output of the Case Analyst issue-planning step."""
+
+    issues: list[IssueDraft] = Field(min_length=1, max_length=4)
+
+
 class EvidenceDossier(StrictModel):
     """Evidence gathered for one review issue."""
 
@@ -211,6 +227,7 @@ class EvidenceDossier(StrictModel):
 class CaseAnalysis(StrictModel):
     """Case-analyst output with issue-specific queries ready for retrieval."""
 
+    facts: ReviewFacts
     issue_plan: IssuePlan
     queries: list[RetrievalQuery] = Field(default_factory=list)
 
@@ -286,7 +303,7 @@ class CritiqueDecision(StrictModel):
     reason: str
 
     @model_validator(mode="after")
-    def revision_requires_instructions(self) -> "CritiqueDecision":
+    def revision_requires_instructions(self) -> CritiqueDecision:
         if (
             self.decision == "revise"
             and not self.revision_instructions
@@ -345,6 +362,7 @@ class ReviewCase(StrictModel):
     question: str
     material: MaterialRecord
     review_facts: ReviewFacts
+    review_mode: ReviewMode = "llm"
     trace_id: str
     latest_result_id: str | None = None
     user_feedback: dict[str, str] = Field(default_factory=dict)

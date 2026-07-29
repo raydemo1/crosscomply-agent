@@ -6,9 +6,9 @@ and produces a comparison summary.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -20,16 +20,21 @@ from law_agent.review.evalset.schemas import (
     CaseMetricResult,
     EvalScenario,
     EvalSummary,
-    ModeMetrics,
 )
 from law_agent.review.ids import utc_now_iso
-from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.io import (
     read_review_results,
 )
+from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
+from law_agent.review.schemas import (
+    CaseAnalysis,
+    IssuePlan,
+    RetrievalQuery,
+    ReviewFacts,
+    ReviewIssue,
+)
 from law_agent.review.service import create_review_case, run_service_retrieval
-from law_agent.review.schemas import ReviewFacts, RetrievalQuery
 
 ReviewEvalMode = Literal["llm", "multi_agent"]
 DEFAULT_REVIEW_MODE: ReviewEvalMode = "llm"
@@ -41,7 +46,7 @@ DEFAULT_EVAL_INPUTS_DIR = Path("data/review_runs/eval_inputs")
 
 @dataclass(frozen=True)
 class EvalCaseInput:
-    """Frozen LLM facts and queries reused by comparable evaluation runs."""
+    """Frozen research inputs used to make retrieval evaluation reproducible."""
 
     facts: ReviewFacts
     queries: list[RetrievalQuery]
@@ -227,6 +232,33 @@ def _build_eval_input(scenario: EvalScenario) -> EvalCaseInput:
     )
 
 
+def _frozen_case_analyst(input: EvalCaseInput):
+    """Adapt frozen eval input to the runtime Case Analyst interface."""
+
+    query_types = list(dict.fromkeys(query.query_type for query in input.queries))
+    issue_plan = IssuePlan(
+        issues=[
+            ReviewIssue(
+                issue_id="issue_1",
+                question="Frozen evaluation research plan",
+                query_ids=[query.query_id for query in input.queries],
+                query_types=query_types,
+                required_evidence_roles=["primary_legal_basis"],
+                priority="high",
+            )
+        ]
+    )
+
+    def run(*, question: str, material_text: str, trace_id: str) -> CaseAnalysis:
+        return CaseAnalysis(
+            facts=input.facts,
+            issue_plan=issue_plan,
+            queries=input.queries,
+        )
+
+    return run
+
+
 def _run_single_case(
     scenario: EvalScenario,
     chunks_path: Path | str,
@@ -244,11 +276,14 @@ def _run_single_case(
         tmp_path = Path(tmpdir)
         facts_extractor = None
         query_planner = None
-        if eval_input is not None:
+        case_analyst = None
+        if eval_input is not None and review_mode == "llm":
             facts_extractor = lambda _material, _question=None: eval_input.facts
             query_planner = lambda _question, _facts, _material=None: eval_input.queries
+        elif eval_input is not None:
+            case_analyst = _frozen_case_analyst(eval_input)
 
-        response = create_review_case(
+        create_review_case(
             question=scenario.question,
             material_text=scenario.material_text,
             output_dir=tmp_path,
@@ -270,6 +305,7 @@ def _run_single_case(
             rerank_mode=rerank_mode,
             config=service_config,
             adapters=service_adapters,
+            case_analyst=case_analyst,
         )
         hits = trace.final_evidence or trace.hybrid_results
         second_retrieval_triggered = trace.evidence_self_check.second_retrieval_triggered

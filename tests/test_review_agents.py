@@ -1,20 +1,25 @@
 from __future__ import annotations
 
+from threading import Barrier
+
 from law_agent.llm.openai_compatible import ChatMessage
 from law_agent.review.agents import (
     build_evidence_dossiers,
-    build_issue_plan,
     run_case_analyst,
-    should_run_case_analyst,
     run_evidence_critic,
     gate_revision_actions,
     select_issue_aware_hits,
     should_run_evidence_critic,
 )
+from law_agent.review.query_planner import LLMRetrievalQuery
 from law_agent.review.schemas import (
     CritiqueDecision,
     EvidenceSelfCheck,
+    IssueDraft,
+    IssuePlan,
+    IssuePlanDraft,
     ReviewFacts,
+    ReviewIssue,
     ReviewResult,
     RetrievalQuery,
 )
@@ -32,18 +37,19 @@ class FakeClient:
         return self.output
 
 
-def test_issue_plan_groups_queries_into_bounded_review_issues() -> None:
-    queries = [
-        RetrievalQuery(query_id="q_1", query_type="legal_issue", text="出境评估条件"),
-        RetrievalQuery(query_id="q_2", query_type="legal_issue", text="标准合同条件"),
-        RetrievalQuery(query_id="q_3", query_type="region_condition", text="上海负面清单"),
-    ]
-
-    plan = build_issue_plan(queries)
-
-    assert [issue.issue_id for issue in plan.issues] == ["issue_1", "issue_2"]
-    assert plan.issues[0].query_ids == ["q_1", "q_2"]
-    assert plan.issues[1].query_ids == ["q_3"]
+def _issue_plan(queries: list[RetrievalQuery]) -> IssuePlan:
+    return IssuePlan(
+        issues=[
+            ReviewIssue(
+                issue_id=f"issue_{index}",
+                question=query.text,
+                query_ids=[query.query_id],
+                query_types=[query.query_type],
+                priority="high" if query.query_type == "legal_issue" else "medium",
+            )
+            for index, query in enumerate(queries, start=1)
+        ]
+    )
 
 
 def test_evidence_dossiers_map_hits_to_issue_query_types() -> None:
@@ -51,7 +57,7 @@ def test_evidence_dossiers_map_hits_to_issue_query_types() -> None:
         RetrievalQuery(query_id="q_1", query_type="legal_issue", text="出境评估条件"),
         RetrievalQuery(query_id="q_2", query_type="region_condition", text="上海负面清单"),
     ]
-    plan = build_issue_plan(queries)
+    plan = _issue_plan(queries)
     hits = [
         _hit().model_copy(update={"chunk_id": "legal", "matched_query_type": "legal_issue"}),
         _hit().model_copy(update={"chunk_id": "region", "matched_query_type": "region_condition"}),
@@ -64,63 +70,90 @@ def test_evidence_dossiers_map_hits_to_issue_query_types() -> None:
     assert all(not dossier.evidence_gap for dossier in dossiers)
 
 
-def test_case_analyst_adds_issue_specific_queries_without_replacing_frozen_inputs() -> None:
-    initial = [
-        RetrievalQuery(query_id="q_1", query_type="legal_issue", text="数据出境条件")
-    ]
-    client = FakeClient(
-        {
-            "issues": [
-                {
-                    "issue_id": "draft",
-                    "question": "是否达到安全评估申报门槛？",
-                    "query_ids": [],
-                    "query_types": ["legal_issue"],
-                    "research_queries": ["数据出境安全评估 申报门槛 条件"],
-                    "required_evidence_roles": ["primary_legal_basis"],
-                    "priority": "high",
-                }
+def test_case_analyst_runs_three_steps_and_parallel_issue_queries() -> None:
+    calls: list[str] = []
+    barrier = Barrier(2)
+    facts = ReviewFacts(cross_border_transfer=True, region="上海")
+
+    def fake_facts(material_text: str, question: str | None = None) -> ReviewFacts:
+        calls.append("facts")
+        assert material_text == "向境外提供个人信息。"
+        assert question == "是否需要申报？"
+        return facts
+
+    def fake_issue_plan(
+        question: str, material_text: str, extracted_facts: ReviewFacts
+    ) -> IssuePlanDraft:
+        calls.append("issues")
+        assert (question, material_text, extracted_facts) == (
+            "是否需要申报？",
+            "向境外提供个人信息。",
+            facts,
+        )
+        return IssuePlanDraft(
+            issues=[
+                IssueDraft(
+                    question="是否达到安全评估申报门槛？",
+                    query_types=["legal_issue"],
+                    required_evidence_roles=["primary_legal_basis"],
+                    priority="high",
+                ),
+                IssueDraft(
+                    question="是否适用上海自贸区负面清单？",
+                    query_types=["region_condition"],
+                ),
             ]
-        }
-    )
+        )
+
+    def fake_issue_queries(
+        question: str,
+        material_text: str,
+        extracted_facts: ReviewFacts,
+        issue: IssueDraft,
+    ) -> list[LLMRetrievalQuery]:
+        assert (question, material_text, extracted_facts) == (
+            "是否需要申报？",
+            "向境外提供个人信息。",
+            facts,
+        )
+        barrier.wait(timeout=1)
+        calls.append(f"queries:{issue.question}")
+        if issue.query_types == ["legal_issue"]:
+            return [
+                LLMRetrievalQuery(
+                    query_type="legal_issue",
+                    text="数据出境安全评估 申报条件",
+                    pathway="security_assessment",
+                )
+            ]
+        return [
+            LLMRetrievalQuery(
+                query_type="region_condition",
+                text="上海自贸区 数据出境 负面清单",
+            )
+        ]
 
     analysis = run_case_analyst(
         question="是否需要申报？",
         material_text="向境外提供个人信息。",
-        facts=ReviewFacts(cross_border_transfer=True),
-        initial_queries=initial,
-        client=client,  # type: ignore[arg-type]
-        max_retries=0,
+        facts_extractor=fake_facts,
+        issue_planner=fake_issue_plan,
+        issue_query_planner=fake_issue_queries,
     )
 
-    assert analysis.queries[0] == initial[0]
-    assert analysis.queries[1].query_id == "q_2"
-    assert analysis.issue_plan.issues[0].query_ids == ["q_2"]
-    assert analysis.issue_plan.issues[0].research_queries == [
-        "数据出境安全评估 申报门槛 条件"
-    ]
-
-
-def test_case_analyst_routing_requires_compound_complexity() -> None:
-    assert should_run_case_analyst(
-        ReviewFacts(
-            cross_border_transfer=True,
-            sensitive_personal_info=True,
-        ),
-        "是否需要申报？",
-    )
-    assert should_run_case_analyst(
-        ReviewFacts(cross_border_transfer=True),
-        "安全评估与标准合同发生冲突时如何选择？",
-    )
-    assert not should_run_case_analyst(
-        ReviewFacts(cross_border_transfer=True),
-        "是否需要申报？",
-    )
+    assert calls[:2] == ["facts", "issues"]
+    assert {call for call in calls[2:]} == {
+        "queries:是否达到安全评估申报门槛？",
+        "queries:是否适用上海自贸区负面清单？",
+    }
+    assert analysis.facts == facts
+    assert [query.query_id for query in analysis.queries] == ["q_1", "q_2"]
+    assert analysis.issue_plan.issues[0].query_ids == ["q_1"]
+    assert analysis.issue_plan.issues[1].query_ids == ["q_2"]
 
 
 def test_issue_aware_selection_reserves_evidence_for_each_issue() -> None:
-    plan = build_issue_plan(
+    plan = _issue_plan(
         [
             RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心条件"),
             RetrievalQuery(query_id="q_2", query_type="region_condition", text="地区条件"),
@@ -148,7 +181,7 @@ def test_issue_aware_selection_reserves_evidence_for_each_issue() -> None:
 
 
 def test_issue_aware_selection_does_not_force_weak_medium_hit_into_top_five() -> None:
-    plan = build_issue_plan(
+    plan = _issue_plan(
         [RetrievalQuery(query_id="q_1", query_type="region_condition", text="地区条件")]
     )
     global_hits = [
@@ -177,7 +210,7 @@ def test_issue_aware_selection_does_not_force_weak_medium_hit_into_top_five() ->
 
 
 def test_dossiers_can_use_issue_specific_candidate_pools() -> None:
-    plan = build_issue_plan(
+    plan = _issue_plan(
         [RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心条件")]
     )
     precise = _hit().model_copy(update={"chunk_id": "precise", "source_id": "law"})
@@ -265,7 +298,7 @@ def test_revision_gate_rejects_irrelevant_citable_hit_for_external_law() -> None
 
 
 def test_critic_only_runs_for_risk_or_evidence_signals() -> None:
-    plan = build_issue_plan(
+    plan = _issue_plan(
         [RetrievalQuery(query_id="q_1", query_type="legal_issue", text="一般问题")]
     )
     low_result = ReviewResult(
@@ -288,7 +321,7 @@ def test_critic_only_runs_for_risk_or_evidence_signals() -> None:
         plan,
     )
 
-    four_issue_plan = build_issue_plan(
+    four_issue_plan = _issue_plan(
         [
             RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心"),
             RetrievalQuery(query_id="q_2", query_type="region_condition", text="地区"),
@@ -328,7 +361,7 @@ def test_evidence_critic_returns_strict_revision_decision() -> None:
             "reason": "关键问题未覆盖",
         }
     )
-    plan = build_issue_plan(
+    plan = _issue_plan(
         [RetrievalQuery(query_id="q_1", query_type="legal_issue", text="出境评估条件")]
     )
     result = ReviewResult(

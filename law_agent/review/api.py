@@ -532,7 +532,7 @@ def create_app(
                 return ReviewResponse(
                     review_case_id=case_id,
                     trace_id=trace_id,
-                    review_facts=response.review_case.review_facts,
+                    review_facts=review_result.review_facts,
                     review_result=review_result,
                     evidence_self_check=trace.evidence_self_check,
                     citation_groups=review_result.applicable_evidence,

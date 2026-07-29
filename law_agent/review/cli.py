@@ -36,17 +36,20 @@ def _cmd_run(args: argparse.Namespace) -> int:
     print(f"Trace {response.trace.trace_id}")
     print(f"Result {response.result.review_result_id}")
 
-    facts = response.review_case.review_facts
-    print(f"Facts: cross_border={facts.cross_border_transfer}, data_types={facts.data_types}")
-    if facts.industry:
-        print(f"  industry={facts.industry}")
-    if facts.region:
-        print(f"  region={facts.region}")
-    if facts.missing_information:
-        print(f"  missing={facts.missing_information}")
-    print(f"Queries: {len(response.trace.queries)} planned")
-    for query in response.trace.queries:
-        print(f"  [{query.query_type}] {query.text}")
+    if args.mode == "multi_agent":
+        print("Case Analyst will extract facts and plan issue queries during retrieval.")
+    else:
+        facts = response.review_case.review_facts
+        print(f"Facts: cross_border={facts.cross_border_transfer}, data_types={facts.data_types}")
+        if facts.industry:
+            print(f"  industry={facts.industry}")
+        if facts.region:
+            print(f"  region={facts.region}")
+        if facts.missing_information:
+            print(f"  missing={facts.missing_information}")
+        print(f"Queries: {len(response.trace.queries)} planned")
+        for query in response.trace.queries:
+            print(f"  [{query.query_type}] {query.text}")
 
     print(f"Wrote {response.case_path}")
     print(f"Wrote {response.trace_path}")

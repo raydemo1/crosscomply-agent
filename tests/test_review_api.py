@@ -10,7 +10,15 @@ from law_agent.data.io import write_jsonl
 from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.api import create_app
 from law_agent.review.citations import group_citations
-from law_agent.review.schemas import ReviewFacts, ReviewResult, RetrievalHit, RetrievalQuery
+from law_agent.review.schemas import (
+    CaseAnalysis,
+    IssuePlan,
+    ReviewFacts,
+    ReviewIssue,
+    ReviewResult,
+    RetrievalHit,
+    RetrievalQuery,
+)
 
 from tests.test_review_retrieval_keyword import FIXTURE_CHUNKS
 
@@ -103,6 +111,31 @@ def client(fixture_corpus: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     monkeypatch.setattr("law_agent.review.service.extract_facts_with_deepseek", fake_facts)
     monkeypatch.setattr("law_agent.review.service.plan_queries_with_deepseek", fake_queries)
+    monkeypatch.setattr(
+        "law_agent.review.service.run_case_analyst",
+        lambda **kwargs: CaseAnalysis(
+            facts=fake_facts(kwargs["material_text"], kwargs["question"]),
+            issue_plan=IssuePlan(
+                issues=[
+                    ReviewIssue(
+                        issue_id="issue_1",
+                        question=kwargs["question"],
+                        query_ids=["q_analyst"],
+                        query_types=["legal_issue"],
+                        required_evidence_roles=["primary_legal_basis"],
+                        priority="high",
+                    )
+                ]
+            ),
+            queries=[
+                RetrievalQuery(
+                    query_id="q_analyst",
+                    query_type="legal_issue",
+                    text=kwargs["question"],
+                )
+            ],
+        ),
+    )
     monkeypatch.setattr("law_agent.review.api.run_service_retrieval", fake_service_retrieval)
     monkeypatch.setattr("law_agent.review.service.needs_llm_self_check", lambda **kwargs: False)
     monkeypatch.setattr("law_agent.review.service.build_review_result_with_deepseek", fake_result)
@@ -202,6 +235,23 @@ def test_review_accepts_json_body_for_backward_compatibility(client: TestClient)
     data = response.json()
     assert data["review_facts"]["cross_border_transfer"] is True
     assert data["review_result"]["conclusion"]
+
+
+def test_multi_agent_review_returns_facts_from_case_analyst(client: TestClient) -> None:
+    response = client.post(
+        "/api/review",
+        json={
+            "question": "这个场景是否需要数据出境安全评估？",
+            "material_text": "我们会将手机号发送给新加坡服务商。",
+            "review_mode": "multi_agent",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["review_facts"]["cross_border_transfer"] is True
+    assert data["review_result"]["review_facts"] == data["review_facts"]
+    assert data["retrieval_queries"][0]["query_id"] == "q_analyst"
 
 
 def test_review_workflow_failure_returns_structured_review_failed(

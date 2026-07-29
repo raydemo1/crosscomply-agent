@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from pathlib import Path
-import time
 from typing import Literal
 
 from law_agent.config import RerankMode, load_rerank_config
+from law_agent.review.agents import (
+    build_evidence_dossiers,
+    gate_revision_actions,
+    run_case_analyst,
+    run_evidence_critic,
+    select_issue_aware_hits,
+    should_run_evidence_critic,
+)
 from law_agent.review.evidence import (
     evaluate_after_second_retrieval,
     needs_llm_self_check,
@@ -15,31 +23,23 @@ from law_agent.review.evidence import (
     run_self_check_with_deepseek,
     validate_llm_self_check,
 )
-from law_agent.review.agents import (
-    build_evidence_dossiers,
-    build_issue_plan,
-    gate_revision_actions,
-    run_case_analyst,
-    run_evidence_critic,
-    select_issue_aware_hits,
-    should_run_case_analyst,
-    should_run_evidence_critic,
-)
 from law_agent.review.facts import (
     FactsExtractor,
     extract_facts_with_deepseek,
 )
 from law_agent.review.ids import make_id, utc_now_iso
-from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.io import (
     read_retrieval_traces,
+    read_review_cases,
+    read_review_results,
+    retrieval_traces_path,
     review_cases_path,
     review_results_path,
-    retrieval_traces_path,
+    write_retrieval_traces,
     write_review_cases,
     write_review_results,
-    write_retrieval_traces,
 )
+from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.materials import material_from_text
 from law_agent.review.query_planner import (
     QueryPlanner,
@@ -49,32 +49,34 @@ from law_agent.review.result_builder import (
     build_review_result_with_deepseek,
     revise_review_result_with_deepseek,
 )
-from law_agent.review.retrieval.boosts import (
-    apply_boosts_to_hits,
-    compute_boosts_summary,
-)
 from law_agent.review.retrieval.adapters import (
     KeywordSearchAdapter,
     VectorSearchAdapter,
 )
-from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, CorpusError, load_corpus
+from law_agent.review.retrieval.boosts import (
+    apply_boosts_to_hits,
+    compute_boosts_summary,
+)
+from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
 from law_agent.review.retrieval.fusion import rrf_fuse, rrf_fuse_many, source_aware_fuse
 from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
 from law_agent.review.retrieval.neighbors import expand_neighbors
 from law_agent.review.retrieval.rerank import rerank_hits
 from law_agent.review.schemas import (
-    EvidenceSelfCheck,
     AgentStep,
+    CaseAnalysis,
+    EvidenceSelfCheck,
+    IssuePlan,
     MaterialRecord,
-    ReviewCase,
-    ReviewFacts,
-    ReviewResult,
-    ReviewRunResponse,
-    SourceEvidencePacket,
     RetrievalHit,
     RetrievalQuery,
     RetrievalTrace,
-    IssuePlan,
+    ReviewCase,
+    ReviewFacts,
+    ReviewMode,
+    ReviewResult,
+    ReviewRunResponse,
+    SourceEvidencePacket,
 )
 from law_agent.review.telemetry import current_telemetry, reset_telemetry
 
@@ -82,9 +84,9 @@ DEFAULT_REVIEW_RUNS_DIR = Path("data/review_runs")
 PLACEHOLDER_CONCLUSION = "Review case created. Evidence retrieval has not run yet."
 DEFAULT_TOP_K = 10
 DEFAULT_CANDIDATE_TOP_K = 50
-ReviewMode = Literal["llm", "multi_agent"]
 ResultFormat = Literal["plain", "markdown"]
 DEFAULT_SUPPORTING_CHUNKS_PER_SOURCE = 2
+CaseAnalystRunner = Callable[..., CaseAnalysis]
 
 
 def _build_issue_hit_pools(
@@ -137,14 +139,7 @@ def create_review_case(
     facts_extractor: FactsExtractor | None = None,
     query_planner: QueryPlanner | None = None,
 ) -> ReviewRunResponse:
-    """Create and persist a review case with extracted facts and planned queries.
-
-    Issue 4 integration: facts are extracted from the material text and typed
-    retrieval queries are planned from the question plus facts. Both are
-    persisted into the review case and retrieval trace. Evidence retrieval,
-    self-check, and result generation remain placeholder states for later
-    issues.
-    """
+    """Create and persist either an LLM-ready case or a multi-agent shell."""
 
     reset_telemetry()
     started = time.perf_counter()
@@ -161,13 +156,18 @@ def create_review_case(
     trace_id = id_factory("trace")
     review_result_id = id_factory("result")
 
-    if facts_extractor is None:
-        facts_extractor = extract_facts_with_deepseek
-    if query_planner is None:
-        query_planner = plan_queries_with_deepseek
-
-    facts = facts_extractor(material.material_text, question)
-    queries: list[RetrievalQuery] = query_planner(question, facts, material.material_text)
+    if review_mode == "llm":
+        if facts_extractor is None:
+            facts_extractor = extract_facts_with_deepseek
+        if query_planner is None:
+            query_planner = plan_queries_with_deepseek
+        facts = facts_extractor(material.material_text, question)
+        queries: list[RetrievalQuery] = query_planner(
+            question, facts, material.material_text
+        )
+    else:
+        facts = ReviewFacts()
+        queries = []
     elapsed_ms = int((time.perf_counter() - started) * 1000)
     telemetry = current_telemetry()
 
@@ -185,6 +185,7 @@ def create_review_case(
         question=question,
         material=material,
         review_facts=facts,
+        review_mode=review_mode,
         trace_id=trace_id,
         latest_result_id=review_result_id,
     )
@@ -247,15 +248,7 @@ def _load_case_and_trace(
     if target_trace is None:
         raise ValueError(f"review case {case_id} not found in {trace_path}")
 
-    if not target_trace.queries:
-        raise ValueError(
-            f"review case {case_id} has no planned queries; "
-            "ensure create_review_case ran fact extraction and query planning."
-        )
-
     cases_path = review_cases_path(output_dir)
-    from law_agent.review.io import read_review_cases
-
     cases = read_review_cases(cases_path)
     target_case: ReviewCase | None = None
     for case in cases:
@@ -346,6 +339,7 @@ def run_hybrid_retrieval(
     keyword_retriever: KeywordSearchAdapter,
     vector_retriever: VectorSearchAdapter,
     output_format: ResultFormat = "plain",
+    case_analyst: CaseAnalystRunner | None = None,
 ) -> RetrievalTrace:
     """Run hybrid retrieval for an existing review case.
 
@@ -359,45 +353,87 @@ def run_hybrid_retrieval(
 
     total_started = time.perf_counter()
     case, target_trace, traces = _load_case_and_trace(case_id, output_dir)
+    if case.review_mode != review_mode:
+        raise ValueError(
+            f"review case {case_id} was created for {case.review_mode!r} mode, "
+            f"not {review_mode!r}"
+        )
+
     facts = case.review_facts
-    initial_queries = list(target_trace.queries)
     multi_agent = review_mode == "multi_agent"
     agent_steps: list[AgentStep] = []
     issue_plan = None
-    analyst_routed = multi_agent and should_run_case_analyst(facts, case.question)
-    if analyst_routed:
+    if multi_agent and target_trace.issue_plan is not None and target_trace.queries:
+        issue_plan = target_trace.issue_plan
+        agent_steps = [
+            step
+            for step in target_trace.agent_steps
+            if step.agent_name == "case_analyst"
+        ]
+    elif multi_agent:
         analyst_started = time.perf_counter()
         analyst_calls_before = current_telemetry().llm_call_count
-        analysis = run_case_analyst(
-            question=case.question,
-            material_text=case.material.material_text,
-            facts=facts,
-            initial_queries=target_trace.queries,
-            trace_id=target_trace.trace_id,
+        analysis = (
+            case_analyst(
+                question=case.question,
+                material_text=case.material.material_text,
+                trace_id=target_trace.trace_id,
+            )
+            if case_analyst is not None
+            else run_case_analyst(
+                question=case.question,
+                material_text=case.material.material_text,
+                trace_id=target_trace.trace_id,
+            )
         )
+        facts = analysis.facts
         issue_plan = analysis.issue_plan
-        target_trace = target_trace.model_copy(update={"queries": analysis.queries})
-        agent_steps.append(
-            AgentStep(
-                agent_name="case_analyst",
-                status="completed",
-                decision=(
-                    f"planned {len(issue_plan.issues)} issues and "
-                    f"{len(analysis.queries)} total queries"
-                ),
-                latency_ms=int((time.perf_counter() - analyst_started) * 1000),
-                llm_calls=current_telemetry().llm_call_count - analyst_calls_before,
-            )
+        analyst_step = AgentStep(
+            agent_name="case_analyst",
+            status="completed",
+            decision=(
+                f"extracted facts, planned {len(issue_plan.issues)} issues and "
+                f"{len(analysis.queries)} total queries"
+            ),
+            latency_ms=int((time.perf_counter() - analyst_started) * 1000),
+            llm_calls=current_telemetry().llm_call_count - analyst_calls_before,
         )
-    elif multi_agent:
-        issue_plan = build_issue_plan(target_trace.queries)
-        agent_steps.append(
-            AgentStep(
-                agent_name="case_analyst",
-                status="skipped",
-                decision="deterministic routing: simple or single-path case",
-            )
+        agent_steps = [analyst_step]
+        case = case.model_copy(update={"review_facts": facts})
+        target_trace = target_trace.model_copy(
+            update={
+                "queries": analysis.queries,
+                "issue_plan": issue_plan,
+                "agent_steps": agent_steps,
+            }
         )
+        cases = read_review_cases(review_cases_path(output_dir))
+        write_review_cases(
+            review_cases_path(output_dir),
+            [case if item.review_case_id == case_id else item for item in cases],
+        )
+        traces = [
+            target_trace if item.trace_id == target_trace.trace_id else item
+            for item in traces
+        ]
+        write_retrieval_traces(retrieval_traces_path(output_dir), traces)
+        results = read_review_results(review_results_path(output_dir))
+        write_review_results(
+            review_results_path(output_dir),
+            [
+                result.model_copy(update={"review_facts": facts})
+                if result.review_case_id == case_id
+                else result
+                for result in results
+            ],
+        )
+    elif not target_trace.queries:
+        raise ValueError(
+            f"review case {case_id} has no planned queries; "
+            "ensure create_review_case ran fact extraction and query planning."
+        )
+
+    initial_queries = list(target_trace.queries)
     research_calls_before = current_telemetry().llm_call_count
 
     chunks = load_corpus(chunks_path)
@@ -921,8 +957,6 @@ def run_hybrid_retrieval(
             )
 
     # Persist updated result
-    from law_agent.review.io import read_review_results
-
     results_path = review_results_path(output_dir)
     if results_path.exists():
         existing_results = read_review_results(results_path)
@@ -975,9 +1009,10 @@ def run_service_retrieval(
     max_neighbors: int = DEFAULT_NEIGHBOR_COUNT,
     review_mode: ReviewMode = "llm",
     rerank_mode: RerankMode = "off",
-    config: "object | None" = None,
-    adapters: "object | None" = None,
+    config: object | None = None,
+    adapters: object | None = None,
     output_format: ResultFormat = "plain",
+    case_analyst: CaseAnalystRunner | None = None,
 ) -> RetrievalTrace:
     """Run hybrid retrieval backed by real Elasticsearch + pgvector.
 
@@ -1016,6 +1051,7 @@ def run_service_retrieval(
             keyword_retriever=adapters.keyword,
             vector_retriever=adapters.vector,
             output_format=output_format,
+            case_analyst=case_analyst,
         )
     finally:
         if own_adapters:

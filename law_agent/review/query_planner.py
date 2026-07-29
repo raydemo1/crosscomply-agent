@@ -11,7 +11,12 @@ from law_agent.config import require_llm_config
 from law_agent.data.schemas import StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.llm import StructuredLLMNode
-from law_agent.review.schemas import ReviewFacts, RetrievalQuery, RetrievalQueryType
+from law_agent.review.schemas import (
+    IssueDraft,
+    RetrievalQuery,
+    RetrievalQueryType,
+    ReviewFacts,
+)
 
 QueryPlanner = Callable[[str, ReviewFacts, str | None], list[RetrievalQuery]]
 
@@ -339,6 +344,54 @@ def build_query_planning_messages(
     ]
 
 
+def build_issue_query_planning_messages(
+    *,
+    question: str,
+    material_text: str,
+    facts: ReviewFacts,
+    issue: IssueDraft,
+) -> list[ChatMessage]:
+    """Build one bounded query-planning prompt for a single review issue."""
+
+    json_example = {
+        "queries": [
+            {
+                "query_type": "legal_issue",
+                "text": "数据出境安全评估 申报条件 个人信息数量阈值",
+                "pathway": "security_assessment",
+            }
+        ]
+    }
+    payload = {
+        "case_question": question,
+        "material_text": material_text[:6000],
+        "review_facts": facts.model_dump(),
+        "issue": issue.model_dump(),
+        "controlled_legal_pathways": _CONTROLLED_LEGAL_PATHWAY_ANCHORS,
+        "controlled_region_facets": _CONTROLLED_REGION_FACETS,
+        "controlled_industry_facets": _CONTROLLED_INDUSTRY_FACETS,
+        "json_example": json_example,
+        "instructions": [
+            "只为当前 issue 生成 1 到 3 条互补、可直接检索的查询。",
+            "query_type 必须属于 issue.query_types；不要生成其他议题的查询。",
+            "legal_issue 查询必须选择受控 legal pathway，并使用其制度名或文件名作为锚点。",
+            "region_condition 和 industry_condition 只能在审查事实明确匹配受控 facet 时生成。",
+            "missing_information 查询只针对当前 issue 所需但材料缺失的事实，不得假设该事实成立。",
+            "保留材料中的否定或边界条件，例如暂不出境、仅境内处理、是否一定触发。",
+            "查询应短而具体，优先包含可命中文件标题的中文关键词。",
+            "严格输出 json object；不要输出 query_id，query_id 由系统分配。",
+            "legal_issue 的 pathway 必须是受控 legal pathway 的名称；其他 query_type 的 pathway 必须为 null。",
+        ],
+    }
+    return [
+        ChatMessage(
+            role="system",
+            content="你是法律合规检索 query planning 助手。只输出 json。",
+        ),
+        ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
+    ]
+
+
 def plan_queries_with_deepseek(
     question: str,
     facts: ReviewFacts,
@@ -378,6 +431,55 @@ def plan_queries_with_deepseek(
         )
 
     return queries
+
+
+def plan_issue_queries_with_deepseek(
+    *,
+    question: str,
+    material_text: str,
+    facts: ReviewFacts,
+    issue: IssueDraft,
+    client: OpenAICompatibleClient | None = None,
+    max_retries: int | None = None,
+    trace_id: str | None = None,
+) -> list[LLMRetrievalQuery]:
+    """Plan bounded queries for one Case Analyst issue without assigning IDs."""
+
+    if client is None:
+        client = OpenAICompatibleClient(require_llm_config())
+    node = StructuredLLMNode(
+        node_name="query_planning",
+        output_model=LLMQueryPlan,
+        client=client,
+        max_retries=max_retries,
+        trace_id=trace_id,
+    )
+
+    def validate_issue_scope(plan: LLMQueryPlan) -> LLMQueryPlan:
+        allowed_types = set(issue.query_types)
+        invalid = [
+            query.query_type
+            for query in plan.queries
+            if query.query_type not in allowed_types
+        ]
+        if invalid:
+            raise ValueError(
+                "issue query planner returned query types outside the issue scope: "
+                + ", ".join(sorted(set(invalid)))
+            )
+        return plan
+
+    plan = node.run(
+        build_issue_query_planning_messages(
+            question=question,
+            material_text=material_text,
+            facts=facts,
+            issue=issue,
+        ),
+        post_validate=validate_issue_scope,
+        post_validation_reason="issue_query_scope_invalid",
+    )
+    return plan.queries[:3]
 
 
 plan_queries_with_llm = plan_queries_with_deepseek

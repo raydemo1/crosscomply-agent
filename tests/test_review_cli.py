@@ -278,6 +278,29 @@ def test_create_review_case_llm_mode_uses_llm_nodes(tmp_path: Path, monkeypatch)
     assert response.trace.queries[0].text == "数据出境安全评估"
 
 
+def test_create_review_case_multi_agent_only_persists_a_shell(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def should_not_run(*args, **kwargs):
+        raise AssertionError("case creation must not invoke LLM planning in multi-agent mode")
+
+    monkeypatch.setattr("law_agent.review.service.extract_facts_with_deepseek", should_not_run)
+    monkeypatch.setattr("law_agent.review.service.plan_queries_with_deepseek", should_not_run)
+
+    response = create_review_case(
+        question="这个场景是否需要数据出境安全评估？",
+        material_text="手机号发送给新加坡服务商。",
+        output_dir=tmp_path,
+        review_mode="multi_agent",
+    )
+
+    assert response.review_case.review_mode == "multi_agent"
+    assert response.review_case.review_facts == ReviewFacts()
+    assert response.trace.queries == []
+    assert response.result.review_facts == ReviewFacts()
+
+
 def test_review_cli_index_service_writes_index_artifacts(
     tmp_path: Path,
     capsys,

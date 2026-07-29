@@ -6,6 +6,7 @@ import pytest
 
 from law_agent.data.io import write_jsonl
 from law_agent.data.schemas import Chunk
+from law_agent.review.io import read_review_cases, read_review_results, read_retrieval_traces
 from law_agent.review.retrieval.boosts import (
     CONDITIONAL_INDUSTRY_MISMATCH_WEIGHT,
     CONDITIONAL_LOCAL_MISMATCH_WEIGHT,
@@ -699,19 +700,6 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
     from law_agent.review.service import create_review_case, run_hybrid_retrieval
     from law_agent.review.llm import ReviewWorkflowFailed
 
-    # Override the autouse fact stub so the Case Analyst routing condition
-    # (should_run_case_analyst) is satisfied: region + cross_border give the
-    # compound complexity required to invoke the Analyst path.
-    monkeypatch.setattr(
-        "law_agent.review.service.extract_facts_with_deepseek",
-        lambda material, question=None: ReviewFacts(
-            cross_border_transfer=True,
-            region="上海",
-            data_types=["手机号"],
-            missing_information=[],
-        ),
-    )
-
     chunks_path = _write_fixture_corpus(tmp_path)
     response = create_review_case(
         question="这个场景是否需要数据出境安全评估？",
@@ -719,6 +707,7 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
         output_dir=tmp_path,
         now=lambda: "2026-07-06T00:00:00+00:00",
         id_factory=lambda prefix: f"{prefix}_test",
+        review_mode="multi_agent",
     )
     revision_inputs: list[list[str] | None] = []
 
@@ -738,6 +727,12 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
     monkeypatch.setattr(
         "law_agent.review.service.run_case_analyst",
         lambda **kwargs: CaseAnalysis(
+            facts=ReviewFacts(
+                cross_border_transfer=True,
+                region="上海",
+                data_types=["手机号"],
+                missing_information=[],
+            ),
             issue_plan=IssuePlan(
                 issues=[
                     ReviewIssue(
@@ -745,13 +740,12 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
                         question="是否达到申报门槛？",
                         query_ids=[analyst_query.query_id],
                         query_types=["legal_issue"],
-                        research_queries=[analyst_query.text],
                         required_evidence_roles=["primary_legal_basis"],
                         priority="high",
                     )
                 ]
             ),
-            queries=list(kwargs["initial_queries"]) + [analyst_query],
+            queries=[analyst_query],
         ),
     )
 
@@ -763,7 +757,7 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
             trace_id="trace_test",
             risk_level="high",
             conclusion="需要进一步核验。",
-            review_facts=response.review_case.review_facts,
+            review_facts=kwargs["facts"],
         )
 
     def fake_revise_result(**kwargs):
@@ -842,6 +836,12 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
     assert revision_step.status == (
         "failed" if failure_stage == "revision" else "completed"
     )
+    persisted_case = read_review_cases(response.case_path)[0]
+    persisted_trace = read_retrieval_traces(response.trace_path)[0]
+    persisted_result = read_review_results(response.result_path)[0]
+    assert persisted_case.review_facts.region == "上海"
+    assert persisted_trace.issue_plan == trace.issue_plan
+    assert persisted_result.review_facts.region == "上海"
 
 
 def test_run_hybrid_retrieval_uses_wide_candidate_pool_before_final_top_k(

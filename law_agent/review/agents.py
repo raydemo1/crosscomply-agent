@@ -4,123 +4,54 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 from law_agent.config import require_llm_config
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
+from law_agent.review.facts import FactsExtractor, extract_facts_with_deepseek
 from law_agent.review.llm import StructuredLLMNode
+from law_agent.review.query_planner import (
+    LLMRetrievalQuery,
+    plan_issue_queries_with_deepseek,
+)
 from law_agent.review.retrieval.text import tokenize
 from law_agent.review.schemas import (
     CaseAnalysis,
     CritiqueDecision,
     EvidenceDossier,
     EvidenceSelfCheck,
+    IssueDraft,
     IssuePlan,
+    IssuePlanDraft,
+    RetrievalHit,
+    RetrievalQuery,
+    ReviewFacts,
     ReviewIssue,
     ReviewResult,
     RevisionAction,
-    RetrievalHit,
-    RetrievalQuery,
-    RetrievalQueryType,
 )
 
-_ISSUE_GROUPS: tuple[tuple[str, tuple[RetrievalQueryType, ...], str], ...] = (
-    ("核心法律问题", ("legal_issue", "material_fact"), "high"),
-    ("地区适用条件", ("region_condition",), "medium"),
-    ("行业适用条件", ("industry_condition",), "medium"),
-    ("关键缺失信息", ("missing_information",), "medium"),
-)
+IssuePlanner = Callable[[str, str, ReviewFacts], IssuePlanDraft]
+IssueQueryPlanner = Callable[[str, str, ReviewFacts, IssueDraft], list[LLMRetrievalQuery]]
 
 
-_MAX_ISSUES = 5
-
-
-def build_issue_plan(queries: list[RetrievalQuery]) -> IssuePlan:
-    """Group existing typed queries into at most five review issues.
-
-    The core legal bucket (legal_issue + material_fact) is sub-grouped by
-    pathway so that distinct legal institutions become separate issues.
-    """
-
-    issues: list[ReviewIssue] = []
-
-    for label, query_types, priority in _ISSUE_GROUPS:
-        grouped = [query for query in queries if query.query_type in query_types]
-        if not grouped:
-            continue
-
-        # Sub-group the core legal bucket by pathway.
-        if "legal_issue" in query_types:
-            by_pathway: dict[str, list[RetrievalQuery]] = {}
-            for query in grouped:
-                key = query.pathway or ""
-                by_pathway.setdefault(key, []).append(query)
-            for pathway_key, sub in by_pathway.items():
-                if len(issues) >= _MAX_ISSUES:
-                    break
-                suffix = f"（{pathway_key}）" if pathway_key else ""
-                issue_number = len(issues) + 1
-                issues.append(
-                    ReviewIssue(
-                        issue_id=f"issue_{issue_number}",
-                        question=f"{label}{suffix}：" + "；".join(q.text for q in sub),
-                        query_ids=[q.query_id for q in sub],
-                        query_types=list(dict.fromkeys(q.query_type for q in sub)),
-                        priority=priority,
-                    )
-                )
-        else:
-            if len(issues) >= _MAX_ISSUES:
-                break
-            issue_number = len(issues) + 1
-            issues.append(
-                ReviewIssue(
-                    issue_id=f"issue_{issue_number}",
-                    question=f"{label}：" + "；".join(query.text for query in grouped),
-                    query_ids=[query.query_id for query in grouped],
-                    query_types=list(dict.fromkeys(query.query_type for query in grouped)),
-                    priority=priority,
-                )
-            )
-
-    return IssuePlan(issues=issues)
-
-
-def should_run_case_analyst(facts: object, question: str) -> bool:
-    """Route only compound cases through the LLM-owned Analyst module."""
-
-    facets = (
-        bool(getattr(facts, "region", None)),
-        bool(getattr(facts, "industry", None)),
-        getattr(facts, "cross_border_transfer", None) is True,
-        getattr(facts, "sensitive_personal_info", None) is True,
-    )
-    compound_sensitive_path = sum(facets) >= 2 and (facets[2] or facets[3])
-    conflict_markers = ("冲突", "比较", "哪个", "边界", "分别", "同时满足", "优先")
-    explicit_path_conflict = any(marker in question for marker in conflict_markers)
-    return compound_sensitive_path or explicit_path_conflict
-
-
-def build_case_analyst_messages(
+def build_issue_planning_messages(
     *,
     question: str,
     material_text: str,
-    facts: object,
-    initial_queries: list[RetrievalQuery],
+    facts: ReviewFacts,
 ) -> list[ChatMessage]:
     payload = {
         "question": question,
-        "material_text": material_text,
+        "material_text": material_text[:6000],
         "facts": facts.model_dump(),
-        "initial_queries": [query.model_dump() for query in initial_queries],
     }
     example = {
         "issues": [
             {
-                "issue_id": "issue_1",
                 "question": "是否达到数据出境安全评估申报条件？",
-                "query_ids": [],
                 "query_types": ["legal_issue"],
-                "research_queries": ["数据出境安全评估 申报条件 条文"],
                 "required_evidence_roles": ["primary_legal_basis"],
                 "priority": "high",
             }
@@ -130,17 +61,15 @@ def build_case_analyst_messages(
         ChatMessage(
             role="system",
             content=(
-                "你是企业数据合规审查的 Case Analyst。把材料拆成最多四个相互独立、"
-                "可由法律证据回答的问题。每个问题生成一到三个短而具体的检索词，优先使用"
-                "明确制度名、义务、门槛、地区或行业锚点；禁止只复述材料或生成宽泛问题。"
-                "不要给出法律结论。query_ids 留空，由系统分配。"
+                "你是企业数据合规审查的 Case Analyst。只负责把材料拆成最多四个相互独立、"
+                "可由法律证据回答的问题。不要生成检索词，不要给出法律结论。"
             ),
         ),
         ChatMessage(
             role="user",
             content=(
-                "输出严格 JSON，issues 至少一项。query_types、required_evidence_roles 必须使用"
-                "示例所示受控枚举。"
+                "输出严格 JSON，issues 至少一项。每个 issue 必须有明确 question 和至少一个 "
+                "query_type；query_types、required_evidence_roles 必须使用受控枚举。"
                 f"\njson_example={json.dumps(example, ensure_ascii=False)}"
                 f"\npayload={json.dumps(payload, ensure_ascii=False)}"
             ),
@@ -148,67 +77,125 @@ def build_case_analyst_messages(
     ]
 
 
-def run_case_analyst(
+def plan_issues_with_deepseek(
     *,
     question: str,
     material_text: str,
-    facts: object,
-    initial_queries: list[RetrievalQuery],
+    facts: ReviewFacts,
     client: OpenAICompatibleClient | None = None,
     max_retries: int | None = None,
     trace_id: str | None = None,
-) -> CaseAnalysis:
-    """Generate issue-specific research queries while preserving frozen inputs."""
+) -> IssuePlanDraft:
+    """Run the Case Analyst issue-planning node."""
 
     if client is None:
         client = OpenAICompatibleClient(require_llm_config())
     node = StructuredLLMNode(
         node_name="case_analyst",
-        output_model=IssuePlan,
+        output_model=IssuePlanDraft,
         client=client,
         max_retries=max_retries,
         trace_id=trace_id,
     )
-    draft = node.run(
-        build_case_analyst_messages(
+    return node.run(
+        build_issue_planning_messages(
             question=question,
             material_text=material_text,
             facts=facts,
-            initial_queries=initial_queries,
         )
     )
 
-    combined = list(initial_queries)
-    seen_text = {query.text.strip().casefold() for query in initial_queries}
-    next_id = len(initial_queries) + 1
-    normalized_issues: list[ReviewIssue] = []
-    for index, issue in enumerate(draft.issues[:4], start=1):
-        assigned: list[str] = []
-        query_type = issue.query_types[0] if issue.query_types else "legal_issue"
-        for text in issue.research_queries[:3]:
-            normalized = text.strip()
-            if not normalized or normalized.casefold() in seen_text:
-                continue
+
+def run_case_analyst(
+    *,
+    question: str,
+    material_text: str,
+    client: OpenAICompatibleClient | None = None,
+    max_retries: int | None = None,
+    trace_id: str | None = None,
+    facts_extractor: FactsExtractor | None = None,
+    issue_planner: IssuePlanner | None = None,
+    issue_query_planner: IssueQueryPlanner | None = None,
+) -> CaseAnalysis:
+    """Run the multi-step Case Analyst and return its complete research plan.
+
+    Fact extraction and issue planning execute in sequence. Query planning is
+    independent after issue planning, so each issue is generated concurrently
+    and merged in issue order with system-assigned query IDs.
+    """
+
+    if facts_extractor is not None:
+        facts = facts_extractor(material_text, question)
+    else:
+        facts = extract_facts_with_deepseek(
+            material_text,
+            question,
+            client=client,
+            max_retries=max_retries,
+            trace_id=trace_id,
+        )
+
+    if issue_planner is not None:
+        draft = issue_planner(question, material_text, facts)
+    else:
+        draft = plan_issues_with_deepseek(
+            question=question,
+            material_text=material_text,
+            facts=facts,
+            client=client,
+            max_retries=max_retries,
+            trace_id=trace_id,
+        )
+
+    def plan_for_issue(issue: IssueDraft) -> list[LLMRetrievalQuery]:
+        if issue_query_planner is not None:
+            return issue_query_planner(question, material_text, facts, issue)
+        return plan_issue_queries_with_deepseek(
+            question=question,
+            material_text=material_text,
+            facts=facts,
+            issue=issue,
+            client=client,
+            max_retries=max_retries,
+            trace_id=trace_id,
+        )
+
+    with ThreadPoolExecutor(max_workers=len(draft.issues)) as executor:
+        query_drafts_by_issue = list(executor.map(plan_for_issue, draft.issues))
+
+    queries: list[RetrievalQuery] = []
+    issues: list[ReviewIssue] = []
+    next_query_id = 1
+    for issue_number, (draft_issue, query_drafts) in enumerate(
+        zip(draft.issues, query_drafts_by_issue, strict=True), start=1
+    ):
+        issue_queries: list[RetrievalQuery] = []
+        for query_draft in query_drafts:
             query = RetrievalQuery(
-                query_id=f"q_{next_id}", query_type=query_type, text=normalized
+                query_id=f"q_{next_query_id}",
+                query_type=query_draft.query_type,
+                text=query_draft.text.strip(),
+                pathway=query_draft.pathway,
             )
-            next_id += 1
-            combined.append(query)
-            assigned.append(query.query_id)
-            seen_text.add(normalized.casefold())
-        if not assigned:
-            matching = [q.query_id for q in initial_queries if q.query_type in issue.query_types]
-            assigned = matching[:3]
-        normalized_issues.append(
-            issue.model_copy(
-                update={"issue_id": f"issue_{index}", "query_ids": assigned}
+            next_query_id += 1
+            issue_queries.append(query)
+            queries.append(query)
+        issues.append(
+            ReviewIssue(
+                issue_id=f"issue_{issue_number}",
+                question=draft_issue.question,
+                query_ids=[query.query_id for query in issue_queries],
+                query_types=draft_issue.query_types,
+                required_evidence_roles=draft_issue.required_evidence_roles,
+                priority=draft_issue.priority,
             )
         )
 
-    if not normalized_issues:
-        fallback = build_issue_plan(initial_queries)
-        return CaseAnalysis(issue_plan=fallback, queries=combined)
-    return CaseAnalysis(issue_plan=IssuePlan(issues=normalized_issues), queries=combined)
+    return CaseAnalysis(
+        facts=facts,
+        issue_plan=IssuePlan(issues=issues),
+        queries=queries,
+    )
 
 
 def build_evidence_dossiers(
