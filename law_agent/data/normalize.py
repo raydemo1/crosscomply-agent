@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Literal
 from xml.etree import ElementTree as ET
 
-from law_agent.data.schemas import Document, DocumentSection, IngestMeta, SourceRecord
+from law_agent.data.schemas import Document, IngestMeta, SourceRecord
 
 
 HTML_TAG_RE = re.compile(r"<[^>]+>")
@@ -424,7 +424,6 @@ def normalize_source(
 ) -> Document:
     parsed = _read_text(raw_path, parser=parser, parser_output_dir=parser_output_dir)
     text = parsed.text
-    structure = [DocumentSection(heading_path=[record.title], text=text.strip())]
     return Document(
         doc_id=record.source_id,
         source_id=record.source_id,
@@ -450,7 +449,6 @@ def normalize_source(
         topic_tags=record.topic_tags,
         raw_format=raw_path.suffix.lstrip(".") or record.file_format,
         text=text,
-        structure=structure,
         ingest_meta=IngestMeta(
             fetched_at=datetime.now(timezone.utc).isoformat(),
             parser=parsed.parser,

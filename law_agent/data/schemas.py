@@ -115,13 +115,6 @@ class SourceRecord(StrictModel):
         return _to_bool(value)
 
 
-class DocumentSection(StrictModel):
-    """A structured section extracted from a source document."""
-
-    heading_path: list[str] = Field(default_factory=list)
-    text: str
-
-
 class Attachment(StrictModel):
     """A linked attachment discovered during ingestion."""
 
@@ -166,7 +159,6 @@ class Document(StrictModel):
     topic_tags: list[str] = Field(default_factory=list)
     raw_format: str = "html"
     text: str
-    structure: list[DocumentSection] = Field(default_factory=list)
     attachments: list[Attachment] = Field(default_factory=list)
     ingest_meta: IngestMeta
 

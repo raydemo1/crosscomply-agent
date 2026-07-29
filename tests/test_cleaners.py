@@ -1,6 +1,4 @@
 from law_agent.data.cleaners.common import clean_text
-from law_agent.data.cleaners.pipeline import clean_document
-from law_agent.data.schemas import Document, IngestMeta
 
 
 def test_clean_text_removes_mechanical_noise_without_rewriting_articles() -> None:
@@ -218,32 +216,3 @@ def test_clean_text_removes_pdf_cover_ocr_fragments() -> None:
     assert "Cyber" not in result.text
     assert "\n委\n" not in result.text
     assert result.rule_hits["pdf_cover_fragment_lines"] == 3
-
-
-def test_clean_document_cleans_structure_sections() -> None:
-    document = Document(
-        doc_id="doc-1",
-        source_id="src-1",
-        title="测试文档",
-        source_url="https://example.com",
-        source_site="example.com",
-        doc_type="policy",
-        text="测试文档\n正文\n",
-        structure=[
-            {
-                "heading_path": ["测试文档"],
-                "text": "Title: 测试文档\nMarkdown Content:\n正文\nProduced By CMS 网站群内容管理系统\n",
-            }
-        ],
-        ingest_meta=IngestMeta(
-            fetched_at="2026-07-02T00:00:00+00:00",
-            parser="test_parser",
-            parser_version="0.1.0",
-        ),
-    )
-
-    cleaned = clean_document(document)
-
-    assert "Title:" not in cleaned.structure[0].text
-    assert "Produced By CMS" not in cleaned.structure[0].text
-    assert "正文" in cleaned.structure[0].text

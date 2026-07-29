@@ -15,7 +15,6 @@ PART_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+篇
 CHAPTER_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+章")
 SECTION_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+节")
 ITEM_RE = re.compile(r"^(（[一二三四五六七八九十百千万零〇\d]+）|\([一二三四五六七八九十百千万零〇\d]+\))")
-ARTICLE_SOFT_LIMIT_CHARS = 480
 ARTICLE_HARD_LIMIT_CHARS = 650
 MIN_PARAGRAPH_CHUNK_CHARS = 120
 
