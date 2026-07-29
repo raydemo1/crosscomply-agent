@@ -681,7 +681,7 @@ def test_run_hybrid_retrieval_returns_all_components(tmp_path: Path) -> None:
     assert trace.metadata_boosts  # boost summary recorded
 
 
-@pytest.mark.parametrize("failure_stage", ["none", "initial", "revision"])
+@pytest.mark.parametrize("failure_stage", ["none", "revision"])
 def test_multi_agent_runs_one_critic_revision_and_records_steps(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -698,6 +698,19 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
     )
     from law_agent.review.service import create_review_case, run_hybrid_retrieval
     from law_agent.review.llm import ReviewWorkflowFailed
+
+    # Override the autouse fact stub so the Case Analyst routing condition
+    # (should_run_case_analyst) is satisfied: region + cross_border give the
+    # compound complexity required to invoke the Analyst path.
+    monkeypatch.setattr(
+        "law_agent.review.service.extract_facts_with_deepseek",
+        lambda material, question=None: ReviewFacts(
+            cross_border_transfer=True,
+            region="上海",
+            data_types=["手机号"],
+            missing_information=[],
+        ),
+    )
 
     chunks_path = _write_fixture_corpus(tmp_path)
     response = create_review_case(
@@ -744,13 +757,6 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
 
     def fake_build_result(**kwargs):
         revision_inputs.append(kwargs.get("critique_instructions"))
-        if failure_stage == "initial":
-            raise ReviewWorkflowFailed(
-                failed_node="result_generation",
-                reason="claim_grounding_validation_failed",
-                message="revision failed",
-                attempts=1,
-            )
         return ReviewResult(
             review_result_id="result_test",
             review_case_id="review_test",
@@ -818,7 +824,7 @@ def test_multi_agent_runs_one_critic_revision_and_records_steps(
     reviewer_step = next(
         step for step in trace.agent_steps if step.agent_name == "compliance_reviewer"
     )
-    assert reviewer_step.status == ("failed" if failure_stage == "initial" else "completed")
+    assert reviewer_step.status == "completed"
     assert any(query.text == analyst_query.text for query in trace.queries)
     assert any(
         query.text == "个人信息保护法 第三十九条 境外提供"

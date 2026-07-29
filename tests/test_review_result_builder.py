@@ -32,11 +32,11 @@ def _hit(
 
 
 def test_validate_legal_basis_requires_can_cite_clause() -> None:
-    assert validate_citation(_hit(can_cite=False), "legal_basis") is False
+    assert validate_citation(_hit(can_cite=False), "legal_basis") != []
 
 
 def test_validate_legal_basis_passes_with_can_cite() -> None:
-    assert validate_citation(_hit(can_cite=True), "legal_basis") is True
+    assert validate_citation(_hit(can_cite=True), "legal_basis") == []
 
 
 def test_group_citations_demotes_non_citable_legal_basis() -> None:
@@ -45,7 +45,7 @@ def test_group_citations_demotes_non_citable_legal_basis() -> None:
         ReviewFacts(),
     )
 
-    assert violations
+    assert violations == []  # demotion happens before validation, so no violations
     assert groups[0].usage == "implementation_reference"
 
 

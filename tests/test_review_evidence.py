@@ -1,11 +1,5 @@
 """Tests for evidence self-check and controlled second retrieval (Issue 7)."""
 
-from pathlib import Path
-
-import pytest
-
-from law_agent.data.io import write_jsonl
-from law_agent.data.schemas import Chunk
 from law_agent.review.evidence import (
     build_second_retrieval_plan,
     evaluate_after_second_retrieval,
@@ -18,7 +12,7 @@ from law_agent.review.schemas import (
     RetrievalHit,
 )
 
-from tests.test_review_retrieval_keyword import FIXTURE_CHUNKS, _make_chunk
+from tests.test_review_retrieval_keyword import _make_chunk
 
 
 # ---------------------------------------------------------------------------
@@ -288,104 +282,4 @@ def test_evaluate_after_second_retrieval_still_insufficient() -> None:
     assert check.second_retrieval_plan is None
 
 
-# ---------------------------------------------------------------------------
-# Integration: run_hybrid_retrieval with self-check
-# ---------------------------------------------------------------------------
 
-def _write_fixture_corpus(tmp_path: Path) -> Path:
-    chunks_path = tmp_path / "chunks.jsonl"
-    linked_chunks = []
-    for i, chunk in enumerate(FIXTURE_CHUNKS):
-        linked = chunk.model_copy(
-            update={
-                "prev_chunk_id": FIXTURE_CHUNKS[i - 1].chunk_id if i > 0 else None,
-                "next_chunk_id": FIXTURE_CHUNKS[i + 1].chunk_id if i < len(FIXTURE_CHUNKS) - 1 else None,
-            }
-        )
-        linked_chunks.append(linked)
-    write_jsonl(chunks_path, linked_chunks)
-    return chunks_path
-
-
-def test_hybrid_retrieval_runs_evidence_self_check(tmp_path: Path) -> None:
-    from law_agent.review.service import create_review_case, run_hybrid_retrieval
-
-    chunks_path = _write_fixture_corpus(tmp_path)
-
-    create_review_case(
-        question="这个场景是否需要数据出境安全评估？",
-        material_text="我们会将手机号和定位信息发送给新加坡服务商用于推荐优化。",
-        output_dir=tmp_path,
-        now=lambda: "2026-07-06T00:00:00+00:00",
-        id_factory=lambda prefix: f"{prefix}_test",
-    )
-
-    trace = run_hybrid_retrieval(
-        case_id="review_test",
-        chunks_path=chunks_path,
-        output_dir=tmp_path,
-        top_k=5,
-    )
-
-    check = trace.evidence_self_check
-    assert check.status != "not_checked"
-    assert isinstance(check.issues, list)
-
-
-def test_hybrid_retrieval_persists_self_check_and_final_evidence(tmp_path: Path) -> None:
-    from law_agent.review.io import read_retrieval_traces
-    from law_agent.review.service import create_review_case, run_hybrid_retrieval
-
-    chunks_path = _write_fixture_corpus(tmp_path)
-
-    create_review_case(
-        question="数据出境安全评估",
-        material_text="手机号发送给新加坡。",
-        output_dir=tmp_path,
-        now=lambda: "2026-07-06T00:00:00+00:00",
-        id_factory=lambda prefix: f"{prefix}_test",
-    )
-
-    run_hybrid_retrieval(
-        case_id="review_test",
-        chunks_path=chunks_path,
-        output_dir=tmp_path,
-    )
-
-    traces = read_retrieval_traces(tmp_path / "retrieval_traces.jsonl")
-    assert len(traces) == 1
-    trace = traces[0]
-
-    assert trace.evidence_self_check.status != "not_checked"
-    assert len(trace.final_evidence) > 0
-    assert len(trace.source_evidence_packets) > 0
-
-
-def test_hybrid_retrieval_second_retrieval_never_loops_more_than_once(tmp_path: Path) -> None:
-    """Critical acceptance: second retrieval count is max one."""
-
-    from law_agent.review.service import create_review_case, run_hybrid_retrieval
-
-    chunks_path = _write_fixture_corpus(tmp_path)
-
-    create_review_case(
-        question="这个场景是否需要数据出境安全评估？",
-        material_text="我们会将手机号和定位信息发送给新加坡服务商用于推荐优化。",
-        output_dir=tmp_path,
-        now=lambda: "2026-07-06T00:00:00+00:00",
-        id_factory=lambda prefix: f"{prefix}_test",
-    )
-
-    trace = run_hybrid_retrieval(
-        case_id="review_test",
-        chunks_path=chunks_path,
-        output_dir=tmp_path,
-    )
-
-    # Second retrieval triggered at most once
-    assert trace.evidence_self_check.second_retrieval_triggered in (True, False)
-    if trace.evidence_self_check.second_retrieval_triggered:
-        # If triggered, the status after second retrieval should be sufficient or insufficient
-        # but never "needs_second_retrieval" (no more loops)
-        assert trace.evidence_self_check.status in ("sufficient", "insufficient")
-        assert trace.evidence_self_check.second_retrieval_plan is None

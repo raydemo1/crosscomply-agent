@@ -437,7 +437,7 @@ def test_format_summary_text_contains_key_metrics() -> None:
 
     text = format_summary_text(summary)
 
-    assert "RETRIEVAL=LOCAL,REVIEW=LOCAL mode" in text
+    assert "RETRIEVAL=SERVICE,REVIEW=LLM mode" in text
     assert "Recall@3" in text
     assert "MRR@10" in text
     assert "Candidate Recall@50" in text
