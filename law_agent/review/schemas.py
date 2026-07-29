@@ -83,6 +83,7 @@ class RetrievalQuery(StrictModel):
     query_id: str
     query_type: RetrievalQueryType
     text: str
+    pathway: str | None = None
 
 
 class RetrievalHit(StrictModel):

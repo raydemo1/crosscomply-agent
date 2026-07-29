@@ -31,26 +31,57 @@ _ISSUE_GROUPS: tuple[tuple[str, tuple[RetrievalQueryType, ...], str], ...] = (
 )
 
 
+_MAX_ISSUES = 5
+
+
 def build_issue_plan(queries: list[RetrievalQuery]) -> IssuePlan:
-    """Group existing typed queries into at most five review issues."""
+    """Group existing typed queries into at most five review issues.
+
+    The core legal bucket (legal_issue + material_fact) is sub-grouped by
+    pathway so that distinct legal institutions become separate issues.
+    """
 
     issues: list[ReviewIssue] = []
+
     for label, query_types, priority in _ISSUE_GROUPS:
         grouped = [query for query in queries if query.query_type in query_types]
         if not grouped:
             continue
-        issue_number = len(issues) + 1
-        issues.append(
-            ReviewIssue(
-                issue_id=f"issue_{issue_number}",
-                question=f"{label}：" + "；".join(query.text for query in grouped),
-                query_ids=[query.query_id for query in grouped],
-                query_types=list(dict.fromkeys(query.query_type for query in grouped)),
-                priority=priority,
+
+        # Sub-group the core legal bucket by pathway.
+        if "legal_issue" in query_types:
+            by_pathway: dict[str, list[RetrievalQuery]] = {}
+            for query in grouped:
+                key = query.pathway or ""
+                by_pathway.setdefault(key, []).append(query)
+            for pathway_key, sub in by_pathway.items():
+                if len(issues) >= _MAX_ISSUES:
+                    break
+                suffix = f"（{pathway_key}）" if pathway_key else ""
+                issue_number = len(issues) + 1
+                issues.append(
+                    ReviewIssue(
+                        issue_id=f"issue_{issue_number}",
+                        question=f"{label}{suffix}：" + "；".join(q.text for q in sub),
+                        query_ids=[q.query_id for q in sub],
+                        query_types=list(dict.fromkeys(q.query_type for q in sub)),
+                        priority=priority,
+                    )
+                )
+        else:
+            if len(issues) >= _MAX_ISSUES:
+                break
+            issue_number = len(issues) + 1
+            issues.append(
+                ReviewIssue(
+                    issue_id=f"issue_{issue_number}",
+                    question=f"{label}：" + "；".join(query.text for query in grouped),
+                    query_ids=[query.query_id for query in grouped],
+                    query_types=list(dict.fromkeys(query.query_type for query in grouped)),
+                    priority=priority,
+                )
             )
-        )
-        if len(issues) == 5:
-            break
+
     return IssuePlan(issues=issues)
 
 

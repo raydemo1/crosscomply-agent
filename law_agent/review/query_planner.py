@@ -235,6 +235,7 @@ _CONTROLLED_INDUSTRY_FACETS: list[dict[str, object]] = [
 class LLMRetrievalQuery(StrictModel):
     query_type: RetrievalQueryType
     text: str
+    pathway: str | None = None
 
     @field_validator("text")
     @classmethod
@@ -260,14 +261,17 @@ def build_query_planning_messages(
             {
                 "query_type": "legal_issue",
                 "text": "数据出境安全评估 申报条件",
+                "pathway": "security_assessment",
             },
             {
                 "query_type": "material_fact",
                 "text": "手机号 定位信息 新加坡 数据出境",
+                "pathway": None,
             },
             {
                 "query_type": "missing_information",
                 "text": "数据出境安全评估 数据规模 阈值 单独同意",
+                "pathway": None,
             },
         ]
     }
@@ -319,6 +323,7 @@ def build_query_planning_messages(
             "必须输出合法 json object，字段必须与 json_example 完全一致。",
             "query_type 只能使用 allowed_query_types 中的值。",
             "不要输出 query_id，query_id 由程序生成。",
+            "legal_issue 查询必须输出 pathway 字段，值为 controlled_legal_pathways 中对应条目的 pathway 名；其他 query_type 的 pathway 为 null。",
         ],
     }
 
@@ -368,6 +373,7 @@ def plan_queries_with_deepseek(
                 query_id=ids.next_id(),
                 query_type=query.query_type,
                 text=query.text.strip(),
+                pathway=query.pathway,
             )
         )
 
