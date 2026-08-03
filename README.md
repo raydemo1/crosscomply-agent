@@ -12,8 +12,6 @@ CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 
 
 公开站内置一份由真实 service 检索生成的审查报告：结论中的关键法律依据与合规义务直接关联右侧法源证据，完整工作流默认收起。公开站不提供共享审查后端；需要运行新的审查时，请按下文部署完整服务。
 
-项目文档只保留长期维护入口：本文件记录日常开发、运行、启动和评测流程；[系统架构](docs/architecture.md) 解释 Supervisor、Agent 与检索模块；[当前手工标注评测对比](docs/evaluation/optimized-current-comparison.md) 记录 LLM、rerank 与 Multi-Agent 的质量/成本权衡；[三条真实 Trace](docs/evaluation/typical-traces.md) 展示直接成功、二次召回和 Critic 修订；[docs/SERVICE_STACK.md](docs/SERVICE_STACK.md) 记录 Elasticsearch + pgvector 部署；[docs/CONTEXT.md](docs/CONTEXT.md) 记录领域语言。
-
 ## Full evaluation result
 
 | Metric | LLM | LLM + rerank | Bounded Multi-Agent |
@@ -29,7 +27,7 @@ CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 
 | Total LLM calls | **84** | **84** | 215 |
 | Duplicate sources@10 | **0.0000** | **0.0000** | 0.2073 |
 
-三组均使用相同 82 case、真实 service 检索、DeepSeek Flash 和手工复核的核心/辅助法源标签。Must-have 覆盖 76 个有核心法源的场景，Optional 仅覆盖 28 个真正需要指南、模板、Q&A 或国标的场景。rerank 在低调用成本下提升核心法源与排序质量，但存在个别案例回退和 embedding 服务超时风险；Multi-Agent 主要换取更广的辅助来源覆盖。详细口径见[当前评测对比](docs/evaluation/optimized-current-comparison.md)。
+三组均使用相同 82 case、真实 service 检索、DeepSeek Flash 和手工复核的核心/辅助法源标签。Must-have 覆盖 76 个有核心法源的场景，Optional 仅覆盖 28 个真正需要指南、模板、Q&A 或国标的场景。rerank 在低调用成本下提升核心法源与排序质量，但存在个别案例回退和 embedding 服务超时风险；Multi-Agent 主要换取更广的辅助来源覆盖。
 
 ## 开发命令
 
@@ -362,8 +360,6 @@ EMBEDDING_PROVIDER=sentence_transformers
 EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
 EMBEDDING_DIM=1024
 ```
-
-详细架构和运维说明见 [docs/SERVICE_STACK.md](docs/SERVICE_STACK.md)。
 
 ## 前端启动
 
