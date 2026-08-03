@@ -3,6 +3,8 @@ from io import BytesIO
 from pathlib import Path
 import subprocess
 
+import pytest
+
 from law_agent.data import normalize as normalize_module
 from law_agent.data.normalize import ParsedText, _docx_to_text, normalize_source
 from law_agent.data.schemas import SourceRecord
@@ -127,6 +129,7 @@ def test_mineru_parser_runs_cli_and_reads_markdown(tmp_path: Path, monkeypatch) 
 
 
 def test_docling_ocr_options_default_to_rapidocr(monkeypatch) -> None:
+    pytest.importorskip("docling")
     monkeypatch.delenv("LAWAGENT_DOCLING_OCR_ENGINE", raising=False)
 
     options = normalize_module._docling_ocr_options()
@@ -137,6 +140,7 @@ def test_docling_ocr_options_default_to_rapidocr(monkeypatch) -> None:
 
 
 def test_docling_ocr_options_can_use_remote_kserve(monkeypatch) -> None:
+    pytest.importorskip("docling")
     monkeypatch.setenv("LAWAGENT_DOCLING_OCR_ENGINE", "kserve_v2_ocr")
     monkeypatch.setenv("LAWAGENT_DOCLING_OCR_API_URL", "http://127.0.0.1:8000")
     monkeypatch.setenv("LAWAGENT_DOCLING_OCR_MODEL_NAME", "paddleocr")
