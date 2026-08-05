@@ -13,6 +13,17 @@ def test_split_law_articles_preserves_article_markers() -> None:
     ]
 
 
+def test_split_law_articles_accepts_docling_markdown_article_headings() -> None:
+    """Docling may emit each PDF article as a Markdown heading."""
+
+    text = "## 第一条\n保护个人信息。\n\n## 第二条\n规范处理活动。"
+
+    assert split_law_articles(text) == [
+        ("第一条", "第一条\n保护个人信息。"),
+        ("第二条", "第二条\n规范处理活动。"),
+    ]
+
+
 def test_chunk_law_document_keeps_chapter_and_section_path() -> None:
     document = Document(
         doc_id="flk_npc_ff8081817b6472a3017b656cc2040044",
