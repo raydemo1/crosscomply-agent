@@ -38,6 +38,52 @@ def test_clean_text_removes_repeated_contents_table() -> None:
     assert result.rule_hits["contents_table_lines"] == 3
 
 
+def test_clean_text_removes_docling_markdown_law_contents_table() -> None:
+    """PDF parsers can serialize both the TOC and law body as Markdown headings."""
+
+    raw = (
+        "## 深圳经济特区数据条例\n"
+        "## 目 录\n"
+        "## 第一章 总则\n"
+        "## 第二章 个人数据\n"
+        "## 第一章 总则\n"
+        "## 第一条 为了规范数据处理活动，保护自然人合法权益。\n"
+        "## 第二条 本条例中下列用语的含义。\n"
+    )
+
+    result = clean_text(raw, title="深圳经济特区数据条例")
+
+    assert "目 录" not in result.text
+    assert result.text.count("第一章 总则") == 1
+    assert "## 第一条 为了规范数据处理活动" in result.text
+    assert "## 第二条 本条例中下列用语的含义" in result.text
+
+
+def test_clean_text_removes_docling_standard_contents_markdown_table() -> None:
+    """A PDF standard's contents table must not become retrievable text."""
+
+    raw = (
+        "## 信息安全技术 个人信息安全规范\n"
+        "## 目 次\n"
+        "| 前言 |\n"
+        "|---|\n"
+        "| 1 范围 |\n"
+        "| 2 规范性引用文件 |\n"
+        "## 前言\n"
+        "本文件按照 GB/T 1.1—2020 给出的规则起草。\n"
+        "## 1 范围\n"
+        "本文件规定了个人信息处理活动应遵循的原则。\n"
+    )
+
+    result = clean_text(raw, title="信息安全技术 个人信息安全规范")
+
+    assert "目 次" not in result.text
+    assert "| 1 范围 |" not in result.text
+    assert "## 前言" in result.text
+    assert "## 1 范围" in result.text
+    assert result.rule_hits["contents_table_lines"] == 5
+
+
 def test_clean_text_removes_web_boilerplate_from_cac_pages() -> None:
     raw = (
         "Title: 国家互联网信息办公室发布《数据出境安全评估申报指南（第三版）》\n"

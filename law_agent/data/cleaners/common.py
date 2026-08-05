@@ -5,17 +5,19 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-
 CONTROL_CHARS_RE = re.compile(r"[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]")
 TRAILING_SPACE_RE = re.compile(r"[ \t]+\n")
 BLANK_LINES_RE = re.compile(r"\n{3,}")
 CONTENTS_TITLE_RE = re.compile(r"^(contents|目录|目次|tableofcontents)$", re.IGNORECASE)
-STRUCTURAL_HEADING_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+[章节编]")
+STRUCTURAL_HEADING_RE = re.compile(r"^(?:#{1,6}\s+)?第[一二三四五六七八九十百千万零〇\d]+[章节编]")
 DOT_LEADER_TOC_RE = re.compile(r"^\s*.+?[\.·…．]{4,}\s*[IVXLCDM\d]+\s*$", re.IGNORECASE)
 # Broad leader detection: 4+ consecutive dots/leaders anywhere in the line.
 DOT_LEADER_BROAD_RE = re.compile(r"[\.·…．]{4,}")
 # Table-style TOC line: starts with | and contains dot leaders (PDF→markdown tables).
 TABLE_TOC_LINE_RE = re.compile(r"^\|.*[\.·…．]{4,}")
+# Docling can emit a standard's whole contents page as a Markdown table, even
+# when its cells no longer include page-number dot leaders.
+MARKDOWN_TABLE_ROW_RE = re.compile(r"^\|.*\|\s*$")
 # Front-matter body markers that signal end of a TOC block.
 FRONT_MATTER_BODY_RE = re.compile(r"^(?:#{1,6}\s+)?(前\s*言|引\s*言)\b")
 # Isolated clause-number line from standard PDFs: bare "3.2", "5", "5.4.1".
@@ -100,9 +102,7 @@ def _is_toc_line(stripped: str) -> bool:
     if re.fullmatch(r"[IVXLCDM\d]+", stripped, re.IGNORECASE):
         return True
     # Markdown table divider line: |---|---| or | ---- |
-    if re.fullmatch(r"\|[\s:|-]+", stripped):
-        return True
-    return False
+    return bool(re.fullmatch(r"\|[\s:|-]+", stripped))
 
 
 def _is_body_start(stripped: str) -> bool:
@@ -117,9 +117,7 @@ def _is_body_start(stripped: str) -> bool:
     if re.match(r"^1\s*(范围|适用范围)", stripped):
         return True
     # Article marker
-    if re.match(r"^第[一二三四五六七八九十百千万零〇\d]+条", stripped):
-        return True
-    return False
+    return bool(re.match(r"^(?:#{1,6}\s+)?第[一二三四五六七八九十百千万零〇\d]+条", stripped))
 
 
 def _remove_contents_table(lines: list[str]) -> tuple[list[str], int]:
@@ -160,7 +158,28 @@ def _remove_contents_table(lines: list[str]) -> tuple[list[str], int]:
             index = cursor
             continue
 
-        # --- Strategy B: standard-style TOC block (dot leaders / tables) ---
+        # --- Strategy B: a PDF contents page serialized as a Markdown table ---
+        # This is deliberately limited to rows immediately after a contents
+        # heading, so ordinary tables in the document body are never removed.
+        cursor = index + 1
+        while cursor < len(lines) and not lines[cursor].strip():
+            cursor += 1
+        if cursor < len(lines) and MARKDOWN_TABLE_ROW_RE.match(lines[cursor].strip()):
+            table_end = cursor
+            while table_end < len(lines):
+                candidate = lines[table_end].strip()
+                if not candidate:
+                    table_end += 1
+                    continue
+                if MARKDOWN_TABLE_ROW_RE.match(candidate):
+                    table_end += 1
+                    continue
+                break
+            removed += table_end - index
+            index = table_end
+            continue
+
+        # --- Strategy C: standard-style TOC block (dot leaders / tables) ---
         cursor = index + 1
         block_end = index + 1
         saw_toc_line = False

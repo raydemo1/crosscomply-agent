@@ -11,6 +11,7 @@ from pathlib import Path
 
 from law_agent.config import require_service_config
 from law_agent.data.chunking.pipeline import chunk_document
+from law_agent.data.cleaners.pipeline import clean_document
 from law_agent.data.normalize import normalize_source
 from law_agent.data.schemas import SourceRecord
 from law_agent.kb.service import InMemoryIndex, KnowledgeBase, SourceSummary, processing_signature
@@ -39,6 +40,13 @@ def _provisional_source(path: Path) -> SourceRecord:
         file_format=path.suffix.lstrip(".") or "txt",
         include_in_mvp=True,
     )
+
+
+def _prepare_document_for_ingest(path: Path, *, parser: str):
+    """Run the mandatory parse-and-clean part of every ingest request."""
+
+    provisional = _provisional_source(path)
+    return clean_document(normalize_source(provisional, path, parser=parser))
 
 
 def _new_source_from_interaction(path: Path, title: str) -> SourceRecord:
@@ -168,8 +176,9 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     file_path = Path(args.file)
     if not file_path.is_file():
         raise RuntimeError(f"文件不存在：{file_path}")
-    provisional = _provisional_source(file_path)
-    document = normalize_source(provisional, file_path, parser=args.parser)
+    # New material always follows the same canonical path before identity,
+    # chunking and embedding: parse -> deterministic clean -> chunk.
+    document = _prepare_document_for_ingest(file_path, parser=args.parser)
 
     config = require_service_config()
     index = ServiceGenerationIndex(config)
