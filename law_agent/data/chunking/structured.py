@@ -15,6 +15,8 @@ MIN_GENERIC_CHUNK_CHARS = 120
 
 MARKDOWN_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 NUMERIC_HEADING_RE = re.compile(r"^(\d+(?:\.\d+){0,4})[\.、]?\s+(.{1,80})$")
+APPENDIX_HEADING_RE = re.compile(r"^(?:#{1,6}\s+)?附\s*录\s*([A-Z])(?:[\s（(]|$)")
+APPENDIX_SUBHEADING_RE = re.compile(r"^([A-Z])\.(\d+(?:\.\d+){0,4})[\.、]?\s+(.{1,80})$")
 QUESTION_HEADING_RE = re.compile(r"^(?:问|Q|问题)\s*[:：].+")
 TABLE_RE = re.compile(r"<table\b.*?</table>", re.IGNORECASE | re.DOTALL)
 ROW_RE = re.compile(r"<tr\b.*?</tr>", re.IGNORECASE | re.DOTALL)
@@ -99,10 +101,9 @@ def split_table_aware_units(text: str) -> list[StructuredUnit]:
 
     units: list[StructuredUnit] = []
     cursor = 0
-    table_index = 0
     heading_path: list[str] = []
 
-    for match in TABLE_RE.finditer(text):
+    for table_index, match in enumerate(TABLE_RE.finditer(text), start=1):
         before = text[cursor:match.start()]
         before_units = split_heading_units(before)
         if before_units:
@@ -111,7 +112,6 @@ def split_table_aware_units(text: str) -> list[StructuredUnit]:
         else:
             heading_path = _last_context_heading(before, heading_path)
 
-        table_index += 1
         table_heading = [*heading_path, f"表格{table_index}"]
         units.extend(split_table_units(match.group(0), table_heading))
         cursor = match.end()
@@ -228,10 +228,11 @@ def split_heading_units(text: str) -> list[StructuredUnit]:
 
     def flush() -> None:
         nonlocal current_heading, current_path, current_lines
-        if current_lines:
-            if not (len(current_lines) == 1 and current_heading and current_lines[0].strip() == current_heading):
-                citation = " ".join(current_path) if current_path else None
-                units.extend(_split_long_text("\n".join(current_lines), current_path, citation))
+        if current_lines and not (
+            len(current_lines) == 1 and current_heading and current_lines[0].strip() == current_heading
+        ):
+            citation = " ".join(current_path) if current_path else None
+            units.extend(_split_long_text("\n".join(current_lines), current_path, citation))
         current_heading = None
         current_path = []
         current_lines = []
@@ -275,7 +276,17 @@ def _is_decorative_table_shard(text: str) -> bool:
     stripped = text.strip()
     if not stripped.startswith("|"):
         return False
-    return len(stripped) < 30
+    # TableFormer may preserve a visually wide one-cell header as
+    # ``| 编写要求                  |``. Its raw character count is large,
+    # but it still contains no retrievable content once layout whitespace is
+    # ignored.
+    return len(re.sub(r"\s+", "", stripped)) < 30
+
+
+def _is_reference_unit(unit: StructuredUnit) -> bool:
+    """References are useful source metadata, not legal-answer evidence."""
+
+    return any(re.sub(r"\s+", "", heading).lower() in {"参考文献", "references"} for heading in unit.heading_path)
 
 
 def _chunks_from_units(document: Document, units: list[StructuredUnit]) -> list[Chunk]:
@@ -284,7 +295,7 @@ def _chunks_from_units(document: Document, units: list[StructuredUnit]) -> list[
 
     kept_units = [
         unit for unit in units
-        if unit.text.strip() and not _is_decorative_table_shard(unit.text)
+        if unit.text.strip() and not _is_decorative_table_shard(unit.text) and not _is_reference_unit(unit)
     ]
     for index, unit in enumerate(kept_units):
         heading_path = [document.title, *unit.heading_path]
@@ -367,13 +378,26 @@ def _looks_table_heavy(text: str) -> bool:
 
 def _heading_from_line(line: str) -> tuple[int, str] | None:
     stripped = line.strip()
+    appendix = APPENDIX_HEADING_RE.match(stripped)
+    if appendix:
+        value = re.sub(r"^#{1,6}\s+", "", stripped).strip()
+        return 1, value
     markdown = MARKDOWN_HEADING_RE.match(stripped)
     if markdown:
         return min(len(markdown.group(1)), 6), markdown.group(2).strip()
+    appendix_subheading = APPENDIX_SUBHEADING_RE.match(stripped)
+    if appendix_subheading:
+        level = appendix_subheading.group(2).count(".") + 2
+        value = f"{appendix_subheading.group(1)}.{appendix_subheading.group(2)} {appendix_subheading.group(3).strip()}"
+        return min(level, 6), value
     numeric = NUMERIC_HEADING_RE.match(stripped)
-    if numeric and "。" not in numeric.group(2):
+    numeric_title = numeric.group(2).strip() if numeric else ""
+    is_list_item = bool(re.match(r"^(?:[a-zA-Z]|\d+)\)", numeric_title)) or numeric_title.endswith(
+        ("；", "。", ":", "：")
+    )
+    if numeric and not is_list_item:
         level = numeric.group(1).count(".") + 1
-        return min(level, 6), f"{numeric.group(1)} {numeric.group(2).strip()}"
+        return min(level, 6), f"{numeric.group(1)} {numeric_title}"
     if re.match(r"^[一二三四五六七八九十]+、.{1,80}$", stripped):
         return 1, stripped
     if re.match(r"^（[一二三四五六七八九十]+）.{1,80}$", stripped):
