@@ -78,13 +78,13 @@ python -m law_agent.review service-doctor
 
 ### 后续导入或更正知识库资料
 
-初始化现有语料由项目迁移脚本一次性完成；日常不需要区分“新增”还是“更新”。将文件交给同一个入口即可：
+日常不需要区分“新增”还是“更新”。将文件交给同一个入口即可：
 
 ```powershell
 python -m law_agent.kb ingest .\新资料.pdf
 ```
 
-程序先按规范化正文查重：相同内容默认跳过；若标题匹配现有来源，会让你确认是更新还是独立新增。更新时，新 Chunk 先以不可检索状态写入 ES 和 pgvector，校验一致后才切换检索并删除旧 Chunk；未变化 Chunk 会复用 Embedding 缓存。批处理可额外传入 `--non-interactive --metadata source.json`。
+程序先解析、清洗并按规范化正文查重：同一内容即使改了文件名也默认跳过；若正文变化且标题匹配已有来源，会让用户确认更新或作为独立来源。更新时，新 Chunk 先以不可检索状态写入 ES 和 pgvector，校验一致后才切换检索并删除旧 Chunk；未变化 Chunk 会复用 Embedding 缓存。批处理可额外传入 `--non-interactive --metadata source.json`。
 
 ### 4. 启动 API
 
