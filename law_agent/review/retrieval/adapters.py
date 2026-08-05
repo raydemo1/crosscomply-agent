@@ -59,16 +59,23 @@ class ElasticsearchKeywordAdapter:
         body = {
             "size": top_k,
             "query": {
-                "multi_match": {
-                    "query": query,
-                    "fields": [
-                        "title^2",
-                        "citation_label^2",
-                        "heading_path",
-                        "text",
-                        "topic_tags",
-                        "applicable_subjects",
-                    ],
+                "bool": {
+                    "must": [{
+                        "multi_match": {
+                            "query": query,
+                            "fields": [
+                                "title^2",
+                                "citation_label^2",
+                                "heading_path",
+                                "text",
+                                "topic_tags",
+                                "applicable_subjects",
+                            ],
+                        }
+                    }],
+                    # Legacy records without this field remain searchable;
+                    # staged generations explicitly set it to false.
+                    "must_not": [{"term": {"retrieval_enabled": False}}],
                 }
             },
         }

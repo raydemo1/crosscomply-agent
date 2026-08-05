@@ -58,6 +58,9 @@ def test_elasticsearch_adapter_maps_hits() -> None:
     hits = adapter.search("数据出境", top_k=3, query_type="legal_issue")
 
     assert client.calls[0]["index"] == "lawagent_chunks"
+    assert client.calls[0]["body"]["query"]["bool"]["must_not"] == [
+        {"term": {"retrieval_enabled": False}}
+    ]
     assert hits[0].retriever == "elasticsearch"
     assert hits[0].score == 8.5
     assert hits[0].matched_query_type == "legal_issue"

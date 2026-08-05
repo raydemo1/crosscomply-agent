@@ -9,10 +9,15 @@ from law_agent.data.schemas import Chunk
 from law_agent.review.retrieval.corpus import load_corpus
 
 
-def chunk_index_document(chunk: Chunk) -> dict[str, object]:
+def chunk_index_document(
+    chunk: Chunk,
+    *,
+    generation_id: str | None = None,
+    retrieval_enabled: bool = True,
+) -> dict[str, object]:
     """Return a stable service-index document for one chunk."""
 
-    return {
+    document: dict[str, object] = {
         "chunk_id": chunk.chunk_id,
         "doc_id": chunk.doc_id,
         "source_id": chunk.source_id,
@@ -41,6 +46,9 @@ def chunk_index_document(chunk: Chunk) -> dict[str, object]:
         "topic_tags": chunk.topic_tags,
         "char_count": chunk.char_count,
     }
+    document["generation_id"] = generation_id
+    document["retrieval_enabled"] = retrieval_enabled
+    return document
 
 
 def build_elasticsearch_bulk_lines(

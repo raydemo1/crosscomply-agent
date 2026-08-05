@@ -18,9 +18,9 @@ the ``[service]`` extra installed.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-import re
 from typing import Any
 
 from law_agent.config import ServiceConfig
@@ -126,6 +126,8 @@ def _es_mapping(*, analyzer: str, search_analyzer: str) -> dict[str, Any]:
             "applicable_subjects": {"type": "text", "analyzer": analyzer, "fields": {"raw": keyword}},
             "topic_tags": {"type": "text", "analyzer": analyzer, "fields": {"raw": keyword}},
             "char_count": {"type": "integer"},
+            "generation_id": keyword,
+            "retrieval_enabled": {"type": "boolean"},
         }
     }
 
@@ -173,6 +175,8 @@ def _bulk_actions(
     chunks: Sequence[Chunk],
     *,
     index_name: str,
+    generation_id: str | None = None,
+    retrieval_enabled: bool = True,
 ) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     for chunk in chunks:
@@ -180,7 +184,11 @@ def _bulk_actions(
             {
                 "_index": index_name,
                 "_id": chunk.chunk_id,
-                "_source": chunk_index_document(chunk),
+                "_source": chunk_index_document(
+                    chunk,
+                    generation_id=generation_id,
+                    retrieval_enabled=retrieval_enabled,
+                ),
             }
         )
     return actions
@@ -190,6 +198,9 @@ def bulk_index_chunks(
     client: Any,
     index_name: str,
     chunks: Sequence[Chunk],
+    *,
+    generation_id: str | None = None,
+    retrieval_enabled: bool = True,
 ) -> int:
     """Bulk-index chunks into Elasticsearch. Returns the number of actions."""
 
@@ -201,7 +212,12 @@ def bulk_index_chunks(
             "pip install 'lawagent[service]'"
         ) from exc
 
-    actions = _bulk_actions(chunks, index_name=index_name)
+    actions = _bulk_actions(
+        chunks,
+        index_name=index_name,
+        generation_id=generation_id,
+        retrieval_enabled=retrieval_enabled,
+    )
     if not actions:
         return 0
     success, _errors = helpers.bulk(client, actions, refresh=True)
@@ -269,9 +285,17 @@ def ensure_pgvector_schema(conn: Any, table_name: str, dimension: int) -> None:
                 applicable_subjects text[],
                 topic_tags text[],
                 char_count integer,
+                generation_id text,
+                retrieval_enabled boolean NOT NULL DEFAULT true,
                 embedding vector({dimension})
             );
             """
+        )
+        # Existing deployments already have the original table. These are
+        # additive, online-safe migrations for staged generations.
+        cur.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS generation_id text;")
+        cur.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS retrieval_enabled boolean NOT NULL DEFAULT true;"
         )
         # HNSW index on cosine distance; IF NOT EXISTS keeps this idempotent.
         cur.execute(
@@ -298,9 +322,9 @@ def _pgvector_upsert_sql(table_name: str) -> str:
             citation_role, can_cite_clause, prev_chunk_id, next_chunk_id,
             authority, law_status, publish_date, effective_date, source_url,
             applicable_region, issuing_body, legal_domain, applicable_subjects,
-            topic_tags, char_count, embedding
+            topic_tags, char_count, generation_id, retrieval_enabled, embedding
         ) VALUES (
-            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::vector
+            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::vector
         )
         ON CONFLICT (chunk_id) DO UPDATE SET
             doc_id = EXCLUDED.doc_id,
@@ -329,6 +353,8 @@ def _pgvector_upsert_sql(table_name: str) -> str:
             applicable_subjects = EXCLUDED.applicable_subjects,
             topic_tags = EXCLUDED.topic_tags,
             char_count = EXCLUDED.char_count,
+            generation_id = EXCLUDED.generation_id,
+            retrieval_enabled = EXCLUDED.retrieval_enabled,
             embedding = EXCLUDED.embedding
     """
 
@@ -350,6 +376,7 @@ def upsert_pgvector_rows(
         "next_chunk_id", "authority", "law_status", "publish_date",
         "effective_date", "source_url", "applicable_region", "issuing_body",
         "legal_domain", "applicable_subjects", "topic_tags", "char_count",
+        "generation_id", "retrieval_enabled",
     ]
     with conn.cursor() as cur:
         for row in rows:
@@ -386,7 +413,7 @@ def make_pgvector_search_fn(
                    can_cite_clause, source_url,
                    1 - (embedding <=> %s::vector) AS score
             FROM {table_name}
-            WHERE embedding IS NOT NULL
+            WHERE embedding IS NOT NULL AND retrieval_enabled = true
             ORDER BY embedding <=> %s::vector
             LIMIT %s
         """
@@ -651,8 +678,8 @@ def healthcheck(config: ServiceConfig) -> dict[str, Any]:
 # Re-export for callers that import from this module.
 __all__ = [
     "ServiceAdapters",
-    "bulk_index_chunks",
     "build_service_adapters",
+    "bulk_index_chunks",
     "create_elasticsearch_client",
     "create_postgres_connection",
     "ensure_elasticsearch_index",
