@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import csv
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel
 
@@ -40,6 +41,9 @@ def read_jsonl(path: Path, model: type[T]) -> list[T]:
 
 
 def read_manifest(path: Path) -> list[SourceRecord]:
+    # ``csv`` defaults to 128 KiB fields. A compatibility read is required
+    # before older manifests can be rewritten in the compact form below.
+    csv.field_size_limit(10_000_000)
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         return [SourceRecord.model_validate(row) for row in reader]
@@ -54,7 +58,8 @@ def write_manifest(path: Path, records: Iterable[SourceRecord]) -> int:
         writer.writeheader()
         for record in records:
             row = record.model_dump(mode="json")
-            row["topic_tags"] = ";".join(record.topic_tags)
+            for field in ("topic_tags", "legal_domain", "applicable_subjects", "contract_parties"):
+                row[field] = ";".join(getattr(record, field))
             writer.writerow(row)
             count += 1
     return count

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -44,8 +45,21 @@ def _split_list(value: Any) -> list[str]:
     if value is None:
         return []
     if isinstance(value, list):
-        return [str(item).strip() for item in value if str(item).strip()]
+        items: list[str] = []
+        for item in value:
+            items.extend(_split_list(item))
+        return items
     if isinstance(value, str):
+        # Older CSV manifests may contain a Python-list representation,
+        # possibly nested by repeated read/write cycles. Recover it before
+        # applying the delimiter-based representation used by current files.
+        if value.strip().startswith("[") and value.strip().endswith("]"):
+            try:
+                parsed = ast.literal_eval(value)
+            except (SyntaxError, ValueError):
+                parsed = None
+            if isinstance(parsed, list):
+                return _split_list(parsed)
         normalized = value.replace("；", ";").replace("，", ",")
         parts: list[str] = []
         for chunk in normalized.split(";"):
