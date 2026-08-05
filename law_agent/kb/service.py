@@ -18,7 +18,7 @@ from typing import Literal, Protocol
 from uuid import uuid4
 
 from law_agent.data.io import read_jsonl, read_manifest, write_jsonl, write_manifest
-from law_agent.data.schemas import Chunk, SourceRecord
+from law_agent.data.schemas import Chunk, CleanedDocument, Document, EnrichedDocument, SourceRecord
 from law_agent.review.retrieval.text import normalize_text
 
 Action = Literal["added", "updated", "skipped_duplicate"]
@@ -121,6 +121,8 @@ class GenerationIndex(Protocol):
 
     def delete_generation(self, source_id: str, generation_id: str) -> None: ...
 
+    def delete_source(self, source_id: str) -> None: ...
+
 
 class InMemoryIndex:
     """Generation index adapter used by tests and local dry runs."""
@@ -151,6 +153,11 @@ class InMemoryIndex:
     def delete_generation(self, source_id: str, generation_id: str) -> None:
         self.generations.pop((source_id, generation_id), None)
 
+    def delete_source(self, source_id: str) -> None:
+        for key in [key for key in self.generations if key[0] == source_id]:
+            self.generations.pop(key, None)
+        self.current.pop(source_id, None)
+
 
 @dataclass(frozen=True)
 class IngestResult:
@@ -159,6 +166,16 @@ class IngestResult:
     generation_id: str | None
     embedded_chunks: int
     cached_chunks: int
+
+
+@dataclass(frozen=True)
+class SourceSummary:
+    """User-facing state for one active knowledge-base source."""
+
+    source: SourceRecord
+    chunk_count: int
+    status: str
+    raw_format: str
 
 
 class KnowledgeBase:
@@ -271,6 +288,102 @@ class KnowledgeBase:
         if not self.manifest_path.exists():
             return []
         return read_manifest(self.manifest_path)
+
+    def list_sources(self) -> list[SourceSummary]:
+        """Return active sources with the information needed for a readable list."""
+
+        counts: dict[str, int] = {}
+        for chunk in read_jsonl(self.chunks_path, Chunk):
+            counts[chunk.source_id] = counts.get(chunk.source_id, 0) + 1
+        state = self._read_state()
+        return [
+            SourceSummary(
+                source=source,
+                chunk_count=counts.get(source.source_id, 0),
+                status=str(state["sources"].get(source.source_id, {}).get("status", "unknown")),
+                raw_format=self._raw_format(source),
+            )
+            for source in sorted(self._read_sources(), key=lambda item: (item.title, item.source_id))
+        ]
+
+    def _raw_format(self, source: SourceRecord) -> str:
+        raw_dir = self.root / "raw" / source.source_id
+        raw_files = sorted(raw_dir.glob("source.*")) if raw_dir.exists() else []
+        return raw_files[0].suffix.lstrip(".") if raw_files else source.file_format
+
+    def remove_source(self, source_id: str) -> SourceSummary:
+        """Permanently remove one source from retrieval and active corpus artifacts.
+
+        The caller is responsible for an explicit user confirmation. Retrieval
+        stores are cleared first so a source is never left searchable after a
+        successful removal response.
+        """
+
+        summaries = {summary.source.source_id: summary for summary in self.list_sources()}
+        summary = summaries.get(source_id)
+        if summary is None:
+            raise RuntimeError(f"未找到来源：{source_id}")
+
+        self.index.delete_source(source_id)
+        write_manifest(
+            self.manifest_path,
+            [source for source in self._read_sources() if source.source_id != source_id],
+        )
+        write_jsonl(
+            self.chunks_path,
+            [chunk for chunk in read_jsonl(self.chunks_path, Chunk) if chunk.source_id != source_id],
+        )
+        self._remove_document_artifacts(source_id)
+
+        state = self._read_state()
+        state["sources"].pop(source_id, None)
+        self._write_state(state)
+
+        raw_dir = self.root / "raw" / source_id
+        if raw_dir.exists():
+            import shutil
+
+            shutil.rmtree(raw_dir)
+        return summary
+
+    def _remove_document_artifacts(self, source_id: str) -> None:
+        """Remove source rows from active derived artifacts and fetch records."""
+
+        artifacts: tuple[tuple[str, type[Document]], ...] = (
+            ("documents.normalized.jsonl", Document),
+            ("documents.cleaned.jsonl", CleanedDocument),
+            ("documents.enriched.jsonl", EnrichedDocument),
+        )
+        for filename, model in artifacts:
+            path = self.root / filename
+            if not path.exists():
+                continue
+            retained = [record for record in read_jsonl(path, model) if record.source_id != source_id]
+            write_jsonl(path, retained)
+
+        fetch_status = self.root / "fetch_status.csv"
+        if fetch_status.exists():
+            import csv
+
+            with fetch_status.open("r", encoding="utf-8-sig", newline="") as handle:
+                reader = csv.DictReader(handle)
+                fieldnames = reader.fieldnames
+                retained_rows = [row for row in reader if row.get("source_id") != source_id]
+            if fieldnames:
+                temporary = fetch_status.with_suffix(".tmp")
+                with temporary.open("w", encoding="utf-8", newline="") as handle:
+                    writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(retained_rows)
+                temporary.replace(fetch_status)
+
+        cleaned_dir = self.root / "cleaned_texts"
+        if cleaned_dir.exists():
+            for path in [
+                *cleaned_dir.glob(f"*_{source_id}.md"),
+                cleaned_dir / f"{source_id}.md",
+            ]:
+                path.unlink(missing_ok=True)
 
     def exact_matches(self, normalized_text: str) -> list[SourceRecord]:
         """Find sources with the same normalized body, independent of filename."""

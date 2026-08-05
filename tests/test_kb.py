@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from law_agent.data.io import write_jsonl
+from law_agent.data.io import read_jsonl, write_jsonl
 from law_agent.data.schemas import Chunk, Document, IngestMeta, SourceRecord
 from law_agent.kb.bootstrap import initialize_legacy_corpus
 from law_agent.kb.service import InMemoryIndex, KnowledgeBase, make_stable_chunks
@@ -68,6 +68,58 @@ def test_update_reuses_embeddings_for_unchanged_chunks(tmp_path: Path) -> None:
     assert result.cached_chunks == 1
     assert result.embedded_chunks == 1
     assert [len(batch) for batch in embedding_batches] == [2, 1]
+
+
+def test_list_sources_and_remove_source_clears_active_artifacts(tmp_path: Path) -> None:
+    index = InMemoryIndex()
+    kb = KnowledgeBase(tmp_path, index=index)
+    first = _source("law_001")
+    second = _source("law_002")
+    second = second.model_copy(update={"title": "个人信息管理规定"})
+    first_raw = tmp_path / "first.txt"
+    second_raw = tmp_path / "second.txt"
+    first_raw.write_text("第一条 原文。", encoding="utf-8")
+    second_raw.write_text("第一条 另一份原文。", encoding="utf-8")
+
+    kb.ingest_prepared(first, "第一条 原文。", [_chunk("第一条 原文。")], raw_file=first_raw)
+    kb.ingest_prepared(second, "第一条 另一份原文。", [_chunk("第一条 另一份原文。")], raw_file=second_raw)
+    documents = [
+        Document(
+            doc_id=source.source_id, source_id=source.source_id, title=source.title,
+            source_url=source.source_url, source_site=source.source_site,
+            doc_type=source.doc_type, text=text,
+            ingest_meta=IngestMeta(fetched_at="2026-01-01T00:00:00Z", parser="plain", parser_version="1"),
+        )
+        for source, text in [(first, "第一条 原文。"), (second, "第一条 另一份原文。")]
+    ]
+    write_jsonl(tmp_path / "documents.normalized.jsonl", documents)
+    (tmp_path / "fetch_status.csv").write_text(
+        "source_id,title\n"
+        "law_001,数据出境管理规定\n"
+        "law_002,个人信息管理规定\n",
+        encoding="utf-8",
+    )
+    cleaned_text = tmp_path / "cleaned_texts" / "001_数据出境管理规定_law_001.md"
+    cleaned_text.parent.mkdir()
+    cleaned_text.write_text("第一条 原文。", encoding="utf-8")
+
+    summaries = kb.list_sources()
+    assert [(item.source.source_id, item.chunk_count, item.status) for item in summaries] == [
+        ("law_002", 1, "ready"),
+        ("law_001", 1, "ready"),
+    ]
+    assert [item.raw_format for item in summaries] == ["txt", "txt"]
+
+    removed = kb.remove_source("law_001")
+
+    assert removed.source.source_id == "law_001"
+    assert [item.source.source_id for item in kb.list_sources()] == ["law_002"]
+    assert not (tmp_path / "raw" / "law_001").exists()
+    assert [document.source_id for document in read_jsonl(tmp_path / "documents.normalized.jsonl", Document)] == ["law_002"]
+    assert "law_001" not in (tmp_path / "fetch_status.csv").read_text(encoding="utf-8")
+    assert not cleaned_text.exists()
+    assert all(key[0] != "law_001" for key in index.generations)
+    assert "law_001" not in index.current
 
 
 def test_initialization_merges_manifests_and_rekeys_legacy_chunks(tmp_path: Path) -> None:

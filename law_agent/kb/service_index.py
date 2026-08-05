@@ -165,6 +165,22 @@ class ServiceGenerationIndex(GenerationIndex):
             )
         self.pg.commit()
 
+    def delete_source(self, source_id: str) -> None:
+        """Remove every current, staged and legacy generation for one source."""
+
+        self.es.delete_by_query(
+            index=self.config.elasticsearch.index_name,
+            refresh=True,
+            conflicts="proceed",
+            body={"query": {"term": {"source_id": source_id}}},
+        )
+        with self.pg.cursor() as cur:
+            cur.execute(
+                f"DELETE FROM {self.config.postgres.table_name} WHERE source_id = %s",
+                (source_id,),
+            )
+        self.pg.commit()
+
     def _set_es_enabled(self, source_id: str, generation_id: str) -> None:
         self.es.update_by_query(
             index=self.config.elasticsearch.index_name,
