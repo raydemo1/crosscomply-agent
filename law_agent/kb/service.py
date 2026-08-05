@@ -33,8 +33,8 @@ def normalized_content_hash(text: str) -> str:
 def processing_signature(
     *,
     parser_version: str = "0.1.0",
-    cleaning_version: str = "0.1.0",
-    chunking_version: str = "stable-content-v1",
+    cleaning_version: str = "legal-cleaning-v2",
+    chunking_version: str = "legal-structure-v2",
     embedding_model: str = "unknown",
     embedding_dimension: int = 0,
 ) -> str:
