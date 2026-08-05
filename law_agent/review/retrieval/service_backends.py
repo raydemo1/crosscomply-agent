@@ -99,6 +99,7 @@ def _es_mapping(*, analyzer: str, search_analyzer: str) -> dict[str, Any]:
     keyword = {"type": "keyword"}
     return {
         "properties": {
+            "index_id": keyword,
             "chunk_id": keyword,
             "doc_id": keyword,
             "source_id": keyword,
@@ -180,15 +181,16 @@ def _bulk_actions(
 ) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     for chunk in chunks:
+        document = chunk_index_document(
+            chunk,
+            generation_id=generation_id,
+            retrieval_enabled=retrieval_enabled,
+        )
         actions.append(
             {
                 "_index": index_name,
-                "_id": chunk.chunk_id,
-                "_source": chunk_index_document(
-                    chunk,
-                    generation_id=generation_id,
-                    retrieval_enabled=retrieval_enabled,
-                ),
+                "_id": document["index_id"],
+                "_source": document,
             }
         )
     return actions
@@ -258,7 +260,8 @@ def ensure_pgvector_schema(conn: Any, table_name: str, dimension: int) -> None:
         cur.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
-                chunk_id text PRIMARY KEY,
+                index_id text PRIMARY KEY,
+                chunk_id text,
                 doc_id text,
                 source_id text,
                 title text,
@@ -297,6 +300,22 @@ def ensure_pgvector_schema(conn: Any, table_name: str, dimension: int) -> None:
         cur.execute(
             f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS retrieval_enabled boolean NOT NULL DEFAULT true;"
         )
+        cur.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS index_id text;")
+        cur.execute(
+            f"UPDATE {table_name} SET index_id = COALESCE(generation_id, 'legacy') || ':' || chunk_id "
+            "WHERE index_id IS NULL;"
+        )
+        cur.execute(f"ALTER TABLE {table_name} ALTER COLUMN index_id SET NOT NULL;")
+        cur.execute(
+            "SELECT att.attname FROM pg_index idx "
+            "JOIN pg_attribute att ON att.attrelid = idx.indrelid AND att.attnum = ANY(idx.indkey) "
+            "WHERE idx.indrelid = %s::regclass AND idx.indisprimary;",
+            (table_name,),
+        )
+        primary_columns = {row[0] for row in cur.fetchall()}
+        if primary_columns != {"index_id"}:
+            cur.execute(f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {table_name}_pkey;")
+            cur.execute(f"ALTER TABLE {table_name} ADD PRIMARY KEY (index_id);")
         # HNSW index on cosine distance; IF NOT EXISTS keeps this idempotent.
         cur.execute(
             f"""
@@ -317,16 +336,17 @@ def _pgvector_upsert_sql(table_name: str) -> str:
     table_name = _validate_pg_identifier(table_name, field_name="PG_TABLE")
     return f"""
         INSERT INTO {table_name} (
-            chunk_id, doc_id, source_id, title, text, chunk_index, doc_type,
+            index_id, chunk_id, doc_id, source_id, title, text, chunk_index, doc_type,
             heading_path, article_no, paragraph_no, item_no, citation_label,
             citation_role, can_cite_clause, prev_chunk_id, next_chunk_id,
             authority, law_status, publish_date, effective_date, source_url,
             applicable_region, issuing_body, legal_domain, applicable_subjects,
             topic_tags, char_count, generation_id, retrieval_enabled, embedding
         ) VALUES (
-            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::vector
+            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::vector
         )
-        ON CONFLICT (chunk_id) DO UPDATE SET
+        ON CONFLICT (index_id) DO UPDATE SET
+            chunk_id = EXCLUDED.chunk_id,
             doc_id = EXCLUDED.doc_id,
             source_id = EXCLUDED.source_id,
             title = EXCLUDED.title,
@@ -370,7 +390,7 @@ def upsert_pgvector_rows(
         return 0
     sql = _pgvector_upsert_sql(table_name)
     column_order = [
-        "chunk_id", "doc_id", "source_id", "title", "text", "chunk_index",
+        "index_id", "chunk_id", "doc_id", "source_id", "title", "text", "chunk_index",
         "doc_type", "heading_path", "article_no", "paragraph_no", "item_no",
         "citation_label", "citation_role", "can_cite_clause", "prev_chunk_id",
         "next_chunk_id", "authority", "law_status", "publish_date",

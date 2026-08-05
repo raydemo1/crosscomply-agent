@@ -19,7 +19,6 @@ from law_agent.review.retrieval.indexing import (
     write_elasticsearch_bulk_file,
     write_pgvector_rows_file,
 )
-
 from tests.test_review_retrieval_keyword import FIXTURE_CHUNKS
 
 
@@ -170,6 +169,16 @@ def test_build_pgvector_rows_includes_optional_embeddings() -> None:
 
     assert rows[0]["chunk_id"] == chunk.chunk_id
     assert rows[0]["embedding"] == [0.1, 0.2]
+
+
+def test_index_document_uses_generation_scoped_physical_id() -> None:
+    from law_agent.review.retrieval.indexing import chunk_index_document
+
+    document = chunk_index_document(FIXTURE_CHUNKS[0], generation_id="next", retrieval_enabled=False)
+
+    assert document["chunk_id"] == FIXTURE_CHUNKS[0].chunk_id
+    assert document["index_id"] == f"next:{FIXTURE_CHUNKS[0].chunk_id}"
+    assert document["retrieval_enabled"] is False
 
 
 def test_write_index_artifacts(tmp_path: Path) -> None:

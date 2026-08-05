@@ -17,7 +17,12 @@ def chunk_index_document(
 ) -> dict[str, object]:
     """Return a stable service-index document for one chunk."""
 
+    # ``chunk_id`` is the stable logical identity used by citations and the
+    # embedding cache. ``index_id`` is generation-scoped so a new generation
+    # can be staged without overwriting an unchanged current chunk.
+    index_id = f"{generation_id}:{chunk.chunk_id}" if generation_id else chunk.chunk_id
     document: dict[str, object] = {
+        "index_id": index_id,
         "chunk_id": chunk.chunk_id,
         "doc_id": chunk.doc_id,
         "source_id": chunk.source_id,
@@ -60,13 +65,14 @@ def build_elasticsearch_bulk_lines(
 
     lines: list[str] = []
     for chunk in chunks:
+        document = chunk_index_document(chunk)
         lines.append(
             json.dumps(
-                {"index": {"_index": index_name, "_id": chunk.chunk_id}},
+                {"index": {"_index": index_name, "_id": document["index_id"]}},
                 ensure_ascii=False,
             )
         )
-        lines.append(json.dumps(chunk_index_document(chunk), ensure_ascii=False))
+        lines.append(json.dumps(document, ensure_ascii=False))
     return lines
 
 
