@@ -18,7 +18,7 @@ from typing import Literal, Protocol
 from uuid import uuid4
 
 from law_agent.data.io import read_jsonl, read_manifest, write_jsonl, write_manifest
-from law_agent.data.schemas import Chunk, CleanedDocument, Document, EnrichedDocument, SourceRecord
+from law_agent.data.schemas import Chunk, SourceRecord
 from law_agent.review.retrieval.text import normalize_text
 
 Action = Literal["added", "updated", "skipped_duplicate"]
@@ -333,7 +333,6 @@ class KnowledgeBase:
             self.chunks_path,
             [chunk for chunk in read_jsonl(self.chunks_path, Chunk) if chunk.source_id != source_id],
         )
-        self._remove_document_artifacts(source_id)
 
         state = self._read_state()
         state["sources"].pop(source_id, None)
@@ -345,45 +344,6 @@ class KnowledgeBase:
 
             shutil.rmtree(raw_dir)
         return summary
-
-    def _remove_document_artifacts(self, source_id: str) -> None:
-        """Remove source rows from active derived artifacts and fetch records."""
-
-        artifacts: tuple[tuple[str, type[Document]], ...] = (
-            ("documents.normalized.jsonl", Document),
-            ("documents.cleaned.jsonl", CleanedDocument),
-            ("documents.enriched.jsonl", EnrichedDocument),
-        )
-        for filename, model in artifacts:
-            path = self.root / filename
-            if not path.exists():
-                continue
-            retained = [record for record in read_jsonl(path, model) if record.source_id != source_id]
-            write_jsonl(path, retained)
-
-        fetch_status = self.root / "fetch_status.csv"
-        if fetch_status.exists():
-            import csv
-
-            with fetch_status.open("r", encoding="utf-8-sig", newline="") as handle:
-                reader = csv.DictReader(handle)
-                fieldnames = reader.fieldnames
-                retained_rows = [row for row in reader if row.get("source_id") != source_id]
-            if fieldnames:
-                temporary = fetch_status.with_suffix(".tmp")
-                with temporary.open("w", encoding="utf-8", newline="") as handle:
-                    writer = csv.DictWriter(handle, fieldnames=fieldnames)
-                    writer.writeheader()
-                    writer.writerows(retained_rows)
-                temporary.replace(fetch_status)
-
-        cleaned_dir = self.root / "cleaned_texts"
-        if cleaned_dir.exists():
-            for path in [
-                *cleaned_dir.glob(f"*_{source_id}.md"),
-                cleaned_dir / f"{source_id}.md",
-            ]:
-                path.unlink(missing_ok=True)
 
     def exact_matches(self, normalized_text: str) -> list[SourceRecord]:
         """Find sources with the same normalized body, independent of filename."""

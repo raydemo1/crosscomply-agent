@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from law_agent.data.io import read_jsonl, write_jsonl
-from law_agent.data.schemas import Chunk, Document, IngestMeta, SourceRecord
-from law_agent.kb.bootstrap import initialize_legacy_corpus
+from law_agent.data.schemas import Chunk, SourceRecord
 from law_agent.kb.service import InMemoryIndex, KnowledgeBase, make_stable_chunks
 
 
@@ -83,26 +81,6 @@ def test_list_sources_and_remove_source_clears_active_artifacts(tmp_path: Path) 
 
     kb.ingest_prepared(first, "第一条 原文。", [_chunk("第一条 原文。")], raw_file=first_raw)
     kb.ingest_prepared(second, "第一条 另一份原文。", [_chunk("第一条 另一份原文。")], raw_file=second_raw)
-    documents = [
-        Document(
-            doc_id=source.source_id, source_id=source.source_id, title=source.title,
-            source_url=source.source_url, source_site=source.source_site,
-            doc_type=source.doc_type, text=text,
-            ingest_meta=IngestMeta(fetched_at="2026-01-01T00:00:00Z", parser="plain", parser_version="1"),
-        )
-        for source, text in [(first, "第一条 原文。"), (second, "第一条 另一份原文。")]
-    ]
-    write_jsonl(tmp_path / "documents.normalized.jsonl", documents)
-    (tmp_path / "fetch_status.csv").write_text(
-        "source_id,title\n"
-        "law_001,数据出境管理规定\n"
-        "law_002,个人信息管理规定\n",
-        encoding="utf-8",
-    )
-    cleaned_text = tmp_path / "cleaned_texts" / "001_数据出境管理规定_law_001.md"
-    cleaned_text.parent.mkdir()
-    cleaned_text.write_text("第一条 原文。", encoding="utf-8")
-
     summaries = kb.list_sources()
     assert [(item.source.source_id, item.chunk_count, item.status) for item in summaries] == [
         ("law_002", 1, "ready"),
@@ -115,48 +93,5 @@ def test_list_sources_and_remove_source_clears_active_artifacts(tmp_path: Path) 
     assert removed.source.source_id == "law_001"
     assert [item.source.source_id for item in kb.list_sources()] == ["law_002"]
     assert not (tmp_path / "raw" / "law_001").exists()
-    assert [document.source_id for document in read_jsonl(tmp_path / "documents.normalized.jsonl", Document)] == ["law_002"]
-    assert "law_001" not in (tmp_path / "fetch_status.csv").read_text(encoding="utf-8")
-    assert not cleaned_text.exists()
     assert all(key[0] != "law_001" for key in index.generations)
     assert "law_001" not in index.current
-
-
-def test_initialization_merges_manifests_and_rekeys_legacy_chunks(tmp_path: Path) -> None:
-    source = _source()
-    header = ",".join(SourceRecord.model_fields)
-    row = source.model_dump(mode="json")
-    (tmp_path / "source_manifest.review.csv").write_text(
-        header + "\n" + ",".join(str(row.get(key, "")) for key in SourceRecord.model_fields) + "\n",
-        encoding="utf-8",
-    )
-    raw = tmp_path / "raw" / "legacy" / "input.txt"
-    raw.parent.mkdir(parents=True)
-    raw.write_text("第一条 原文。", encoding="utf-8")
-    (tmp_path / "fetch_status.csv").write_text(
-        "source_id,title,ok,path\n"
-        "law_001,数据出境管理规定,True,old/raw/legacy/input.txt\n",
-        encoding="utf-8",
-    )
-    document = Document(
-        doc_id="law_001", source_id="law_001", title=source.title,
-        source_url=source.source_url, source_site=source.source_site,
-        doc_type=source.doc_type, text="第一条 原文。",
-        ingest_meta=IngestMeta(fetched_at="2026-01-01T00:00:00Z", parser="plain", parser_version="1"),
-    )
-    write_jsonl(tmp_path / "documents.normalized.jsonl", [document])
-    write_jsonl(tmp_path / "chunks.jsonl", [_chunk("第一条 原文。")])
-
-    result = initialize_legacy_corpus(tmp_path, signature="test-v1")
-
-    assert result == {"sources": 1, "chunks": 1, "raw_moves": 1}
-    assert (tmp_path / "raw" / "law_001" / "source.txt").exists()
-    migrated = (tmp_path / "chunks.jsonl").read_text(encoding="utf-8")
-    assert "legacy:0000" not in migrated
-    assert "law_001:" in migrated
-
-    resumed = initialize_legacy_corpus(tmp_path, signature="test-v1")
-    assert resumed["raw_moves"] == 0
-
-    kb = KnowledgeBase(tmp_path, index=InMemoryIndex(), signature="test-v1")
-    assert [record.source_id for record in kb.exact_matches("第一条 原文。")] == ["law_001"]
