@@ -320,7 +320,11 @@ def _chunks_from_units(document: Document, units: list[StructuredUnit]) -> list[
                 # evidence panel — just not as inline clause citations.
                 can_cite_clause=False,
                 prev_chunk_id=f"{document.doc_id}:{index - 1:04d}" if index > 0 else None,
-                next_chunk_id=f"{document.doc_id}:{index + 1:04d}" if index + 1 < len(units) else None,
+                next_chunk_id=(
+                    f"{document.doc_id}:{index + 1:04d}"
+                    if index + 1 < len(kept_units)
+                    else None
+                ),
                 authority=document.authority,
                 law_status=document.law_status,
                 publish_date=document.publish_date,
@@ -338,13 +342,6 @@ def _chunks_from_units(document: Document, units: list[StructuredUnit]) -> list[
                 topic_tags=document.topic_tags,
                 char_count=len(unit.text.strip()),
             )
-        )
-    for index, chunk in enumerate(chunks):
-        chunks[index] = chunk.model_copy(
-            update={
-                "prev_chunk_id": chunks[index - 1].chunk_id if index > 0 else None,
-                "next_chunk_id": chunks[index + 1].chunk_id if index + 1 < len(chunks) else None,
-            }
         )
     return chunks
 

@@ -52,7 +52,7 @@ def _split_list(value: Any) -> list[str]:
     if isinstance(value, str):
         # Older CSV manifests may contain a Python-list representation,
         # possibly nested by repeated read/write cycles. Recover it before
-        # applying the delimiter-based representation used by current files.
+        # applying the semicolon-delimited representation used by current files.
         if value.strip().startswith("[") and value.strip().endswith("]"):
             try:
                 parsed = ast.literal_eval(value)
@@ -60,11 +60,8 @@ def _split_list(value: Any) -> list[str]:
                 parsed = None
             if isinstance(parsed, list):
                 return _split_list(parsed)
-        normalized = value.replace("；", ";").replace("，", ",")
-        parts: list[str] = []
-        for chunk in normalized.split(";"):
-            parts.extend(chunk.split(","))
-        return [part.strip() for part in parts if part.strip()]
+        normalized = value.replace("；", ";")
+        return [part.strip() for part in normalized.split(";") if part.strip()]
     return [str(value).strip()]
 
 

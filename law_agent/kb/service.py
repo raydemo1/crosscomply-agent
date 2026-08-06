@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import tempfile
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -152,6 +154,8 @@ class InMemoryIndex:
 
     def delete_generation(self, source_id: str, generation_id: str) -> None:
         self.generations.pop((source_id, generation_id), None)
+        if self.current.get(source_id) == generation_id:
+            self.current.pop(source_id, None)
 
     def delete_source(self, source_id: str) -> None:
         for key in [key for key in self.generations if key[0] == source_id]:
@@ -215,48 +219,58 @@ class KnowledgeBase:
 
         stable_chunks = make_stable_chunks(chunks, source, signature=self.signature)
         generation_id = uuid4().hex
-        staged_raw = self._stage_canonical_raw(source, raw_file) if raw_file is not None else None
-        cache = state["embedding_cache"]
-        cache_keys = [self._embedding_key(chunk) for chunk in stable_chunks]
-        missing_positions = [index for index, key in enumerate(cache_keys) if key not in cache]
-        missing_vectors = self.embed_texts(
-            [self._embedding_text(stable_chunks[index]) for index in missing_positions]
-        )
-        if len(missing_vectors) != len(missing_positions):
-            raise RuntimeError("embedding provider returned an unexpected vector count")
-        for index, vector in zip(missing_positions, missing_vectors, strict=True):
-            cache[cache_keys[index]] = {"signature": self.signature, "vector": vector}
-        embeddings = {
-            chunk.chunk_id: list(cache[cache_keys[index]]["vector"])
-            for index, chunk in enumerate(stable_chunks)
-        }
-        cached = len(stable_chunks) - len(missing_positions)
-
-        # Stage and verify before current-state artifacts or retrieval change.
-        self.index.stage(source.source_id, generation_id, stable_chunks, embeddings)
-        self.index.verify(source.source_id, generation_id, {chunk.chunk_id for chunk in stable_chunks})
-        old_generation = self.index.activate(source.source_id, generation_id)
-
-        try:
-            self._replace_current_artifacts(source, stable_chunks)
-            state["sources"][source.source_id] = {
-                "content_hash": body_hash,
-                "signature": self.signature,
-                "generation_id": generation_id,
-                "status": "ready",
+        self.root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=".ingest-backup-", dir=self.root) as temporary_dir:
+            snapshot_root = Path(temporary_dir)
+            self._snapshot_current_artifacts(source, snapshot_root)
+            staged_raw = self._stage_canonical_raw(source, raw_file) if raw_file is not None else None
+            cache = state["embedding_cache"]
+            cache_keys = [self._embedding_key(chunk) for chunk in stable_chunks]
+            missing_positions = [index for index, key in enumerate(cache_keys) if key not in cache]
+            missing_vectors = self.embed_texts(
+                [self._embedding_text(stable_chunks[index]) for index in missing_positions]
+            )
+            if len(missing_vectors) != len(missing_positions):
+                raise RuntimeError("embedding provider returned an unexpected vector count")
+            for index, vector in zip(missing_positions, missing_vectors, strict=True):
+                cache[cache_keys[index]] = {"signature": self.signature, "vector": vector}
+            embeddings = {
+                chunk.chunk_id: list(cache[cache_keys[index]]["vector"])
+                for index, chunk in enumerate(stable_chunks)
             }
-            self._write_state(state)
-            if staged_raw is not None:
-                self._activate_staged_raw(staged_raw)
-        except Exception:
-            # The index has not lost its old generation yet. Revert the
-            # pointer so a local artifact failure cannot expose the new state.
-            if old_generation is not None:
-                self.index.activate(source.source_id, old_generation)
-            self.index.delete_generation(source.source_id, generation_id)
-            if staged_raw is not None:
-                staged_raw.unlink(missing_ok=True)
-            raise
+            cached = len(stable_chunks) - len(missing_positions)
+            staged = False
+            activated = False
+            old_generation: str | None = None
+
+            try:
+                # Stage and verify before current-state artifacts or retrieval change.
+                self.index.stage(source.source_id, generation_id, stable_chunks, embeddings)
+                staged = True
+                self.index.verify(source.source_id, generation_id, {chunk.chunk_id for chunk in stable_chunks})
+                old_generation = self.index.activate(source.source_id, generation_id)
+                activated = True
+
+                self._replace_current_artifacts(source, stable_chunks)
+                state["sources"][source.source_id] = {
+                    "content_hash": body_hash,
+                    "signature": self.signature,
+                    "generation_id": generation_id,
+                    "status": "ready",
+                }
+                self._write_state(state)
+                if staged_raw is not None:
+                    self._activate_staged_raw(staged_raw)
+            except Exception:
+                # Restore on-disk artifacts before discarding the staged retrieval
+                # generation. This keeps the manifest, chunks, state and raw source
+                # aligned with the generation that remains searchable.
+                self._restore_current_artifacts(source, snapshot_root)
+                if activated and old_generation is not None:
+                    self.index.activate(source.source_id, old_generation)
+                if staged:
+                    self.index.delete_generation(source.source_id, generation_id)
+                raise
 
         if old_generation is not None:
             try:
@@ -273,6 +287,36 @@ class KnowledgeBase:
             len(stable_chunks) - cached,
             cached,
         )
+
+    def _snapshot_current_artifacts(self, source: SourceRecord, snapshot_root: Path) -> None:
+        """Save the files changed by one ingestion so failures can be compensated."""
+
+        for artifact in (self.manifest_path, self.chunks_path, self.state_path):
+            if artifact.exists():
+                shutil.copy2(artifact, snapshot_root / artifact.name)
+        raw_dir = self.root / "raw" / source.source_id
+        if raw_dir.exists():
+            shutil.copytree(raw_dir, snapshot_root / "raw")
+
+    def _restore_current_artifacts(self, source: SourceRecord, snapshot_root: Path) -> None:
+        """Restore a pre-ingestion snapshot after any local write fails."""
+
+        for artifact in (self.manifest_path, self.chunks_path, self.state_path):
+            saved = snapshot_root / artifact.name
+            if saved.exists():
+                replacement = artifact.with_name(f".{artifact.name}.{uuid4().hex}.restore")
+                shutil.copy2(saved, replacement)
+                replacement.replace(artifact)
+            else:
+                artifact.unlink(missing_ok=True)
+
+        raw_dir = self.root / "raw" / source.source_id
+        saved_raw = snapshot_root / "raw"
+        if raw_dir.exists():
+            shutil.rmtree(raw_dir)
+        if saved_raw.exists():
+            raw_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(saved_raw, raw_dir)
 
     def _replace_current_artifacts(self, source: SourceRecord, chunks: list[Chunk]) -> None:
         existing_sources = self._read_sources()
@@ -315,8 +359,8 @@ class KnowledgeBase:
         """Permanently remove one source from retrieval and active corpus artifacts.
 
         The caller is responsible for an explicit user confirmation. Retrieval
-        stores are cleared first so a source is never left searchable after a
-        successful removal response.
+        stores are cleared only after all local artifacts are ready to be
+        removed, so a local write failure remains safely retryable.
         """
 
         summaries = {summary.source.source_id: summary for summary in self.list_sources()}
@@ -324,25 +368,30 @@ class KnowledgeBase:
         if summary is None:
             raise RuntimeError(f"未找到来源：{source_id}")
 
-        self.index.delete_source(source_id)
-        write_manifest(
-            self.manifest_path,
-            [source for source in self._read_sources() if source.source_id != source_id],
-        )
-        write_jsonl(
-            self.chunks_path,
-            [chunk for chunk in read_jsonl(self.chunks_path, Chunk) if chunk.source_id != source_id],
-        )
+        with tempfile.TemporaryDirectory(prefix=".remove-backup-", dir=self.root) as temporary_dir:
+            snapshot_root = Path(temporary_dir)
+            self._snapshot_current_artifacts(summary.source, snapshot_root)
+            try:
+                write_manifest(
+                    self.manifest_path,
+                    [source for source in self._read_sources() if source.source_id != source_id],
+                )
+                write_jsonl(
+                    self.chunks_path,
+                    [chunk for chunk in read_jsonl(self.chunks_path, Chunk) if chunk.source_id != source_id],
+                )
 
-        state = self._read_state()
-        state["sources"].pop(source_id, None)
-        self._write_state(state)
+                state = self._read_state()
+                state["sources"].pop(source_id, None)
+                self._write_state(state)
 
-        raw_dir = self.root / "raw" / source_id
-        if raw_dir.exists():
-            import shutil
-
-            shutil.rmtree(raw_dir)
+                raw_dir = self.root / "raw" / source_id
+                if raw_dir.exists():
+                    shutil.rmtree(raw_dir)
+                self.index.delete_source(source_id)
+            except Exception:
+                self._restore_current_artifacts(summary.source, snapshot_root)
+                raise
         return summary
 
     def exact_matches(self, normalized_text: str) -> list[SourceRecord]:

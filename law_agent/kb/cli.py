@@ -8,6 +8,7 @@ import json
 import sys
 import unicodedata
 from pathlib import Path
+from uuid import uuid4
 
 from law_agent.config import require_service_config
 from law_agent.data.chunking.pipeline import chunk_document
@@ -49,13 +50,16 @@ def _prepare_document_for_ingest(path: Path, *, parser: str):
     return clean_document(normalize_source(provisional, path, parser=parser))
 
 
-def _new_source_from_interaction(path: Path, title: str) -> SourceRecord:
+def _new_source_from_interaction(path: Path, title: str, *, as_new: bool = False) -> SourceRecord:
     prompted_title = input(f"未找到可更新来源，标题 [{title}]：").strip() or title
     url = input("来源 URL（留空则记录本地文件）：").strip() or path.resolve().as_uri()
     content_digest = hashlib.sha256(path.read_bytes()).hexdigest()[:12]
     prefix = hashlib.sha256(f"{prompted_title}\x1f{content_digest}".encode()).hexdigest()[:12]
+    source_id = f"user_{prefix}"
+    if as_new:
+        source_id = f"{source_id}_{uuid4().hex[:8]}"
     return SourceRecord(
-        source_id=f"user_{prefix}",
+        source_id=source_id,
         title=prompted_title,
         source_url=url,
         source_site="local_import" if url.startswith("file:") else Path(url).name or "manual",
@@ -179,13 +183,45 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     # New material always follows the same canonical path before identity,
     # chunking and embedding: parse -> deterministic clean -> chunk.
     document = _prepare_document_for_ingest(file_path, parser=args.parser)
+    corpus = Path(args.corpus)
+    local_kb = KnowledgeBase(corpus, index=InMemoryIndex())
+    exact = local_kb.exact_matches(document.text)
+    if exact and not args.as_new:
+        print("跳过重复内容：")
+        for source in exact:
+            print(f"  {source.title} ({source.source_id})")
+        print("如需作为独立来源保留，请加 --as-new。")
+        return 0
+
+    if args.metadata:
+        source = _load_metadata(Path(args.metadata))
+        if args.as_new and source.source_id in {item.source_id for item in local_kb._read_sources()}:
+            raise RuntimeError("--as-new 的 metadata source_id 必须是尚未使用的新 ID")
+    else:
+        if args.non_interactive:
+            raise RuntimeError("--non-interactive requires --metadata when the file is not a duplicate")
+        candidates = local_kb.title_candidates(document.title)
+        if candidates and not args.as_new:
+            print("发现可能需要更正的来源：")
+            for number, candidate in enumerate(candidates, start=1):
+                print(f"  {number}. {candidate.title} ({candidate.source_id})")
+            answer = input("输入编号更新，直接回车作为新来源：").strip()
+            if answer:
+                try:
+                    source = candidates[int(answer) - 1]
+                except (ValueError, IndexError) as exc:
+                    raise RuntimeError("候选编号无效，请重新执行导入命令") from exc
+            else:
+                source = _new_source_from_interaction(file_path, document.title)
+        else:
+            source = _new_source_from_interaction(file_path, document.title, as_new=args.as_new)
 
     config = require_service_config()
     index = ServiceGenerationIndex(config)
     try:
         embeddings = build_embeddings_provider(config.embedding)
         kb = KnowledgeBase(
-            Path(args.corpus),
+            corpus,
             index=index,
             signature=processing_signature(
                 embedding_model=config.embedding.model,
@@ -193,35 +229,6 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
             ),
             embed_texts=embeddings.embed_texts,
         )
-        exact = kb.exact_matches(document.text)
-        if exact and not args.as_new:
-            print("跳过重复内容：")
-            for source in exact:
-                print(f"  {source.title} ({source.source_id})")
-            print("如需作为独立来源保留，请加 --as-new。")
-            return 0
-
-        if args.metadata:
-            source = _load_metadata(Path(args.metadata))
-        else:
-            if args.non_interactive:
-                raise RuntimeError("--non-interactive requires --metadata when the file is not a duplicate")
-            candidates = kb.title_candidates(document.title)
-            if candidates and not args.as_new:
-                print("发现可能需要更正的来源：")
-                for number, candidate in enumerate(candidates, start=1):
-                    print(f"  {number}. {candidate.title} ({candidate.source_id})")
-                answer = input("输入编号更新，直接回车作为新来源：").strip()
-                if answer:
-                    try:
-                        source = candidates[int(answer) - 1]
-                    except (ValueError, IndexError) as exc:
-                        raise RuntimeError("候选编号无效，请重新执行导入命令") from exc
-                else:
-                    source = _new_source_from_interaction(file_path, document.title)
-            else:
-                source = _new_source_from_interaction(file_path, document.title)
-
         final_document = document.model_copy(
             update={
                 "doc_id": source.source_id,
@@ -255,7 +262,11 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument("file")
     ingest.add_argument("--corpus", default=str(DEFAULT_CORPUS))
     ingest.add_argument("--parser", choices=["auto", "plain", "docx", "docling", "mineru"], default="auto")
-    ingest.add_argument("--as-new", action="store_true", help="即使正文相同也作为独立来源入库")
+    ingest.add_argument(
+        "--as-new",
+        action="store_true",
+        help="即使正文或标题相同也作为独立来源入库，并跳过标题匹配更新确认",
+    )
     ingest.add_argument("--metadata", help="批处理用 SourceRecord JSON；指定后不进入交互")
     ingest.add_argument("--non-interactive", action="store_true", help="拒绝交互；新增或更新时必须提供 --metadata")
     ingest.set_defaults(func=_cmd_ingest)

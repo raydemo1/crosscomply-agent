@@ -116,30 +116,38 @@ class ServiceGenerationIndex(GenerationIndex):
             # Legacy rows predate generation_id. Treat them as an explicit
             # cleanup target so the first source update removes them too.
             previous = generations[0] if generations else ("__legacy__" if active_rows else None)
-            cur.execute(
-                f"UPDATE {self.config.postgres.table_name} SET retrieval_enabled = false "
-                "WHERE source_id = %s",
-                (source_id,),
-            )
-            cur.execute(
-                f"UPDATE {self.config.postgres.table_name} SET retrieval_enabled = true "
-                "WHERE source_id = %s AND generation_id = %s",
-                (source_id, generation_id),
-            )
-        self.pg.commit()
-        self._set_es_enabled(source_id, generation_id)
+
+        try:
+            # Elasticsearch has no transaction, so switch it first and only
+            # commit PostgreSQL after the ES update has succeeded. If either
+            # operation fails, compensate ES back to its prior generation and
+            # roll PostgreSQL back before surfacing the failure.
+            self._set_es_enabled(source_id, generation_id)
+            with self.pg.cursor() as cur:
+                cur.execute(
+                    f"UPDATE {self.config.postgres.table_name} SET retrieval_enabled = false "
+                    "WHERE source_id = %s",
+                    (source_id,),
+                )
+                cur.execute(
+                    f"UPDATE {self.config.postgres.table_name} SET retrieval_enabled = true "
+                    "WHERE source_id = %s AND generation_id = %s",
+                    (source_id, generation_id),
+                )
+            self.pg.commit()
+        except Exception:
+            self.pg.rollback()
+            self._set_es_enabled(source_id, previous)
+            raise
         return previous
 
     def delete_generation(self, source_id: str, generation_id: str) -> None:
-        generation_filter: dict[str, Any]
         pg_predicate: str
         pg_params: tuple[str, ...]
         if generation_id == "__legacy__":
-            generation_filter = {"bool": {"must_not": [{"exists": {"field": "generation_id"}}]}}
             pg_predicate = "generation_id IS NULL"
             pg_params = (source_id,)
         else:
-            generation_filter = {"term": {"generation_id": generation_id}}
             pg_predicate = "generation_id = %s"
             pg_params = (source_id, generation_id)
         self.es.delete_by_query(
@@ -151,7 +159,7 @@ class ServiceGenerationIndex(GenerationIndex):
                     "bool": {
                         "filter": [
                             {"term": {"source_id": source_id}},
-                            generation_filter,
+                            self._generation_filter(generation_id),
                         ]
                     }
                 }
@@ -181,7 +189,13 @@ class ServiceGenerationIndex(GenerationIndex):
             )
         self.pg.commit()
 
-    def _set_es_enabled(self, source_id: str, generation_id: str) -> None:
+    @staticmethod
+    def _generation_filter(generation_id: str) -> dict[str, Any]:
+        if generation_id == "__legacy__":
+            return {"bool": {"must_not": [{"exists": {"field": "generation_id"}}]}}
+        return {"term": {"generation_id": generation_id}}
+
+    def _set_es_enabled(self, source_id: str, generation_id: str | None) -> None:
         self.es.update_by_query(
             index=self.config.elasticsearch.index_name,
             refresh=True,
@@ -191,19 +205,20 @@ class ServiceGenerationIndex(GenerationIndex):
                 "query": {"term": {"source_id": source_id}},
             },
         )
-        self.es.update_by_query(
-            index=self.config.elasticsearch.index_name,
-            refresh=True,
-            conflicts="proceed",
-            body={
-                "script": {"source": "ctx._source.retrieval_enabled = true"},
-                "query": {
-                    "bool": {
-                        "filter": [
-                            {"term": {"source_id": source_id}},
-                            {"term": {"generation_id": generation_id}},
-                        ]
-                    }
+        if generation_id is not None:
+            self.es.update_by_query(
+                index=self.config.elasticsearch.index_name,
+                refresh=True,
+                conflicts="proceed",
+                body={
+                    "script": {"source": "ctx._source.retrieval_enabled = true"},
+                    "query": {
+                        "bool": {
+                            "filter": [
+                                {"term": {"source_id": source_id}},
+                                self._generation_filter(generation_id),
+                            ]
+                        }
+                    },
                 },
-            },
-        )
+            )
