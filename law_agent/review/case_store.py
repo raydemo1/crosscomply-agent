@@ -17,6 +17,7 @@ from uuid import uuid4
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 from pwdlib import PasswordHash
 
 CaseStatus = Literal[
@@ -39,6 +40,10 @@ CASE_TRANSITIONS: dict[str, set[str]] = {
     "review_failed": {"in_review", "needs_info"},
 }
 INITIAL_CASE_ID = "case_initial_cross_border_review"
+
+
+def _jsonb(value: Any) -> Jsonb:
+    return Jsonb(value or {})
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS users (
@@ -337,7 +342,7 @@ class PostgresCaseStore:
                     "这个业务是否需要数据出境安全评估？",
                     "我们将境内移动应用用户的手机号、精确定位和设备标识发送给新加坡云服务商，用于个性化推荐和算法优化。当前尚未确认年度数据量、单独同意和供应商合同安排。",
                     "initial_workbench",
-                    intake,
+                    _jsonb(intake),
                     "draft",
                     "llm",
                     "off",
@@ -353,7 +358,7 @@ class PostgresCaseStore:
                 INSERT INTO case_events (id, case_id, actor_id, event_type, to_status, payload_json)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (event_id(), INITIAL_CASE_ID, requester["id"], "case_created", "draft", {"source": "initial_workbench"}),
+                (event_id(), INITIAL_CASE_ID, requester["id"], "case_created", "draft", _jsonb({"source": "initial_workbench"})),
             )
             conn.commit()
 
@@ -416,7 +421,7 @@ class PostgresCaseStore:
                     kwargs["question"],
                     kwargs["material_text"],
                     kwargs.get("material_source"),
-                    kwargs.get("intake") or {},
+                    _jsonb(kwargs.get("intake")),
                     kwargs.get("status", "draft"),
                     kwargs.get("review_mode", "llm"),
                     kwargs.get("rerank_mode", "off"),
@@ -459,6 +464,9 @@ class PostgresCaseStore:
             "risk_level", "trace_id", "response_json",
         }
         updates = {key: value for key, value in kwargs.items() if key in allowed}
+        for key in ("intake_json", "response_json"):
+            if key in updates:
+                updates[key] = _jsonb(updates[key])
         if not updates:
             case = self.get_case(identifier)
             if case is None:
@@ -488,7 +496,7 @@ class PostgresCaseStore:
                 """,
                 (
                     event_id(), identifier, actor_id, kwargs["event_type"],
-                    kwargs.get("from_status"), kwargs.get("to_status"), kwargs.get("payload") or {},
+                    kwargs.get("from_status"), kwargs.get("to_status"), _jsonb(kwargs.get("payload")),
                 ),
             )
             row = cur.fetchone()
@@ -595,7 +603,7 @@ class PostgresCaseStore:
                 (
                     identifier, actor_id, kwargs.get("conclusion_useful"),
                     kwargs.get("missing_sources", ""), kwargs.get("notes", ""),
-                    kwargs.get("citation_verdicts") or {},
+                    _jsonb(kwargs.get("citation_verdicts")),
                 ),
             )
             conn.commit()
