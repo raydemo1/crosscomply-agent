@@ -16,18 +16,11 @@ CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 
 
 | Metric | LLM | LLM + rerank | Bounded Multi-Agent |
 |---|---:|---:|---:|
-| Recall@5 | 0.8432 | 0.8586 | **0.8607** |
-| Must-have Recall@5 | 0.8706 | **0.8925** | 0.8794 |
-| Optional coverage@5 | 0.6964 | 0.6607 | **0.7857** |
-| MRR@10 | 0.8553 | **0.8816** | 0.8575 |
-| Candidate Recall@50 | 0.9200 | 0.9200 | **0.9507** |
-| Bad cases (`Recall@5 < 0.5`) | 4 | 6 | **2** |
-| Abstention accuracy | 1.0000 | 1.0000 | 1.0000 |
-| Mean total latency | **10.37 s** | 10.40 s | 19.46 s |
-| Total LLM calls | **84** | **84** | 215 |
-| Duplicate sources@10 | **0.0000** | **0.0000** | 0.2073 |
+| Recall@5 | 87.06% | 87.72% | **90.57%** |
+| Must-have Recall@5 | 89.04% | 89.91% | **92.54%** |
+| Optional coverage@5 | 82.14% | 75.00% | **85.71%** |
 
-三组均使用相同 82 case、真实 service 检索、DeepSeek Flash 和手工复核的核心/辅助法源标签。Must-have 覆盖 76 个有核心法源的场景，Optional 仅覆盖 28 个真正需要指南、模板、Q&A 或国标的场景。rerank 在低调用成本下提升核心法源与排序质量，但存在个别案例回退和 embedding 服务超时风险；Multi-Agent 主要换取更广的辅助来源覆盖。
+三组均使用相同的 82 个场景、冻结事实与查询输入、真实 service 检索、DeepSeek-V4-Flash，以及人工复核的核心/辅助法源标签。Must-have 覆盖 76 个含核心法源的场景，Optional 覆盖 28 个需要指南、模板、Q&A 或国标补充的场景。相较 LLM 基线，有界 Multi-Agent 的 Recall@5、Must-have Recall@5 和 Optional coverage@5 分别提升 3.51pp、3.50pp 和 3.57pp。
 
 ## 开发命令
 
