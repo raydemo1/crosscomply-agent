@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { CaseIntake, CaseStatus, DashboardSummaryApi, WorkbenchUser } from './types/api';
 import type { Page } from './components/Sidebar';
 import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
-import CaseDetailPage from './components/CaseDetailPage';
-import EvalPage from './components/EvalPage';
 import LoginPage from './components/LoginPage';
 import { ApiError, createCase, getCurrentUser, getDashboardSummary, login, logout, runCase, updateCase, updateCaseStatus } from './api/client';
 import { EMPTY_INTAKE, fromDetail, openCase, refreshCases, useCaseStore } from './store/caseStore';
+
+const EvalPage = lazy(() => import('./components/EvalPage'));
+const CaseDetailPage = lazy(() => import('./components/CaseDetailPage'));
 
 export default function App(): JSX.Element {
   const [user, setUser] = useState<WorkbenchUser | null>(null);
@@ -149,8 +150,8 @@ export default function App(): JSX.Element {
       <main className="app-center">
         <div className="app-mobile-nav"><span className="app-mobile-brand">CrossComply</span><div className="app-mobile-tabs"><button type="button" className={'app-mobile-tab' + (page === 'workbench' ? ' is-active' : '')} onClick={() => setPage('workbench')}>案件工作台</button><button type="button" className={'app-mobile-tab' + (page === 'eval' ? ' is-active' : '')} onClick={() => setPage('eval')}>评测治理</button></div></div>
         {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
-        {page === 'case-detail' && activeCase ? <CaseDetailPage saved={activeCase} canEdit={user.role === 'requester'} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onStatusChange={(id, status) => void handleStatusChange(id, status)} /> : null}
-        {page === 'eval' ? <EvalPage /> : null}
+        {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} canEdit={user.role === 'requester'} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onStatusChange={(id, status) => void handleStatusChange(id, status)} /></Suspense> : null}
+        {page === 'eval' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载评测治理工作区…</div></div>}><EvalPage /></Suspense> : null}
         {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} reviewMode={reviewMode} rerankMode={rerankMode} editingCaseId={editingCaseId} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onReviewModeChange={setReviewMode} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
         {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从左侧案件队列选择一个案件。</p></div> : null}
       </main>
