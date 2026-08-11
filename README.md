@@ -133,7 +133,7 @@ docker compose stop
 |---|---|
 | `law_agent/data/` | manifest、fetch、normalize、clean、enrich、chunk、数据 evalset 流水线 |
 | `law_agent/review/` | 材料驱动审查、混合检索、证据自检、评测和 FastAPI |
-| `frontend/` | React + Vite 单用户合规研究工作台 |
+| `frontend/` | React + Vite 跨境数据合规案件工作台 |
 | `data/corpus/legal_docs_20260702/` | 当前 review 语料包，本地生成数据，默认被 git 忽略 |
 | `data/models/docling/` | Docling/RapidOCR 本地模型缓存，默认被 git 忽略 |
 | `data/review_runs/` | 本地 review case、trace、result 输出，默认被 git 忽略 |
@@ -407,20 +407,26 @@ npm run build
 # 产物输出到 frontend/dist/
 ```
 
-公开作品演示可在构建时设置 `VITE_PUBLIC_DEMO=true`，前端将默认打开仓库内置案例，并禁用对共享后端的实时审查请求：
+前端是服务端案件工作台，首次进入需要使用服务端配置的工作台账号登录。请在后端环境中设置 `CROSSCOMPLY_SEED_PASSWORD`，服务首次启动时会创建申请人、审核人和管理员账号；案件、审查结果、整改动作、反馈和审计时间线均持久化在 PostgreSQL。
 
-```powershell
-$env:VITE_PUBLIC_DEMO = "true"
-npm run build
-```
-
-若要部署可执行实时审查的个人实例，请先自行部署本仓库的 FastAPI、Elasticsearch 与 pgvector 服务，再让前端通过同域反向代理访问 `/api`；本地开发可直接使用上述 Vite 代理。也可以在构建前端时设置 `VITE_API_BASE_URL` 指向自行部署的 API，并相应配置后端允许该前端域名跨域访问。
+若要部署可执行实时审查的实例，请先自行部署本仓库的 FastAPI、Elasticsearch 与 pgvector 服务，再让前端通过同域反向代理访问 `/api`；本地开发可直接使用上述 Vite 代理。也可以在构建前端时设置 `VITE_API_BASE_URL` 指向自行部署的 API，并相应配置后端允许该前端域名跨域访问。
 
 ### API 端点
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| POST | `/api/review` | 提交审查请求（表单或文件上传） |
+| POST | `/api/auth/login` | 登录并创建服务端会话 |
+| POST | `/api/auth/logout` | 注销当前会话 |
+| GET | `/api/auth/me` | 获取当前用户与角色 |
+| POST | `/api/cases` | 创建案件并保存采集事实 |
+| GET | `/api/cases` | 获取当前用户可见的案件队列 |
+| GET | `/api/cases/{case_id}` | 获取案件、结果、动作和时间线 |
+| POST | `/api/cases/{case_id}/run` | 运行证据化审查 |
+| PATCH | `/api/cases/{case_id}` | 更新案件材料与事实 |
+| POST | `/api/cases/{case_id}/status` | 提交、退回补充或完成案件 |
+| POST | `/api/cases/{case_id}/feedback` | 保存人工反馈与引用判定 |
+| GET | `/api/cases/{case_id}/events` | 获取审计事件 |
+| GET | `/api/dashboard/summary` | 获取案件状态与风险摘要 |
 | POST | `/api/eval/run` | 触发评测运行 |
 | GET | `/api/eval/latest` | 获取最近评测结果 |
 | GET | `/api/health` | 健康检查 |

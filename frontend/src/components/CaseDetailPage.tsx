@@ -12,16 +12,16 @@
  *   - expandable governed citations (CitationList) with per-citation feedback
  *   - human feedback panel (conclusion usefulness, missing sources, bad case)
  *
- * The page is read-only with respect to the backend; all interactions
- * (feedback, citation verdicts, bad-case marking) persist to the local case
- * store. Failed cases render a compact failure summary instead of the chain.
+ * The page is backed by the server case store; feedback, citation verdicts,
+ * actions and workflow transitions remain part of the persisted case record.
+ * Failed cases render a compact failure summary instead of the chain.
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import type { CitationGroup, CitationUsage, RetrievalHit, ReviewApiResponse, ReviewFacts } from '../types/api';
+import type { CaseStatus, CitationGroup, CitationUsage, RetrievalHit, ReviewApiResponse, ReviewFacts } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
-import { setCitationVerdict } from '../store/caseStore';
+import { setActionStatus, setCitationVerdict } from '../store/caseStore';
 import RiskBadge from './RiskBadge';
 import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
@@ -44,11 +44,17 @@ import {
 
 interface CaseDetailPageProps {
   saved: SavedCase;
+  canEdit: boolean;
+  onEdit: (saved: SavedCase) => void;
   /** Called when the user wants to start a fresh review from this case's inputs. */
   onRerun: (question: string, material: string) => void;
   /** Called when the user wants to go back to the workbench. */
   onBack: () => void;
+  /** Persist a workflow status transition. */
+  onStatusChange: (caseId: string, status: CaseStatus) => void;
 }
+
+type SavedCaseWithResponse = SavedCase & { response: ReviewApiResponse };
 
 /** Ordered facts shown in the 材料事实摘要 grid. */
 const FACT_FIELDS: Array<{ key: string; label: string; render: (f: ReviewFacts) => string }> = [
@@ -66,11 +72,18 @@ const FACT_FIELDS: Array<{ key: string; label: string; render: (f: ReviewFacts) 
 
 export default function CaseDetailPage({
   saved,
+  canEdit,
+  onEdit,
   onRerun,
   onBack,
+  onStatusChange,
 }: CaseDetailPageProps): JSX.Element {
   const response = saved.response;
+  if (!response) {
+    return <DraftCaseView saved={saved} canEdit={canEdit} onEdit={onEdit} onBack={onBack} onStatusChange={onStatusChange} />;
+  }
   const failed = isReviewFailedResponse(response);
+  const completedSaved = saved as SavedCaseWithResponse;
 
   const handleVerdict = (chunkId: string, verdict: CitationVerdict | null) => {
     setCitationVerdict(saved.id, chunkId, verdict);
@@ -79,16 +92,18 @@ export default function CaseDetailPage({
   return (
     <div className="case-detail">
       <CaseHeader
-        saved={saved}
+        saved={completedSaved}
         onBack={onBack}
-        onRerun={() => onRerun(saved.question, saved.materialText)}
+        onRerun={() => onRerun(completedSaved.question, completedSaved.materialText)}
       />
+
+      <CaseOperations saved={saved} onStatusChange={onStatusChange} />
 
       {failed ? (
         <FailedChain response={response} />
       ) : (
         <ReviewChain
-          saved={saved}
+          saved={completedSaved}
           onVerdictChange={handleVerdict}
         />
       )}
@@ -96,12 +111,98 @@ export default function CaseDetailPage({
   );
 }
 
+function DraftCaseView({
+  saved,
+  canEdit,
+  onEdit,
+  onBack,
+  onStatusChange,
+}: {
+  saved: SavedCase;
+  canEdit: boolean;
+  onEdit: (saved: SavedCase) => void;
+  onBack: () => void;
+  onStatusChange: (caseId: string, status: CaseStatus) => void;
+}): JSX.Element {
+  return (
+    <div className="case-detail">
+      <header className="case-header card">
+        <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回案件工作台</button>
+        <div className="case-header__eyebrow">案件 {saved.id.slice(0, 18)}</div>
+        <h1 className="case-header__title">{saved.question}</h1>
+        <div className="case-header__meta"><span className={'status-chip status-chip--' + saved.status}>{statusLabel(saved.status)}</span><span>{saved.savedAt.replace('T', ' ').slice(0, 16)}</span></div>
+      </header>
+      <section className="card draft-case-card">
+        <div className="section-title">提交前检查</div>
+        <div className="draft-case-card__grid">
+          <div><span>业务活动</span><strong>{saved.intake.business_activity || '待补充'}</strong></div>
+          <div><span>跨境传输</span><strong>{saved.intake.cross_border_transfer === null ? '待确认' : saved.intake.cross_border_transfer ? '是' : '否'}</strong></div>
+          <div><span>境外接收方</span><strong>{saved.intake.overseas_recipient || '待补充'}</strong></div>
+          <div><span>材料长度</span><strong>{saved.materialText.length.toLocaleString()} 字符</strong></div>
+        </div>
+        <p className="draft-case-card__hint">请确认案件材料和关键事实后提交。提交后由合规审核人运行证据化审查。</p>
+        {canEdit && saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onEdit(saved)}>编辑并补充</button> : null}
+        {!canEdit && saved.status === 'draft' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onStatusChange(saved.id, 'submitted')}>提交审核</button> : null}
+      </section>
+      <Timeline events={saved.events} />
+    </div>
+  );
+}
+
+function CaseOperations({ saved, onStatusChange }: { saved: SavedCase; onStatusChange: (caseId: string, status: CaseStatus) => void }): JSX.Element {
+  const openActions = saved.actions.filter((action) => action.status !== 'completed').length;
+  return (
+    <section className="card case-operations">
+      <div className="case-operations__heading"><div><div className="report-kicker">案件流程</div><h2>从证据到行动</h2></div><span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span></div>
+      <div className="case-operations__stats"><span><strong>{saved.actions.length}</strong> 项整改动作</span><span><strong>{openActions}</strong> 项待处理</span><span><strong>{saved.events.length}</strong> 条审计记录</span></div>
+      {saved.actions.length > 0 ? (
+        <div className="case-operations__list">
+          {saved.actions.map((action) => (
+            <div className="case-action-row" key={action.id}>
+              <div><strong>{action.title}</strong><span>{action.description}</span></div>
+              <button type="button" className={`action-status action-status--${action.status}`} onClick={() => setActionStatus(action.id, action.status === 'completed' ? 'open' : 'completed')}>
+                {action.status === 'completed' ? '已完成' : '标记完成'}
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="case-operations__actions">
+        {saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn" onClick={() => onStatusChange(saved.id, 'submitted')}>重新提交补充材料</button> : null}
+        {saved.status === 'completed' ? <span className="case-operations__complete">✓ 审核已完成</span> : null}
+      </div>
+    </section>
+  );
+}
+
+function Timeline({ events }: { events: SavedCase['events'] }): JSX.Element {
+  return (
+    <section className="card case-timeline">
+      <div className="section-title">审计时间线</div>
+      <div className="case-timeline__list">
+        {events.length === 0 ? <span className="state-block__hint">暂无流程记录。</span> : events.map((event) => (
+          <div className="case-timeline__item" key={event.id}><span className="case-timeline__dot" /><div><strong>{eventLabel(event.event_type)}</strong><span>{event.created_at.replace('T', ' ').slice(0, 16)}</span></div></div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function eventLabel(event: string): string {
+  const labels: Record<string, string> = { case_created: '创建案件', case_updated: '更新案件材料', status_changed: '变更案件状态', review_started: '开始证据化审查', review_completed: '生成审查结果', review_failed: '审查运行失败', action_created: '生成整改动作', action_updated: '更新整改动作', feedback_saved: '保存人工反馈' };
+  return labels[event] ?? event;
+}
+
+function statusLabel(status: CaseStatus): string {
+  return { draft: '草稿', submitted: '待审核', in_review: '审查中', needs_info: '待补充', completed: '已完成', review_failed: '运行失败' }[status];
+}
+
 // ---------------------------------------------------------------------------
 // CaseHeader — sticky header with identity + actions
 // ---------------------------------------------------------------------------
 
 interface CaseHeaderProps {
-  saved: SavedCase;
+  saved: SavedCaseWithResponse;
   onBack: () => void;
   onRerun: () => void;
 }
@@ -154,9 +255,6 @@ function CaseHeader({ saved, onBack, onRerun }: CaseHeaderProps): JSX.Element {
           <span className="case-header__meta-label">保存于</span>
           <span title={formatTime(saved.savedAt)}>{relativeTime(saved.savedAt)}</span>
         </span>
-        {saved.isBadCase ? (
-          <span className="badge badge-high">坏例</span>
-        ) : null}
         {saved.feedback?.conclusionUseful !== null && saved.feedback?.conclusionUseful !== undefined ? (
           <span className="badge badge-low">
             {saved.feedback.conclusionUseful ? '结论有用' : '结论无用'}
@@ -185,7 +283,7 @@ function FailedChain({ response }: { response: Extract<ReviewApiResponse, { stat
           {response.trace_id ? ` · Trace ${response.trace_id}` : ''}
         </div>
         <div className="warning-note" style={{ marginTop: '10px' }}>
-          该案卷已被自动保存，你可以在左侧标记为坏例以便后续分析。
+          案件已保留完整的失败节点与追踪信息，可补充材料后重新运行。
         </div>
       </div>
     </section>
@@ -197,7 +295,7 @@ function FailedChain({ response }: { response: Extract<ReviewApiResponse, { stat
 // ---------------------------------------------------------------------------
 
 interface ReviewChainProps {
-  saved: SavedCase;
+  saved: SavedCaseWithResponse;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
 }
 

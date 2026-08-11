@@ -262,11 +262,7 @@ export interface ReviewResult {
   applicable_evidence: CitationGroup[];
 }
 
-/**
- * Response body for `POST /api/review`.
- *
- * Matches `ReviewResponse` in `law_agent/review/api.py`.
- */
+/** Structured review result returned inside a persisted case. */
 export interface ReviewResponse {
   review_case_id: string;
   trace_id: string;
@@ -299,7 +295,6 @@ export interface ReviewFailedResponse {
   trace_id: string | null;
 }
 
-/** Response body for `POST /api/review`. */
 export type ReviewApiResponse = ReviewResponse | ReviewFailedResponse;
 
 export function isReviewFailedResponse(
@@ -315,6 +310,123 @@ export function isReviewFailedResponse(
  */
 export interface HealthResponse {
   status: string;
+}
+
+// ---------------------------------------------------------------------------
+// CrossComply case workbench models
+// ---------------------------------------------------------------------------
+
+export type UserRole = 'requester' | 'reviewer' | 'admin';
+export type CaseStatus =
+  | 'draft'
+  | 'submitted'
+  | 'in_review'
+  | 'needs_info'
+  | 'completed'
+  | 'review_failed';
+export type ActionStatus = 'open' | 'in_progress' | 'completed';
+
+export interface WorkbenchUser {
+  id: string;
+  username: string;
+  display_name: string;
+  role: UserRole;
+}
+
+export interface CaseIntake {
+  business_activity: string;
+  data_types: string[];
+  sensitive_personal_info: boolean | null;
+  cross_border_transfer: boolean | null;
+  important_data_status: 'unknown' | 'not_important' | 'important' | 'under_review';
+  ciio_status: 'unknown' | 'not_ciio' | 'ciio' | 'under_review';
+  annual_non_sensitive_count: string;
+  annual_sensitive_count: string;
+  overseas_recipient: string;
+  destination_region: string;
+  processing_purpose: string;
+  transfer_mechanism: string;
+  vendor_name: string;
+  contract_status: string;
+  legal_basis_or_consent: string;
+  notes: string;
+}
+
+export interface CaseAction {
+  id: string;
+  case_id: string;
+  title: string;
+  description: string;
+  owner_role: string;
+  priority: 'high' | 'medium' | 'low';
+  status: ActionStatus;
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseEvent {
+  id: string;
+  case_id: string;
+  actor_id: string;
+  event_type: string;
+  from_status: CaseStatus | null;
+  to_status: CaseStatus | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface CaseFeedbackApi {
+  case_id: string;
+  actor_id: string;
+  conclusion_useful: boolean | null;
+  missing_sources: string;
+  notes: string;
+  citation_verdicts: Record<string, 'correct' | 'wrong'>;
+  updated_at: string;
+}
+
+export interface CaseSummaryApi {
+  id: string;
+  title: string;
+  question: string;
+  status: CaseStatus;
+  risk_level: RiskLevel | null;
+  facts_confirmed: boolean;
+  created_by: string;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
+  has_result: boolean;
+}
+
+export interface CaseRecordApi extends CaseSummaryApi {
+  material_text: string;
+  material_source: string | null;
+  intake: CaseIntake;
+  review_mode: 'llm' | 'multi_agent';
+  rerank_mode: 'off' | 'embedding';
+  trace_id: string | null;
+  response: ReviewApiResponse | null;
+}
+
+export interface CaseDetailApi {
+  case: CaseRecordApi;
+  actions: CaseAction[];
+  events: CaseEvent[];
+  feedback: CaseFeedbackApi | null;
+}
+
+export interface CaseListApi {
+  items: CaseSummaryApi[];
+  total: number;
+}
+
+export interface DashboardSummaryApi {
+  total_cases: number;
+  status_counts: Record<CaseStatus, number>;
+  risk_counts: Record<string, number>;
+  recent_cases: CaseSummaryApi[];
 }
 
 // ---------------------------------------------------------------------------

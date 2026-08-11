@@ -1,19 +1,9 @@
 /**
- * Case-store domain types for the review workbench.
- *
- * A `SavedCase` is a full review submission persisted client-side so the
- * user can reopen past reviews, export reports, and attach human feedback
- * (including marking an unsatisfactory result as a bad case for later
- * evaluation improvement).
- *
- * Persistence is backed by `localStorage` (single-user workbench). The
- * stored shape is intentionally self-contained: the full `ReviewApiResponse`
- * — including the retrieval query plan and evidence chunks — is stored so a
- * reopened case can render the complete review chain without a round-trip
- * to the backend.
+ * Case-store domain types for the server-backed CrossComply workbench.
  */
 
 import type { ReviewApiResponse } from './api';
+import type { CaseAction, CaseEvent, CaseIntake, CaseStatus } from './api';
 
 /** Per-citation human feedback (keyed by `chunk_id`). */
 export type CitationVerdict = 'correct' | 'wrong';
@@ -33,32 +23,28 @@ export interface CaseFeedback {
 }
 
 /**
- * A review case saved to the local workbench history.
- *
- * `materialText` is capped at storage time to keep `localStorage` within
- * quota; the full material is still sent to the backend for analysis.
+ * A case record loaded from the CrossComply API.
  */
 export interface SavedCase {
-  /** Stable id (reuses `review_case_id` from the backend). */
+  /** Stable case id from the backend. */
   id: string;
-  /** Trace id from the backend response. */
+  /** Trace id from the latest backend response. */
   traceId: string;
-  /** ISO timestamp when the case was saved. */
+  /** Last server update timestamp. */
   savedAt: string;
-  /** The review question submitted by the user. */
+  /** The case title/question shown in the workbench. */
   question: string;
-  /** The material text submitted (truncated for storage). */
+  /** Server-persisted material text. */
   materialText: string;
-  /** Source name for uploaded files (otherwise null). */
+  /** Source name for uploaded files. */
   materialSource: string | null;
-  /** The full backend response (facts, result, evidence, citations, chunks). */
-  response: ReviewApiResponse;
-  /** Human feedback, if any. */
+  /** Full result when the case has been run; null for a draft. */
+  response: ReviewApiResponse | null;
+  status: CaseStatus;
+  intake: CaseIntake;
+  actions: CaseAction[];
+  events: CaseEvent[];
   feedback: CaseFeedback | null;
-  /** Whether the user flagged this case as a bad case. */
-  isBadCase: boolean;
-  /** Reason the user gave when marking it as a bad case. */
-  badCaseReason: string;
 }
 
 /** A lightweight summary used to render the sidebar history list. */
@@ -66,8 +52,8 @@ export interface CaseSummary {
   id: string;
   savedAt: string;
   question: string;
-  riskLevel: string;
-  isBadCase: boolean;
+  riskLevel: string | null;
+  status: CaseStatus;
   hasFeedback: boolean;
   conclusionUseful: boolean | null;
 }

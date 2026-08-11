@@ -12,7 +12,7 @@
  * standalone or attached to an email.
  */
 
-import type { ReviewFacts, CitationGroup, RetrievalHit, RetrievalQuery } from '../types/api';
+import type { CaseIntake, ReviewFacts, CitationGroup, RetrievalHit, RetrievalQuery } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { SavedCase } from '../types/case';
 import {
@@ -122,21 +122,79 @@ function claimsToMarkdown(
   return lines.join('\n');
 }
 
+function requireResponse(saved: SavedCase): NonNullable<SavedCase['response']> {
+  if (!saved.response) throw new Error('案件尚未生成审查结果，无法导出报告。');
+  return saved.response;
+}
+
+function caseStatusLabel(status: SavedCase['status']): string {
+  return {
+    draft: '草稿',
+    submitted: '待审核',
+    in_review: '审查中',
+    needs_info: '待补充',
+    completed: '已完成',
+    review_failed: '运行失败',
+  }[status];
+}
+
+function intakeToMarkdown(intake: CaseIntake): string {
+  const rows: Array<[string, string]> = [
+    ['业务活动', intake.business_activity || '待补充'],
+    ['数据类型', renderList(intake.data_types)],
+    ['敏感个人信息', renderBool(intake.sensitive_personal_info)],
+    ['跨境传输', renderBool(intake.cross_border_transfer)],
+    ['重要数据识别', intake.important_data_status],
+    ['关基运营者状态', intake.ciio_status],
+    ['非敏感个人信息数量', intake.annual_non_sensitive_count || '待补充'],
+    ['敏感个人信息数量', intake.annual_sensitive_count || '待补充'],
+    ['境外接收方', intake.overseas_recipient || '待补充'],
+    ['目的地', intake.destination_region || '待补充'],
+    ['处理目的', intake.processing_purpose || '待补充'],
+    ['出境路径', intake.transfer_mechanism || '待判断'],
+    ['供应商', intake.vendor_name || '待补充'],
+    ['合同状态', intake.contract_status || '待补充'],
+    ['法律依据/同意', intake.legal_basis_or_consent || '待补充'],
+  ];
+  const header = '| 字段 | 人工确认值 |\n| --- | --- |';
+  const body = rows.map(([key, value]) => '| ' + mdEscape(key) + ' | ' + mdEscape(value) + ' |').join('\n');
+  return header + '\n' + body;
+}
+
+function actionsToMarkdown(saved: SavedCase): string {
+  if (saved.actions.length === 0) return '_暂无服务端整改动作_';
+  return saved.actions.map((action, index) => {
+    const due = action.due_date ? '，截止 ' + action.due_date : '';
+    const state = action.status === 'completed' ? '已完成' : action.status === 'in_progress' ? '处理中' : '待处理';
+    const description = action.description ? '：' + mdEscape(action.description) : '';
+    return (index + 1) + '. **' + mdEscape(action.title) + '**（' + state + '，负责人角色：' + mdEscape(action.owner_role) + due + '）' + description;
+  }).join('\n');
+}
+
+function knowledgeSnapshotToMarkdown(response: NonNullable<SavedCase['response']>): string {
+  if (isReviewFailedResponse(response)) return '_审查失败，未生成知识库快照_';
+  const titles = new Set<string>();
+  for (const packet of response.source_evidence_packets ?? []) titles.add(packet.title);
+  for (const group of response.citation_groups ?? []) {
+    for (const citation of group.citations) titles.add(citation.title);
+  }
+  return titles.size > 0 ? [...titles].map((title) => '- ' + mdEscape(title)).join('\n') : '_未记录来源快照_';
+}
+
 export function buildMarkdownReport(saved: SavedCase): string {
-  const { response, question, materialText, feedback, isBadCase, badCaseReason, savedAt } = saved;
+  const { question, materialText, feedback, savedAt } = saved;
+  const response = requireResponse(saved);
   const lines: string[] = [];
 
-  lines.push(`# 法律合规审查报告`);
+  lines.push('# CrossComply 跨境数据合规案件报告');
   lines.push('');
-  lines.push(`- 生成时间：${formatTime(savedAt)}`);
+  lines.push('- 生成时间：' + formatTime(savedAt));
+  lines.push('- 案件状态：' + caseStatusLabel(saved.status));
+  lines.push('- 案件编号：' + saved.id);
   if (!isReviewFailedResponse(response)) {
-    lines.push(`- 案卷编号：\`${response.review_case_id}\``);
     lines.push(`- 追踪编号：\`${response.trace_id}\``);
   }
   lines.push(`- 风险等级：${isReviewFailedResponse(response) ? '审查失败' : RISK_LABELS[response.review_result.risk_level]}`);
-  if (isBadCase) {
-    lines.push(`- **已标记为坏例**${badCaseReason ? `：${mdEscape(badCaseReason)}` : ''}`);
-  }
   lines.push('');
   lines.push('---');
   lines.push('');
@@ -166,17 +224,21 @@ export function buildMarkdownReport(saved: SavedCase): string {
   const selfCheck = response.evidence_self_check;
   const chunks = chunksById(response.evidence_chunks);
 
-  lines.push('## 三、材料事实摘要');
+  lines.push('## 三、人工确认事实');
+  lines.push('');
+  lines.push(intakeToMarkdown(saved.intake));
+  lines.push('');
+  lines.push('## 四、AI 提取事实摘要');
   lines.push('');
   lines.push(factsToMarkdown(facts));
   lines.push('');
 
-  lines.push('## 四、检索查询计划');
+  lines.push('## 五、检索查询计划');
   lines.push('');
   lines.push(queriesToMarkdown(response.retrieval_queries));
   lines.push('');
 
-  lines.push('## 五、证据自检');
+  lines.push('## 六、证据自检');
   lines.push('');
   lines.push(`- 状态：**${EVIDENCE_STATUS_LABELS[selfCheck.status]}**`);
   lines.push(`- 是否触发二次检索：${selfCheck.second_retrieval_triggered ? '是' : '否'}`);
@@ -201,7 +263,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
   }
   lines.push('');
 
-  lines.push('## 六、审查结论');
+  lines.push('## 七、审查结论');
   lines.push('');
   lines.push(`**风险等级：${RISK_LABELS[result.risk_level]}**`);
   lines.push('');
@@ -214,35 +276,42 @@ export function buildMarkdownReport(saved: SavedCase): string {
   }
 
   if (result.trigger_reasons.length > 0) {
-    lines.push('## 七、触发原因');
+    lines.push('## 八、触发原因');
     lines.push('');
     result.trigger_reasons.forEach((r) => lines.push(`- ${mdEscape(r)}`));
     lines.push('');
   }
 
   if (result.recommended_actions.length > 0) {
-    lines.push('## 八、建议动作');
+    lines.push('## 九、建议动作');
     lines.push('');
     result.recommended_actions.forEach((a, i) => lines.push(`${i + 1}. ${mdEscape(a)}`));
     lines.push('');
   }
 
   if (result.risk_boundaries.length > 0) {
-    lines.push('## 九、风险边界');
+    lines.push('## 十、风险边界');
     lines.push('');
     result.risk_boundaries.forEach((b) => lines.push(`- ${mdEscape(b)}`));
     lines.push('');
   }
 
   if (result.missing_information.length > 0) {
-    lines.push('## 十、缺失信息');
+    lines.push('## 十一、缺失信息');
     lines.push('');
     result.missing_information.forEach((m) => lines.push(`- ${mdEscape(m)}`));
     lines.push('');
   }
 
-  const citationTitle = result.recommended_actions.length > 0 ? '十一' : '十';
-  lines.push(`## ${citationTitle}、可引用证据`);
+  lines.push('## 十二、服务端整改动作');
+  lines.push('');
+  lines.push(actionsToMarkdown(saved));
+  lines.push('');
+  lines.push('## 十三、法规知识库快照');
+  lines.push('');
+  lines.push(knowledgeSnapshotToMarkdown(response));
+  lines.push('');
+  lines.push('## 十四、可引用证据');
   lines.push('');
   lines.push(citationsToMarkdown(response.citation_groups, chunks));
   lines.push('');
@@ -334,6 +403,28 @@ function factsToHtml(facts: ReviewFacts): string {
   return `<table><tbody>${body}</tbody></table>`;
 }
 
+function intakeToHtml(intake: CaseIntake): string {
+  const rows: Array<[string, string]> = [
+    ['业务活动', intake.business_activity || '待补充'],
+    ['数据类型', renderList(intake.data_types)],
+    ['敏感个人信息', renderBool(intake.sensitive_personal_info)],
+    ['跨境传输', renderBool(intake.cross_border_transfer)],
+    ['重要数据识别', intake.important_data_status],
+    ['关基运营者状态', intake.ciio_status],
+    ['非敏感个人信息数量', intake.annual_non_sensitive_count || '待补充'],
+    ['敏感个人信息数量', intake.annual_sensitive_count || '待补充'],
+    ['境外接收方', intake.overseas_recipient || '待补充'],
+    ['目的地', intake.destination_region || '待补充'],
+    ['处理目的', intake.processing_purpose || '待补充'],
+    ['出境路径', intake.transfer_mechanism || '待判断'],
+    ['供应商', intake.vendor_name || '待补充'],
+    ['合同状态', intake.contract_status || '待补充'],
+    ['法律依据/同意', intake.legal_basis_or_consent || '待补充'],
+  ];
+  const body = rows.map(([key, value]) => '<tr><th>' + escHtml(key) + '</th><td>' + escHtml(value) + '</td></tr>').join('');
+  return '<table><tbody>' + body + '</tbody></table>';
+}
+
 function queriesToHtml(queries: RetrievalQuery[] | undefined): string {
   if (!queries || queries.length === 0) return '<p class="muted">未生成检索查询</p>';
   const rows = queries
@@ -397,7 +488,8 @@ function claimsToHtml(
 }
 
 export function buildHtmlReport(saved: SavedCase): string {
-  const { response, question, materialText, feedback, isBadCase, badCaseReason, savedAt } = saved;
+  const { question, materialText, feedback, savedAt } = saved;
+  const response = requireResponse(saved);
   const failed = isReviewFailedResponse(response);
   const risk = failed ? 'failed' : response.review_result.risk_level;
   const riskLabel = failed ? '审查失败' : RISK_LABELS[response.review_result.risk_level];
@@ -408,20 +500,17 @@ export function buildHtmlReport(saved: SavedCase): string {
   parts.push(`<title>法律合规审查报告 — ${escHtml(saved.id)}</title>`);
   parts.push(`<style>${HTML_STYLE}</style>`);
   parts.push('</head><body>');
-  parts.push('<h1>法律合规审查报告</h1>');
+  parts.push('<h1>CrossComply 跨境数据合规案件报告</h1>');
 
   parts.push('<div class="meta">');
   parts.push(`<div>生成时间：${escHtml(formatTime(savedAt))}</div>`);
+  parts.push('<div>案件状态：' + escHtml(caseStatusLabel(saved.status)) + '</div>');
+  parts.push('<div>案件编号：<code>' + escHtml(saved.id) + '</code></div>');
   if (!failed) {
-    parts.push(`<div>案卷编号：<code>${escHtml(response.review_case_id)}</code></div>`);
     parts.push(`<div>追踪编号：<code>${escHtml(response.trace_id)}</code></div>`);
   }
   parts.push(`<div>风险等级：<span class="risk risk-${escHtml(risk)}">${escHtml(riskLabel)}</span></div>`);
   parts.push('</div>');
-
-  if (isBadCase) {
-    parts.push(`<div class="bad">已标记为坏例${badCaseReason ? `：${escHtml(badCaseReason)}` : ''}</div>`);
-  }
 
   parts.push('<h2>一、审查问题</h2>');
   parts.push(`<p>${escHtml(question)}</p>`);
@@ -447,13 +536,15 @@ export function buildHtmlReport(saved: SavedCase): string {
   const selfCheck = response.evidence_self_check;
   const chunks = chunksById(response.evidence_chunks);
 
-  parts.push('<h2>三、材料事实摘要</h2>');
+  parts.push('<h2>三、人工确认事实</h2>');
+  parts.push(intakeToHtml(saved.intake));
+  parts.push('<h2>四、AI 提取事实摘要</h2>');
   parts.push(factsToHtml(facts));
 
-  parts.push('<h2>四、检索查询计划</h2>');
+  parts.push('<h2>五、检索查询计划</h2>');
   parts.push(queriesToHtml(response.retrieval_queries));
 
-  parts.push('<h2>五、证据自检</h2>');
+  parts.push('<h2>六、证据自检</h2>');
   parts.push('<div class="meta">');
   parts.push(`<div>状态：<strong>${escHtml(EVIDENCE_STATUS_LABELS[selfCheck.status])}</strong></div>`);
   parts.push(`<div>是否触发二次检索：${selfCheck.second_retrieval_triggered ? '是' : '否'}</div>`);
@@ -469,12 +560,12 @@ export function buildHtmlReport(saved: SavedCase): string {
     parts.push('</ul>');
   }
 
-  parts.push('<h2>六、审查结论</h2>');
+  parts.push('<h2>七、审查结论</h2>');
   parts.push(`<p><span class="risk risk-${escHtml(result.risk_level)}">${escHtml(RISK_LABELS[result.risk_level])}</span></p>`);
   parts.push(`<p>${escHtml(result.conclusion)}</p>`);
   parts.push(claimsToHtml(result.claims, chunks));
 
-  let idx = 7;
+  let idx = 8;
   if (result.trigger_reasons.length > 0) {
     parts.push(`<h2>${cnNum(idx++)}、触发原因</h2><ul>`);
     result.trigger_reasons.forEach((r) => parts.push(`<li>${escHtml(r)}</li>`));
@@ -496,7 +587,33 @@ export function buildHtmlReport(saved: SavedCase): string {
     parts.push('</ul>');
   }
 
-  parts.push(`<h2>${cnNum(idx++)}、可引用证据</h2>`);
+  parts.push('<h2>十二、服务端整改动作</h2>');
+  parts.push('<ol>');
+  if (saved.actions.length === 0) {
+    parts.push('<li class="muted">暂无服务端整改动作</li>');
+  } else {
+    saved.actions.forEach((action) => {
+      const due = action.due_date ? '，截止 ' + escHtml(action.due_date) : '';
+      const state = action.status === 'completed' ? '已完成' : action.status === 'in_progress' ? '处理中' : '待处理';
+      const description = action.description ? '：' + escHtml(action.description) : '';
+      parts.push('<li><strong>' + escHtml(action.title) + '</strong>（' + state + '，负责人角色：' + escHtml(action.owner_role) + due + '）' + description + '</li>');
+    });
+  }
+  parts.push('</ol>');
+  parts.push('<h2>十三、法规知识库快照</h2>');
+  parts.push('<ul>');
+  const snapshotTitles = new Set<string>();
+  for (const packet of response.source_evidence_packets ?? []) snapshotTitles.add(packet.title);
+  for (const group of response.citation_groups ?? []) {
+    for (const citation of group.citations) snapshotTitles.add(citation.title);
+  }
+  if (snapshotTitles.size === 0) {
+    parts.push('<li class="muted">未记录来源快照</li>');
+  } else {
+    for (const title of snapshotTitles) parts.push('<li>' + escHtml(title) + '</li>');
+  }
+  parts.push('</ul>');
+  parts.push('<h2>十四、可引用证据</h2>');
   parts.push(citationsToHtml(response.citation_groups, chunks));
 
   if (feedback) {

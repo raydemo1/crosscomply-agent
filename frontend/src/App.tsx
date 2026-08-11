@@ -1,247 +1,159 @@
-/**
- * App — top-level shell for the LawAgent frontend.
- *
- * Owns the global page state and review history, and lays out the
- * three-column structure described in the design spec:
- *
- *   [ Sidebar 240px ] [ Center (flex) ] [ EvidenceDossier 360px ]
- *
- * Pages:
- *   - workbench    — enter a new review question + material and submit
- *   - case-detail  — full auditable review chain for a saved case
- *   - eval         — evaluation dashboard
- *
- * The right-hand EvidenceDossier is meaningful on the workbench and
- * case-detail pages; it is hidden on the eval page.
- *
- * Review history is persisted client-side via the case store
- * (`store/caseStore.ts`), so past reviews survive a page refresh and can be
- * reopened, annotated with feedback, exported, or flagged as bad cases.
- *
- * Responsive behavior:
- *   - screens < 1200px: right dossier panel is hidden
- *   - screens < 768px : single column (sidebar collapses into a compact
- *                       top navigation bar)
- */
-
-import { useCallback, useMemo, useState } from 'react';
-import type { ReviewApiResponse } from './types/api';
-import { isReviewFailedResponse } from './types/api';
-import { ApiError, submitReview } from './api/client';
-import Sidebar from './components/Sidebar';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { CaseIntake, CaseStatus, DashboardSummaryApi, WorkbenchUser } from './types/api';
 import type { Page } from './components/Sidebar';
-import EvidenceDossier from './components/EvidenceDossier';
+import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
-import EvalPage from './components/EvalPage';
 import CaseDetailPage from './components/CaseDetailPage';
-import {
-  DEMO_CASE_ID,
-  PUBLIC_DEMO_ENABLED,
-  saveCase,
-  useCaseStore,
-} from './store/caseStore';
+import EvalPage from './components/EvalPage';
+import LoginPage from './components/LoginPage';
+import { ApiError, createCase, getCurrentUser, getDashboardSummary, login, logout, runCase, updateCase, updateCaseStatus } from './api/client';
+import { EMPTY_INTAKE, fromDetail, openCase, refreshCases, useCaseStore } from './store/caseStore';
 
 export default function App(): JSX.Element {
-  // ---- Global app state -------------------------------------------------
-  const [currentPage, setCurrentPage] = useState<Page>(
-    PUBLIC_DEMO_ENABLED ? 'case-detail' : 'workbench',
-  );
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // ---- Workbench form state (lifted so the Sidebar scenario shortcuts
-  //      can pre-fill the input, and so "rerun from case" can populate it) -
-  const [question, setQuestion] = useState<string>('');
-  const [material, setMaterial] = useState<string>('');
+  const [user, setUser] = useState<WorkbenchUser | null>(null);
+  const [booting, setBooting] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [page, setPage] = useState<Page>('workbench');
+  const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
+  const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
+  const [question, setQuestion] = useState('');
+  const [material, setMaterial] = useState('');
+  const [intake, setIntake] = useState<CaseIntake>({ ...EMPTY_INTAKE });
   const [reviewMode, setReviewMode] = useState<'llm' | 'multi_agent'>('llm');
   const [rerankMode, setRerankMode] = useState<'off' | 'embedding'>('off');
-  const [currentResult, setCurrentResult] = useState<ReviewApiResponse | null>(
-    null,
-  );
-
-  // ---- Case-detail state ------------------------------------------------
-  const [activeCaseId, setActiveCaseId] = useState<string | null>(
-    PUBLIC_DEMO_ENABLED ? DEMO_CASE_ID : null,
-  );
-  // Subscribe to the case store so the active case stays in sync with any
-  // feedback / bad-case / verdict mutations performed inside the detail page.
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummaryApi | null>(null);
   const cases = useCaseStore();
-  const activeSavedCase = useMemo(
-    () => (activeCaseId ? cases.find((c) => c.id === activeCaseId) ?? null : null),
-    [cases, activeCaseId],
-  );
+  const activeCase = useMemo(() => activeCaseId ? cases.find((item) => item.id === activeCaseId) ?? null : null, [cases, activeCaseId]);
 
-  // ---- Handlers ---------------------------------------------------------
-  const handleSubmit = useCallback(
-    async (q: string, m: string, file?: File | null) => {
-      if (PUBLIC_DEMO_ENABLED) {
-        setError(
-          '当前为公开前端演示站，不运行共享审查后端。请按 README 自行部署后端，并在构建前端时设置 VITE_API_BASE_URL。',
-        );
-        return;
+  useEffect(() => {
+    let mounted = true;
+    void getCurrentUser().then(async (current) => {
+      if (!mounted) return;
+      setUser(current);
+      if (current) {
+        const [, summary] = await Promise.all([refreshCases(), getDashboardSummary()]);
+        if (mounted) setDashboardSummary(summary);
       }
-      setLoading(true);
-      setError(null);
-      setCurrentResult(null);
-      try {
-        const response = await submitReview(q, m, file, reviewMode, rerankMode);
-        // Persist the submission to the local case store so it appears in
-        // the sidebar history and can be reopened / annotated / exported.
-        const saved = saveCase(response, q, m, file?.name ?? null);
-        setCurrentResult(response);
-        setActiveCaseId(saved.id);
-        setCurrentPage('case-detail');
-      } catch (err) {
-        const message =
-          err instanceof ApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : '提交研究请求时发生未知错误';
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [reviewMode, rerankMode],
-  );
+    }).catch((reason) => {
+      if (mounted) setAuthError(reason instanceof Error ? reason.message : '无法连接到工作台');
+    }).finally(() => {
+      if (mounted) setBooting(false);
+    });
+    return () => { mounted = false; };
+  }, []);
 
-  const handleScenarioClick = useCallback((scenario: string) => {
-    // A scenario shortcut always takes the user to the workbench and
-    // fills the question field so they can review and submit.
-    setCurrentPage('workbench');
+  const handleLogin = useCallback(async (username: string, password: string): Promise<void> => {
+    setAuthError(null);
+    const current = await login(username, password);
+    setUser(current);
+    const [, summary] = await Promise.all([refreshCases(), getDashboardSummary()]);
+    setDashboardSummary(summary);
+  }, []);
+
+  const handleLogout = useCallback(async (): Promise<void> => {
+    await logout();
+    setUser(null);
+    setDashboardSummary(null);
+    setActiveCaseId(null);
+    setEditingCaseId(null);
+    setPage('workbench');
+  }, []);
+
+  const handleSubmit = useCallback(async (q: string, m: string, confirmedIntake: CaseIntake, file?: File | null): Promise<void> => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const saved = editingCaseId
+        ? await updateCase(editingCaseId, {
+          question: q,
+          material_text: m,
+          intake: confirmedIntake,
+          facts_confirmed: true,
+        })
+        : await createCase({ question: q, materialText: m, intake: confirmedIntake, reviewMode, rerankMode, file });
+      const submitted = await updateCaseStatus(saved.case.id, 'submitted');
+      if (user.role === 'reviewer' || user.role === 'admin') {
+        const result = await runCase(submitted.case.id);
+        const detail = fromDetail(result);
+        // The store is refreshed from the server so response, actions and events stay together.
+        await openCase(detail.id);
+      } else {
+        await openCase(submitted.case.id);
+      }
+      setDashboardSummary(await getDashboardSummary());
+      setEditingCaseId(null);
+      setActiveCaseId(saved.case.id);
+      setPage('case-detail');
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : '提交案件时发生未知错误');
+    } finally {
+      setLoading(false);
+    }
+  }, [editingCaseId, rerankMode, reviewMode, user]);
+
+  const handleOpenCase = useCallback(async (caseId: string): Promise<void> => {
+    setError(null);
+    try {
+      await openCase(caseId);
+      setActiveCaseId(caseId);
+      setPage('case-detail');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '无法打开案件');
+    }
+  }, []);
+
+  const handleScenarioClick = useCallback((scenario: string): void => {
     setQuestion(scenario);
+    setPage('workbench');
   }, []);
 
-  const handlePageChange = useCallback((page: Page) => {
-    setCurrentPage(page);
+  const handleEditCase = useCallback((saved: NonNullable<typeof activeCase>): void => {
+    setQuestion(saved.question);
+    setMaterial(saved.materialText);
+    setIntake({ ...saved.intake, data_types: [...saved.intake.data_types] });
+    setEditingCaseId(saved.id);
+    setError(null);
+    setPage('workbench');
   }, []);
 
-  const handleOpenCase = useCallback((caseId: string) => {
-    const saved = cases.find((c) => c.id === caseId);
-    if (!saved) return;
-    setActiveCaseId(caseId);
-    setCurrentResult(saved.response);
-    setCurrentPage('case-detail');
-  }, [cases]);
+  const handleStatusChange = useCallback(async (caseId: string, status: CaseStatus): Promise<void> => {
+    try {
+      await updateCaseStatus(caseId, status);
+      await openCase(caseId);
+      setDashboardSummary(await getDashboardSummary());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '无法更新案件状态');
+    }
+  }, []);
 
-  const handleRerunFromCase = useCallback((q: string, m: string) => {
-    // Pre-fill the workbench form from an existing case so the user can
-    // iterate on the same question/material.
+  const handleRerun = useCallback((q: string, m: string): void => {
     setQuestion(q);
     setMaterial(m);
+    setIntake({ ...EMPTY_INTAKE });
+    setEditingCaseId(null);
     setActiveCaseId(null);
-    setCurrentResult(null);
-    setError(null);
-    setCurrentPage('workbench');
+    setPage('workbench');
   }, []);
 
-  const handleBackToWorkbench = useCallback(() => {
-    setCurrentPage('workbench');
-  }, []);
+  if (booting) {
+    return <div className="app-loading"><div className="app-loading__mark">CC</div><span>正在连接 CrossComply 工作台…</span></div>;
+  }
+  if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
 
-  const handleViewDetail = useCallback(() => {
-    // Open the most recently saved case (newest first) in the detail view.
-    const latest = cases[0];
-    if (!latest) return;
-    setActiveCaseId(latest.id);
-    setCurrentResult(latest.response);
-    setCurrentPage('case-detail');
-  }, [cases]);
-
-  // The workbench uses the global dossier. Case detail owns a report-side
-  // citation rail so the first screen reads like a complete review report.
-  const showDossier =
-    currentPage === 'workbench' &&
-    currentResult !== null &&
-    !isReviewFailedResponse(currentResult);
-
-  // ---- Render -----------------------------------------------------------
   return (
     <div className="app-shell">
-      <Sidebar
-        currentPage={currentPage}
-        onPageChange={handlePageChange}
-        onScenarioClick={handleScenarioClick}
-        onOpenCase={handleOpenCase}
-        activeCaseId={activeCaseId}
-      />
-
+      <Sidebar currentPage={page} onPageChange={setPage} onScenarioClick={handleScenarioClick} onOpenCase={handleOpenCase} activeCaseId={activeCaseId} cases={cases} user={user} onLogout={() => void handleLogout()} />
       <main className="app-center">
-        {/* Compact navigation shown only on small screens (<768px). */}
-        <div className="app-mobile-nav">
-          <span className="app-mobile-brand">CrossComply</span>
-          <div className="app-mobile-tabs">
-            <button
-              type="button"
-              className={
-                'app-mobile-tab' +
-                (currentPage === 'workbench' ? ' is-active' : '')
-              }
-              onClick={() => handlePageChange('workbench')}
-            >
-              <span className="font-heading">研究工作台</span>
-            </button>
-            <button
-              type="button"
-              className={
-                'app-mobile-tab' +
-                (currentPage === 'eval' ? ' is-active' : '')
-              }
-              onClick={() => handlePageChange('eval')}
-            >
-              <span className="font-heading">评测看板</span>
-            </button>
-          </div>
-        </div>
-
-        {currentPage === 'case-detail' && activeSavedCase ? (
-          <CaseDetailPage
-            saved={activeSavedCase}
-            onRerun={handleRerunFromCase}
-            onBack={handleBackToWorkbench}
-          />
-        ) : currentPage === 'case-detail' && !activeSavedCase ? (
-          // The active case was deleted or not found — fall back to workbench.
-          <WorkbenchPage
-            question={question}
-            material={material}
-            reviewMode={reviewMode}
-            rerankMode={rerankMode}
-            onQuestionChange={setQuestion}
-            onMaterialChange={setMaterial}
-            onReviewModeChange={setReviewMode}
-            onRerankModeChange={setRerankMode}
-            onSubmit={handleSubmit}
-            loading={loading}
-            error={error}
-            result={currentResult}
-            historyCount={cases.length}
-            onViewDetail={handleViewDetail}
-          />
-        ) : currentPage === 'workbench' ? (
-          <WorkbenchPage
-            question={question}
-            material={material}
-            reviewMode={reviewMode}
-            rerankMode={rerankMode}
-            onQuestionChange={setQuestion}
-            onMaterialChange={setMaterial}
-            onReviewModeChange={setReviewMode}
-            onRerankModeChange={setRerankMode}
-            onSubmit={handleSubmit}
-            loading={loading}
-            error={error}
-            result={currentResult}
-            historyCount={cases.length}
-            onViewDetail={handleViewDetail}
-          />
-        ) : (
-          <EvalPage />
-        )}
+        <div className="app-mobile-nav"><span className="app-mobile-brand">CrossComply</span><div className="app-mobile-tabs"><button type="button" className={'app-mobile-tab' + (page === 'workbench' ? ' is-active' : '')} onClick={() => setPage('workbench')}>案件工作台</button><button type="button" className={'app-mobile-tab' + (page === 'eval' ? ' is-active' : '')} onClick={() => setPage('eval')}>评测治理</button></div></div>
+        {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
+        {page === 'case-detail' && activeCase ? <CaseDetailPage saved={activeCase} canEdit={user.role === 'requester'} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onStatusChange={(id, status) => void handleStatusChange(id, status)} /> : null}
+        {page === 'eval' ? <EvalPage /> : null}
+        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} reviewMode={reviewMode} rerankMode={rerankMode} editingCaseId={editingCaseId} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onReviewModeChange={setReviewMode} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
+        {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从左侧案件队列选择一个案件。</p></div> : null}
       </main>
-
-      {showDossier ? <EvidenceDossier reviewResponse={currentResult} /> : null}
     </div>
   );
 }

@@ -1,584 +1,136 @@
-/**
- * WorkbenchPage — main research workbench (center column).
- *
- * Lets the user enter a review question and material text, submit them for
- * analysis, and renders the structured `ReviewResponse` returned by the
- * backend: risk level, conclusion, extracted facts, trigger reasons,
- * recommended actions, risk boundaries, and applicable evidence groups.
- *
- * The question/material inputs are controlled by the parent (`App.tsx`) so
- * that the Sidebar scenario shortcuts can pre-fill the question field. The
- * parent also owns the loading / error / result state and passes the
- * `onSubmit` callback that triggers the review pipeline.
- *
- * Styling follows the Trust & Authority design system (authority navy +
- * trust gold). No purple, no gradients.
- */
-import { useCallback, useRef, useState } from 'react';
-import type { KeyboardEvent, ChangeEvent } from 'react';
-import type {
-  CitationGroup,
-  CitationUsage,
-  EvidenceStatus,
-  ReviewApiResponse,
-  ReviewFacts,
-} from '../types/api';
-import { isReviewFailedResponse } from '../types/api';
+import { useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
+import type { CaseIntake, DashboardSummaryApi } from '../types/api';
 import { validateUploadFile } from '../api/client';
-import RiskBadge from './RiskBadge';
-import GroundedClaims from './GroundedClaims';
-import MarkdownText from './MarkdownText';
 
-export interface WorkbenchPageProps {
-  /** Current review question (controlled). */
+interface WorkbenchPageProps {
   question: string;
-  /** Current material text (controlled). */
   material: string;
-  /** Current review mode: 'llm' or 'multi_agent'. */
+  intake: CaseIntake;
   reviewMode: 'llm' | 'multi_agent';
-  /** Current rerank mode: 'off' or 'embedding'. */
   rerankMode: 'off' | 'embedding';
-  /** Update the review question. */
+  editingCaseId: string | null;
   onQuestionChange: (value: string) => void;
-  /** Update the material text. */
   onMaterialChange: (value: string) => void;
-  /** Update the review mode. */
+  onIntakeChange: (value: CaseIntake) => void;
   onReviewModeChange: (mode: 'llm' | 'multi_agent') => void;
-  /** Update the rerank mode. */
   onRerankModeChange: (mode: 'off' | 'embedding') => void;
-  /** Called with question + material + optional file when the user submits. */
-  onSubmit: (question: string, material: string, file?: File | null) => void;
-  /** True while a review request is in flight. */
+  onSubmit: (question: string, material: string, intake: CaseIntake, file?: File | null) => void;
   loading: boolean;
-  /** The most recent review response, if any. */
-  result: ReviewApiResponse | null;
-  /** Error message from the last review attempt, if it failed. */
   error: string | null;
-  /** Number of accumulated review records, for the empty-state hint. */
-  historyCount?: number;
-  /** Open the most recent result as a full case-detail view. */
-  onViewDetail?: () => void;
+  historyCount: number;
+  summary: DashboardSummaryApi | null;
 }
 
-/** Human-readable labels for citation usage categories. */
-const USAGE_LABELS: Record<CitationUsage, string> = {
-  legal_basis: '法律依据',
-  conditional_basis: '条件依据',
-  implementation_reference: '实施参考',
-  policy_explanation: '政策释义',
-};
-
-/** Human-readable labels for evidence self-check status. */
-const EVIDENCE_STATUS_LABELS: Record<EvidenceStatus, string> = {
-  not_checked: '未检查',
-  sufficient: '证据充分',
-  needs_second_retrieval: '需二次检索',
-  insufficient: '证据不足',
-};
-
-/** Render a nullable boolean as 是 / 否 / —. */
-function renderBool(value: boolean | null): string {
-  if (value === null || value === undefined) return '—';
-  return value ? '是' : '否';
-}
-
-/** Render a nullable string, falling back to —. */
-function renderText(value: string | null): string {
-  return value && value.trim() ? value : '—';
-}
-
-/** Render a string array as a 、-joined list, falling back to —. */
-function renderList(values: string[] | null | undefined): string {
-  if (!values || values.length === 0) return '—';
-  return values.join('、');
-}
-
-/** Ordered facts shown in the 材料事实摘要 grid. */
-const FACT_FIELDS: Array<{
-  key: string;
-  label: string;
-  render: (f: ReviewFacts) => string;
-}> = [
-  { key: 'cross_border_transfer', label: '跨境传输', render: (f) => renderBool(f.cross_border_transfer) },
-  { key: 'overseas_recipient', label: '境外接收方', render: (f) => renderText(f.overseas_recipient) },
-  { key: 'data_types', label: '数据类型', render: (f) => renderList(f.data_types) },
-  { key: 'sensitive_personal_info', label: '敏感个人信息', render: (f) => renderBool(f.sensitive_personal_info) },
-  { key: 'processing_purpose', label: '处理目的', render: (f) => renderText(f.processing_purpose) },
-  { key: 'region', label: '地区', render: (f) => renderText(f.region) },
-  { key: 'industry', label: '行业', render: (f) => renderText(f.industry) },
-  { key: 'missing_information', label: '缺失信息', render: (f) => renderList(f.missing_information) },
-];
-
-/** A single citation group row in the 适用依据 summary. */
-function CitationGroupItem({ group }: { group: CitationGroup }): JSX.Element {
-  return (
-    <div className="cite-group">
-      <div className="cite-group__head">
-        <span>{USAGE_LABELS[group.usage] ?? group.usage}</span>
-        <span className="cite-group__count">{group.citations.length} 条</span>
-      </div>
-      {group.scope_note && (
-        <div style={{ fontSize: '0.8125rem', color: '#64748b', marginTop: '2px' }}>
-          {group.scope_note}
-        </div>
-      )}
-    </div>
-  );
+function updateIntake(intake: CaseIntake, onChange: (next: CaseIntake) => void, key: keyof CaseIntake, value: string | boolean | null | string[]): void {
+  onChange({ ...intake, [key]: value });
 }
 
 export default function WorkbenchPage({
   question,
   material,
+  intake,
   reviewMode,
   rerankMode,
+  editingCaseId,
   onQuestionChange,
   onMaterialChange,
+  onIntakeChange,
   onReviewModeChange,
   onRerankModeChange,
   onSubmit,
   loading,
-  result,
   error,
   historyCount,
-  onViewDetail,
+  summary,
 }: WorkbenchPageProps): JSX.Element {
-  // Selected file state — file is submitted directly with the review,
-  // not pre-extracted. The backend saves it as part of the review case.
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  // Inline validation error for the file picker (unsupported type / empty /
-  // oversized). Surfaced locally so upload mistakes never become a trace.
-  const [fileError, setFileError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
+  const canSubmit = !loading && Boolean(question.trim()) && Boolean(material.trim() || selectedFile);
 
-  // Submit is allowed when not loading and there's a question plus
-  // either material text or a selected file.
-  const canSubmit =
-    !loading &&
-    question.trim() !== '' &&
-    (material.trim() !== '' || selectedFile !== null);
-
-  const handleSubmit = (): void => {
-    if (!canSubmit) return;
-    onSubmit(question.trim(), material.trim(), selectedFile);
-  };
-
-  // Ctrl/Cmd + Enter inside the textarea submits the form.
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
-
-  const handleFileChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>): void => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      // Validate locally before accepting the file: unsupported types,
-      // empty files, and oversized files are rejected at the picker so
-      // they can never trigger a network round-trip or a failed trace.
-      try {
-        validateUploadFile(file);
-      } catch (err) {
-        setFileError(err instanceof Error ? err.message : '文件校验失败');
-        setSelectedFile(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        return;
-      }
-      setFileError(null);
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      validateUploadFile(file);
       setSelectedFile(file);
-    },
-    [],
-  );
-
-  const handleRemoveFile = useCallback((): void => {
-    setSelectedFile(null);
-    setFileError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      setFileError(null);
+    } catch (errorValue) {
+      setSelectedFile(null);
+      setFileError(errorValue instanceof Error ? errorValue.message : '文件校验失败');
     }
-  }, []);
+  };
 
-  const failedResult = isReviewFailedResponse(result) ? result : null;
-  const successResult = result && !isReviewFailedResponse(result) ? result : null;
-  const reviewResult = successResult?.review_result ?? null;
-  const facts = successResult?.review_facts ?? null;
-  const citationGroups = successResult?.citation_groups ?? [];
-  const evidenceSelfCheck = successResult?.evidence_self_check ?? null;
-  const evidenceChunks = successResult?.evidence_chunks ?? [];
-  const reviewStatusMessage = loading
-    ? '审查已开始，正在抽取事实、检索依据并检查证据。'
-    : reviewResult
-      ? '审查已完成，报告已生成。'
-      : '';
+  const submit = (): void => {
+    if (canSubmit) onSubmit(question.trim(), material.trim(), intake, selectedFile);
+  };
 
   return (
     <div className="workbench" aria-busy={loading}>
-      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {reviewStatusMessage}
-      </div>
-      {/* ---------------- Input section ---------------- */}
-      <section className="card">
-        <div className="workbench__field">
-          <label className="workbench__label font-heading" htmlFor="wb-question">
-            审查问题
-          </label>
-          <input
-            id="wb-question"
-            className="workbench__input"
-            type="text"
-            value={question}
-            onChange={(e) => onQuestionChange(e.target.value)}
-            placeholder="输入您的法律合规问题"
-            disabled={loading}
-          />
+      <header className="workspace-hero">
+        <div>
+          <div className="report-kicker">Cross-border review desk</div>
+          <h1>{editingCaseId ? '补充当前案件，让审查继续向前。' : '把一次合规问题，变成一份可追踪的案件记录。'}</h1>
+          <p>从业务材料开始，确认关键事实，生成有证据依据的审查结论与后续动作。</p>
         </div>
+        <div className="workspace-hero__metric"><strong>{summary?.total_cases ?? historyCount}</strong><span>已纳入案件</span></div>
+        <div className="workspace-hero__risk-strip">
+          <span><i className="risk-dot risk-dot--high" />高风险 <strong>{summary?.risk_counts.high ?? 0}</strong></span>
+          <span><i className="risk-dot risk-dot--medium" />中风险 <strong>{summary?.risk_counts.medium ?? 0}</strong></span>
+          <span><i className="risk-dot risk-dot--insufficient" />待补充 <strong>{summary?.risk_counts.insufficient_evidence ?? 0}</strong></span>
+        </div>
+      </header>
 
-        <div
-          className="workbench__field"
-          style={{ marginTop: 'var(--space-md)' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <label className="workbench__label font-heading" htmlFor="wb-material" style={{ marginBottom: 0 }}>
-              待审查材料
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {selectedFile && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {selectedFile.name}
-                  <button
-                    type="button"
-                    onClick={handleRemoveFile}
-                    disabled={loading}
-                    aria-label={`移除文件 ${selectedFile.name}`}
-                    style={{
-                      border: 'none', background: 'none', cursor: 'pointer',
-                      color: 'var(--color-danger)', fontSize: '1rem', lineHeight: 1,
-                      padding: '0 2px',
-                    }}
-                    title="移除文件"
-                    >
-                    ×
-                  </button>
-                </span>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md,.markdown,.pdf,.docx,.html,.htm,.json"
-                onChange={handleFileChange}
-                disabled={loading}
-                style={{ display: 'none' }}
-                id="wb-file-upload"
-              />
-              <button
-                type="button"
-                className="case-header__action-btn"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={loading}
-                style={{
-                  opacity: loading ? 0.6 : 1,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                }}
-              >
-                选择文件
-              </button>
-            </div>
-          </div>
-          {fileError && (
-            <div
-              style={{
-                fontSize: '0.75rem',
-                color: 'var(--color-danger)',
-                marginBottom: '6px',
-                marginTop: '-2px',
-              }}
-              role="alert"
-            >
-              {fileError}
-            </div>
-          )}
-          <textarea
-            id="wb-material"
-            className="workbench__textarea"
-            value={material}
-            onChange={(e) => onMaterialChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={'粘贴待审查的材料文本，或点击右上角「选择文件」上传文档（支持 .txt .md .pdf .docx），文件将直接随审查提交'}
-            disabled={loading}
-          />
-        </div>
-
-        <div className="workbench__actions">
-          <details className="workbench-advanced">
-            <summary>
-              高级设置
-              <span className="workbench-advanced__current">
-                {reviewMode === 'multi_agent' ? '深入审查' : '标准审查'}
-                {rerankMode === 'embedding' ? ' · 增强依据排序' : ''}
-              </span>
-            </summary>
-            <div className="workbench-advanced__body">
-              <div className="workbench-advanced__field">
-                <label htmlFor="review-mode" className="review-mode-select__label">
-                  审查深度
-                </label>
-                <select
-                  id="review-mode"
-                  className="review-mode-select__dropdown"
-                  value={reviewMode}
-                  onChange={(e) => onReviewModeChange(e.target.value as 'llm' | 'multi_agent')}
-                  disabled={loading}
-                >
-                  <option value="llm">标准审查</option>
-                  <option value="multi_agent">深入审查（耗时更长）</option>
-                </select>
-                <span className="workbench-advanced__hint">
-                  深入审查会增加独立复核步骤，适合高风险或证据复杂的材料。
-                </span>
-              </div>
-              <label className="workbench-advanced__check" htmlFor="rerank-mode">
-                <input
-                  id="rerank-mode"
-                  type="checkbox"
-                  checked={rerankMode === 'embedding'}
-                  onChange={(e) => onRerankModeChange(e.target.checked ? 'embedding' : 'off')}
-                  disabled={loading}
-                />
-                <span>
-                  <strong>增强依据排序</strong>
-                  <small>优先展示与审查问题语义更接近的依据。</small>
-                </span>
-              </label>
-            </div>
-          </details>
-          <button
-            type="button"
-            className="case-header__action-btn case-header__action-btn--accent"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-          >
-            开始审查
-          </button>
-        </div>
+      <section className="intake-progress card">
+        <div className={'intake-progress__step' + (step === 1 ? ' is-active' : ' is-done')}><span>01</span><div><strong>建立案件</strong><small>问题与材料</small></div></div>
+        <div className="intake-progress__line" />
+        <div className={'intake-progress__step' + (step === 2 ? ' is-active' : '')}><span>02</span><div><strong>确认要素</strong><small>范围与责任边界</small></div></div>
+        <div className="intake-progress__line" />
+        <div className="intake-progress__step"><span>03</span><div><strong>提交审查</strong><small>证据与行动</small></div></div>
       </section>
 
-      {/* ---------------- Output section ---------------- */}
-      {loading ? (
-        <section className="card state-block">
-          <span
-            className="spinner spinner--dark"
-            style={{ margin: '0 auto var(--space-md)' }}
-            aria-hidden="true"
-          />
-          <div className="state-block__title">正在审查...</div>
-          <div className="state-block__hint">
-            系统正在进行事实抽取、混合检索与证据自检，请稍候
+      {error ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
+
+      {step === 1 ? (
+        <section className="card intake-card">
+          <div className="section-heading-row"><div><div className="report-kicker">01 / 案件入口</div><h2>先把业务说清楚</h2></div><span className="section-heading-row__hint">约 2 分钟</span></div>
+          <label className="form-label" htmlFor="wb-question">审查问题</label>
+          <input id="wb-question" className="workbench__input" value={question} onChange={(event) => onQuestionChange(event.target.value)} placeholder="例如：这个业务是否需要数据出境安全评估？" disabled={loading} />
+          <label className="form-label" htmlFor="wb-material">待审查材料</label>
+          <div className="material-toolbar">
+            <span>{selectedFile ? `已选择：${selectedFile.name}` : '粘贴项目说明、数据流、供应商信息或合同片段'}</span>
+            <input ref={fileInputRef} type="file" accept=".txt,.md,.markdown,.pdf,.docx,.html,.htm,.json" onChange={handleFileChange} hidden />
+            <button type="button" className="btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={loading}>上传材料</button>
           </div>
-        </section>
-      ) : error ? (
-        <section className="error-box" role="alert">
-          <span className="error-box__mark" aria-hidden="true">
-            !
-          </span>
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: '2px' }}>审查失败</div>
-            <div style={{ wordBreak: 'break-word' }}>{error}</div>
-          </div>
-        </section>
-      ) : failedResult ? (
-        <section className="error-box" role="alert">
-          <span className="error-box__mark" aria-hidden="true">
-            !
-          </span>
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: '2px' }}>
-              审查流程失败
-            </div>
-            <div style={{ wordBreak: 'break-word' }}>
-              {failedResult.failed_node}：{failedResult.message}
-            </div>
-            <div style={{ marginTop: '6px', fontSize: '0.8125rem', color: '#64748b' }}>
-              已重试 {failedResult.attempts} 次
-              {failedResult.trace_id ? ` · Trace ${failedResult.trace_id}` : ''}
-            </div>
-          </div>
-        </section>
-      ) : reviewResult && facts ? (
-        <section className="workbench__result">
-          {/* Full-chain entry — the case-detail page shows the query plan,
-              evidence chunks, self-check issues, and feedback controls. */}
-          {onViewDetail ? (
-            <div className="workbench__detail-entry">
-              <span>
-                审查已完成并保存到案卷历史。可继续查看完整报告、引用依据与审查记录：
-              </span>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={onViewDetail}
-              >
-                查看完整审查报告 →
-              </button>
-            </div>
-          ) : null}
-
-          {/* (a) Risk level + evidence self-check status */}
-          <div
-            className="card"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-sm)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-md)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <RiskBadge level={reviewResult.risk_level} />
-              {evidenceSelfCheck && (
-                <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>
-                  证据自检：
-                  <strong style={{ color: 'var(--color-primary)' }}>
-                    {EVIDENCE_STATUS_LABELS[evidenceSelfCheck.status]}
-                  </strong>
-                  {successResult?.second_retrieval_triggered && (
-                    <span
-                      style={{
-                        marginLeft: 'var(--space-sm)',
-                        color: 'var(--color-accent)',
-                      }}
-                    >
-                      · 已触发二次检索
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
-
-            {/* (b) Conclusion */}
-            <div
-              style={{
-                background: 'rgba(30, 58, 138, 0.04)',
-                border: '1px solid rgba(30, 58, 138, 0.18)',
-                borderRadius: 'var(--radius-md)',
-                padding: 'var(--space-md)',
-              }}
-            >
-              <div
-                className="workbench__label"
-                style={{ marginBottom: 'var(--space-xs)' }}
-              >
-                审查结论
-              </div>
-              <MarkdownText variant="report">{reviewResult.conclusion}</MarkdownText>
-              <GroundedClaims
-                claims={reviewResult.claims}
-                evidenceChunks={evidenceChunks}
-              />
-            </div>
-          </div>
-
-          {/* (c) Material facts summary */}
-          <div className="card">
-            <div className="section-title">材料事实摘要</div>
-            <div className="facts-grid">
-              {FACT_FIELDS.map((f) => (
-                <div className="facts-grid__item" key={f.key}>
-                  <span className="facts-grid__label">{f.label}</span>
-                  <span className="facts-grid__value">{f.render(facts)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* (d) Trigger reasons */}
-          {reviewResult.trigger_reasons.length > 0 && (
-            <div className="card">
-              <div className="section-title">触发原因</div>
-              <div className="tag-list">
-                {reviewResult.trigger_reasons.map((reason, idx) => (
-                  <span className="tag" key={idx}>
-                    {reason}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* (e) Recommended actions */}
-          {reviewResult.recommended_actions.length > 0 && (
-            <div className="card">
-              <div className="section-title">建议动作</div>
-              <ol className="action-list">
-                {reviewResult.recommended_actions.map((action, idx) => (
-                  <li className="action-list__item" key={idx}>
-                    <MarkdownText variant="note">{action}</MarkdownText>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-
-          {/* (f) Risk boundaries */}
-          {reviewResult.risk_boundaries.length > 0 && (
-            <div className="card">
-              <div className="section-title">风险边界</div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-sm)',
-                }}
-              >
-                {reviewResult.risk_boundaries.map((boundary, idx) => (
-                  <div className="warning-note" key={idx}>
-                    <MarkdownText variant="note">{boundary}</MarkdownText>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* (g) Applicable evidence */}
-          {citationGroups.length > 0 && (
-            <div className="card">
-              <div className="section-title">适用依据</div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-sm)',
-                }}
-              >
-                {citationGroups.map((group, idx) => (
-                  <CitationGroupItem group={group} key={idx} />
-                ))}
-              </div>
-            </div>
-          )}
+          {fileError ? <div className="form-error">{fileError}</div> : null}
+          <textarea id="wb-material" className="workbench__textarea" value={material} onChange={(event) => onMaterialChange(event.target.value)} placeholder="描述业务如何收集、使用和向境外提供数据……" disabled={loading} rows={10} />
+          <div className="intake-card__footer"><span>材料将作为案件记录保存，并与审查结果、证据和整改动作关联。</span><button type="button" className="btn-primary" disabled={!question.trim() || (!material.trim() && !selectedFile)} onClick={() => setStep(2)}>继续确认案件要素 →</button></div>
         </section>
       ) : (
-        <section className="card state-block">
-          <div className="state-block__title">尚未开始审查</div>
-          <div className="state-block__hint">
-            在上方输入审查问题与待审查材料，点击"开始审查"获取合规分析结果
-            {historyCount && historyCount > 0 ? (
-              <>
-                <br />
-                已累计 {historyCount} 次审查记录
-              </>
-            ) : null}
+        <section className="card intake-card">
+          <div className="section-heading-row"><div><div className="report-kicker">02 / 关键要素</div><h2>确认影响判断的事实</h2></div><button type="button" className="btn-link" onClick={() => setStep(1)}>← 返回材料</button></div>
+          <div className="intake-grid">
+            <label className="form-field form-field--wide"><span>业务活动</span><input value={intake.business_activity} onChange={(event) => updateIntake(intake, onIntakeChange, 'business_activity', event.target.value)} placeholder="例如：推荐系统、客服平台、人力资源管理" /></label>
+            <label className="form-field"><span>数据类型</span><input value={intake.data_types.join('、')} onChange={(event) => updateIntake(intake, onIntakeChange, 'data_types', event.target.value.split(/[、,，]/).map((item) => item.trim()).filter(Boolean))} placeholder="手机号、定位信息" /></label>
+            <label className="form-field"><span>境外接收方</span><input value={intake.overseas_recipient} onChange={(event) => updateIntake(intake, onIntakeChange, 'overseas_recipient', event.target.value)} placeholder="公司/供应商名称" /></label>
+            <label className="form-field"><span>目的地</span><input value={intake.destination_region} onChange={(event) => updateIntake(intake, onIntakeChange, 'destination_region', event.target.value)} placeholder="国家或地区" /></label>
+            <label className="form-field"><span>非敏感个人信息数量</span><input value={intake.annual_non_sensitive_count} onChange={(event) => updateIntake(intake, onIntakeChange, 'annual_non_sensitive_count', event.target.value)} placeholder="年度估算区间" /></label>
+            <label className="form-field"><span>敏感个人信息数量</span><input value={intake.annual_sensitive_count} onChange={(event) => updateIntake(intake, onIntakeChange, 'annual_sensitive_count', event.target.value)} placeholder="年度估算区间" /></label>
+            <label className="form-field"><span>重要数据识别状态</span><select value={intake.important_data_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'important_data_status', event.target.value as CaseIntake['important_data_status'])}><option value="unknown">尚未判断</option><option value="not_important">已确认不涉及</option><option value="important">已确认涉及</option><option value="under_review">正在评估</option></select></label>
+            <label className="form-field"><span>关基运营者状态</span><select value={intake.ciio_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'ciio_status', event.target.value as CaseIntake['ciio_status'])}><option value="unknown">尚未判断</option><option value="not_ciio">已确认不是</option><option value="ciio">已确认是</option><option value="under_review">正在评估</option></select></label>
+            <label className="form-field"><span>合同/标准合同状态</span><input value={intake.contract_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'contract_status', event.target.value)} placeholder="未签署、已签署、待法务确认" /></label>
+            <label className="form-field"><span>拟采用的出境路径</span><input value={intake.transfer_mechanism} onChange={(event) => updateIntake(intake, onIntakeChange, 'transfer_mechanism', event.target.value)} placeholder="评估、标准合同、认证或待判断" /></label>
+            <label className="form-field form-field--wide"><span>处理目的与补充说明</span><textarea value={`${intake.processing_purpose}${intake.notes ? `\n${intake.notes}` : ''}`} onChange={(event) => updateIntake(intake, onIntakeChange, 'processing_purpose', event.target.value)} placeholder="补充业务目的、例外情况和当前已知限制" rows={3} /></label>
           </div>
+          <div className="intake-confirmation"><label><input type="checkbox" checked={intake.cross_border_transfer === true} onChange={(event) => updateIntake(intake, onIntakeChange, 'cross_border_transfer', event.target.checked)} /> <strong>我确认材料涉及向境外提供数据</strong></label><span>未确认的事实会在审查结果中显示为待补充，不会由系统擅自推断。</span></div>
+          <details className="workbench-advanced"><summary>审查运行设置</summary><div className="workbench-advanced__body"><label className="form-field"><span>审查深度</span><select value={reviewMode} onChange={(event) => onReviewModeChange(event.target.value as 'llm' | 'multi_agent')}><option value="llm">标准审查</option><option value="multi_agent">深入审查</option></select></label><label className="intake-confirmation"><input type="checkbox" checked={rerankMode === 'embedding'} onChange={(event) => onRerankModeChange(event.target.checked ? 'embedding' : 'off')} /> 启用增强依据排序</label></div></details>
+          <div className="intake-card__footer"><span>输出是受控决策辅助，最终结论需要合规审核人确认。</span><button type="button" className="btn-primary" disabled={!canSubmit} onClick={submit}>{loading ? '正在提交案件…' : editingCaseId ? '保存补充并重新提交' : '创建案件并提交审查'}</button></div>
         </section>
       )}
+
+      <section className="guardrail-strip"><span className="guardrail-strip__mark">⌁</span><div><strong>证据优先，明确边界</strong><p>系统会把关键结论连接到法规依据；如果材料不足或检索不到主法源，会停留在待补充状态。</p></div></section>
     </div>
   );
 }

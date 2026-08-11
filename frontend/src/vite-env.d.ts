@@ -9,8 +9,6 @@ interface ImportMetaEnv {
    * different origin than the API (e.g. `http://127.0.0.1:8000`).
    */
   readonly VITE_API_BASE_URL?: string;
-  /** Enable the built-in real review case for the public frontend showcase. */
-  readonly VITE_PUBLIC_DEMO?: string;
 }
 
 interface ImportMeta {
