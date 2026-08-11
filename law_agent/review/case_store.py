@@ -38,6 +38,7 @@ CASE_TRANSITIONS: dict[str, set[str]] = {
     "completed": set(),
     "review_failed": {"in_review", "needs_info"},
 }
+INITIAL_CASE_ID = "case_initial_cross_border_review"
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS users (
@@ -272,6 +273,7 @@ class PostgresCaseStore:
         seed_password = os.getenv("CROSSCOMPLY_SEED_PASSWORD", "").strip()
         if seed_password:
             self._seed_users(seed_password)
+            self._seed_initial_case()
 
     def _seed_users(self, password: str) -> None:
         users = (
@@ -291,6 +293,68 @@ class PostgresCaseStore:
                         """,
                         (f"user_{uuid4().hex[:16]}", username, display_name, role, password_hash),
                     )
+            conn.commit()
+
+    def _seed_initial_case(self) -> None:
+        now = datetime.now(UTC)
+        intake = {
+            "business_activity": "移动应用个性化推荐和算法优化",
+            "data_types": ["手机号", "精确定位", "设备标识"],
+            "sensitive_personal_info": True,
+            "cross_border_transfer": True,
+            "important_data_status": "under_review",
+            "ciio_status": "unknown",
+            "annual_non_sensitive_count": "待确认",
+            "annual_sensitive_count": "待确认",
+            "overseas_recipient": "新加坡云服务商",
+            "destination_region": "新加坡",
+            "processing_purpose": "个性化推荐和算法优化",
+            "transfer_mechanism": "待审核人判断",
+            "vendor_name": "新加坡云服务商",
+            "contract_status": "待补充",
+            "legal_basis_or_consent": "待补充",
+            "notes": "请补充年度数据量、单独同意和供应商合同信息。",
+        }
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT id FROM users WHERE username = %s", ("requester@crosscomply.local",))
+            requester = cur.fetchone()
+            if requester is None:
+                return
+            cur.execute("SELECT 1 FROM review_cases LIMIT 1")
+            if cur.fetchone() is not None:
+                return
+            cur.execute(
+                """
+                INSERT INTO review_cases (
+                    id, title, question, material_text, material_source, intake_json,
+                    status, review_mode, rerank_mode, created_by, owner_id,
+                    facts_confirmed, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    INITIAL_CASE_ID,
+                    "移动应用推荐数据出境审查",
+                    "这个业务是否需要数据出境安全评估？",
+                    "我们将境内移动应用用户的手机号、精确定位和设备标识发送给新加坡云服务商，用于个性化推荐和算法优化。当前尚未确认年度数据量、单独同意和供应商合同安排。",
+                    "initial_workbench",
+                    intake,
+                    "draft",
+                    "llm",
+                    "off",
+                    requester["id"],
+                    requester["id"],
+                    False,
+                    now,
+                    now,
+                ),
+            )
+            cur.execute(
+                """
+                INSERT INTO case_events (id, case_id, actor_id, event_type, to_status, payload_json)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (event_id(), INITIAL_CASE_ID, requester["id"], "case_created", "draft", {"source": "initial_workbench"}),
+            )
             conn.commit()
 
     def authenticate(self, username: str, password: str) -> UserRecord | None:
