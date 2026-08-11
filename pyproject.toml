@@ -9,6 +9,7 @@ dependencies = [
   "json-repair>=0.30",
   "fastapi~=0.141.0",
   "python-multipart>=0.0.9",
+  "pwdlib[argon2]>=0.2",
   "uvicorn[standard]>=0.29",
 ]
 

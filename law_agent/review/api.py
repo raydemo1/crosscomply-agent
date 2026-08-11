@@ -1,36 +1,37 @@
-"""FastAPI application for the local review API (Issue 10).
+"""FastAPI transport for the CrossComply compliance case workbench.
 
-Exposes the review flow through a local JSON API so the frontend can call
-real review behavior. All business logic stays in ``service.py`` — this
-module is a thin transport layer.
-
-Endpoints:
-- ``POST /api/review`` — run a full review case
-- ``GET /api/eval/latest`` — get the latest cached eval summary
-- ``POST /api/eval/run`` — trigger evaluation and cache result
-- ``GET /api/health`` — health check
-- ``GET /docs`` — OpenAPI interactive docs (provided by FastAPI)
+The public API is case-oriented.  Review execution remains in the existing
+RAG/application services, while this module owns authentication, persistence,
+workflow transitions, and the HTTP contract used by the frontend.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import tempfile
 import threading
 import uuid
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from law_agent.config import RerankMode, load_llm_config, load_service_config
+from law_agent.review.case_store import (
+    CASE_TRANSITIONS,
+    CaseStore,
+    CaseStatus,
+    PostgresCaseStore,
+    UserRecord,
+)
 from law_agent.review.evalset.cases import EvalSuite
-from law_agent.review.evalset.runner import run_evaluation
-from law_agent.review.evalset.runner import ReviewEvalMode
+from law_agent.review.evalset.runner import ReviewEvalMode, run_evaluation
 from law_agent.review.evalset.schemas import EvalSummary
-from law_agent.review.io import read_review_results, read_retrieval_traces
+from law_agent.review.io import read_review_results
 from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.schemas import (
@@ -43,86 +44,97 @@ from law_agent.review.schemas import (
     RetrievalQuery,
     SourceEvidencePacket,
 )
-from law_agent.review.service import (
-    DEFAULT_REVIEW_RUNS_DIR,
-    ReviewMode,
-    create_review_case,
-    run_service_retrieval,
-)
+from law_agent.review.service import ReviewMode, create_review_case, run_service_retrieval
 
-# Upload guardrails. The frontend mirrors these so that network/upload
-# failures are intercepted before they can become a "trace" — a parsing
-# failure must surface as a clear 422 error, not a ReviewFailedResponse.
-MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 ALLOWED_UPLOAD_SUFFIXES = {
-    ".txt", ".md", ".markdown", ".pdf", ".docx",
-    ".html", ".htm", ".json",
+    ".txt", ".md", ".markdown", ".pdf", ".docx", ".html", ".htm", ".json",
 }
+SESSION_COOKIE = "crosscomply_session"
 
 
-def _file_parse_hint(filename: str, exc: BaseException) -> str:
-    """Turn a low-level parsing error into a clear, actionable message.
-
-    File parsing failures must never be reported as a successful-but-failed
-    review trace. The user needs to know *why* the document could not be
-    parsed so they can fix the input (re-save, OCR, switch format, etc.).
-    """
-    message = str(exc).strip() or exc.__class__.__name__
-    lower = message.lower()
-    suffix = Path(filename).suffix.lower()
-    if "Docling parser requires" in message or "docling parser requires" in lower:
-        return (
-            f"无法使用 Docling 解析 {filename}：未安装 docling 或模型文件缺失。"
-            "请改用 .txt/.md/.docx 等可解析格式，或安装 docling 后重试。"
-        )
-    if "MinerU parser" in message or "mineru" in lower:
-        return (
-            f"无法使用 MinerU 解析 {filename}：未安装 mineru CLI。"
-            "请改用其他格式或安装 mineru 后重试。"
-        )
-    if "non-zip" in lower:
-        return (
-            f"{filename} 不是有效的 DOCX 文件（ZIP 头校验失败），"
-            "可能是旧版 .doc 或损坏文件，请另存为 .docx 后重试。"
-        )
-    if "转换为 pdf" in message or "转换为 PDF" in message:
-        return (
-            f"{filename} 无法解析：图片转 PDF 失败（{message}）。"
-            "请确认图片未损坏，或直接提供 PDF 文档。"
-        )
-    if suffix in {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}:
-        # Docling could not even load the document — usually a corrupt,
-        # empty, or password-protected file (NOT an OCR-quality issue).
-        if "could not load document" in lower or "data format error" in lower \
-                or "conversion failed" in lower or "is not valid" in lower:
-            return (
-                f"{filename} 无法加载：文件为空、损坏或受密码保护。"
-                "请确认文件可正常打开后重新上传。"
-            )
-        # OCR ran but produced nothing usable — scanned doc with poor quality.
-        if "ocr" in lower:
-            return (
-                f"{filename} 解析后未提取到有效文本，可能是扫描件且 OCR 识别失败。"
-                "请提供可选择文本的文档，或提升扫描清晰度后重试。"
-            )
-    return f"无法解析文件 {filename}：{message}"
+class IntakePayload(BaseModel):
+    business_activity: str = ""
+    data_types: list[str] = Field(default_factory=list)
+    sensitive_personal_info: bool | None = None
+    cross_border_transfer: bool | None = None
+    important_data_status: Literal["unknown", "not_important", "important", "under_review"] = "unknown"
+    ciio_status: Literal["unknown", "not_ciio", "ciio", "under_review"] = "unknown"
+    annual_non_sensitive_count: str = ""
+    annual_sensitive_count: str = ""
+    overseas_recipient: str = ""
+    destination_region: str = ""
+    processing_purpose: str = ""
+    transfer_mechanism: str = ""
+    vendor_name: str = ""
+    contract_status: str = ""
+    legal_basis_or_consent: str = ""
+    notes: str = ""
 
 
-# ---------------------------------------------------------------------------
-# Request / Response models
-# ---------------------------------------------------------------------------
+class LoginRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=1)
 
-class ReviewRequest(BaseModel):
-    """Request body for POST /api/review."""
 
-    question: str = Field(..., min_length=1, description="The review question")
-    material_text: str = Field(..., min_length=1, description="The material text to review")
-    review_mode: str = Field(default="llm", description="Review pipeline: 'llm' or 'multi_agent'")
-    rerank_mode: RerankMode = Field(default="off", description="Rerank arm: 'off' or 'embedding'")
+class CaseCreateRequest(BaseModel):
+    title: str | None = None
+    question: str = Field(..., min_length=1)
+    material_text: str = Field(..., min_length=1)
+    material_source: str | None = None
+    intake: IntakePayload = Field(default_factory=IntakePayload)
+    review_mode: ReviewMode = "llm"
+    rerank_mode: RerankMode = "off"
+
+    @field_validator("question", "material_text")
+    @classmethod
+    def must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("value must not be blank")
+        return value.strip()
+
+
+class CaseUpdateRequest(BaseModel):
+    title: str | None = None
+    question: str | None = None
+    material_text: str | None = None
+    intake: IntakePayload | None = None
+    facts_confirmed: bool | None = None
+    owner_id: str | None = None
+
+
+class CaseStatusRequest(BaseModel):
+    status: Literal["draft", "submitted", "in_review", "needs_info", "completed", "review_failed"]
+    note: str = ""
+
+
+class CaseActionRequest(BaseModel):
+    title: str = Field(..., min_length=1)
+    description: str = ""
+    owner_role: str = "reviewer"
+    priority: Literal["high", "medium", "low"] = "medium"
+    status: Literal["open", "in_progress", "completed"] = "open"
+    due_date: str | None = None
+
+
+class CaseActionUpdateRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    owner_role: str | None = None
+    priority: Literal["high", "medium", "low"] | None = None
+    status: Literal["open", "in_progress", "completed"] | None = None
+    due_date: str | None = None
+
+
+class FeedbackRequest(BaseModel):
+    conclusion_useful: bool | None = None
+    missing_sources: str = ""
+    notes: str = ""
+    citation_verdicts: dict[str, str] = Field(default_factory=dict)
 
 
 class ReviewResponse(BaseModel):
-    """Response body for POST /api/review."""
+    """Structured result persisted inside a workbench case."""
 
     review_case_id: str
     trace_id: str
@@ -131,18 +143,12 @@ class ReviewResponse(BaseModel):
     evidence_self_check: EvidenceSelfCheck
     citation_groups: list[CitationGroup] = Field(default_factory=list)
     second_retrieval_triggered: bool = False
-    # Issue: 审查工作台产品化 — expose the retrieval query plan and the
-    # final evidence hits (with chunk text) so the frontend can render the
-    # full review chain and expand citations to show the underlying clause
-    # text. These are additive and default to empty for backward compat.
     retrieval_queries: list[RetrievalQuery] = Field(default_factory=list)
     evidence_chunks: list[RetrievalHit] = Field(default_factory=list)
     source_evidence_packets: list[SourceEvidencePacket] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):
-    """Response body for GET /api/health."""
-
     status: str = "ok"
     llm: dict[str, Any] = Field(default_factory=dict)
     services: dict[str, Any] = Field(default_factory=dict)
@@ -150,38 +156,26 @@ class HealthResponse(BaseModel):
 
 
 class EvalRunRequest(BaseModel):
-    """Request body for POST /api/eval/run (all fields optional)."""
-
-    chunks_path: str | None = Field(default=None, description="Custom path to chunks.jsonl")
-    review_mode: ReviewEvalMode = Field(
-        default="llm",
-        description="Review owner under test: llm or multi_agent",
-    )
-    top_k: int = Field(default=10, ge=1, le=100, description="Retrieval top_k")
-    max_workers: int = Field(
-        default=4,
-        ge=1,
-        le=16,
-        description="Number of eval cases to run in parallel",
-    )
-    rerank_mode: RerankMode = Field(
-        default="off",
-        description="Optional post-fusion reranker for A/B eval",
-    )
-    suite: EvalSuite = Field(
-        default="full",
-        description="Evaluation suite to run: base (24 cases) or full (all cases)",
-    )
+    chunks_path: str | None = None
+    review_mode: ReviewEvalMode = "llm"
+    top_k: int = Field(default=10, ge=1, le=100)
+    max_workers: int = Field(default=4, ge=1, le=16)
+    rerank_mode: RerankMode = "off"
+    suite: EvalSuite = "full"
 
 
 class EvalJobResponse(BaseModel):
-    """Current state of the background evaluation job."""
-
     job_id: str | None = None
     status: Literal["idle", "running", "succeeded", "failed"] = "idle"
     message: str | None = None
     started_at: str | None = None
     finished_at: str | None = None
+
+
+def _now_iso() -> str:
+    from law_agent.review.ids import utc_now_iso
+
+    return utc_now_iso()
 
 
 def _idle_job() -> dict[str, Any]:
@@ -194,41 +188,178 @@ def _idle_job() -> dict[str, Any]:
     }
 
 
-def _preload_eval_cache(app: FastAPI, cache_dir: Path) -> None:
-    """Load the most recent ``rerank=off`` and ``rerank=on`` eval summaries
-    from ``cache_dir`` into ``app.state.eval_cache``.
+def _file_parse_hint(filename: str, exc: BaseException) -> str:
+    message = str(exc).strip() or exc.__class__.__name__
+    lower = message.lower()
+    suffix = Path(filename).suffix.lower()
+    if "docling parser requires" in lower:
+        return f"无法使用 Docling 解析 {filename}：未安装 docling 或模型文件缺失。"
+    if "mineru" in lower:
+        return f"无法使用 MinerU 解析 {filename}：未安装 mineru CLI。"
+    if "non-zip" in lower:
+        return f"{filename} 不是有效的 DOCX 文件，请另存为 .docx 后重试。"
+    if suffix in {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"} and (
+        "could not load document" in lower or "data format error" in lower or "conversion failed" in lower
+    ):
+        return f"{filename} 无法加载：文件为空、损坏或受密码保护。"
+    return f"无法解析文件 {filename}：{message}"
 
-    Filenames must contain ``rerank_off`` / ``rerank_on`` (or ``rerank=off`` /
-    ``rerank=on``) to be recognized. The most recent file per arm wins.
-    """
+
+def _intake_context(intake: dict[str, Any]) -> str:
+    labels = {
+        "business_activity": "业务活动",
+        "data_types": "数据类型",
+        "sensitive_personal_info": "敏感个人信息",
+        "cross_border_transfer": "跨境传输",
+        "important_data_status": "重要数据识别状态",
+        "ciio_status": "关键信息基础设施运营者状态",
+        "annual_non_sensitive_count": "非敏感个人信息数量区间",
+        "annual_sensitive_count": "敏感个人信息数量区间",
+        "overseas_recipient": "境外接收方",
+        "destination_region": "目的地",
+        "processing_purpose": "处理目的",
+        "transfer_mechanism": "拟采用的出境路径",
+        "vendor_name": "供应商",
+        "contract_status": "合同状态",
+        "legal_basis_or_consent": "法律依据或同意",
+        "notes": "补充说明",
+    }
+    lines: list[str] = []
+    for key, value in intake.items():
+        if value in (None, "", [], "unknown"):
+            continue
+        if isinstance(value, bool):
+            value = "是" if value else "否"
+        if isinstance(value, list):
+            value = "、".join(str(item) for item in value)
+        lines.append(f"- {labels.get(key, key)}：{value}")
+    return "\n【申请人已确认的案件要素】\n" + "\n".join(lines) if lines else ""
+
+
+async def _material_from_upload(file: UploadFile) -> tuple[str, str]:
+    filename = Path(file.filename or "uploaded-material").name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ALLOWED_UPLOAD_SUFFIXES:
+        raise HTTPException(status_code=422, detail={"code": "unsupported_file_type", "filename": filename})
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=422, detail={"code": "empty_file", "filename": filename})
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=422, detail={"code": "file_too_large", "filename": filename})
+
+    from law_agent.review.materials import material_from_file
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / filename
+        path.write_bytes(raw)
+        try:
+            material = material_from_file(path)
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail={"code": "file_parse_failed", "filename": filename, "message": _file_parse_hint(filename, exc)}) from exc
+    if not material.material_text.strip():
+        raise HTTPException(status_code=422, detail={"code": "empty_extraction", "filename": filename})
+    return material.material_text, filename
+
+
+def _preload_eval_cache(app: FastAPI, cache_dir: Path) -> None:
     import glob
 
     if not cache_dir.exists():
         return
-
     patterns = {
         "off": ["*rerank_off*", "*rerank=off*", "*rerank-off*"],
         "embedding": ["*rerank_on*", "*rerank=on*", "*rerank-on*"],
     }
-    for arm, pats in patterns.items():
+    for arm, names in patterns.items():
         candidates: list[Path] = []
-        for pat in pats:
-            candidates.extend(Path(p) for p in glob.glob(str(cache_dir / pat)))
+        for name in names:
+            candidates.extend(Path(path) for path in glob.glob(str(cache_dir / name)))
         if not candidates:
             continue
-        # Pick the most recently modified file.
-        latest = max(candidates, key=lambda p: p.stat().st_mtime)
+        latest = max(candidates, key=lambda path: path.stat().st_mtime)
         try:
-            summary = EvalSummary.model_validate_json(latest.read_text(encoding="utf-8"))
-            app.state.eval_cache[arm] = summary
+            app.state.eval_cache[arm] = EvalSummary.model_validate_json(latest.read_text(encoding="utf-8"))
         except Exception:
-            # Don't fail startup over a stale cache file.
-            pass
+            continue
 
 
-# ---------------------------------------------------------------------------
-# App factory
-# ---------------------------------------------------------------------------
+def _case_summary(case: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": case["id"],
+        "title": case["title"],
+        "question": case["question"],
+        "status": case["status"],
+        "risk_level": case.get("risk_level"),
+        "facts_confirmed": case.get("facts_confirmed", False),
+        "created_by": case["created_by"],
+        "owner_id": case.get("owner_id"),
+        "created_at": case["created_at"],
+        "updated_at": case["updated_at"],
+        "has_result": case.get("response") is not None,
+    }
+
+
+def _case_payload(store: CaseStore, case: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "case": case,
+        "actions": store.list_actions(case["id"]),
+        "events": store.list_events(case["id"]),
+        "feedback": store.get_feedback(case["id"]),
+    }
+
+
+def _can_view(user: UserRecord, case: dict[str, Any]) -> bool:
+    return user.role in {"reviewer", "admin"} or case["created_by"] == user.id
+
+
+def _can_complete(case: dict[str, Any]) -> bool:
+    response = case.get("response") or {}
+    result = response.get("review_result") or {}
+    self_check = response.get("evidence_self_check") or {}
+    return bool(
+        response
+        and result.get("risk_level") != "insufficient_evidence"
+        and self_check.get("status") not in {"insufficient", "needs_second_retrieval"}
+        and not result.get("missing_information")
+    )
+
+
+def _run_review(app: FastAPI, case: dict[str, Any]) -> ReviewResponse:
+    material = case["material_text"] + _intake_context(case.get("intake") or {})
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_dir = Path(tmpdir)
+        created = create_review_case(
+            question=case["question"],
+            material_text=material,
+            output_dir=output_dir,
+            review_mode=case["review_mode"],
+        )
+        trace = run_service_retrieval(
+            case_id=created.review_case.review_case_id,
+            chunks_path=app.state.chunks_path,
+            output_dir=output_dir,
+            review_mode=case["review_mode"],
+            rerank_mode=case["rerank_mode"],
+            output_format="markdown",
+        )
+        results = read_review_results(output_dir / "review_results.jsonl")
+        if not results:
+            raise RuntimeError("review result was not generated")
+        result = results[0]
+        from law_agent.review.service import flatten_source_evidence_packets
+
+        return ReviewResponse(
+            review_case_id=created.review_case.review_case_id,
+            trace_id=created.trace.trace_id,
+            review_facts=result.review_facts,
+            review_result=result,
+            evidence_self_check=trace.evidence_self_check,
+            citation_groups=result.applicable_evidence,
+            second_retrieval_triggered=trace.evidence_self_check.second_retrieval_triggered,
+            retrieval_queries=trace.queries,
+            evidence_chunks=flatten_source_evidence_packets(trace.source_evidence_packets),
+            source_evidence_packets=trace.source_evidence_packets,
+        )
 
 
 def create_app(
@@ -236,25 +367,13 @@ def create_app(
     chunks_path: Path | str = DEFAULT_CHUNKS_PATH,
     review_mode: ReviewMode = "llm",
     eval_cache_dir: Path | str | None = None,
+    case_store: CaseStore | None = None,
 ) -> FastAPI:
-    """Create and configure the FastAPI application.
-
-    Args:
-        chunks_path: Path to the corpus chunks.jsonl file.
-        eval_cache_dir: Optional directory with ``eval_full_rerank_off_*.json``
-            and ``eval_full_rerank_on_*.json`` files to pre-populate the eval
-            cache on startup so the dashboard can show results without a
-            fresh run. Files are matched by ``rerank=off`` / ``rerank=on``
-            in the filename.
-    """
-
     app = FastAPI(
-        title="LawAgent Review API",
-        description="Local JSON API for material-driven legal compliance review.",
-        version="0.1.0",
+        title="CrossComply Case Workbench API",
+        description="Persisted, evidence-grounded cross-border data compliance cases.",
+        version="0.2.0",
     )
-
-    # CORS: allow local frontend dev
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:*", "http://127.0.0.1:*"],
@@ -263,380 +382,317 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    # Store config in app state
     app.state.chunks_path = Path(chunks_path)
     app.state.review_mode = review_mode
-    # Per-app eval cache so two app instances never share eval results.
-    # Cache is keyed by rerank_mode ("off" / "embedding") so both arms of an
-    # A/B eval can coexist without overwriting each other.
+    app.state.case_store = case_store or PostgresCaseStore(load_service_config().postgres.dsn)
+    app.state.case_store_initialized = False
     app.state.eval_cache: dict[str, EvalSummary | None] = {"off": None, "embedding": None}
-    # eval_jobs is also keyed by rerank_mode so the two arms can run independently.
-    app.state.eval_jobs: dict[str, dict[str, Any]] = {
-        "off": _idle_job(),
-        "embedding": _idle_job(),
-    }
+    app.state.eval_jobs: dict[str, dict[str, Any]] = {"off": _idle_job(), "embedding": _idle_job()}
     app.state.eval_lock = threading.Lock()
     app.state.eval_cache_dir = Path(eval_cache_dir) if eval_cache_dir is not None else None
-
-    # Pre-populate eval cache from disk so the dashboard can display the
-    # latest A/B results without waiting for a fresh run.
     if app.state.eval_cache_dir is not None:
         _preload_eval_cache(app, app.state.eval_cache_dir)
 
-    # ------------------------------------------------------------------
-    # Endpoints
-    # ------------------------------------------------------------------
+    @app.on_event("startup")
+    async def initialize_case_store() -> None:
+        if not app.state.case_store_initialized:
+            app.state.case_store.initialize()
+            app.state.case_store_initialized = True
+
+    def store() -> CaseStore:
+        if not app.state.case_store_initialized:
+            app.state.case_store.initialize()
+            app.state.case_store_initialized = True
+        return app.state.case_store
+
+    async def current_user(request: Request) -> UserRecord:
+        token = request.cookies.get(SESSION_COOKIE)
+        if not token:
+            raise HTTPException(status_code=401, detail="请先登录 CrossComply 工作台")
+        user = store().get_user_by_session(token)
+        if user is None:
+            raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
+        return user
+
+    def reviewer_only(user: UserRecord) -> None:
+        if user.role not in {"reviewer", "admin"}:
+            raise HTTPException(status_code=403, detail="该操作需要合规审核权限")
 
     @app.get("/api/health", response_model=HealthResponse)
     async def health_check() -> HealthResponse:
-        """Health check endpoint."""
-
         llm_config = load_llm_config()
-        llm_status = {
-            "configured": llm_config.enabled,
-            "reachable": llm_config.enabled,
-            "model": llm_config.model,
-            "base_url": llm_config.base_url,
-        }
-
-        services: dict[str, Any] = {}
         try:
             from law_agent.review.retrieval.service_backends import healthcheck
 
             services = healthcheck(load_service_config())
-        except Exception as exc:  # noqa: BLE001 - health must be non-fatal
-            services = {
-                "elasticsearch": False,
-                "postgres": False,
-                "error": str(exc),
-            }
-
-        chunks_path = Path(app.state.chunks_path)
-        corpus = {
-            "chunks_path": str(chunks_path),
-            "chunks_file_exists": chunks_path.exists(),
-            "indexed_count": {
-                "elasticsearch_docs": services.get("elasticsearch_docs", 0),
-                "pgvector_rows": services.get("pgvector_rows", 0),
-            },
-        }
-
-        status = "ok"
-        if not (
-            services.get("elasticsearch") and services.get("postgres")
-        ):
-            status = "degraded"
-        if not llm_config.enabled:
-            status = "degraded"
-
+        except Exception as exc:  # noqa: BLE001
+            services = {"elasticsearch": False, "postgres": False, "error": str(exc)}
+        chunks = Path(app.state.chunks_path)
+        status = "ok" if services.get("elasticsearch") and services.get("postgres") and llm_config.enabled else "degraded"
         return HealthResponse(
             status=status,
-            llm=llm_status,
+            llm={"configured": llm_config.enabled, "reachable": llm_config.enabled, "model": llm_config.model, "base_url": llm_config.base_url},
             services=services,
-            corpus=corpus,
+            corpus={
+                "chunks_path": str(chunks),
+                "chunks_file_exists": chunks.exists(),
+                "indexed_count": {
+                    "elasticsearch_docs": services.get("elasticsearch_docs", 0),
+                    "pgvector_rows": services.get("pgvector_rows", 0),
+                },
+            },
         )
 
-    @app.post("/api/review", response_model=ReviewResponse)
-    async def run_review(
+    @app.post("/api/auth/login")
+    async def login(payload: LoginRequest) -> JSONResponse:
+        user = store().authenticate(payload.username, payload.password)
+        if user is None:
+            raise HTTPException(status_code=401, detail="用户名或密码错误")
+        try:
+            ttl_hours = max(1, int(os.getenv("CROSSCOMPLY_SESSION_TTL_HOURS", "12")))
+            token, expires_at = store().create_session(user.id, ttl_hours)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=503, detail="案件数据库尚未完成初始化或未配置初始账号") from exc
+        response = JSONResponse({"user": user.to_dict(), "expires_at": expires_at})
+        response.set_cookie(
+            SESSION_COOKIE,
+            token,
+            max_age=ttl_hours * 3600,
+            httponly=True,
+            samesite="lax",
+            secure=os.getenv("CROSSCOMPLY_COOKIE_SECURE", "false").lower() == "true",
+            path="/",
+        )
+        return response
+
+    @app.post("/api/auth/logout")
+    async def logout(request: Request) -> JSONResponse:
+        token = request.cookies.get(SESSION_COOKIE)
+        if token:
+            store().delete_session(token)
+        response = JSONResponse({"ok": True})
+        response.delete_cookie(SESSION_COOKIE, path="/")
+        return response
+
+    @app.get("/api/auth/me")
+    async def me(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        return {"user": user.to_dict()}
+
+    @app.post("/api/cases")
+    async def create_case_endpoint(
         request: Request,
+        user: UserRecord = Depends(current_user),
+        title: str | None = Form(default=None),
         question: str | None = Form(default=None),
         material_text: str = Form(default=""),
-        review_mode: str = Form(default=""),
+        material_source: str | None = Form(default=None),
+        intake_json: str = Form(default="{}"),
+        review_mode: str = Form(default="llm"),
         rerank_mode: str = Form(default="off"),
         file: UploadFile | None = File(default=None),
-    ) -> ReviewResponse | JSONResponse:
-        """Run a full review case: create case, hybrid retrieval, build result.
-
-        Accepts either:
-        - JSON body: ``{"question": "...", "material_text": "..."}``
-        - form field: ``question`` + ``material_text``
-        - ``file``: uploaded document file (.txt, .md, .pdf, .docx, .html, .json)
-
-        When a file is provided, it is saved to the review run directory and
-        text is extracted using the project's docling pipeline. The file
-        becomes part of the review case history (MaterialRecord.uploaded_file).
-
-        Returns structured review result with facts, evidence self-check,
-        citation groups, and trace IDs.
-        """
-
-        if file is None and question is None and _is_json_request(request):
+    ) -> dict[str, Any]:
+        if file is None and question is None and "application/json" in request.headers.get("content-type", "").lower():
             try:
-                payload = ReviewRequest.model_validate(await request.json())
+                payload = CaseCreateRequest.model_validate(await request.json())
             except ValidationError as exc:
-                raise HTTPException(status_code=422, detail=exc.errors())
-            question = payload.question
-            material_text = payload.material_text
-            if not review_mode:
-                review_mode = payload.review_mode
-            if not rerank_mode or rerank_mode == "off":
-                rerank_mode = payload.rerank_mode
-
-        # Resolve review_mode: per-request override > app default
-        effective_review_mode = review_mode.strip() if review_mode.strip() else app.state.review_mode
-
-        if question is None:
-            raise HTTPException(
-                status_code=422,
-                detail=[{
-                    "type": "missing",
-                    "loc": ["body", "question"],
-                    "msg": "Field required",
-                    "input": None,
-                }],
-            )
-
-        question = question.strip()
-        if not question:
-            raise HTTPException(status_code=400, detail="question must not be blank")
-
-        # Use a temp directory for the review run
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-
+                raise HTTPException(status_code=422, detail=exc.errors()) from exc
+        else:
+            if file is not None:
+                material_text, material_source = await _material_from_upload(file)
+            if not question or not material_text.strip():
+                raise HTTPException(status_code=422, detail="question and material_text are required")
             try:
-                if file is not None and file.filename:
-                    # --- File upload mode ---
-                    # Guardrails: reject unsupported types / oversized / empty
-                    # files BEFORE attempting to parse, so upload mistakes
-                    # surface as a clear 422 error instead of a review trace.
-                    filename = Path(file.filename).name
-                    suffix = Path(filename).suffix.lower()
-                    if suffix not in ALLOWED_UPLOAD_SUFFIXES:
-                        raise HTTPException(
-                            status_code=422,
-                            detail={
-                                "code": "unsupported_file_type",
-                                "filename": filename,
-                                "message": (
-                                    f"不支持的文件类型 {suffix or '（无后缀）'}。"
-                                    "支持：.txt .md .pdf .docx .html .json"
-                                ),
-                            },
-                        )
-
-                    raw = await file.read()
-                    if not raw:
-                        raise HTTPException(
-                            status_code=422,
-                            detail={
-                                "code": "empty_file",
-                                "filename": filename,
-                                "message": f"文件 {filename} 为空，无法解析。",
-                            },
-                        )
-                    if len(raw) > MAX_UPLOAD_BYTES:
-                        raise HTTPException(
-                            status_code=422,
-                            detail={
-                                "code": "file_too_large",
-                                "filename": filename,
-                                "size": len(raw),
-                                "limit": MAX_UPLOAD_BYTES,
-                                "message": (
-                                    f"文件 {filename} 大小 {len(raw) / 1024 / 1024:.1f} MB "
-                                    f"超过上限 {MAX_UPLOAD_BYTES / 1024 / 1024:.0f} MB。"
-                                ),
-                            },
-                        )
-
-                    # Save the file to the review run directory
-                    uploads_dir = tmp_path / "uploads"
-                    uploads_dir.mkdir(exist_ok=True)
-                    saved_path = uploads_dir / filename
-                    saved_path.write_bytes(raw)
-
-                    # Convert file to MaterialRecord (docling extraction).
-                    # File parsing failures must surface as a clear 422 error,
-                    # NOT as a ReviewFailedResponse "trace" — the user needs
-                    # to know the document could not be parsed.
-                    from law_agent.review.materials import material_from_file
-
-                    try:
-                        material_record = material_from_file(saved_path)
-                    except (FileNotFoundError, RuntimeError, ValueError) as exc:
-                        raise HTTPException(
-                            status_code=422,
-                            detail={
-                                "code": "file_parse_failed",
-                                "filename": filename,
-                                "message": _file_parse_hint(filename, exc),
-                            },
-                        )
-
-                    # Reject empty extraction results (e.g. scanned PDF with
-                    # no OCR text) — never pretend a parse failure is success.
-                    if not material_record.material_text or not material_record.material_text.strip():
-                        raise HTTPException(
-                            status_code=422,
-                            detail={
-                                "code": "empty_extraction",
-                                "filename": filename,
-                                "message": (
-                                    f"{filename} 解析后未提取到任何文本内容，"
-                                    "可能是扫描件、图片型 PDF 或加密文档。"
-                                    "请提供可选择文本的文档。"
-                                ),
-                            },
-                        )
-
-                    # Create review case with the material record
-                    response = create_review_case(
-                        question=question,
-                        material=material_record,
-                        output_dir=tmp_path,
-                        review_mode=effective_review_mode,
-                    )
-                else:
-                    # --- Pasted text mode ---
-                    if not material_text.strip():
-                        raise HTTPException(
-                            status_code=400,
-                            detail="material_text or file must be provided",
-                        )
-                    response = create_review_case(
-                        question=question,
-                        material_text=material_text,
-                        output_dir=tmp_path,
-                        review_mode=effective_review_mode,
-                    )
-
-                case_id = response.review_case.review_case_id
-                trace_id = response.trace.trace_id
-
-                trace = run_service_retrieval(
-                    case_id=case_id,
-                    chunks_path=app.state.chunks_path,
-                    output_dir=tmp_path,
-                    review_mode=effective_review_mode,
+                payload = CaseCreateRequest(
+                    title=title,
+                    question=question,
+                    material_text=material_text,
+                    material_source=material_source,
+                    intake=IntakePayload.model_validate_json(intake_json or "{}"),
+                    review_mode=review_mode,
                     rerank_mode=rerank_mode,
-                    output_format="markdown",
                 )
+            except ValidationError as exc:
+                raise HTTPException(status_code=422, detail=exc.errors()) from exc
+        item = store().create_case(
+            title=payload.title,
+            question=payload.question,
+            material_text=payload.material_text,
+            material_source=payload.material_source,
+            intake=payload.intake.model_dump(mode="json"),
+            review_mode=payload.review_mode,
+            rerank_mode=payload.rerank_mode,
+            created_by=user.id,
+            owner_id=user.id,
+        )
+        store().add_event(item["id"], user.id, event_type="case_created", to_status="draft")
+        return _case_payload(store(), item)
 
-                # Read the structured result
-                results = read_review_results(tmp_path / "review_results.jsonl")
-                if not results:
-                    raise HTTPException(
-                        status_code=500,
-                        detail="review result was not generated",
-                    )
-                review_result = results[0]
+    @app.get("/api/cases")
+    async def list_cases(query: str | None = None, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        cases = store().list_cases(user, query)
+        return {"items": [_case_summary(case) for case in cases], "total": len(cases)}
 
-                from law_agent.review.service import flatten_source_evidence_packets
+    @app.get("/api/cases/{identifier}")
+    async def get_case(identifier: str, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        case = store().get_case(identifier)
+        if case is None or not _can_view(user, case):
+            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        return _case_payload(store(), case)
 
-                evidence_chunks = flatten_source_evidence_packets(
-                    trace.source_evidence_packets
-                )
+    @app.patch("/api/cases/{identifier}")
+    async def update_case(identifier: str, payload: CaseUpdateRequest, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        case = store().get_case(identifier)
+        if case is None or not _can_view(user, case):
+            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        if user.role == "requester" and case["status"] not in {"draft", "needs_info"}:
+            raise HTTPException(status_code=403, detail="当前案件状态不允许申请人编辑")
+        values = payload.model_dump(exclude_unset=True, mode="json")
+        if "intake" in values and values["intake"] is not None:
+            values["intake_json"] = values.pop("intake")
+        if user.role == "requester":
+            values.pop("owner_id", None)
+        updated = store().update_case(identifier, **values)
+        store().add_event(identifier, user.id, event_type="case_updated", payload={"fields": list(values)})
+        return _case_payload(store(), updated)
 
-                return ReviewResponse(
-                    review_case_id=case_id,
-                    trace_id=trace_id,
-                    review_facts=review_result.review_facts,
-                    review_result=review_result,
-                    evidence_self_check=trace.evidence_self_check,
-                    citation_groups=review_result.applicable_evidence,
-                    second_retrieval_triggered=trace.evidence_self_check.second_retrieval_triggered,
-                    retrieval_queries=trace.queries,
-                    evidence_chunks=evidence_chunks,
-                    source_evidence_packets=trace.source_evidence_packets,
-                )
-            except HTTPException:
-                raise
-            except ReviewWorkflowFailed as exc:
-                failed = ReviewFailedResponse.model_validate(exc.to_response())
-                return JSONResponse(status_code=200, content=failed.model_dump())
-            except (FileNotFoundError, RuntimeError, ValueError) as exc:
-                raise HTTPException(status_code=400, detail=str(exc))
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"unexpected error during review: {exc}",
-                )
+    @app.post("/api/cases/{identifier}/status")
+    async def update_case_status(identifier: str, payload: CaseStatusRequest, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        case = store().get_case(identifier)
+        if case is None or not _can_view(user, case):
+            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        current = case["status"]
+        if payload.status != current and payload.status not in CASE_TRANSITIONS.get(current, set()):
+            raise HTTPException(status_code=409, detail=f"不能将案件从 {current} 变更为 {payload.status}")
+        if user.role == "requester" and payload.status != "submitted":
+            raise HTTPException(status_code=403, detail="申请人只能提交案件或补充材料")
+        if payload.status in {"in_review", "completed", "review_failed"}:
+            reviewer_only(user)
+        if payload.status == "completed" and not _can_complete(case):
+            raise HTTPException(status_code=409, detail="证据不足或仍有缺失信息，不能完成案件")
+        updated = store().update_case(identifier, status=payload.status)
+        store().add_event(identifier, user.id, event_type="status_changed", from_status=current, to_status=payload.status, payload={"note": payload.note})
+        return _case_payload(store(), updated)
+
+    @app.post("/api/cases/{identifier}/run")
+    async def run_case(identifier: str, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        reviewer_only(user)
+        case = store().get_case(identifier)
+        if case is None:
+            raise HTTPException(status_code=404, detail="案件不存在")
+        if case["status"] not in {"submitted", "needs_info", "review_failed"}:
+            raise HTTPException(status_code=409, detail="案件必须处于待审核、待补充或失败状态才能运行审查")
+        previous_status = case["status"]
+        store().update_case(identifier, status="in_review", owner_id=user.id)
+        store().add_event(identifier, user.id, event_type="review_started", from_status=previous_status, to_status="in_review")
+        try:
+            result = _run_review(app, case)
+        except ReviewWorkflowFailed as exc:
+            failed = ReviewFailedResponse.model_validate(exc.to_response()).model_dump(mode="json")
+            updated = store().update_case(identifier, status="review_failed", response_json=failed, trace_id=failed.get("trace_id"))
+            store().add_event(identifier, user.id, event_type="review_failed", from_status="in_review", to_status="review_failed", payload={"failed_node": failed.get("failed_node")})
+            return {**_case_payload(store(), updated), "run_status": "review_failed"}
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            updated = store().update_case(identifier, status="review_failed", response_json={"status": "review_failed", "message": str(exc)})
+            store().add_event(identifier, user.id, event_type="review_failed", from_status="in_review", to_status="review_failed", payload={"message": str(exc)})
+            return {**_case_payload(store(), updated), "run_status": "review_failed"}
+        response_json = result.model_dump(mode="json")
+        final_status: CaseStatus = "completed" if _can_complete({**case, "response": response_json}) else "needs_info"  # type: ignore[assignment]
+        updated = store().update_case(
+            identifier,
+            status=final_status,
+            risk_level=result.review_result.risk_level,
+            trace_id=result.trace_id,
+            response_json=response_json,
+        )
+        store().add_event(identifier, user.id, event_type="review_completed", from_status="in_review", to_status=final_status, payload={"risk_level": result.review_result.risk_level})
+        for action in result.review_result.recommended_actions:
+            if not any(existing["title"] == action for existing in store().list_actions(identifier)):
+                store().create_action(identifier, title=action, description="由审查报告生成，请审核人确认后分配负责人。")
+        updated = store().get_case(identifier) or updated
+        return {**_case_payload(store(), updated), "run_status": final_status}
+
+    @app.post("/api/cases/{identifier}/actions")
+    async def create_action(identifier: str, payload: CaseActionRequest, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        reviewer_only(user)
+        case = store().get_case(identifier)
+        if case is None:
+            raise HTTPException(status_code=404, detail="案件不存在")
+        action = store().create_action(identifier, **payload.model_dump(mode="json"))
+        store().add_event(identifier, user.id, event_type="action_created", payload={"action_id": action["id"]})
+        return action
+
+    @app.patch("/api/actions/{identifier}")
+    async def update_action(identifier: str, payload: CaseActionUpdateRequest, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        reviewer_only(user)
+        try:
+            action = store().update_action(identifier, **payload.model_dump(exclude_unset=True, mode="json"))
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="整改动作不存在") from exc
+        return action
+
+    @app.post("/api/cases/{identifier}/feedback")
+    async def save_feedback(identifier: str, payload: FeedbackRequest, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        case = store().get_case(identifier)
+        if case is None or not _can_view(user, case):
+            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        feedback = store().save_feedback(identifier, user.id, **payload.model_dump(mode="json"))
+        store().add_event(identifier, user.id, event_type="feedback_saved")
+        return feedback
+
+    @app.get("/api/cases/{identifier}/events")
+    async def get_events(identifier: str, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        case = store().get_case(identifier)
+        if case is None or not _can_view(user, case):
+            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        return {"items": store().list_events(identifier)}
+
+    @app.get("/api/dashboard/summary")
+    async def dashboard_summary(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        return store().dashboard_summary(user)
 
     @app.get("/api/eval/latest")
-    async def get_latest_eval(rerank_mode: RerankMode = "off") -> JSONResponse:
-        """Get the latest cached evaluation summary for the given rerank arm.
-
-        Returns 404 if no evaluation has been run for this rerank_mode yet.
-        """
-
+    async def get_latest_eval(rerank_mode: RerankMode = "off", user: UserRecord = Depends(current_user)) -> JSONResponse:
+        reviewer_only(user)
         if app.state.eval_cache_dir is not None:
             _preload_eval_cache(app, app.state.eval_cache_dir)
         cached = app.state.eval_cache.get(rerank_mode)
         if cached is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"no evaluation has been run for rerank_mode={rerank_mode}. "
-                       "POST /api/eval/run to trigger one.",
-            )
+            raise HTTPException(status_code=404, detail=f"no evaluation has been run for rerank_mode={rerank_mode}")
         return JSONResponse(content=cached.model_dump())
 
     @app.post("/api/eval/run")
-    async def trigger_eval(request: EvalRunRequest | None = None) -> EvalJobResponse:
-        """Start evaluation in the background and return immediately.
-
-        The rerank_mode field selects which A/B arm to populate. The two arms
-        (``off`` and ``embedding``) run independently and do not block each
-        other, so both can be triggered back-to-back.
-        """
-
-        chunks = (
-            Path(request.chunks_path) if request and request.chunks_path else app.state.chunks_path
-        )
-        review_mode = request.review_mode if request else "llm"
+    async def trigger_eval(request: EvalRunRequest | None = None, user: UserRecord = Depends(current_user)) -> EvalJobResponse:
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="只有管理员可以运行评测")
+        chunks = Path(request.chunks_path) if request and request.chunks_path else app.state.chunks_path
+        review_mode_value = request.review_mode if request else "llm"
         top_k = request.top_k if request else 10
         max_workers = request.max_workers if request else 4
-        rerank_mode = request.rerank_mode if request else "off"
+        rerank_mode_value = request.rerank_mode if request else "off"
         suite = request.suite if request else "full"
-
         with app.state.eval_lock:
-            job = app.state.eval_jobs.get(rerank_mode, _idle_job())
+            job = app.state.eval_jobs[rerank_mode_value]
             if job["status"] == "running":
                 return EvalJobResponse.model_validate(job)
-
             job_id = uuid.uuid4().hex
-            app.state.eval_jobs[rerank_mode] = {
-                "job_id": job_id,
-                "status": "running",
-                "message": None,
-                "started_at": _now_iso(),
-                "finished_at": None,
+            app.state.eval_jobs[rerank_mode_value] = {
+                "job_id": job_id, "status": "running", "message": None,
+                "started_at": _now_iso(), "finished_at": None,
             }
-
         thread = threading.Thread(
             target=_run_eval_job,
-            args=(
-                app,
-                job_id,
-                chunks,
-                review_mode,
-                top_k,
-                max_workers,
-                rerank_mode,
-                suite,
-            ),
+            args=(app, job_id, chunks, review_mode_value, top_k, max_workers, rerank_mode_value, suite),
             daemon=True,
         )
         thread.start()
-        return EvalJobResponse.model_validate(app.state.eval_jobs[rerank_mode])
+        return EvalJobResponse.model_validate(app.state.eval_jobs[rerank_mode_value])
 
     @app.get("/api/eval/status")
-    async def get_eval_status(rerank_mode: RerankMode = "off") -> EvalJobResponse:
-        """Return the current background evaluation job state for the given arm."""
-
-        return EvalJobResponse.model_validate(
-            app.state.eval_jobs.get(rerank_mode, _idle_job())
-        )
+    async def get_eval_status(rerank_mode: RerankMode = "off", user: UserRecord = Depends(current_user)) -> EvalJobResponse:
+        reviewer_only(user)
+        return EvalJobResponse.model_validate(app.state.eval_jobs.get(rerank_mode, _idle_job()))
 
     return app
-
-
-def _is_json_request(request: Request) -> bool:
-    """Return True when the request body is JSON."""
-
-    content_type = request.headers.get("content-type", "").lower()
-    return "application/json" in content_type
 
 
 def _run_eval_job(
@@ -658,41 +714,18 @@ def _run_eval_job(
             max_workers=max_workers,
             suite=suite,
         )
-    except Exception as exc:  # noqa: BLE001 - surfaced through job status
+    except Exception as exc:  # noqa: BLE001
         with app.state.eval_lock:
             job = app.state.eval_jobs.get(rerank_mode, _idle_job())
             if job.get("job_id") == job_id:
-                app.state.eval_jobs[rerank_mode] = {
-                    **job,
-                    "status": "failed",
-                    "message": str(exc),
-                    "finished_at": _now_iso(),
-                }
+                app.state.eval_jobs[rerank_mode] = {**job, "status": "failed", "message": str(exc), "finished_at": _now_iso()}
         return
-
     with app.state.eval_lock:
         job = app.state.eval_jobs.get(rerank_mode, _idle_job())
         if job.get("job_id") != job_id:
             return
         app.state.eval_cache[rerank_mode] = summary
-        app.state.eval_jobs[rerank_mode] = {
-            **job,
-            "status": "succeeded",
-            "message": None,
-            "finished_at": _now_iso(),
-        }
+        app.state.eval_jobs[rerank_mode] = {**job, "status": "succeeded", "message": None, "finished_at": _now_iso()}
 
 
-def _now_iso() -> str:
-    from law_agent.review.ids import utc_now_iso
-
-    return utc_now_iso()
-
-
-# ---------------------------------------------------------------------------
-# Default app instance (for uvicorn import)
-# ---------------------------------------------------------------------------
-
-_DEFAULT_EVAL_CACHE_DIR = Path("data/review_runs")
-
-app = create_app(eval_cache_dir=_DEFAULT_EVAL_CACHE_DIR)
+app = create_app(eval_cache_dir=Path("data/review_runs"))
