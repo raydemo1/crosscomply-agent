@@ -12,6 +12,9 @@ from law_agent.data.schemas import ClauseCitationRole, StrictModel
 ReviewInputMode = Literal["pasted_text", "uploaded_file"]
 ReviewMode = Literal["llm", "multi_agent"]
 RiskLevel = Literal["high", "medium", "low", "insufficient_evidence"]
+_SEMANTIC_NULL_STRINGS = frozenset(
+    {"null", "none", "unknown", "n/a", "未知", "未提供", "未说明"}
+)
 RetrievalQueryType = Literal[
     "legal_issue",
     "material_fact",
@@ -50,6 +53,21 @@ class ReviewFacts(StrictModel):
     industry: str | None = None
     region: str | None = None
     missing_information: list[str] = Field(default_factory=list)
+
+    @field_validator(
+        "business_activity",
+        "overseas_recipient",
+        "processing_purpose",
+        "legal_basis_or_consent",
+        "industry",
+        "region",
+        mode="before",
+    )
+    @classmethod
+    def normalize_semantic_null_strings(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip().casefold() in _SEMANTIC_NULL_STRINGS:
+            return None
+        return value
 
 
 class UploadedFileMeta(StrictModel):

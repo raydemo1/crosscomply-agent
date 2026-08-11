@@ -352,17 +352,26 @@ def select_issue_aware_hits(
 
     def add_best(candidates: list[RetrievalHit]) -> bool:
         ordered = sorted(candidates, key=lambda hit: (-hit.score, hit.rank, hit.chunk_id))
-        for prefer_new_source in (True, False):
-            for hit in ordered:
-                if hit.chunk_id in chunk_ids:
-                    continue
-                if prefer_new_source and hit.source_id in source_ids:
-                    continue
-                selected.append(hit)
-                chunk_ids.add(hit.chunk_id)
-                source_ids.add(hit.source_id)
-                return True
+        for hit in ordered:
+            if hit.chunk_id in chunk_ids or hit.source_id in source_ids:
+                continue
+            selected.append(hit)
+            chunk_ids.add(hit.chunk_id)
+            source_ids.add(hit.source_id)
+            return True
         return False
+
+    # A single issue adds no coverage dimension beyond the global ranking.
+    # Preserve that ranking instead of promoting the same query pool twice.
+    if len(issues) == 1:
+        for hit in global_hits:
+            if len(selected) >= top_k:
+                break
+            add_best([hit])
+        return [
+            hit.model_copy(update={"rank": rank, "retriever": "hybrid"})
+            for rank, hit in enumerate(selected, start=1)
+        ]
 
     # Preserve three strong global anchors. At most one high-priority issue
     # may displace a global source in Top-5; the remainder stays globally ranked.

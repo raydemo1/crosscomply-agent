@@ -208,6 +208,66 @@ def test_issue_aware_selection_does_not_force_weak_medium_hit_into_top_five() ->
     assert "weak_region" not in {hit.chunk_id for hit in selected}
 
 
+def test_single_issue_selection_preserves_global_ranking() -> None:
+    plan = _issue_plan(
+        [RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心条件")]
+    )
+    global_hits = [
+        _hit().model_copy(
+            update={
+                "chunk_id": f"global_{index}",
+                "source_id": f"global_source_{index}",
+                "score": 1.0 - index * 0.1,
+                "rank": index,
+            }
+        )
+        for index in range(5)
+    ]
+    promoted = _hit().model_copy(
+        update={"chunk_id": "promoted", "source_id": "promoted_source", "score": 1.1}
+    )
+
+    selected = select_issue_aware_hits(
+        plan,
+        {"issue_1": [promoted]},
+        global_hits,
+        top_k=5,
+    )
+
+    assert [hit.chunk_id for hit in selected] == [
+        "global_0",
+        "global_1",
+        "global_2",
+        "global_3",
+        "global_4",
+    ]
+
+
+def test_issue_aware_selection_never_repeats_a_source() -> None:
+    plan = _issue_plan(
+        [
+            RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心条件"),
+            RetrievalQuery(query_id="q_2", query_type="region_condition", text="地区条件"),
+        ]
+    )
+    global_hits = [
+        _hit().model_copy(update={"chunk_id": "a1", "source_id": "source_a"}),
+        _hit().model_copy(update={"chunk_id": "b1", "source_id": "source_b"}),
+    ]
+    duplicate = _hit().model_copy(
+        update={"chunk_id": "a2", "source_id": "source_a", "score": 1.0}
+    )
+
+    selected = select_issue_aware_hits(
+        plan,
+        {"issue_1": [duplicate], "issue_2": []},
+        global_hits,
+        top_k=3,
+    )
+
+    assert [hit.source_id for hit in selected] == ["source_a", "source_b"]
+
+
 def test_dossiers_can_use_issue_specific_candidate_pools() -> None:
     plan = _issue_plan(
         [RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心条件")]
