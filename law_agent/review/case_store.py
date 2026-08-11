@@ -11,7 +11,7 @@ import hashlib
 import os
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol
 from uuid import uuid4
 
@@ -161,7 +161,7 @@ class MemoryCase:
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def case_id() -> str:
@@ -306,7 +306,7 @@ class PostgresCaseStore:
 
     def create_session(self, user_id: str, ttl_hours: int) -> tuple[str, str]:
         token = secrets.token_urlsafe(32)
-        expires = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        expires = datetime.now(UTC) + timedelta(hours=ttl_hours)
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
                 "INSERT INTO sessions (id, user_id, token_hash, expires_at) VALUES (%s, %s, %s, %s)",
@@ -335,7 +335,7 @@ class PostgresCaseStore:
 
     def create_case(self, **kwargs: Any) -> dict[str, Any]:
         identifier = kwargs.get("id") or case_id()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
                 """
@@ -400,7 +400,7 @@ class PostgresCaseStore:
             if case is None:
                 raise KeyError(identifier)
             return case
-        updates["updated_at"] = datetime.now(timezone.utc)
+        updates["updated_at"] = datetime.now(UTC)
         assignments = ", ".join(f"{key} = %s" for key in updates)
         values = list(updates.values()) + [identifier]
         with self._connect() as conn, conn.cursor() as cur:
@@ -485,7 +485,7 @@ class PostgresCaseStore:
     def update_action(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
         allowed = {"title", "description", "owner_role", "priority", "status", "due_date"}
         updates = {key: value for key, value in kwargs.items() if key in allowed}
-        updates["updated_at"] = datetime.now(timezone.utc)
+        updates["updated_at"] = datetime.now(UTC)
         assignments = ", ".join(f"{key} = %s" for key in updates)
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
@@ -534,7 +534,6 @@ class PostgresCaseStore:
                     kwargs.get("citation_verdicts") or {},
                 ),
             )
-            row = cur.fetchone()
             conn.commit()
         return self.get_feedback(identifier) or {"case_id": identifier}
 
@@ -587,7 +586,7 @@ class InMemoryCaseStore:
         if user is None:
             raise KeyError(user_id)
         token = secrets.token_urlsafe(24)
-        expires = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        expires = datetime.now(UTC) + timedelta(hours=ttl_hours)
         self.sessions[token] = (user, expires.isoformat())
         return token, expires.isoformat()
 
@@ -595,7 +594,7 @@ class InMemoryCaseStore:
         record = self.sessions.get(token)
         if record is None:
             return None
-        if datetime.fromisoformat(record[1]) <= datetime.now(timezone.utc):
+        if datetime.fromisoformat(record[1]) <= datetime.now(UTC):
             self.sessions.pop(token, None)
             return None
         return record[0]

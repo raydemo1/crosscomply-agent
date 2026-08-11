@@ -7,11 +7,11 @@ workflow transitions, and the HTTP contract used by the frontend.
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 import threading
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal
 
@@ -23,8 +23,8 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from law_agent.config import RerankMode, load_llm_config, load_service_config
 from law_agent.review.case_store import (
     CASE_TRANSITIONS,
-    CaseStore,
     CaseStatus,
+    CaseStore,
     PostgresCaseStore,
     UserRecord,
 )
@@ -37,11 +37,11 @@ from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.schemas import (
     CitationGroup,
     EvidenceSelfCheck,
-    ReviewFailedResponse,
-    ReviewFacts,
-    ReviewResult,
     RetrievalHit,
     RetrievalQuery,
+    ReviewFacts,
+    ReviewFailedResponse,
+    ReviewResult,
     SourceEvidencePacket,
 )
 from law_agent.review.service import ReviewMode, create_review_case, run_service_retrieval
@@ -279,7 +279,7 @@ def _preload_eval_cache(app: FastAPI, cache_dir: Path) -> None:
         latest = max(candidates, key=lambda path: path.stat().st_mtime)
         try:
             app.state.eval_cache[arm] = EvalSummary.model_validate_json(latest.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, ValueError):
             continue
 
 
@@ -369,10 +369,18 @@ def create_app(
     eval_cache_dir: Path | str | None = None,
     case_store: CaseStore | None = None,
 ) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(application: FastAPI):
+        if not application.state.case_store_initialized:
+            application.state.case_store.initialize()
+            application.state.case_store_initialized = True
+        yield
+
     app = FastAPI(
         title="CrossComply Case Workbench API",
         description="Persisted, evidence-grounded cross-border data compliance cases.",
         version="0.2.0",
+        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,
@@ -392,12 +400,6 @@ def create_app(
     app.state.eval_cache_dir = Path(eval_cache_dir) if eval_cache_dir is not None else None
     if app.state.eval_cache_dir is not None:
         _preload_eval_cache(app, app.state.eval_cache_dir)
-
-    @app.on_event("startup")
-    async def initialize_case_store() -> None:
-        if not app.state.case_store_initialized:
-            app.state.case_store.initialize()
-            app.state.case_store_initialized = True
 
     def store() -> CaseStore:
         if not app.state.case_store_initialized:
@@ -451,7 +453,7 @@ def create_app(
         try:
             ttl_hours = max(1, int(os.getenv("CROSSCOMPLY_SESSION_TTL_HOURS", "12")))
             token, expires_at = store().create_session(user.id, ttl_hours)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise HTTPException(status_code=503, detail="案件数据库尚未完成初始化或未配置初始账号") from exc
         response = JSONResponse({"user": user.to_dict(), "expires_at": expires_at})
         response.set_cookie(
@@ -569,7 +571,10 @@ def create_app(
             reviewer_only(user)
         if payload.status == "completed" and not _can_complete(case):
             raise HTTPException(status_code=409, detail="证据不足或仍有缺失信息，不能完成案件")
-        updated = store().update_case(identifier, status=payload.status)
+        status_values: dict[str, Any] = {"status": payload.status}
+        if payload.status == "submitted":
+            status_values["facts_confirmed"] = True
+        updated = store().update_case(identifier, **status_values)
         store().add_event(identifier, user.id, event_type="status_changed", from_status=current, to_status=payload.status, payload={"note": payload.note})
         return _case_payload(store(), updated)
 
@@ -607,7 +612,17 @@ def create_app(
         store().add_event(identifier, user.id, event_type="review_completed", from_status="in_review", to_status=final_status, payload={"risk_level": result.review_result.risk_level})
         for action in result.review_result.recommended_actions:
             if not any(existing["title"] == action for existing in store().list_actions(identifier)):
-                store().create_action(identifier, title=action, description="由审查报告生成，请审核人确认后分配负责人。")
+                created_action = store().create_action(
+                    identifier,
+                    title=action,
+                    description="由审查报告生成，请审核人确认后分配负责人。",
+                )
+                store().add_event(
+                    identifier,
+                    user.id,
+                    event_type="action_created",
+                    payload={"action_id": created_action["id"], "source": "review"},
+                )
         updated = store().get_case(identifier) or updated
         return {**_case_payload(store(), updated), "run_status": final_status}
 
@@ -628,6 +643,14 @@ def create_app(
             action = store().update_action(identifier, **payload.model_dump(exclude_unset=True, mode="json"))
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="整改动作不存在") from exc
+        case = store().get_case(action["case_id"])
+        if case is not None:
+            store().add_event(
+                action["case_id"],
+                user.id,
+                event_type="action_updated",
+                payload={"action_id": action["id"], "status": action["status"]},
+            )
         return action
 
     @app.post("/api/cases/{identifier}/feedback")

@@ -82,6 +82,7 @@ def test_login_creates_session_and_persists_case(app) -> None:
         detail = client.get(f"/api/cases/{case_id}")
         assert detail.status_code == 200
         assert detail.json()["case"]["status"] == "draft"
+        assert detail.json()["case"]["facts_confirmed"] is False
         assert detail.json()["events"][0]["event_type"] == "case_created"
 
         listing = client.get("/api/cases")
@@ -100,6 +101,7 @@ def test_role_permissions_and_case_status_flow(app) -> None:
         json={"status": "submitted"},
     )
     assert submitted.status_code == 200
+    assert submitted.json()["case"]["facts_confirmed"] is True
 
     denied = requester.post(
         f"/api/cases/{case_id}/status",
@@ -132,6 +134,7 @@ def test_run_persists_review_actions_and_audit_events(app, monkeypatch: pytest.M
         assert len(body["actions"]) == 2
         assert {event["event_type"] for event in body["events"]} >= {
             "case_created", "status_changed", "review_started", "review_completed",
+            "action_created",
         }
 
         persisted = client.get(f"/api/cases/{case_id}").json()
@@ -169,6 +172,9 @@ def test_actions_feedback_and_dashboard_are_persisted(app) -> None:
         updated = client.patch(f"/api/actions/{action_id}", json={"status": "completed"})
         assert updated.status_code == 200
         assert updated.json()["status"] == "completed"
+        events = client.get(f"/api/cases/{case_id}/events")
+        assert events.status_code == 200
+        assert any(item["event_type"] == "action_updated" for item in events.json()["items"])
 
         feedback = client.post(
             f"/api/cases/{case_id}/feedback",
