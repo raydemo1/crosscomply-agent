@@ -43,6 +43,10 @@ export default function LoginPage({ onLogin, error }: LoginPageProps): JSX.Eleme
         </form>
         <div className="login-card__note">系统仅提供合规决策辅助，不替代专业法律意见。</div>
       </section>
+      <aside className="login-aside" aria-label="CrossComply 产品理念">
+        <div className="login-aside__mark" aria-hidden="true">“</div>
+        <blockquote>好的合规工具不是替人下结论，而是让每个结论都能回到事实、来源和下一步行动。</blockquote>
+      </aside>
     </main>
   );
 }

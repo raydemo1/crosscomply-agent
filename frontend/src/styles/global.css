@@ -5032,10 +5032,51 @@ textarea {
   font-size: 0.72rem;
 }
 
+.login-aside {
+  position: relative;
+  align-self: center;
+  width: min(100%, 360px);
+  padding: 34px 0 34px 18px;
+  animation: login-aside-reveal 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.login-aside__mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--color-accent);
+  font-family: var(--font-heading);
+  font-size: 5rem;
+  line-height: 0.7;
+}
+
+.login-aside blockquote {
+  margin: 0;
+  color: var(--color-primary);
+  font-family: var(--font-heading);
+  font-size: clamp(1.45rem, 2.35vw, 2.05rem);
+  line-height: 1.38;
+  text-wrap: balance;
+}
+
+@keyframes login-aside-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-word,
-  .login-word::after {
+  .login-word::after,
+  .login-aside {
     transition: none;
+    animation: none;
   }
 }
 
@@ -5180,9 +5221,10 @@ body {
 
 @media (min-width: 1101px) {
   .login-shell {
-    grid-template-columns: minmax(520px, 640px);
-    justify-content: start;
-    padding-inline: clamp(40px, 6vw, 96px);
+    grid-template-columns: minmax(520px, 640px) minmax(260px, 360px);
+    justify-content: center;
+    gap: clamp(40px, 5vw, 80px);
+    padding-inline: clamp(32px, 5vw, 80px);
   }
 
   .login-card {
@@ -5202,6 +5244,10 @@ body {
   .login-card {
     width: 100%;
     max-width: 640px;
+  }
+
+  .login-aside {
+    display: none;
   }
 
 }
