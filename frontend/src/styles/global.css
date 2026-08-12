@@ -1595,6 +1595,10 @@ textarea {
   cursor: pointer;
 }
 
+.evidence-sidebar__scrim {
+  display: none;
+}
+
 .evidence-sidebar__count {
   color: #64748b;
   font-size: 0.75rem;
@@ -1798,6 +1802,18 @@ textarea {
     pointer-events: none;
   }
 
+  .evidence-sidebar__scrim {
+    display: block;
+    position: fixed;
+    z-index: 19;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgba(15, 23, 42, 0.32);
+    cursor: pointer;
+  }
+
   .evidence-sidebar.is-mobile-open {
     transform: translateY(0);
     pointer-events: auto;
@@ -1813,6 +1829,45 @@ textarea {
 
   .evidence-card__full-article {
     max-height: 26rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-mobile-nav {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-mobile-tabs {
+    width: 100%;
+  }
+
+  .app-mobile-tab {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+
+  .workspace-hero__metric,
+  .workspace-hero__risk-strip {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .workspace-hero__risk-strip {
+    justify-content: space-between;
+  }
+
+  .intake-progress {
+    overflow-x: auto;
+  }
+
+  .intake-progress__step {
+    min-width: 142px;
+  }
+
+  .intake-card__footer .btn-primary,
+  .intake-card__footer .btn-secondary {
+    min-height: 46px;
   }
 }
 
@@ -3088,6 +3143,55 @@ textarea {
   }
   .cite-row__chips {
     display: none;
+  }
+}
+
+@media (max-width: 1199px) and (min-width: 901px) {
+  .workspace-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .workspace-hero__risk-strip {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-sidebar {
+    display: none;
+  }
+
+  .app-center {
+    padding: var(--space-md);
+  }
+
+  .app-mobile-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) var(--space-lg);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .workspace-hero {
+    display: block;
+  }
+
+  .workspace-hero__metric,
+  .workspace-hero__risk-strip {
+    display: inline-flex;
+    margin: var(--space-md) var(--space-sm) 0 0;
+  }
+
+  .workspace-hero__risk-strip {
+    flex-wrap: wrap;
   }
 }
 

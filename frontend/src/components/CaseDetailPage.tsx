@@ -755,56 +755,61 @@ function EvidenceSidebar({
   }, [mobileOpen, selectedCitationRef]);
 
   return (
-    <aside
-      className={'evidence-sidebar' + (mobileOpen ? ' is-mobile-open' : '')}
-      aria-label="引用依据详情"
-      aria-hidden={!mobileOpen && typeof window !== 'undefined' && window.matchMedia('(max-width: 1100px)').matches}
-    >
-      <div className="evidence-sidebar__head">
-        <div>
-          <div className="evidence-sidebar__title">法源核查</div>
-          <div className="evidence-sidebar__subtitle">按引用编号追踪完整条文与官方来源</div>
-        </div>
-        <div className="evidence-sidebar__head-actions">
-          <div className="evidence-sidebar__count">
-            {displayGroups.reduce((total, group) => total + group.citations.length, 0)} 条法源
+    <>
+      {mobileOpen ? (
+        <button type="button" className="evidence-sidebar__scrim" onClick={onCloseMobile} aria-label="关闭引用详情" />
+      ) : null}
+      <aside
+        className={'evidence-sidebar' + (mobileOpen ? ' is-mobile-open' : '')}
+        aria-label="引用依据详情"
+        aria-hidden={!mobileOpen && typeof window !== 'undefined' && window.matchMedia('(max-width: 1100px)').matches}
+      >
+        <div className="evidence-sidebar__head">
+          <div>
+            <div className="evidence-sidebar__title">法源核查</div>
+            <div className="evidence-sidebar__subtitle">按引用编号追踪完整条文与官方来源</div>
           </div>
-          <button type="button" className="evidence-sidebar__close" onClick={onCloseMobile} aria-label="关闭引用详情">
-            关闭
-          </button>
+          <div className="evidence-sidebar__head-actions">
+            <div className="evidence-sidebar__count">
+              {displayGroups.reduce((total, group) => total + group.citations.length, 0)} 条法源
+            </div>
+            <button type="button" className="evidence-sidebar__close" onClick={onCloseMobile} aria-label="关闭引用详情">
+              关闭
+            </button>
+          </div>
         </div>
-      </div>
-      {displayGroups.length === 0 ? (
-        <div className="state-block__hint">暂无可引用依据。</div>
-      ) : (
-        <div className="evidence-sidebar__list">
-          {displayGroups.map((group) => (
-            <section className="evidence-sidebar__group" key={group.usage}>
-              <div className="evidence-sidebar__group-title">
-                <span>{USAGE_LABELS[group.usage]}</span>
-                <span>{group.citations.length} 条</span>
-              </div>
-              <div className="evidence-sidebar__group-note">{group.scope_note ?? '直接展示本组可核查来源，不展开相邻条文。'}</div>
-              {group.citations.map((citation) => (
-                <EvidenceCard
-                  key={citation.citation_ref || citation.chunk_id}
-                  item={{
-                    ...citation,
-                    groupUsage: group.usage,
-                    chunk: chunks.get(citation.chunk_id),
-                  }}
-                  selected={selectedCitationRef === citation.citation_ref}
-                  locating={highlightedCitationRef === citation.citation_ref}
-                  supportingClaims={supportingClaims.get(citation.citation_ref) ?? []}
-                  onSelect={onCitationSelect}
-                  viewerRole={viewerRole}
-                />
-              ))}
-            </section>
-          ))}
-        </div>
-      )}
-    </aside>
+        {displayGroups.length === 0 ? (
+          <div className="state-block__hint">暂无可引用依据。</div>
+        ) : (
+          <div className="evidence-sidebar__list">
+            {displayGroups.map((group) => (
+              <section className="evidence-sidebar__group" key={group.usage}>
+                <div className="evidence-sidebar__group-title">
+                  <span>{USAGE_LABELS[group.usage]}</span>
+                  <span>{group.citations.length} 条</span>
+                </div>
+                <div className="evidence-sidebar__group-note">{group.scope_note ?? '直接展示本组可核查来源，不展开相邻条文。'}</div>
+                {group.citations.map((citation) => (
+                  <EvidenceCard
+                    key={citation.citation_ref || citation.chunk_id}
+                    item={{
+                      ...citation,
+                      groupUsage: group.usage,
+                      chunk: chunks.get(citation.chunk_id),
+                    }}
+                    selected={selectedCitationRef === citation.citation_ref}
+                    locating={highlightedCitationRef === citation.citation_ref}
+                    supportingClaims={supportingClaims.get(citation.citation_ref) ?? []}
+                    onSelect={onCitationSelect}
+                    viewerRole={viewerRole}
+                  />
+                ))}
+              </section>
+            ))}
+          </div>
+        )}
+      </aside>
+    </>
   );
 }
 
