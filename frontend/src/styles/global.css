@@ -3277,12 +3277,6 @@ textarea {
   justify-content: flex-end;
 }
 
-.governance-topbar__role {
-  margin-right: var(--space-sm);
-  color: var(--color-muted-foreground);
-  font-size: 0.8125rem;
-}
-
 .governance-topbar__back,
 .governance-topbar__logout {
   min-height: 36px;
@@ -3353,25 +3347,6 @@ textarea {
   color: #475569;
   font-size: 0.9375rem;
   line-height: 1.65;
-}
-
-.governance-intro__scope {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-sm);
-  flex-shrink: 0;
-  color: var(--color-muted-foreground);
-  font-size: 0.75rem;
-  white-space: nowrap;
-}
-
-.governance-scope-badge {
-  padding: 0.375rem 0.625rem;
-  border: 1px solid rgba(180, 83, 9, 0.35);
-  border-radius: var(--radius-pill);
-  background: rgba(180, 83, 9, 0.08);
-  color: #92400e;
-  font-weight: 700;
 }
 
 /* Admin entry is deliberately separate from the workbench primary nav. */
@@ -3473,19 +3448,10 @@ textarea {
     justify-content: flex-start;
   }
 
-  .governance-topbar__role {
-    flex-basis: 100%;
-    margin-right: 0;
-  }
-
   .governance-intro {
     align-items: flex-start;
     flex-direction: column;
     gap: var(--space-md);
-  }
-
-  .governance-intro__scope {
-    align-items: center;
   }
 }
 
