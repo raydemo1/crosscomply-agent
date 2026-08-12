@@ -288,25 +288,77 @@ def flatten_source_evidence_packets(
     return _dedupe_hits(hits)
 
 
+def _enrich_hit_for_citation(
+    hit: RetrievalHit,
+    chunks_by_id: dict[str, object],
+) -> RetrievalHit:
+    """Attach authoritative metadata and the complete cited article to a hit."""
+
+    chunk = chunks_by_id.get(hit.chunk_id)
+    if chunk is None:
+        return hit
+
+    updates: dict[str, object] = {
+        "doc_type": getattr(chunk, "doc_type", hit.doc_type),
+        "authority": getattr(chunk, "authority", hit.authority),
+        "law_status": getattr(chunk, "law_status", hit.law_status),
+        "publish_date": getattr(chunk, "publish_date", hit.publish_date),
+        "effective_date": getattr(chunk, "effective_date", hit.effective_date),
+        "issuing_body": getattr(chunk, "issuing_body", hit.issuing_body),
+        "article_no": getattr(chunk, "article_no", hit.article_no),
+        "citation_label": getattr(chunk, "citation_label", hit.citation_label),
+        "heading_path": getattr(chunk, "heading_path", hit.heading_path),
+    }
+    article_no = getattr(chunk, "article_no", None)
+    if hit.can_cite_clause and article_no:
+        article_chunks = [
+            candidate
+            for candidate in chunks_by_id.values()
+            if getattr(candidate, "source_id", None) == hit.source_id
+            and getattr(candidate, "article_no", None) == article_no
+        ]
+        article_texts: list[str] = []
+        seen: set[str] = set()
+        for candidate in sorted(
+            article_chunks,
+            key=lambda item: getattr(item, "chunk_index", 0),
+        ):
+            text = str(getattr(candidate, "text", "")).strip()
+            if text and text not in seen:
+                article_texts.append(text)
+                seen.add(text)
+        if article_texts:
+            updates["full_article_text"] = "\n".join(article_texts)
+    return hit.model_copy(update=updates)
+
+
 def build_source_evidence_packets(
     *,
     representative_hits: list[RetrievalHit],
     candidate_hits: list[RetrievalHit],
     neighbor_hits: list[RetrievalHit],
     supporting_per_source: int = DEFAULT_SUPPORTING_CHUNKS_PER_SOURCE,
+    chunks_by_id: dict[str, object] | None = None,
 ) -> list[SourceEvidencePacket]:
     """Attach chunk-level context to each source-aware representative hit."""
 
+    lookup = chunks_by_id or {}
+    enriched_representatives = [
+        _enrich_hit_for_citation(hit, lookup) for hit in representative_hits
+    ]
+    enriched_candidates = [_enrich_hit_for_citation(hit, lookup) for hit in candidate_hits]
+    enriched_neighbors = [_enrich_hit_for_citation(hit, lookup) for hit in neighbor_hits]
+
     candidates_by_source: dict[str, list[RetrievalHit]] = {}
-    for hit in sorted(candidate_hits, key=lambda h: (h.rank, -h.score, h.chunk_id)):
+    for hit in sorted(enriched_candidates, key=lambda h: (h.rank, -h.score, h.chunk_id)):
         candidates_by_source.setdefault(hit.source_id, []).append(hit)
 
     neighbors_by_source: dict[str, list[RetrievalHit]] = {}
-    for hit in neighbor_hits:
+    for hit in enriched_neighbors:
         neighbors_by_source.setdefault(hit.source_id, []).append(hit)
 
     packets: list[SourceEvidencePacket] = []
-    for representative in representative_hits:
+    for representative in enriched_representatives:
         supporting = [
             hit
             for hit in candidates_by_source.get(representative.source_id, [])
@@ -580,6 +632,7 @@ def run_hybrid_retrieval(
         representative_hits=final_evidence,
         candidate_hits=hybrid_candidates,
         neighbor_hits=neighbor_hits,
+        chunks_by_id=chunks_by_id,
     )
     active_candidates = rrf_fuse_many(
         [hybrid_candidates, *issue_hits_by_issue.values()],
@@ -690,6 +743,7 @@ def run_hybrid_retrieval(
             representative_hits=final_evidence,
             candidate_hits=hybrid2_candidates,
             neighbor_hits=neighbor2_hits,
+            chunks_by_id=chunks_by_id,
         )
         active_candidates = rrf_fuse_many(
             [hybrid2_candidates, *issue_hits_by_issue.values()],
@@ -936,6 +990,7 @@ def run_hybrid_retrieval(
                     representative_hits=final_evidence,
                     candidate_hits=active_candidates,
                     neighbor_hits=active_neighbor_hits,
+                    chunks_by_id=chunks_by_id,
                 )
                 result_evidence = flatten_source_evidence_packets(source_evidence_packets)
                 evidence_dossiers = build_evidence_dossiers(

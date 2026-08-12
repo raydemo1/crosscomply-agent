@@ -220,4 +220,10 @@ def _hit_from_source(
         article_no=source.get("article_no"),
         citation_label=source.get("citation_label"),
         heading_path=list(source.get("heading_path") or []),
+        doc_type=source.get("doc_type", "law"),
+        authority=source.get("authority", "unknown"),
+        law_status=source.get("law_status", "unknown"),
+        publish_date=source.get("publish_date"),
+        effective_date=source.get("effective_date"),
+        issuing_body=source.get("issuing_body"),
     )

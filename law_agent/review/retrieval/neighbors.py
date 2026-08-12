@@ -90,4 +90,10 @@ def _make_neighbor_hit(
         article_no=chunk.article_no,
         citation_label=chunk.citation_label,
         heading_path=chunk.heading_path,
+        doc_type=chunk.doc_type,
+        authority=chunk.authority,
+        law_status=chunk.law_status,
+        publish_date=chunk.publish_date,
+        effective_date=chunk.effective_date,
+        issuing_body=chunk.issuing_body,
     )

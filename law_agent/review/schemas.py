@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from law_agent.data.schemas import ClauseCitationRole, StrictModel
+from law_agent.data.schemas import Authority, ClauseCitationRole, DocType, LawStatus, StrictModel
 
 ReviewInputMode = Literal["pasted_text", "uploaded_file"]
 ReviewMode = Literal["llm", "multi_agent"]
@@ -128,6 +128,16 @@ class RetrievalHit(StrictModel):
     article_no: str | None = None
     citation_label: str | None = None
     heading_path: list[str] = Field(default_factory=list)
+    doc_type: DocType = "law"
+    authority: Authority = "unknown"
+    law_status: LawStatus = "unknown"
+    publish_date: str | None = None
+    effective_date: str | None = None
+    issuing_body: str | None = None
+    # Only populated for a citable legal article. ``text`` remains the
+    # retrieval passage; this field is the complete article assembled from
+    # all chunks belonging to the same source/article.
+    full_article_text: str | None = None
 
 
 class SourceEvidencePacket(StrictModel):
@@ -183,6 +193,16 @@ class Citation(StrictModel):
     can_cite_clause: bool
     usage: CitationUsage
     citation_label: str | None = None
+    citation_ref: str = ""
+    article_no: str | None = None
+    full_article_text: str | None = None
+    doc_type: DocType = "law"
+    authority: Authority = "unknown"
+    law_status: LawStatus = "unknown"
+    publish_date: str | None = None
+    effective_date: str | None = None
+    issuing_body: str | None = None
+    heading_path: list[str] = Field(default_factory=list)
 
 
 class CitationGroup(StrictModel):
@@ -198,6 +218,7 @@ class GroundedClaim(StrictModel):
 
     text: str
     supporting_chunk_ids: list[str] = Field(default_factory=list)
+    supporting_citation_refs: list[str] = Field(default_factory=list)
 
 
 class ReviewIssue(StrictModel):

@@ -23,6 +23,7 @@ from law_agent.review.citations import group_citations
 from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
 from law_agent.review.schemas import (
     Citation,
+    CitationGroup,
     ClaimReplacement,
     EvidenceDossier,
     EvidenceSelfCheck,
@@ -125,6 +126,32 @@ def validate_grounded_claims(
     return cleaned
 
 
+def attach_citation_refs(
+    claims: list[GroundedClaim],
+    citation_groups: list[CitationGroup],
+) -> list[GroundedClaim]:
+    """Expose stable case-local citation refs while retaining chunk ids internally."""
+
+    refs_by_chunk_id = {
+        citation.chunk_id: citation.citation_ref
+        for group in citation_groups
+        for citation in group.citations
+        if citation.citation_ref
+    }
+    return [
+        claim.model_copy(
+            update={
+                "supporting_citation_refs": [
+                    refs_by_chunk_id[chunk_id]
+                    for chunk_id in claim.supporting_chunk_ids
+                    if chunk_id in refs_by_chunk_id
+                ]
+            }
+        )
+        for claim in claims
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Markdown sanitization for LLM-generated text fields
 # ---------------------------------------------------------------------------
@@ -213,6 +240,7 @@ def inject_citation_markers(
     report: str,
     claims: list[GroundedClaim],
     evidence_hits: list[RetrievalHit] | None = None,
+    citation_ref_by_chunk_id: dict[str, str] | None = None,
 ) -> str:
     """Inject ①②③ markers into the report text for each claim.
 
@@ -242,11 +270,19 @@ def inject_citation_markers(
     # Track which report positions have already been marked to avoid
     # stacking multiple markers on the same phrase.
     marked_positions: set[int] = set()
-    pending_markers: list[str] = []
+    pending_markers: list[tuple[str, str | None]] = []
 
     text = report
     for index, claim in enumerate(claims[:len(_CIRCLED_NUMBERS)]):
         marker = _CIRCLED_NUMBERS[index]
+        citation_ref = next(
+            (
+                citation_ref_by_chunk_id.get(chunk_id)
+                for chunk_id in claim.supporting_chunk_ids
+                if citation_ref_by_chunk_id and citation_ref_by_chunk_id.get(chunk_id)
+            ),
+            None,
+        )
         # Resolve the cite phrase: prefer chunk citation_label, then
         # article_no, then fall back to extracting from claim text.
         phrase: str | None = None
@@ -302,19 +338,34 @@ def inject_citation_markers(
                     while insert_at < len(text) and text[insert_at] == "*":
                         insert_at += 1
                     if insert_at not in marked_positions:
-                        sup = f'<sup class="cite-marker" id="cite-marker-{index}" data-claim-index="{index}">{marker}</sup>'
+                        ref_attr = (
+                            f' data-citation-ref="{citation_ref}"'
+                            if citation_ref
+                            else ""
+                        )
+                        sup = (
+                            f'<sup class="cite-marker" id="cite-marker-{index}"'
+                            f' data-claim-index="{index}"{ref_attr}>{marker}</sup>'
+                        )
                         text = text[:insert_at] + sup + text[insert_at:]
                         marked_positions.add(insert_at)
                         inserted = True
                         break
                     search_start = match.end() + 1
         if not inserted:
-            pending_markers.append(marker)
+            pending_markers.append((marker, citation_ref))
 
     if pending_markers:
         # Append unplaced markers in a trailing references section so every
         # claim still has a visible number that maps to a citation card.
-        labels = " ".join(pending_markers)
+        labels = " ".join(
+            (
+                f'<sup class="cite-marker" data-citation-ref="{ref}">{marker}</sup>'
+                if ref
+                else marker
+            )
+            for marker, ref in pending_markers
+        )
         text = text.rstrip() + f"\n\n引用说明：{labels}\n"
 
     return text
@@ -687,6 +738,14 @@ def build_review_result_with_deepseek(
     if client is None:
         client = OpenAICompatibleClient(require_llm_config())
 
+    citation_groups, _violations = group_citations(evidence_hits, facts, chunks_by_id)
+    citation_ref_by_chunk_id = {
+        citation.chunk_id: citation.citation_ref
+        for group in citation_groups
+        for citation in group.citations
+        if citation.citation_ref
+    }
+
     # markdown format forces json_object: strict_tool schema validation
     # rejects free-form markdown inside string fields. plain format falls
     # back to the client's configured mode (usually strict_tool) so eval
@@ -741,6 +800,7 @@ def build_review_result_with_deepseek(
                 update={"report": _sanitize_markdown_text(md_draft.report)}
             )
             claims = validate_grounded_claims(md_draft.claims, evidence_hits)
+            claims = attach_citation_refs(claims, citation_groups)
             # Inject ①②③ inline citation markers into the report text so
             # the frontend can render clickable superscripts that link to
             # the citation cards below. Done after validation so markers
@@ -748,7 +808,10 @@ def build_review_result_with_deepseek(
             # for matching so the marker lands on the exact legal article
             # reference in the report text.
             conclusion = inject_citation_markers(
-                md_draft.report, claims, evidence_hits
+                md_draft.report,
+                claims,
+                evidence_hits,
+                citation_ref_by_chunk_id,
             )
             trigger_reasons = md_draft.trigger_reasons
             risk_level = md_draft.risk_level
@@ -762,6 +825,7 @@ def build_review_result_with_deepseek(
             plain_draft: LLMReviewResultDraft = draft  # type: ignore[assignment]
             conclusion = plain_draft.conclusion
             claims = validate_grounded_claims(plain_draft.claims, evidence_hits)
+            claims = attach_citation_refs(claims, citation_groups)
             trigger_reasons = plain_draft.trigger_reasons
             risk_level = plain_draft.risk_level
             missing_information = plain_draft.missing_information
@@ -779,7 +843,6 @@ def build_review_result_with_deepseek(
     # Append mandatory disclaimer to every LLM-generated conclusion
     conclusion = conclusion.rstrip() + CONCLUSION_DISCLAIMER
 
-    citation_groups, _violations = group_citations(evidence_hits, facts, chunks_by_id)
     all_citations: list[Citation] = []
     for group in citation_groups:
         all_citations.extend(group.citations)
@@ -1057,6 +1120,7 @@ def apply_review_result_patch(
     citation_groups, _violations = group_citations(
         evidence_hits, result.review_facts, chunks_by_id
     )
+    claims = attach_citation_refs(claims, citation_groups)
     citations = [
         citation for group in citation_groups for citation in group.citations
     ]

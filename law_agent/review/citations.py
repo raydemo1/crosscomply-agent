@@ -85,6 +85,7 @@ def _build_citation(
     hit: RetrievalHit,
     chunk: Chunk | None = None,
     usage: CitationUsage | None = None,
+    full_article_text: str | None = None,
 ) -> Citation:
     """Build a Citation from a RetrievalHit, optionally enriched with chunk data.
 
@@ -93,9 +94,9 @@ def _build_citation(
     direct callers keep the previous behavior.
     """
 
-    citation_label = None
+    citation_label = hit.citation_label
     if chunk is not None:
-        citation_label = chunk.citation_label
+        citation_label = chunk.citation_label or citation_label
 
     if usage is None:
         usage = _determine_usage(hit)
@@ -109,7 +110,46 @@ def _build_citation(
         can_cite_clause=hit.can_cite_clause,
         usage=usage,
         citation_label=citation_label,
+        article_no=chunk.article_no if chunk is not None else hit.article_no,
+        full_article_text=full_article_text or hit.full_article_text,
+        doc_type=chunk.doc_type if chunk is not None else hit.doc_type,
+        authority=chunk.authority if chunk is not None else hit.authority,
+        law_status=chunk.law_status if chunk is not None else hit.law_status,
+        publish_date=chunk.publish_date if chunk is not None else hit.publish_date,
+        effective_date=chunk.effective_date if chunk is not None else hit.effective_date,
+        issuing_body=chunk.issuing_body if chunk is not None else hit.issuing_body,
+        heading_path=chunk.heading_path if chunk is not None else hit.heading_path,
     )
+
+
+def _full_article_text(
+    hit: RetrievalHit,
+    chunks_by_id: dict[str, Chunk],
+) -> str | None:
+    """Assemble only the cited article, never adjacent article chunks."""
+
+    chunk = chunks_by_id.get(hit.chunk_id)
+    article_no = chunk.article_no if chunk is not None else hit.article_no
+    if not article_no or not hit.can_cite_clause:
+        return None
+
+    article_chunks = [
+        candidate
+        for candidate in chunks_by_id.values()
+        if candidate.source_id == hit.source_id
+        and candidate.article_no == article_no
+    ]
+    if not article_chunks:
+        return None
+
+    texts: list[str] = []
+    seen: set[str] = set()
+    for candidate in sorted(article_chunks, key=lambda item: item.chunk_index):
+        text = candidate.text.strip()
+        if text and text not in seen:
+            texts.append(text)
+            seen.add(text)
+    return "\n".join(texts) or None
 
 
 def _build_scope_note(usage: CitationUsage, facts: ReviewFacts, chunk: Chunk | None) -> str | None:
@@ -173,7 +213,12 @@ def group_citations(
 
     for hit, usage in hits_with_usage:
         chunk = chunks_by_id.get(hit.chunk_id)
-        citation = _build_citation(hit, chunk, usage)
+        citation = _build_citation(
+            hit,
+            chunk,
+            usage,
+            _full_article_text(hit, chunks_by_id),
+        )
         groups[usage].append(citation)
 
     # Build CitationGroup list with scope notes
@@ -199,7 +244,19 @@ def group_citations(
             )
         )
 
-    return result_groups, all_violations
+    citation_index = 1
+    numbered_groups: list[CitationGroup] = []
+    for group in result_groups:
+        numbered = [
+            citation.model_copy(
+                update={"citation_ref": f"法源-{citation_index:02d}"}
+            )
+            for citation in group.citations
+        ]
+        citation_index += len(numbered)
+        numbered_groups.append(group.model_copy(update={"citations": numbered}))
+
+    return numbered_groups, all_violations
 
 
 # ---------------------------------------------------------------------------
