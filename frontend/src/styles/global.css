@@ -4882,6 +4882,9 @@ textarea {
   align-items: center;
   gap: clamp(28px, 8vw, 120px);
   min-height: 100vh;
+  width: 100%;
+  max-width: 1520px;
+  margin-inline: auto;
   padding: clamp(28px, 8vw, 90px);
   overflow: hidden;
   background: #f1f5f9;
@@ -5034,9 +5037,11 @@ textarea {
 
 .login-aside {
   position: relative;
-  align-self: center;
-  width: min(100%, 360px);
-  padding: 34px 0 34px 18px;
+  align-self: start;
+  justify-self: end;
+  width: min(100%, 500px);
+  margin-top: clamp(18px, 4vh, 42px);
+  padding: 38px 0 34px 20px;
   animation: login-aside-reveal 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -5054,7 +5059,7 @@ textarea {
   margin: 0;
   color: var(--color-primary);
   font-family: var(--font-heading);
-  font-size: clamp(1.45rem, 2.35vw, 2.05rem);
+  font-size: clamp(1.65rem, 2.5vw, 2.3rem);
   line-height: 1.38;
   text-wrap: balance;
 }
@@ -5221,8 +5226,8 @@ body {
 
 @media (min-width: 1101px) {
   .login-shell {
-    grid-template-columns: minmax(520px, 640px) minmax(260px, 360px);
-    justify-content: center;
+    grid-template-columns: minmax(520px, 640px) minmax(360px, 500px);
+    justify-content: space-between;
     gap: clamp(40px, 5vw, 80px);
     padding-inline: clamp(32px, 5vw, 80px);
   }
