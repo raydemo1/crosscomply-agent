@@ -150,7 +150,7 @@ function DraftCaseView({
           <div><span>境外接收方</span><strong>{saved.intake.overseas_recipient || '待补充'}</strong></div>
           <div><span>材料长度</span><strong>{saved.materialText.length.toLocaleString()} 字符</strong></div>
         </div>
-        <p className="draft-case-card__hint">请确认案件材料和关键事实后提交。提交后由合规审核人运行证据化审查。</p>
+        <p className="draft-case-card__hint">确认材料和关键事实后提交。</p>
         {canEdit && saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onEdit(saved)}>编辑并补充</button> : null}
         {!canEdit && saved.status === 'draft' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onStatusChange(saved.id, 'submitted')}>提交审核</button> : null}
       </section>
@@ -217,7 +217,7 @@ function CaseOperations({ saved, onStatusChange, canManageActions }: { saved: Sa
 
   return (
     <section className="card case-operations">
-      <div className="case-operations__heading"><div><div className="report-kicker">案件流程</div><h2>从证据到行动</h2></div><span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span></div>
+      <div className="case-operations__heading"><div><h2>整改动作</h2></div><span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span></div>
       <div className="case-operations__stats"><span><strong>{saved.actions.length}</strong> 项整改动作</span><span><strong>{openActions}</strong> 项待处理</span><span><strong>{saved.events.length}</strong> 条审计记录</span></div>
       {saved.actions.length > 0 ? (
         <div className="case-operations__list">
@@ -447,7 +447,6 @@ function ReviewChain({ saved, onVerdictChange, viewerRole }: ReviewChainProps): 
       <div className="review-report-layout">
         <main className="review-report">
           <section className="card case-conclusion report-card">
-            <div className="report-kicker">审查报告</div>
             <div className="case-conclusion__head">
               <RiskBadge level={result.risk_level} />
               <span className="case-conclusion__evidence">
@@ -515,7 +514,7 @@ function ReviewChain({ saved, onVerdictChange, viewerRole }: ReviewChainProps): 
           ) : null}
 
           <details className="card report-disclosure">
-            <summary>展开审查流程与调试信息</summary>
+            <summary>查看审查流程</summary>
             <div className="report-disclosure__body">
               <PipelineStepper
                 factsCount={facts.data_types.length + (facts.cross_border_transfer ? 1 : 0)}
@@ -536,7 +535,7 @@ function ReviewChain({ saved, onVerdictChange, viewerRole }: ReviewChainProps): 
           </details>
 
           <details className="card report-disclosure">
-            <summary>展开引用治理与人工反馈</summary>
+            <summary>查看引用评价</summary>
             <div className="report-disclosure__body">
               <CitationList
                 groups={response.citation_groups}
@@ -767,7 +766,7 @@ function EvidenceSidebar({
         <div className="evidence-sidebar__head">
           <div>
             <div className="evidence-sidebar__title">法源核查</div>
-            <div className="evidence-sidebar__subtitle">按引用编号追踪完整条文与官方来源</div>
+            <div className="evidence-sidebar__subtitle">完整条文与官方来源</div>
           </div>
           <div className="evidence-sidebar__head-actions">
             <div className="evidence-sidebar__count">
@@ -788,7 +787,7 @@ function EvidenceSidebar({
                   <span>{USAGE_LABELS[group.usage]}</span>
                   <span>{group.citations.length} 条</span>
                 </div>
-                <div className="evidence-sidebar__group-note">{group.scope_note ?? '直接展示本组可核查来源，不展开相邻条文。'}</div>
+                {group.scope_note ? <div className="evidence-sidebar__group-note">{group.scope_note}</div> : null}
                 {group.citations.map((citation) => (
                   <EvidenceCard
                     key={citation.citation_ref || citation.chunk_id}

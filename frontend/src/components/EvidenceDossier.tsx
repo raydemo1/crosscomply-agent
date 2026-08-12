@@ -89,14 +89,10 @@ export default function EvidenceDossier({
       <aside className="app-dossier dossier">
         <div className="dossier-header">
           <div className="dossier-title">证据档案</div>
-          <div className="dossier-subtitle">证据自检与可引用条文</div>
         </div>
         <div className="dossier-body">
           <div className="state-block">
             <div className="state-block__title">尚无研究记录</div>
-            <div className="state-block__hint">
-              提交一次研究请求后，将在此展示证据自检与可引用条文。
-            </div>
           </div>
         </div>
       </aside>
@@ -108,7 +104,6 @@ export default function EvidenceDossier({
       <aside className="app-dossier dossier">
         <div className="dossier-header">
           <div className="dossier-title">证据档案</div>
-          <div className="dossier-subtitle">LLM 节点失败</div>
         </div>
         <div className="dossier-body">
           <div className="state-block">
@@ -140,7 +135,6 @@ export default function EvidenceDossier({
     <aside className="app-dossier dossier">
       <div className="dossier-header">
         <div className="dossier-title">证据档案</div>
-        <div className="dossier-subtitle">证据自检与可引用条文</div>
       </div>
 
       <div className="dossier-body">
@@ -164,9 +158,7 @@ export default function EvidenceDossier({
         {orderedGroups.length === 0 ? (
           <div className="state-block">
             <div className="state-block__title">暂无可引用证据</div>
-            <div className="state-block__hint">
-              本次研究未生成可引用证据。
-            </div>
+            <div className="state-block__hint">本次审查未生成可引用证据。</div>
           </div>
         ) : (
           orderedGroups.map((group) => (

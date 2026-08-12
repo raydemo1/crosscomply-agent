@@ -71,11 +71,9 @@ export default function WorkbenchPage({
     <div className="workbench" aria-busy={loading}>
       <header className="workspace-hero">
         <div>
-          <div className="report-kicker">Cross-border review desk</div>
-          <h1>{editingCaseId ? '补充当前案件，让审查继续向前。' : '把一次合规问题，变成一份可追踪的案件记录。'}</h1>
-          <p>从业务材料开始，确认关键事实，生成有证据依据的审查结论与后续动作。</p>
+          <h1>{editingCaseId ? '补充案件信息' : '创建合规案件'}</h1>
         </div>
-        <div className="workspace-hero__metric"><strong>{summary?.total_cases ?? historyCount}</strong><span>已纳入案件</span></div>
+        <div className="workspace-hero__metric"><strong>{summary?.total_cases ?? historyCount}</strong><span>案件总数</span></div>
         <div className="workspace-hero__risk-strip">
           <span><i className="risk-dot risk-dot--high" />高风险 <strong>{summary?.risk_counts.high ?? 0}</strong></span>
           <span><i className="risk-dot risk-dot--medium" />中风险 <strong>{summary?.risk_counts.medium ?? 0}</strong></span>
@@ -95,7 +93,7 @@ export default function WorkbenchPage({
 
       {step === 1 ? (
         <section className="card intake-card">
-          <div className="section-heading-row"><div><div className="report-kicker">01 / 案件入口</div><h2>先把业务说清楚</h2></div><span className="section-heading-row__hint">约 2 分钟</span></div>
+          <div className="section-heading-row"><div><h2>案件信息</h2></div></div>
           <label className="form-label" htmlFor="wb-question">审查问题</label>
           <input id="wb-question" className="workbench__input" value={question} onChange={(event) => onQuestionChange(event.target.value)} placeholder="例如：这个业务是否需要数据出境安全评估？" disabled={loading} />
           <label className="form-label" htmlFor="wb-material">待审查材料</label>
@@ -106,11 +104,11 @@ export default function WorkbenchPage({
           </div>
           {fileError ? <div className="form-error">{fileError}</div> : null}
           <textarea id="wb-material" className="workbench__textarea" value={material} onChange={(event) => onMaterialChange(event.target.value)} placeholder="描述业务如何收集、使用和向境外提供数据……" disabled={loading} rows={10} />
-          <div className="intake-card__footer"><span>材料将作为案件记录保存，并与审查结果、证据和整改动作关联。</span><button type="button" className="btn-primary" disabled={!question.trim() || (!material.trim() && !selectedFile)} onClick={() => setStep(2)}>继续确认案件要素 →</button></div>
+          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!question.trim() || (!material.trim() && !selectedFile)} onClick={() => setStep(2)}>继续确认案件要素 →</button></div>
         </section>
       ) : (
         <section className="card intake-card">
-          <div className="section-heading-row"><div><div className="report-kicker">02 / 关键要素</div><h2>确认影响判断的事实</h2></div><button type="button" className="btn-link" onClick={() => setStep(1)}>← 返回材料</button></div>
+          <div className="section-heading-row"><div><h2>确认案件要素</h2></div><button type="button" className="btn-link" onClick={() => setStep(1)}>← 返回材料</button></div>
           <div className="intake-grid">
             <label className="form-field form-field--wide"><span>业务活动</span><input value={intake.business_activity} onChange={(event) => updateIntake(intake, onIntakeChange, 'business_activity', event.target.value)} placeholder="例如：推荐系统、客服平台、人力资源管理" /></label>
             <label className="form-field"><span>数据类型</span><input value={intake.data_types.join('、')} onChange={(event) => updateIntake(intake, onIntakeChange, 'data_types', event.target.value.split(/[、,，]/).map((item) => item.trim()).filter(Boolean))} placeholder="手机号、定位信息" /></label>
@@ -124,13 +122,12 @@ export default function WorkbenchPage({
             <label className="form-field"><span>拟采用的出境路径</span><input value={intake.transfer_mechanism} onChange={(event) => updateIntake(intake, onIntakeChange, 'transfer_mechanism', event.target.value)} placeholder="评估、标准合同、认证或待判断" /></label>
             <label className="form-field form-field--wide"><span>处理目的与补充说明</span><textarea value={`${intake.processing_purpose}${intake.notes ? `\n${intake.notes}` : ''}`} onChange={(event) => updateIntake(intake, onIntakeChange, 'processing_purpose', event.target.value)} placeholder="补充业务目的、例外情况和当前已知限制" rows={3} /></label>
           </div>
-          <div className="intake-confirmation"><label><input type="checkbox" checked={intake.cross_border_transfer === true} onChange={(event) => updateIntake(intake, onIntakeChange, 'cross_border_transfer', event.target.checked)} /> <strong>我确认材料涉及向境外提供数据</strong></label><span>未确认的事实会在审查结果中显示为待补充，不会由系统擅自推断。</span></div>
+          <div className="intake-confirmation"><label><input type="checkbox" checked={intake.cross_border_transfer === true} onChange={(event) => updateIntake(intake, onIntakeChange, 'cross_border_transfer', event.target.checked)} /> <strong>我确认材料涉及向境外提供数据</strong></label><span>未确认事实会标为待补充。</span></div>
           <details className="workbench-advanced"><summary>审查运行设置</summary><div className="workbench-advanced__body"><label className="form-field"><span>审查深度</span><select value={reviewMode} onChange={(event) => onReviewModeChange(event.target.value as 'llm' | 'multi_agent')}><option value="llm">标准审查</option><option value="multi_agent">深入审查</option></select></label><label className="intake-confirmation"><input type="checkbox" checked={rerankMode === 'embedding'} onChange={(event) => onRerankModeChange(event.target.checked ? 'embedding' : 'off')} /> 启用增强依据排序</label></div></details>
-          <div className="intake-card__footer"><span>输出是受控决策辅助，最终结论需要合规审核人确认。</span><button type="button" className="btn-primary" disabled={!canSubmit} onClick={submit}>{loading ? '正在提交案件…' : editingCaseId ? '保存补充并重新提交' : '创建案件并提交审查'}</button></div>
+          <div className="intake-card__footer"><span>需审核人确认。</span><button type="button" className="btn-primary" disabled={!canSubmit} onClick={submit}>{loading ? '正在提交案件…' : editingCaseId ? '保存补充并重新提交' : '创建案件并提交审查'}</button></div>
         </section>
       )}
 
-      <section className="guardrail-strip"><span className="guardrail-strip__mark">⌁</span><div><strong>证据优先，明确边界</strong><p>系统会把关键结论连接到法规依据；如果材料不足或检索不到主法源，会停留在待补充状态。</p></div></section>
     </div>
   );
 }

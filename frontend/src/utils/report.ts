@@ -357,10 +357,10 @@ function escHtml(text: string): string {
 }
 
 const HTML_STYLE = `
-body{font-family:'Noto Sans SC','Inter',system-ui,sans-serif;background:#f8fafc;color:#0f172a;line-height:1.6;max-width:880px;margin:0 auto;padding:40px 24px;}
-h1{font-family:'Noto Serif SC',Georgia,serif;color:#1e3a8a;border-bottom:3px solid #b45309;padding-bottom:8px;}
-h2{font-family:'Noto Serif SC',Georgia,serif;color:#1e3a8a;margin-top:32px;border-left:4px solid #b45309;padding-left:10px;}
-h3{font-family:'Noto Serif SC',Georgia,serif;color:#1e40af;margin-top:20px;}
+body{font-family:'Source Sans 3','Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;background:#f8fafc;color:#0f172a;line-height:1.6;max-width:880px;margin:0 auto;padding:40px 24px;}
+h1{font-family:'Source Serif 4','Noto Serif SC',Georgia,serif;color:#1e3a8a;border-bottom:3px solid #b45309;padding-bottom:8px;}
+h2{font-family:'Source Serif 4','Noto Serif SC',Georgia,serif;color:#1e3a8a;margin-top:32px;border-left:4px solid #b45309;padding-left:10px;}
+h3{font-family:'Source Serif 4','Noto Serif SC',Georgia,serif;color:#1e40af;margin-top:20px;}
 .meta{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:16px;margin:16px 0;font-size:14px;}
 .meta div{margin:2px 0;}
 .risk{display:inline-block;padding:3px 12px;border-radius:999px;font-weight:700;font-size:13px;}

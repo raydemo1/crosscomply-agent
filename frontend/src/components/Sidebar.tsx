@@ -62,7 +62,6 @@ export default function Sidebar({
     <aside className="app-sidebar sidebar">
       <div className="sidebar-brand">
         <div className="sidebar-brand-title">CrossComply</div>
-        <div className="sidebar-brand-subtitle">跨境数据合规案件工作台</div>
       </div>
 
       <div className="sidebar-user-card">
@@ -75,23 +74,20 @@ export default function Sidebar({
       </div>
 
       <nav className="sidebar-section" aria-label="主导航">
-        <div className="sidebar-section-label">工作区</div>
         <div className="sidebar-nav">
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => onPageChange('workbench')}>
             <span className="sidebar-nav-item-icon">⌂</span>
-            <span className="font-heading">案件工作台</span>
+            <span>案件工作台</span>
           </button>
         </div>
       </nav>
 
       {user.role === 'admin' ? (
         <section className="sidebar-governance-entry" aria-label="管理员入口">
-          <div className="sidebar-section-label">管理员入口</div>
           <button type="button" className="sidebar-governance-entry__button" onClick={onOpenGovernance}>
             <span className="sidebar-governance-entry__icon" aria-hidden="true">◒</span>
             <span>
               <strong>治理控制台</strong>
-              <small>评测与知识治理</small>
             </span>
             <span className="sidebar-governance-entry__arrow" aria-hidden="true">↗</span>
           </button>
@@ -132,11 +128,6 @@ export default function Sidebar({
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="sidebar-footer">
-        <strong>CrossComply</strong> · 数据出境合规研究
-        <br />仅供研究参考，不构成正式法律意见
       </div>
     </aside>
   );

@@ -570,9 +570,6 @@ export default function EvalPage(): JSX.Element {
       <header className="eval-header">
         <div className="eval-header__left">
           <h1 className="eval-header__title">评测结果</h1>
-          <p className="eval-header__desc">
-            最近一次离线评测的能力快照。重新生成评测请在受控环境中运行后端任务。
-          </p>
         </div>
         <div className="eval-header__right">
           {summary ? (
@@ -641,7 +638,7 @@ export default function EvalPage(): JSX.Element {
             <div style={{ fontWeight: 700, marginBottom: '2px' }}>读取评测失败</div>
             <div style={{ wordBreak: 'break-word' }}>{error}</div>
             <div style={{ marginTop: 4, fontSize: '0.8125rem', color: '#64748b' }}>
-              提示：如果后端从未运行过评测，会返回 404。请先在后端触发一次评测。
+              请先运行评测任务。
             </div>
           </div>
         </section>
@@ -662,10 +659,7 @@ export default function EvalPage(): JSX.Element {
       {!loading && !summary && !error ? (
         <section className="card state-block">
           <div className="state-block__title">暂无评测结果</div>
-          <div className="state-block__hint">
-            后端尚未缓存任何评测结果。请先运行一次评测（例如调用
-            <code>POST /api/eval/run</code>），然后点击「刷新」。
-          </div>
+          <div className="state-block__hint">请先运行评测任务。</div>
         </section>
       ) : null}
 
@@ -723,9 +717,6 @@ export default function EvalPage(): JSX.Element {
           {/* Radar chart */}
           <section className="card">
             <div className="section-title">能力雷达图</div>
-            <p className="eval-section-hint">
-              六个维度归一化至 0–1：召回、精度、拒答、引用合规、非坏例率。
-            </p>
             <div className="eval-radar-wrap">
               <RadarChart series={radarSeries} />
             </div>
@@ -748,9 +739,6 @@ export default function EvalPage(): JSX.Element {
           {/* Per-case bar chart */}
           <section className="card">
             <div className="section-title">各用例 Recall@5</div>
-            <p className="eval-section-hint">
-              当前模式 <strong>{modeLabel(activeMode!)}</strong> 下每个 golden-set 用例的 Recall@5，按分类着色。
-            </p>
             <BarChart rows={barRows} />
             <div className="eval-legend eval-legend--bar">
               {CATEGORY_ORDER.filter((c) =>
@@ -771,9 +759,7 @@ export default function EvalPage(): JSX.Element {
           {/* Case table */}
           <section className="card eval-cases">
             <div className="section-title">用例明细</div>
-            <p className="eval-section-hint">
-              点击任意用例展开实际命中来源、缺失来源与坏例原因。
-            </p>
+            <p className="eval-section-hint">点击用例查看来源与坏例原因。</p>
             <div className="case-row case-row--head">
               <span className="case-row__toggle" aria-hidden="true" />
               <span className="case-row__cat-dot" aria-hidden="true" />

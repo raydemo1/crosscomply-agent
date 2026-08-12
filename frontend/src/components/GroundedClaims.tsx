@@ -34,7 +34,7 @@ export default function GroundedClaims({
     >
       <div className="grounded-claims__header">
         <span>关键判断与引用</span>
-        <span>点击依据可在右栏核对原文</span>
+        <span>点击编号查看条文</span>
       </div>
       {claims.map((claim, index) => {
         const citationRefs = claim.supporting_citation_refs ?? [];

@@ -49,7 +49,7 @@ export default function CitationList({
   return (
     <div className="cite-list cite-list--governance">
       <div className="cite-list__notice">
-        在线核查请使用右侧法源核查面板；这里用于审核人记录引用评价。
+        在线核查见右侧法源面板。
       </div>
       {ordered.map((group) => (
         <section className="cite-list__group" key={group.usage}>

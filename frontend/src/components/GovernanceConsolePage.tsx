@@ -15,7 +15,6 @@ export default function GovernanceConsolePage({ user, onBack, onLogout }: Govern
           <span className="governance-topbar__mark" aria-hidden="true">CC</span>
           <div>
             <strong>CrossComply</strong>
-            <span>治理控制台</span>
           </div>
         </div>
         <div className="governance-topbar__actions">
@@ -27,9 +26,7 @@ export default function GovernanceConsolePage({ user, onBack, onLogout }: Govern
       <main className="governance-main">
         <section className="governance-intro" aria-labelledby="governance-title">
           <div>
-            <p className="governance-intro__kicker">ADMINISTRATION / EVIDENCE QUALITY</p>
             <h1 id="governance-title">评测与知识治理</h1>
-            <p>集中查看检索、引用和拒答能力的离线评测结果，复盘坏例，为案件工作台维护可信的证据基础。</p>
           </div>
         </section>
 
