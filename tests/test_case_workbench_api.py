@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from law_agent.review.api import ReviewResponse, create_app
+from law_agent.review.api import ReviewResponse, _normalize_review_response_payload, create_app
 from law_agent.review.case_store import InMemoryCaseStore
 from law_agent.review.schemas import EvidenceSelfCheck, ReviewFacts, ReviewResult
 
@@ -186,3 +186,25 @@ def test_actions_feedback_and_dashboard_are_persisted(app) -> None:
         summary = client.get("/api/dashboard/summary")
         assert summary.status_code == 200
         assert summary.json()["total_cases"] == 1
+
+
+def test_old_response_normalization_preserves_unknown_metadata_and_unique_refs() -> None:
+    response = {
+        "citation_groups": [
+            {"usage": "legal_basis", "citations": [{"citation_ref": "法源-02", "chunk_id": "c1"}]},
+            {"usage": "conditional_basis", "citations": [{"chunk_id": "c2"}]},
+            {"usage": "policy_explanation", "citations": [{"citation_ref": "法源-02", "chunk_id": "c3"}]},
+        ],
+        "review_result": {
+            "claims": [{"text": "结论", "supporting_chunk_ids": ["c1", "c2", "c3"]}],
+            "conclusion": '<sup class="cite-marker" data-claim-index="0">①</sup>',
+        },
+    }
+
+    normalized = _normalize_review_response_payload(response)
+    citations = [citation for group in normalized["citation_groups"] for citation in group["citations"]]
+    assert [citation["citation_ref"] for citation in citations] == ["法源-02", "法源-01", "法源-03"]
+    assert len({citation["citation_ref"] for citation in citations}) == 3
+    assert citations[1]["doc_type"] == "unknown"
+    assert citations[1]["authority"] == "unknown"
+    assert normalized["review_result"]["claims"][0]["supporting_citation_refs"] == ["法源-02", "法源-01", "法源-03"]

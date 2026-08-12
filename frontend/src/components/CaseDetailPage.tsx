@@ -17,8 +17,8 @@
  * Failed cases render a compact failure summary instead of the chain.
  */
 
-import { useCallback, useMemo, useState } from 'react';
-import type { CaseAction, CaseStatus, CitationGroup, CitationUsage, RetrievalHit, ReviewApiResponse, ReviewFacts } from '../types/api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CaseAction, CaseStatus, Citation, CitationGroup, RetrievalHit, ReviewApiResponse, ReviewFacts, UserRole } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
 import { createCaseAction, setActionStatus, setCitationVerdict, updateCaseAction } from '../store/caseStore';
@@ -32,6 +32,10 @@ import {
   EVIDENCE_ISSUE_LABELS,
   EVIDENCE_STATUS_BADGE_CLASS,
   EVIDENCE_STATUS_LABELS,
+  AUTHORITY_LABELS,
+  CITATION_ROLE_LABELS,
+  DOC_TYPE_LABELS,
+  LAW_STATUS_LABELS,
   QUERY_TYPE_LABELS,
   USAGE_LABELS,
   formatTime,
@@ -54,6 +58,7 @@ interface CaseDetailPageProps {
   onStatusChange: (caseId: string, status: CaseStatus) => void;
   /** Reviewers and admins can maintain persisted remediation actions. */
   canManageActions: boolean;
+  viewerRole: UserRole;
 }
 
 type SavedCaseWithResponse = SavedCase & { response: ReviewApiResponse };
@@ -80,6 +85,7 @@ export default function CaseDetailPage({
   onBack,
   onStatusChange,
   canManageActions,
+  viewerRole,
 }: CaseDetailPageProps): JSX.Element {
   const response = saved.response;
   if (!response) {
@@ -108,6 +114,7 @@ export default function CaseDetailPage({
         <ReviewChain
           saved={completedSaved}
           onVerdictChange={handleVerdict}
+          viewerRole={viewerRole}
         />
       )}
     </div>
@@ -369,9 +376,10 @@ function FailedChain({ response }: { response: Extract<ReviewApiResponse, { stat
 interface ReviewChainProps {
   saved: SavedCaseWithResponse;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
+  viewerRole: UserRole;
 }
 
-function ReviewChain({ saved, onVerdictChange }: ReviewChainProps): JSX.Element {
+function ReviewChain({ saved, onVerdictChange, viewerRole }: ReviewChainProps): JSX.Element {
   const response = saved.response as Extract<ReviewApiResponse, { review_case_id: string }>;
   const result = response.review_result;
   const facts = response.review_facts;
@@ -379,8 +387,11 @@ function ReviewChain({ saved, onVerdictChange }: ReviewChainProps): JSX.Element 
   const queries = response.retrieval_queries ?? [];
   const evidenceChunks = response.evidence_chunks ?? [];
   const verdicts = saved.feedback?.citationVerdicts ?? {};
-  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
+  const [selectedCitationRef, setSelectedCitationRef] = useState<string | null>(null);
+  const [highlightedCitationRef, setHighlightedCitationRef] = useState<string | null>(null);
+  const [mobileEvidenceOpen, setMobileEvidenceOpen] = useState(false);
   const [evidenceAnnouncement, setEvidenceAnnouncement] = useState('');
+  const highlightTimer = useRef<number | null>(null);
 
   const evidenceCount = evidenceChunks.length;
   const citationCount = useMemo(
@@ -388,21 +399,44 @@ function ReviewChain({ saved, onVerdictChange }: ReviewChainProps): JSX.Element 
     [response.citation_groups],
   );
 
-  const handleEvidenceSelect = useCallback((chunkId: string, label: string) => {
-    setSelectedEvidenceId(chunkId);
-    setEvidenceAnnouncement(`已定位到引用依据：${label}`);
+  const citations = useMemo(
+    () => response.citation_groups.flatMap((group) => group.citations),
+    [response.citation_groups],
+  );
+
+  useEffect(() => {
+    if (!selectedCitationRef && citations[0]?.citation_ref) {
+      setSelectedCitationRef(citations[0].citation_ref);
+    }
+  }, [citations, selectedCitationRef]);
+
+  const handleEvidenceSelect = useCallback((citationRef: string, label: string) => {
+    setSelectedCitationRef(citationRef);
+    setHighlightedCitationRef(citationRef);
+    setEvidenceAnnouncement(`已定位到 ${citationRef}：${label}`);
+    if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
+    highlightTimer.current = window.setTimeout(() => setHighlightedCitationRef(null), 1500);
+
+    const isMobile = window.matchMedia('(max-width: 1100px)').matches;
+    if (isMobile) setMobileEvidenceOpen(true);
 
     window.requestAnimationFrame(() => {
-      const target = document.getElementById(`evidence-${cssId(chunkId)}`);
+      const target = document.getElementById(`evidence-${cssId(citationRef)}`);
       if (!target) return;
-      target.focus({ preventScroll: true });
-      target.scrollIntoView({
-        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-          ? 'auto'
-          : 'smooth',
-        block: 'nearest',
-      });
+      target.focus({ preventScroll: isMobile });
+      if (!isMobile) {
+        target.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'auto'
+            : 'smooth',
+          block: 'nearest',
+        });
+      }
     });
+  }, []);
+
+  useEffect(() => () => {
+    if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
   }, []);
 
   return (
@@ -425,15 +459,26 @@ function ReviewChain({ saved, onVerdictChange }: ReviewChainProps): JSX.Element 
               </span>
             </div>
             <div className="section-title">审查结论</div>
-            <MarkdownText variant="report" className="case-conclusion__body">
+            <MarkdownText
+              variant="report"
+              className="case-conclusion__body"
+              onCitationClick={(citationRef) => {
+                const citation = citations.find((item) => item.citation_ref === citationRef);
+                handleEvidenceSelect(citationRef, citation?.citation_label ?? citationRef);
+              }}
+            >
               {result.conclusion}
             </MarkdownText>
             <GroundedClaims
               claims={result.claims}
               evidenceChunks={evidenceChunks}
+              citations={citations}
               compact
-              selectedEvidenceId={selectedEvidenceId}
               onEvidenceSelect={handleEvidenceSelect}
+              onCitationClick={(citationRef) => {
+                const citation = citations.find((item) => item.citation_ref === citationRef);
+                handleEvidenceSelect(citationRef, citation?.citation_label ?? citationRef);
+              }}
             />
           </section>
 
@@ -491,14 +536,14 @@ function ReviewChain({ saved, onVerdictChange }: ReviewChainProps): JSX.Element 
           </details>
 
           <details className="card report-disclosure">
-            <summary>展开完整证据包与人工反馈</summary>
+            <summary>展开引用治理与人工反馈</summary>
             <div className="report-disclosure__body">
               <CitationList
                 groups={response.citation_groups}
                 evidenceChunks={evidenceChunks}
-                sourceEvidencePackets={response.source_evidence_packets}
                 verdicts={verdicts}
                 onVerdictChange={onVerdictChange}
+                viewerRole={viewerRole}
               />
               <FeedbackPanel saved={saved} />
             </div>
@@ -508,7 +553,13 @@ function ReviewChain({ saved, onVerdictChange }: ReviewChainProps): JSX.Element 
         <EvidenceSidebar
           groups={response.citation_groups}
           evidenceChunks={evidenceChunks}
-          selectedEvidenceId={selectedEvidenceId}
+          claims={result.claims}
+          selectedCitationRef={selectedCitationRef}
+          highlightedCitationRef={highlightedCitationRef}
+          mobileOpen={mobileEvidenceOpen}
+          onCitationSelect={handleEvidenceSelect}
+          onCloseMobile={() => setMobileEvidenceOpen(false)}
+          viewerRole={viewerRole}
         />
       </div>
     </>
@@ -653,66 +704,104 @@ function ProcessDetails({
 function EvidenceSidebar({
   groups,
   evidenceChunks,
-  selectedEvidenceId,
+  claims,
+  selectedCitationRef,
+  highlightedCitationRef,
+  mobileOpen,
+  onCitationSelect,
+  onCloseMobile,
+  viewerRole,
 }: {
   groups: CitationGroup[];
   evidenceChunks: RetrievalHit[];
-  selectedEvidenceId: string | null;
+  claims: Array<{ supporting_citation_refs: string[] }>;
+  selectedCitationRef: string | null;
+  highlightedCitationRef: string | null;
+  mobileOpen: boolean;
+  onCitationSelect: (citationRef: string, label: string) => void;
+  onCloseMobile: () => void;
+  viewerRole: UserRole;
 }): JSX.Element {
   const chunks = useMemo(() => {
     const map = new Map<string, RetrievalHit>();
     evidenceChunks.forEach((chunk) => map.set(chunk.chunk_id, chunk));
     return map;
   }, [evidenceChunks]);
-  const citations = groups.flatMap((group) =>
-    group.citations.map((citation) => ({
-      ...citation,
-      groupUsage: group.usage,
-      chunk: chunks.get(citation.chunk_id),
-    })),
-  );
+  const supportingClaims = useMemo(() => {
+    const map = new Map<string, number[]>();
+    claims.forEach((claim, claimIndex) => {
+      (claim.supporting_citation_refs ?? []).forEach((citationRef) => {
+        const existing = map.get(citationRef) ?? [];
+        map.set(citationRef, [...existing, claimIndex + 1]);
+      });
+    });
+    return map;
+  }, [claims]);
+  const displayGroups = groups;
 
-  // Split into legal basis (citable) vs auxiliary (non-citable) groups.
-  const legalCitations = citations.filter((c) => c.can_cite_clause);
-  const auxCitations = citations.filter((c) => !c.can_cite_clause);
+  useEffect(() => {
+    if (!mobileOpen || !selectedCitationRef || !window.matchMedia('(max-width: 1100px)').matches) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(`evidence-${cssId(selectedCitationRef)}`);
+      if (!target) return;
+      target.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+        inline: 'nearest',
+      });
+      target.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [mobileOpen, selectedCitationRef]);
 
   return (
-    <aside className="evidence-sidebar" aria-label="引用依据">
+    <aside
+      className={'evidence-sidebar' + (mobileOpen ? ' is-mobile-open' : '')}
+      aria-label="引用依据详情"
+      aria-hidden={!mobileOpen && typeof window !== 'undefined' && window.matchMedia('(max-width: 1100px)').matches}
+    >
       <div className="evidence-sidebar__head">
-        <div className="evidence-sidebar__title">引用依据</div>
-        <div className="evidence-sidebar__count">{citations.length} 条</div>
+        <div>
+          <div className="evidence-sidebar__title">法源核查</div>
+          <div className="evidence-sidebar__subtitle">按引用编号追踪完整条文与官方来源</div>
+        </div>
+        <div className="evidence-sidebar__head-actions">
+          <div className="evidence-sidebar__count">
+            {displayGroups.reduce((total, group) => total + group.citations.length, 0)} 条法源
+          </div>
+          <button type="button" className="evidence-sidebar__close" onClick={onCloseMobile} aria-label="关闭引用详情">
+            关闭
+          </button>
+        </div>
       </div>
-      {citations.length === 0 ? (
+      {displayGroups.length === 0 ? (
         <div className="state-block__hint">暂无可引用依据。</div>
       ) : (
         <div className="evidence-sidebar__list">
-          {legalCitations.length > 0 && (
-            <div className="evidence-sidebar__group evidence-sidebar__group--primary">
-              <div className="evidence-sidebar__group-title">法律依据</div>
-              {legalCitations.map((item, index) => (
+          {displayGroups.map((group) => (
+            <section className="evidence-sidebar__group" key={group.usage}>
+              <div className="evidence-sidebar__group-title">
+                <span>{USAGE_LABELS[group.usage]}</span>
+                <span>{group.citations.length} 条</span>
+              </div>
+              <div className="evidence-sidebar__group-note">{group.scope_note ?? '直接展示本组可核查来源，不展开相邻条文。'}</div>
+              {group.citations.map((citation) => (
                 <EvidenceCard
-                  key={item.chunk_id}
-                  item={item}
-                  index={index}
-                  selected={selectedEvidenceId === item.chunk_id}
+                  key={citation.citation_ref || citation.chunk_id}
+                  item={{
+                    ...citation,
+                    groupUsage: group.usage,
+                    chunk: chunks.get(citation.chunk_id),
+                  }}
+                  selected={selectedCitationRef === citation.citation_ref}
+                  locating={highlightedCitationRef === citation.citation_ref}
+                  supportingClaims={supportingClaims.get(citation.citation_ref) ?? []}
+                  onSelect={onCitationSelect}
+                  viewerRole={viewerRole}
                 />
               ))}
-            </div>
-          )}
-          {auxCitations.length > 0 && (
-            <div className="evidence-sidebar__group evidence-sidebar__group--auxiliary">
-              <div className="evidence-sidebar__group-title">辅助证据</div>
-              {auxCitations.map((item, index) => (
-                <EvidenceCard
-                  key={item.chunk_id}
-                  item={item}
-                  index={index}
-                  auxiliary
-                  selected={selectedEvidenceId === item.chunk_id}
-                />
-              ))}
-            </div>
-          )}
+            </section>
+          ))}
         </div>
       )}
     </aside>
@@ -721,44 +810,80 @@ function EvidenceSidebar({
 
 function EvidenceCard({
   item,
-  index,
-  auxiliary = false,
   selected = false,
+  locating = false,
+  supportingClaims,
+  onSelect,
+  viewerRole,
 }: {
-  item: {
-    chunk_id: string;
-    citation_label: string | null;
-    title: string;
-    groupUsage: CitationUsage;
-    chunk?: RetrievalHit;
-  };
-  index: number;
-  auxiliary?: boolean;
+  item: Citation & { groupUsage: CitationGroup['usage']; chunk?: RetrievalHit };
   selected?: boolean;
+  locating?: boolean;
+  supportingClaims: number[];
+  onSelect: (citationRef: string, label: string) => void;
+  viewerRole: UserRole;
 }): JSX.Element {
+  const label = item.citation_label ?? item.title;
+  const lawStatus = LAW_STATUS_LABELS[item.law_status] ?? '状态未知';
+  const articleText = item.full_article_text?.trim();
   return (
     <article
       className={
         'evidence-card' +
-        (auxiliary ? ' evidence-card--aux' : '') +
-        (selected ? ' is-selected' : '')
+        (selected ? ' is-open' : '') +
+        (locating ? ' is-locating' : '')
       }
-      id={`evidence-${cssId(item.chunk_id)}`}
+      id={`evidence-${cssId(item.citation_ref)}`}
       tabIndex={-1}
-      aria-label={`${USAGE_LABELS[item.groupUsage]}：${item.citation_label ?? item.title}`}
+      aria-label={`${item.citation_ref} ${label}`}
     >
-      <div className="evidence-card__top">
-        <span className="evidence-card__index">[{shortId(item.chunk_id)}]</span>
-        <span className="evidence-card__usage">{USAGE_LABELS[item.groupUsage]}</span>
-      </div>
-      <div className="evidence-card__title">
-        {index + 1}. {item.citation_label ?? item.title}
-      </div>
-      {item.chunk ? (
-        <p className="evidence-card__text">{item.chunk.text}</p>
-      ) : (
-        <p className="evidence-card__muted">该证据正文不可用。</p>
-      )}
+      <button
+        type="button"
+        className="evidence-card__trigger"
+        onClick={() => onSelect(item.citation_ref, label)}
+        aria-expanded={selected}
+      >
+        <span className="evidence-card__top">
+          <span className="evidence-card__index">{item.citation_ref}</span>
+          <span className="evidence-card__usage">{lawStatus}</span>
+        </span>
+        <span className="evidence-card__title">{label}</span>
+        <span className="evidence-card__source">{item.title}</span>
+      </button>
+      {selected ? (
+        <div className="evidence-card__detail">
+          {supportingClaims.length > 0 ? (
+            <div className="evidence-card__relation">
+              支持结论 {supportingClaims.map((claimIndex) => String.fromCharCode(0x245f + claimIndex)).join('、')}
+            </div>
+          ) : null}
+          <div className="evidence-card__meta-grid">
+            <div><span>法源类型</span><strong>{DOC_TYPE_LABELS[item.doc_type] ?? item.doc_type}</strong></div>
+            <div><span>权威等级</span><strong>{AUTHORITY_LABELS[item.authority] ?? item.authority}</strong></div>
+            <div><span>发布机关</span><strong>{item.issuing_body || '未提供'}</strong></div>
+            <div><span>法律状态</span><strong className={item.law_status === 'effective' ? 'is-current' : 'is-warning'}>{lawStatus}</strong></div>
+            <div><span>发布日期</span><strong>{item.publish_date || '未提供'}</strong></div>
+            <div><span>生效日期</span><strong>{item.effective_date || '未提供'}</strong></div>
+          </div>
+          <div className="evidence-card__article-label">完整条文</div>
+          {articleText ? (
+            <pre className="evidence-card__full-article">{articleText}</pre>
+          ) : (
+            <div className="evidence-card__missing-article">当前知识库未收录完整条文</div>
+          )}
+          <div className="evidence-card__footer">
+            <span>{CITATION_ROLE_LABELS[item.citation_role] ?? '引用角色未提供'}</span>
+            {item.source_url ? (
+              <a href={item.source_url} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>
+                打开官方原文 ↗
+              </a>
+            ) : <span>未提供官方原文链接</span>}
+          </div>
+          {viewerRole === 'admin' && item.chunk ? (
+            <div className="evidence-card__tech">管理员视图 · chunk {shortId(item.chunk.chunk_id)} · {item.chunk.retriever} · {item.chunk.score.toFixed(4)}</div>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }

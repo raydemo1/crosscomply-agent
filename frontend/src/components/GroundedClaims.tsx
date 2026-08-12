@@ -1,22 +1,23 @@
 import { useMemo } from 'react';
-import type { GroundedClaim, RetrievalHit } from '../types/api';
-import { shortId } from '../utils/display';
+import type { Citation, GroundedClaim, RetrievalHit } from '../types/api';
 import MarkdownText from './MarkdownText';
 
 interface GroundedClaimsProps {
   claims: GroundedClaim[] | undefined;
   evidenceChunks: RetrievalHit[] | undefined;
+  citations: Citation[];
   compact?: boolean;
-  selectedEvidenceId?: string | null;
-  onEvidenceSelect?: (chunkId: string, label: string) => void;
+  onEvidenceSelect?: (citationRef: string, label: string) => void;
+  onCitationClick?: (citationRef: string) => void;
 }
 
 export default function GroundedClaims({
   claims,
   evidenceChunks,
+  citations,
   compact = false,
-  selectedEvidenceId = null,
   onEvidenceSelect,
+  onCitationClick,
 }: GroundedClaimsProps): JSX.Element | null {
   const chunkMap = useMemo(() => {
     const map = new Map<string, RetrievalHit>();
@@ -36,6 +37,7 @@ export default function GroundedClaims({
         <span>点击依据可在右栏核对原文</span>
       </div>
       {claims.map((claim, index) => {
+        const citationRefs = claim.supporting_citation_refs ?? [];
         return (
           <article
             className="grounded-claim"
@@ -45,35 +47,36 @@ export default function GroundedClaims({
               <span className="grounded-claim__index" aria-hidden="true">
                 {index + 1}
               </span>
-              <MarkdownText variant="inline">{claim.text}</MarkdownText>
+              <MarkdownText variant="inline" onCitationClick={onCitationClick}>
+                {claim.text}
+              </MarkdownText>
             </div>
             <div className="grounded-claim__refs" aria-label={`判断 ${index + 1} 的引用依据`}>
-              {claim.supporting_chunk_ids.map((chunkId) => {
-                const chunk = chunkMap.get(chunkId);
-                const label = chunk?.citation_label || chunk?.title || `依据 ${shortId(chunkId)}`;
-                const className =
-                  'grounded-claim__ref' +
-                  (selectedEvidenceId === chunkId ? ' is-active' : '');
+              {citationRefs.map((citationRef) => {
+                const citation = citations.find((item) => item.citation_ref === citationRef);
+                const chunk = citation ? chunkMap.get(citation.chunk_id) : undefined;
+                const label = citation?.citation_label || citation?.title || citationRef;
 
                 return onEvidenceSelect ? (
                   <button
                     type="button"
-                    className={className}
-                    key={chunkId}
-                    onClick={() => onEvidenceSelect(chunkId, label)}
-                    aria-pressed={selectedEvidenceId === chunkId}
-                    aria-label={`在引用依据栏查看：${label}`}
+                    className="grounded-claim__ref"
+                    key={citationRef}
+                    onClick={() => onEvidenceSelect(citationRef, label)}
+                    aria-label={`在引用依据栏查看 ${citationRef}：${label}`}
                   >
-                    {label}
+                    <span className="grounded-claim__ref-id">{citationRef}</span>
+                    <span>{label}</span>
                   </button>
                 ) : (
                   <a
-                    className={className}
-                    key={chunkId}
-                    href={`#evidence-${cssId(chunkId)}`}
-                    aria-label={`在引用依据栏查看：${label}`}
+                    className="grounded-claim__ref"
+                    key={citationRef}
+                    href={`#evidence-${cssId(citationRef)}`}
+                    aria-label={`在引用依据栏查看 ${citationRef}：${label}`}
                   >
-                    {label}
+                    <span className="grounded-claim__ref-id">{citationRef}</span>
+                    <span>{label}</span>
                   </a>
                 );
               })}

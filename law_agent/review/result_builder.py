@@ -371,6 +371,17 @@ def inject_citation_markers(
     return text
 
 
+def _remove_citation_markers(report: str) -> str:
+    """Remove generated inline markers before rebuilding a revised report."""
+
+    return re.sub(
+        r'<sup\b[^>]*class=["\']cite-marker["\'][^>]*>.*?</sup>',
+        "",
+        report,
+        flags=re.DOTALL,
+    )
+
+
 def _sanitize_draft_markdown(draft: LLMReviewResultDraft) -> LLMReviewResultDraft:
     """Apply markdown sanitization to all text fields of an LLM result draft.
 
@@ -1121,6 +1132,18 @@ def apply_review_result_patch(
         evidence_hits, result.review_facts, chunks_by_id
     )
     claims = attach_citation_refs(claims, citation_groups)
+    citation_ref_by_chunk_id = {
+        citation.chunk_id: citation.citation_ref
+        for group in citation_groups
+        for citation in group.citations
+        if citation.citation_ref
+    }
+    conclusion = inject_citation_markers(
+        _remove_citation_markers(conclusion),
+        claims,
+        evidence_hits,
+        citation_ref_by_chunk_id,
+    )
     citations = [
         citation for group in citation_groups for citation in group.citations
     ]

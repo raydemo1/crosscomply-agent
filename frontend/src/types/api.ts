@@ -129,6 +129,17 @@ export interface Citation {
   usage: CitationUsage;
   /** Human-readable label for the citation (e.g. "《个人信息保护法》第38条"). */
   citation_label: string | null;
+  /** Stable, case-local public reference (e.g. 法源-01). */
+  citation_ref: string;
+  article_no: string | null;
+  full_article_text: string | null;
+  doc_type: string;
+  authority: string;
+  law_status: string;
+  publish_date: string | null;
+  effective_date: string | null;
+  issuing_body: string | null;
+  heading_path: string[];
 }
 
 /**
@@ -147,6 +158,8 @@ export interface CitationGroup {
 export interface GroundedClaim {
   text: string;
   supporting_chunk_ids: string[];
+  /** Server-resolved public refs; the UI must not infer these from position. */
+  supporting_citation_refs: string[];
 }
 
 /**
@@ -197,6 +210,13 @@ export interface RetrievalHit {
   citation_label: string | null;
   /** 标题路径（章节上下文），用于证据面板展示。 */
   heading_path: string[];
+  doc_type: string;
+  authority: string;
+  law_status: string;
+  publish_date: string | null;
+  effective_date: string | null;
+  issuing_body: string | null;
+  full_article_text: string | null;
 }
 
 /**

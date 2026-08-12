@@ -249,9 +249,9 @@ def group_citations(
     for group in result_groups:
         numbered = [
             citation.model_copy(
-                update={"citation_ref": f"法源-{citation_index:02d}"}
+                update={"citation_ref": f"法源-{citation_index + offset:02d}"}
             )
-            for citation in group.citations
+            for offset, citation in enumerate(group.citations)
         ]
         citation_index += len(numbered)
         numbered_groups.append(group.model_copy(update={"citations": numbered}))

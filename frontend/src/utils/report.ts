@@ -17,8 +17,11 @@ import { isReviewFailedResponse } from '../types/api';
 import type { SavedCase } from '../types/case';
 import {
   CITATION_ROLE_LABELS,
+  AUTHORITY_LABELS,
+  DOC_TYPE_LABELS,
   EVIDENCE_ISSUE_LABELS,
   EVIDENCE_STATUS_LABELS,
+  LAW_STATUS_LABELS,
   QUERY_TYPE_LABELS,
   RISK_LABELS,
   USAGE_LABELS,
@@ -84,18 +87,22 @@ function citationsToMarkdown(
       const head = `### ${USAGE_LABELS[group.usage]}（${group.citations.length} 条）`;
       const scope = group.scope_note ? `\n\n_范围：${mdEscape(group.scope_note)}_` : '';
       const items = group.citations
-        .map((c, i) => {
-          const chunk = chunks.get(c.chunk_id);
+        .map((c) => {
           const lines: string[] = [
-            `${i + 1}. **${mdEscape(c.citation_label ?? c.title)}**`,
-            `   - 引用角色：${CITATION_ROLE_LABELS[c.citation_role]}`,
-            `   - 可引用条文：${c.can_cite_clause ? '是' : '否'}`,
-            `   - 来源：${c.source_url ? mdEscape(c.source_url) : '—'}`,
+            `- **${mdEscape(c.citation_ref || '未编号')} · ${mdEscape(c.citation_label ?? c.title)}**`,
+            `   - 支持关系：见结论逐句依据中的 ${mdEscape(c.citation_ref || '未编号')}`,
+            `   - 法源类型：${mdEscape(DOC_TYPE_LABELS[c.doc_type] ?? c.doc_type)} · 权威等级：${mdEscape(AUTHORITY_LABELS[c.authority] ?? c.authority)}`,
+            `   - 引用角色：${CITATION_ROLE_LABELS[c.citation_role] ?? '引用角色未提供'}`,
+            `   - 法律状态：${mdEscape(LAW_STATUS_LABELS[c.law_status] ?? '状态未知')} · 发布机关：${mdEscape(c.issuing_body || '未提供')}`,
+            `   - 发布日期：${mdEscape(c.publish_date || '未提供')} · 生效日期：${mdEscape(c.effective_date || '未提供')}`,
+            `   - 官方原文：${c.source_url ? mdEscape(c.source_url) : '未提供'}`,
           ];
-          if (chunk) {
+          if (c.full_article_text) {
             lines.push(`   - 条文内容：`);
             lines.push('');
-            lines.push('     > ' + mdEscape(chunk.text).replace(/\n/g, '\n     > '));
+            lines.push('     > ' + mdEscape(c.full_article_text).replace(/\n/g, '\n     > '));
+          } else {
+            lines.push('   - 条文内容：当前知识库未收录完整条文');
           }
           return lines.join('\n');
         })
@@ -106,18 +113,14 @@ function citationsToMarkdown(
 }
 
 function claimsToMarkdown(
-  claims: { text: string; supporting_chunk_ids: string[] }[],
-  chunks: Map<string, RetrievalHit>,
+  claims: { text: string; supporting_citation_refs: string[] }[],
 ): string {
   if (claims.length === 0) return '';
   const lines = ['**结论逐句依据：**'];
   claims.forEach((claim, index) => {
-    const refs = claim.supporting_chunk_ids.map((chunkId) => {
-      const chunk = chunks.get(chunkId);
-      return chunk ? `${chunk.title} / ${chunk.chunk_id}` : chunkId;
-    });
     lines.push(`${index + 1}. ${mdEscape(claim.text)}`);
-    lines.push(`   - 支撑 chunk：${refs.length > 0 ? refs.map(mdEscape).join('；') : '—'}`);
+    const refs = claim.supporting_citation_refs ?? [];
+    lines.push(`   - 支持法源：${refs.length > 0 ? refs.map(mdEscape).join('、') : '—'}`);
   });
   return lines.join('\n');
 }
@@ -269,7 +272,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
   lines.push('');
   lines.push(result.conclusion);
   lines.push('');
-  const groundedClaims = claimsToMarkdown(result.claims, chunks);
+  const groundedClaims = claimsToMarkdown(result.claims);
   if (groundedClaims) {
     lines.push(groundedClaims);
     lines.push('');
@@ -444,17 +447,17 @@ function citationsToHtml(
   return ordered
     .map((group) => {
       const items = group.citations
-        .map((c, i) => {
-          const chunk = chunks.get(c.chunk_id);
-          const chunkHtml = chunk
-            ? `<div class="cite-chunk">${escHtml(chunk.text)}</div>`
-            : '';
+        .map((c) => {
+          const chunkHtml = c.full_article_text
+            ? `<div class="cite-chunk"><strong>完整条文</strong><br>${escHtml(c.full_article_text)}</div>`
+            : '<div class="cite-chunk muted">当前知识库未收录完整条文</div>';
           const link = c.source_url
             ? `<a href="${escHtml(c.source_url)}" target="_blank" rel="noopener">${escHtml(c.source_url)}</a>`
             : '<span class="muted">—</span>';
           return `<div class="cite">
-            <div class="cite-title">${i + 1}. ${escHtml(c.citation_label ?? c.title)}</div>
-            <div class="cite-meta">引用角色：${escHtml(CITATION_ROLE_LABELS[c.citation_role])} · 可引用条文：${c.can_cite_clause ? '是' : '否'} · 来源：${link}</div>
+            <div class="cite-title"><a id="${escHtml(c.citation_ref)}"></a>${escHtml(c.citation_ref || '未编号')} · ${escHtml(c.citation_label ?? c.title)}</div>
+            <div class="cite-meta">法源类型：${escHtml(DOC_TYPE_LABELS[c.doc_type] ?? c.doc_type)} · 权威等级：${escHtml(AUTHORITY_LABELS[c.authority] ?? c.authority)} · 法律状态：${escHtml(LAW_STATUS_LABELS[c.law_status] ?? '状态未知')}</div>
+            <div class="cite-meta">引用角色：${escHtml(CITATION_ROLE_LABELS[c.citation_role] ?? '引用角色未提供')} · 发布机关：${escHtml(c.issuing_body || '未提供')} · 官方原文：${link}</div>
             ${chunkHtml}
           </div>`;
         })
@@ -468,19 +471,14 @@ function citationsToHtml(
 }
 
 function claimsToHtml(
-  claims: { text: string; supporting_chunk_ids: string[] }[],
-  chunks: Map<string, RetrievalHit>,
+  claims: { text: string; supporting_citation_refs: string[] }[],
 ): string {
   if (claims.length === 0) return '';
   const items = claims
     .map((claim, index) => {
-      const refs = claim.supporting_chunk_ids.map((chunkId) => {
-        const chunk = chunks.get(chunkId);
-        return chunk ? `${chunk.title} / ${chunk.chunk_id}` : chunkId;
-      });
       return `<div class="claim">
         <div class="claim-text">${index + 1}. ${escHtml(claim.text)}</div>
-        <div class="claim-refs">支撑 chunk：${refs.length > 0 ? escHtml(refs.join('；')) : '—'}</div>
+        <div class="claim-refs">支持法源：${(claim.supporting_citation_refs ?? []).length > 0 ? escHtml((claim.supporting_citation_refs ?? []).join('、')) : '—'}</div>
       </div>`;
     })
     .join('');
@@ -563,7 +561,7 @@ export function buildHtmlReport(saved: SavedCase): string {
   parts.push('<h2>七、审查结论</h2>');
   parts.push(`<p><span class="risk risk-${escHtml(result.risk_level)}">${escHtml(RISK_LABELS[result.risk_level])}</span></p>`);
   parts.push(`<p>${escHtml(result.conclusion)}</p>`);
-  parts.push(claimsToHtml(result.claims, chunks));
+  parts.push(claimsToHtml(result.claims));
 
   let idx = 8;
   if (result.trigger_reasons.length > 0) {

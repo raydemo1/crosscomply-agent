@@ -77,3 +77,20 @@ def test_demoted_conditional_basis_usage_is_implementation_reference() -> None:
     citation = impl_groups[0].citations[0]
     assert citation.usage == "implementation_reference"
     assert citation.usage != "conditional_basis"
+
+
+def test_group_citations_assigns_unique_case_local_refs() -> None:
+    groups, violations = group_citations(
+        [
+            _hit(chunk_id="c1"),
+            _hit(chunk_id="c2", title="个人信息保护法", text="第三十九条　个人信息处理者向境外提供个人信息。"),
+            _hit(chunk_id="c3", title="数据出境安全评估办法", text="第八条　应当评估出境活动的合法性。"),
+        ],
+        ReviewFacts(),
+        {},
+    )
+
+    refs = [citation.citation_ref for group in groups for citation in group.citations]
+    assert violations == []
+    assert refs == ["法源-01", "法源-02", "法源-03"]
+    assert len(refs) == len(set(refs))

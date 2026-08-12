@@ -8,6 +8,7 @@ workflow transitions, and the HTTP contract used by the frontend.
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 import threading
 import uuid
@@ -300,12 +301,106 @@ def _case_summary(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _case_payload(store: CaseStore, case: dict[str, Any]) -> dict[str, Any]:
+    case_payload = dict(case)
+    if isinstance(case_payload.get("response"), dict):
+        case_payload["response"] = _normalize_review_response_payload(case_payload["response"])
     return {
-        "case": case,
+        "case": case_payload,
         "actions": store.list_actions(case["id"]),
         "events": store.list_events(case["id"]),
         "feedback": store.get_feedback(case["id"]),
     }
+
+
+def _normalize_review_response_payload(response: dict[str, Any]) -> dict[str, Any]:
+    """Present persisted results through the current citation contract.
+
+    This is a read-time contract repair for cases created before citation
+    metadata was introduced. It does not rewrite stored case JSON or create a
+    second frontend rendering path; new runs already contain these fields.
+    Missing legal metadata remains explicitly unknown.
+    """
+
+    if response.get("status") == "review_failed":
+        return response
+
+    normalized = dict(response)
+    result = dict(normalized.get("review_result") or {})
+    raw_groups = normalized.get("citation_groups") or result.get("applicable_evidence") or []
+    groups: list[dict[str, Any]] = []
+    citations: list[dict[str, Any]] = []
+    refs_by_chunk: dict[str, str] = {}
+    explicit_refs = {
+        str(raw_citation.get("citation_ref"))
+        for raw_group in raw_groups
+        for raw_citation in (raw_group.get("citations") or [])
+        if raw_citation.get("citation_ref")
+    }
+    used_refs: set[str] = set()
+    next_ref = 1
+    for raw_group in raw_groups:
+        group = dict(raw_group)
+        group_citations: list[dict[str, Any]] = []
+        for raw_citation in group.get("citations") or []:
+            citation = dict(raw_citation)
+            citation_ref = citation.get("citation_ref")
+            if not citation_ref or str(citation_ref) in used_refs:
+                while f"法源-{next_ref:02d}" in explicit_refs or f"法源-{next_ref:02d}" in used_refs:
+                    next_ref += 1
+                citation_ref = f"法源-{next_ref:02d}"
+                next_ref += 1
+            citation_ref = str(citation_ref)
+            used_refs.add(citation_ref)
+            citation["citation_ref"] = citation_ref
+            for field, default in (
+                ("article_no", None), ("full_article_text", None),
+                ("doc_type", "unknown"), ("authority", "unknown"),
+                ("law_status", "unknown"), ("publish_date", None),
+                ("effective_date", None), ("issuing_body", None),
+                ("heading_path", []),
+            ):
+                citation.setdefault(field, default)
+            if citation.get("chunk_id"):
+                refs_by_chunk[str(citation["chunk_id"])] = citation_ref
+            group_citations.append(citation)
+            citations.append(citation)
+        group["citations"] = group_citations
+        groups.append(group)
+
+    claims: list[dict[str, Any]] = []
+    for raw_claim in result.get("claims") or []:
+        claim = dict(raw_claim)
+        refs = list(claim.get("supporting_citation_refs") or [])
+        if not refs:
+            refs = [
+                refs_by_chunk[str(chunk_id)]
+                for chunk_id in claim.get("supporting_chunk_ids") or []
+                if str(chunk_id) in refs_by_chunk
+            ]
+        claim["supporting_citation_refs"] = refs
+        claims.append(claim)
+
+    conclusion = result.get("conclusion")
+    if isinstance(conclusion, str) and claims:
+        def add_ref(match: re.Match[str]) -> str:
+            claim_index = int(match.group(1))
+            refs = claims[claim_index].get("supporting_citation_refs") if claim_index < len(claims) else []
+            if not refs or "data-citation-ref=" in match.group(0):
+                return match.group(0)
+            return match.group(0).replace(">", f' data-citation-ref="{refs[0]}">', 1)
+
+        conclusion = re.sub(
+            r'<sup\b(?=[^>]*data-claim-index="(\d+)")[^>]*>',
+            add_ref,
+            conclusion,
+        )
+
+    result["claims"] = claims
+    result["citations"] = citations
+    result["applicable_evidence"] = groups
+    normalized["review_result"] = result
+    normalized["citation_groups"] = groups
+    return normalized
 
 
 def _can_view(user: UserRecord, case: dict[str, Any]) -> bool:

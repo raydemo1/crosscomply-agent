@@ -34,10 +34,43 @@ export const RISK_BADGE_CLASS: Record<RiskLevel, string> = {
 };
 
 export const USAGE_LABELS: Record<CitationUsage, string> = {
-  legal_basis: '法律依据',
-  conditional_basis: '条件依据',
-  implementation_reference: '实施参考',
-  policy_explanation: '政策释义',
+  legal_basis: '直接法律依据',
+  conditional_basis: '条件性法律依据',
+  implementation_reference: '实施标准与指南',
+  policy_explanation: '政策释义与背景材料',
+};
+
+export const AUTHORITY_LABELS: Record<string, string> = {
+  national_law: '国家法律',
+  administrative_regulation: '行政法规',
+  ministry_policy: '部门规章/规范性文件',
+  local_regulation: '地方性法规',
+  judicial_interpretation: '司法解释',
+  public_interpretation: '公开政策释义',
+  privacy_policy: '隐私政策',
+  simulated_internal_policy: '内部制度（模拟）',
+  unknown: '权威等级未提供',
+};
+
+export const DOC_TYPE_LABELS: Record<string, string> = {
+  unknown: '法源类型未提供',
+  law: '法律',
+  regulation: '法规/规章',
+  policy: '政策文件',
+  guideline: '标准与指南',
+  faq: '问答/释义',
+  privacy_policy: '隐私政策',
+  internal_policy: '内部制度',
+  case: '案例',
+  contract: '合同',
+};
+
+export const LAW_STATUS_LABELS: Record<string, string> = {
+  effective: '现行有效',
+  not_yet_effective: '尚未生效',
+  amended: '已修订',
+  repealed: '已废止',
+  unknown: '状态未知',
 };
 
 /** Stable display order for citation groups. */
