@@ -515,6 +515,10 @@ def create_app(
         if user.role not in {"reviewer", "admin"}:
             raise HTTPException(status_code=403, detail="该操作需要合规审核权限")
 
+    def admin_only(user: UserRecord) -> None:
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="该操作需要管理员权限")
+
     @app.get("/api/health", response_model=HealthResponse)
     async def health_check() -> HealthResponse:
         llm_config = load_llm_config()
@@ -770,7 +774,7 @@ def create_app(
 
     @app.get("/api/eval/latest")
     async def get_latest_eval(rerank_mode: RerankMode = "off", user: UserRecord = Depends(current_user)) -> JSONResponse:
-        reviewer_only(user)
+        admin_only(user)
         if app.state.eval_cache_dir is not None:
             _preload_eval_cache(app, app.state.eval_cache_dir)
         cached = app.state.eval_cache.get(rerank_mode)
@@ -807,7 +811,7 @@ def create_app(
 
     @app.get("/api/eval/status")
     async def get_eval_status(rerank_mode: RerankMode = "off", user: UserRecord = Depends(current_user)) -> EvalJobResponse:
-        reviewer_only(user)
+        admin_only(user)
         return EvalJobResponse.model_validate(app.state.eval_jobs.get(rerank_mode, _idle_job()))
 
     return app

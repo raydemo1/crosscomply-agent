@@ -1,5 +1,5 @@
 /**
- * EvalPage — evaluation dashboard (center column).
+ * EvalPage — evaluation result surface used by the admin governance console.
  *
  * Renders the latest cached evaluation summary as a product-grade dashboard:
  *
@@ -569,9 +569,9 @@ export default function EvalPage(): JSX.Element {
       {/* ---------------- Header ---------------- */}
       <header className="eval-header">
         <div className="eval-header__left">
-          <h1 className="eval-header__title">评测看板</h1>
+          <h1 className="eval-header__title">评测结果</h1>
           <p className="eval-header__desc">
-            展示最近一次缓存的全量评测结果。如需重新生成，请在后端运行评测任务。
+            最近一次离线评测的能力快照。重新生成评测请在受控环境中运行后端任务。
           </p>
         </div>
         <div className="eval-header__right">

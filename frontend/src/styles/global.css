@@ -3206,6 +3206,310 @@ textarea {
   gap: var(--space-lg);
 }
 
+/* ============================================================
+ * Governance console
+ *   A separate admin surface for evaluation and knowledge quality.
+ *   It intentionally does not reuse the workbench sidebar shell.
+ * ============================================================ */
+.governance-shell {
+  min-height: 100vh;
+  background: #eef2f6;
+  color: var(--color-foreground);
+}
+
+.governance-topbar {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: 0 clamp(1.25rem, 4vw, 4rem);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.governance-topbar__brand,
+.governance-topbar__actions {
+  display: flex;
+  align-items: center;
+}
+
+.governance-topbar__brand {
+  gap: var(--space-sm);
+}
+
+.governance-topbar__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: -0.08em;
+}
+
+.governance-topbar__brand div {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.governance-topbar__brand strong {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--color-primary);
+}
+
+.governance-topbar__brand span:not(.governance-topbar__mark) {
+  margin-top: 2px;
+  color: var(--color-muted-foreground);
+  font-size: 0.75rem;
+}
+
+.governance-topbar__actions {
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.governance-topbar__role {
+  margin-right: var(--space-sm);
+  color: var(--color-muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.governance-topbar__back,
+.governance-topbar__logout {
+  min-height: 36px;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.governance-topbar__back {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+.governance-topbar__back:hover {
+  border-color: var(--color-primary);
+  background: rgba(30, 58, 138, 0.05);
+}
+
+.governance-topbar__logout {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-muted-foreground);
+}
+
+.governance-topbar__logout:hover {
+  background: var(--color-muted);
+  color: var(--color-foreground);
+}
+
+.governance-main {
+  width: min(100%, 1440px);
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 4vw, 4rem) 4rem;
+}
+
+.governance-intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  max-width: 1120px;
+  margin: 0 auto var(--space-xl);
+  padding-bottom: var(--space-xl);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.governance-intro__kicker {
+  margin-bottom: var(--space-sm);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.governance-intro h1 {
+  font-size: 2rem;
+  color: var(--color-primary);
+  text-wrap: balance;
+}
+
+.governance-intro p:not(.governance-intro__kicker) {
+  max-width: 680px;
+  margin-top: var(--space-sm);
+  color: #475569;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+.governance-intro__scope {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  color: var(--color-muted-foreground);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.governance-scope-badge {
+  padding: 0.375rem 0.625rem;
+  border: 1px solid rgba(180, 83, 9, 0.35);
+  border-radius: var(--radius-pill);
+  background: rgba(180, 83, 9, 0.08);
+  color: #92400e;
+  font-weight: 700;
+}
+
+/* Admin entry is deliberately separate from the workbench primary nav. */
+.sidebar-governance-entry {
+  padding: var(--space-lg) var(--space-md) 0;
+}
+
+.sidebar-governance-entry__button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 0.625rem var(--space-sm);
+  border: 1px solid rgba(180, 83, 9, 0.35);
+  border-radius: var(--radius-md);
+  background: rgba(180, 83, 9, 0.05);
+  color: #92400e;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.sidebar-governance-entry__button:hover {
+  border-color: var(--color-accent);
+  background: rgba(180, 83, 9, 0.1);
+}
+
+.sidebar-governance-entry__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(180, 83, 9, 0.14);
+  font-size: 0.75rem;
+}
+
+.sidebar-governance-entry__button span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.sidebar-governance-entry__button strong {
+  font-size: 0.8125rem;
+}
+
+.sidebar-governance-entry__button small {
+  margin-top: 2px;
+  color: #a16207;
+  font-size: 0.6875rem;
+}
+
+.sidebar-governance-entry__arrow {
+  margin-left: auto;
+  font-size: 0.875rem;
+}
+
+.app-mobile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.app-mobile-surface {
+  color: var(--color-muted-foreground);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.app-mobile-utility {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid rgba(180, 83, 9, 0.35);
+  border-radius: var(--radius-md);
+  background: rgba(180, 83, 9, 0.06);
+  color: #92400e;
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
+.app-mobile-utility:hover {
+  background: rgba(180, 83, 9, 0.12);
+}
+
+@media (max-width: 720px) {
+  .governance-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding-block: var(--space-md);
+  }
+
+  .governance-topbar__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .governance-topbar__role {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+
+  .governance-intro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .governance-intro__scope {
+    align-items: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .governance-topbar__back,
+  .governance-topbar__logout {
+    flex: 1;
+  }
+
+  .governance-intro h1 {
+    font-size: 1.625rem;
+  }
+
+  .app-mobile-nav {
+    align-items: flex-start;
+  }
+
+  .app-mobile-actions {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
 .eval-header {
   display: flex;
   justify-content: space-between;

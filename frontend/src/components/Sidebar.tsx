@@ -3,7 +3,7 @@ import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { relativeTime, truncate } from '../utils/display';
 
-export type Page = 'workbench' | 'eval' | 'case-detail';
+export type Page = 'workbench' | 'governance' | 'case-detail';
 
 interface SidebarProps {
   currentPage: Page;
@@ -14,6 +14,7 @@ interface SidebarProps {
   cases: SavedCase[];
   user: WorkbenchUser;
   onLogout: () => void;
+  onOpenGovernance: () => void;
 }
 
 const SCENARIOS = [
@@ -48,6 +49,7 @@ export default function Sidebar({
   cases,
   user,
   onLogout,
+  onOpenGovernance,
 }: SidebarProps): JSX.Element {
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
@@ -79,12 +81,22 @@ export default function Sidebar({
             <span className="sidebar-nav-item-icon">⌂</span>
             <span className="font-heading">案件工作台</span>
           </button>
-          <button type="button" className={'sidebar-nav-item' + (currentPage === 'eval' ? ' is-active' : '')} onClick={() => onPageChange('eval')}>
-            <span className="sidebar-nav-item-icon">◒</span>
-            <span className="font-heading">评测与治理</span>
-          </button>
         </div>
       </nav>
+
+      {user.role === 'admin' ? (
+        <section className="sidebar-governance-entry" aria-label="管理员入口">
+          <div className="sidebar-section-label">管理员入口</div>
+          <button type="button" className="sidebar-governance-entry__button" onClick={onOpenGovernance}>
+            <span className="sidebar-governance-entry__icon" aria-hidden="true">◒</span>
+            <span>
+              <strong>治理控制台</strong>
+              <small>评测与知识治理</small>
+            </span>
+            <span className="sidebar-governance-entry__arrow" aria-hidden="true">↗</span>
+          </button>
+        </section>
+      ) : null}
 
       <div className="sidebar-section">
         <div className="sidebar-section-label">常用审查场景</div>
