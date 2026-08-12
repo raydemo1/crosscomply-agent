@@ -33,15 +33,15 @@ export default function LoginPage({ onLogin, error }: LoginPageProps): JSX.Eleme
       <div className="login-ornament login-ornament--one" />
       <div className="login-ornament login-ornament--two" />
       <section className="login-card">
-        <div className="login-brand"><span>CC</span><div><strong>CrossComply</strong><small>跨境数据合规案件工作台</small></div></div>
-        <div className="login-card__copy"><div className="report-kicker">Governed compliance review</div><h1>让合规判断<br /><em>有据可依</em>。</h1><p>从业务材料、关键事实到法规依据和整改动作，保留每一次判断的上下文。</p></div>
+        <div className="login-brand"><img src="/crosscomply-logo.svg" alt="" className="login-brand__mark" /><div><strong>CrossComply</strong><small>跨境数据合规案件工作台</small></div></div>
+        <div className="login-card__copy"><div className="report-kicker">Governed compliance review</div><h1><span className="login-word login-word--navy" tabIndex={0}>让合规判断</span><br /><span className="login-word login-word--accent" tabIndex={0}>有据可依</span><span className="login-word login-word--period" tabIndex={0}>。</span></h1><p>从业务材料、关键事实到法规依据和整改动作，保留每一次判断的上下文。</p></div>
         <form onSubmit={submit} className="login-form">
           <label className="form-field"><span>工作台角色</span><select value={username} onChange={(event) => setUsername(event.target.value)}>{ACCOUNTS.map((account) => <option key={account.username} value={account.username}>{account.label}</option>)}</select></label>
           <label className="form-field"><span>访问密码</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="输入工作台密码" autoFocus required /></label>
           {error ? <div className="form-error" role="alert">{error}</div> : null}
           <button type="submit" className="btn-primary login-form__submit" disabled={loading}>{loading ? '正在验证…' : '进入工作台 →'}</button>
         </form>
-        <div className="login-card__note">请使用服务端配置的工作台账号。系统仅提供合规决策辅助，不替代专业法律意见。</div>
+        <div className="login-card__note">系统仅提供合规决策辅助，不替代专业法律意见。</div>
       </section>
       <aside className="login-aside"><div className="login-aside__quote">“</div><p>好的合规工具不是替人下结论，而是让每个结论都能回到事实、来源和下一步行动。</p><span>CrossComply / Case Workbench</span></aside>
     </main>

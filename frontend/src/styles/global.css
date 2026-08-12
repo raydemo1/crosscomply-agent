@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&display=swap');
+
 /* ============================================================
  * LawAgent — Global Stylesheet
  * Design system: Trust & Authority (legal compliance)
@@ -4921,6 +4923,29 @@ textarea {
   padding: clamp(28px, 8vw, 90px);
   overflow: hidden;
   background: #f1f5f9;
+  isolation: isolate;
+  font-family: 'Noto Sans SC', var(--font-body);
+}
+
+.login-shell::before {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  content: '';
+  background-image: url('/crosscomply-login-atmosphere.png');
+  background-position: center;
+  background-size: cover;
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+.login-shell::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: '';
+  background: linear-gradient(90deg, rgba(241, 245, 249, 0.96) 0%, rgba(241, 245, 249, 0.78) 46%, rgba(241, 245, 249, 0.32) 100%);
+  pointer-events: none;
 }
 
 .login-card {
@@ -4939,6 +4964,12 @@ textarea {
   gap: 12px;
 }
 
+.login-brand__mark {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+}
+
 .login-brand strong,
 .login-brand small {
   display: block;
@@ -4946,8 +4977,9 @@ textarea {
 
 .login-brand strong {
   color: var(--color-primary);
-  font-family: var(--font-heading);
+  font-family: 'DM Sans', var(--font-body);
   font-size: 1.15rem;
+  letter-spacing: -0.035em;
 }
 
 .login-brand small {
@@ -4961,14 +4993,61 @@ textarea {
 
 .login-card__copy h1 {
   margin: 8px 0 14px;
+  font-family: 'Noto Serif SC', var(--font-heading);
   font-size: clamp(2.4rem, 6vw, 4.6rem);
   line-height: 1.02;
   letter-spacing: -0.065em;
 }
 
-.login-card__copy h1 em {
+.login-word {
+  display: inline-block;
+  position: relative;
+  transform: translate3d(0, 0, 0);
+  transition: color 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1), text-shadow 320ms ease;
+}
+
+.login-word::after {
+  position: absolute;
+  right: 0.04em;
+  bottom: -0.06em;
+  left: 0.04em;
+  height: 0.08em;
+  border-radius: 999px;
+  background: currentColor;
+  content: '';
+  opacity: 0;
+  transform: scaleX(0.15);
+  transform-origin: left center;
+  transition: opacity 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.login-word:hover,
+.login-word:focus-visible {
+  transform: translate3d(0.08em, -0.035em, 0);
+  text-shadow: 0 0.08em 0 rgba(30, 58, 138, 0.08);
+}
+
+.login-word:hover::after,
+.login-word:focus-visible::after {
+  opacity: 0.65;
+  transform: scaleX(1);
+}
+
+.login-word--navy {
+  color: var(--color-foreground);
+}
+
+.login-word--accent {
   color: var(--color-accent);
-  font-style: normal;
+}
+
+.login-word--period {
+  color: var(--color-foreground);
+  transition-duration: 180ms;
+}
+
+.login-word--period::after {
+  display: none;
 }
 
 .login-card__copy p {
@@ -5015,7 +5094,7 @@ textarea {
 
 .login-aside p {
   color: var(--color-primary);
-  font-family: var(--font-heading);
+  font-family: 'Noto Serif SC', var(--font-heading);
   font-size: clamp(1.45rem, 3vw, 2.2rem);
   line-height: 1.3;
 }
@@ -5024,8 +5103,16 @@ textarea {
   display: block;
   margin-top: 20px;
   color: var(--color-muted-foreground);
-  font-family: var(--font-mono);
+  font-family: 'DM Sans', var(--font-mono);
   font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-word,
+  .login-word::after {
+    transition: none;
+  }
 }
 
 .login-ornament {
@@ -5056,6 +5143,15 @@ textarea {
 
   .login-aside {
     display: none;
+  }
+
+  .login-shell::before {
+    background-position: 70% center;
+    opacity: 0.38;
+  }
+
+  .login-shell::after {
+    background: rgba(241, 245, 249, 0.72);
   }
 
   .workspace-hero {
