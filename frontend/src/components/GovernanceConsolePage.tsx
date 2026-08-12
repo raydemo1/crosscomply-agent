@@ -12,7 +12,7 @@ export default function GovernanceConsolePage({ user, onBack, onLogout }: Govern
     <div className="governance-shell">
       <header className="governance-topbar">
         <div className="governance-topbar__brand">
-          <span className="governance-topbar__mark" aria-hidden="true">CC</span>
+          <img src="/crosscomply-logo.svg" alt="" className="governance-topbar__mark" />
           <div>
             <strong>CrossComply</strong>
           </div>

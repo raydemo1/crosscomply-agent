@@ -147,13 +147,13 @@ export default function App(): JSX.Element {
   }, []);
 
   if (booting) {
-    return <div className="app-loading"><div className="app-loading__mark">CC</div><span>正在连接 CrossComply 工作台…</span></div>;
+    return <div className="app-loading"><img src="/crosscomply-logo.svg" alt="" className="app-loading__mark" /><span>正在连接 CrossComply 工作台…</span></div>;
   }
   if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
 
   if (page === 'governance') {
     return (
-      <Suspense fallback={<div className="app-loading"><div className="app-loading__mark">CC</div><span>正在加载治理控制台…</span></div>}>
+      <Suspense fallback={<div className="app-loading"><img src="/crosscomply-logo.svg" alt="" className="app-loading__mark" /><span>正在加载治理控制台…</span></div>}>
         <GovernanceConsolePage user={user} onBack={() => setPage('workbench')} onLogout={() => void handleLogout()} />
       </Suspense>
     );
@@ -168,7 +168,10 @@ export default function App(): JSX.Element {
           <button type="button" className="app-mobile-menu" onClick={() => setMobileSidebarOpen(true)} aria-expanded={mobileSidebarOpen} aria-controls="primary-sidebar" aria-label="打开案件导航">
             <span aria-hidden="true">☰</span>
           </button>
-          <span className="app-mobile-brand">CrossComply</span>
+          <div className="app-mobile-brand">
+            <img src="/crosscomply-logo.svg" alt="" className="app-mobile-brand__mark" />
+            <span>CrossComply</span>
+          </div>
           <div className="app-mobile-actions">
             <span className="app-mobile-surface">案件工作台</span>
             {user.role === 'admin' ? <button type="button" className="app-mobile-utility" onClick={handleOpenGovernance}>治理控制台 ↗</button> : null}

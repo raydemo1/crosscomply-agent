@@ -63,7 +63,13 @@ export default function Sidebar({
   return (
     <aside id="primary-sidebar" className={'app-sidebar sidebar' + (isMobileOpen ? ' is-mobile-open' : '')}>
       <div className="sidebar-brand">
-        <div className="sidebar-brand-title">CrossComply</div>
+        <div className="sidebar-brand-lockup">
+          <img src="/crosscomply-logo.svg" alt="" className="sidebar-brand-mark" />
+          <div className="sidebar-brand-copy">
+            <div className="sidebar-brand-title">CrossComply</div>
+            <div className="sidebar-brand-subtitle">案件工作台</div>
+          </div>
+        </div>
         <button type="button" className="sidebar-mobile-close" onClick={onCloseMobile} aria-label="关闭案件导航">×</button>
       </div>
 

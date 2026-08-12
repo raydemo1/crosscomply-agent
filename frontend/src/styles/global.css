@@ -444,10 +444,20 @@ textarea {
   }
 
   .app-mobile-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
     font-family: var(--font-body);
     font-weight: 700;
     font-size: 1.25rem;
     color: var(--color-primary);
+  }
+
+  .app-mobile-brand__mark {
+    width: 34px;
+    height: 26px;
+    object-fit: contain;
+    flex: 0 0 auto;
   }
 
   .app-mobile-tabs {
@@ -485,6 +495,24 @@ textarea {
   border-bottom: 1px solid var(--color-border);
 }
 
+.sidebar-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sidebar-brand-mark {
+  width: 44px;
+  height: 34px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.sidebar-brand-copy {
+  min-width: 0;
+}
+
 .sidebar-brand-title {
   font-family: var(--font-body);
   font-size: 1.625rem;
@@ -492,6 +520,14 @@ textarea {
   color: var(--color-primary);
   letter-spacing: -0.01em;
   line-height: 1.1;
+}
+
+.sidebar-brand-subtitle {
+  margin-top: 4px;
+  color: var(--color-muted-foreground);
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
 }
 
 .sidebar-mobile-close {
@@ -3328,18 +3364,11 @@ textarea {
 }
 
 .governance-topbar__mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: 34px;
   height: 34px;
-  border-radius: var(--radius-md);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: -0.08em;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 .governance-topbar__brand div {
@@ -4315,7 +4344,6 @@ textarea {
   background: var(--color-background);
 }
 
-.app-loading__mark,
 .login-brand > span {
   display: grid;
   place-items: center;
@@ -4327,6 +4355,13 @@ textarea {
   font-family: var(--font-heading);
   font-weight: 700;
   letter-spacing: -0.06em;
+}
+
+.app-loading__mark {
+  display: block;
+  width: 58px;
+  height: 43px;
+  object-fit: contain;
 }
 
 .workspace-hero {
