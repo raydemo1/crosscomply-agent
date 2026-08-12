@@ -20,10 +20,8 @@ interface SidebarProps {
 }
 
 const SCENARIOS = [
-  '这个业务是否需要数据出境安全评估？',
-  '数据出境安全评估的申报条件是什么？',
-  '智能网联汽车数据出境有什么特殊要求？',
-  '上海自贸区数据出境负面清单有什么要求？',
+  '是否需要数据出境安全评估？',
+  '个人信息出境应走哪条合规路径？',
 ];
 
 const STATUS_LABELS: Record<SavedCase['status'], string> = {
@@ -70,8 +68,13 @@ export default function Sidebar({
       </div>
 
       <div className="sidebar-user-card">
-        <div className="sidebar-user-card__avatar">{user.display_name.slice(0, 1)}</div>
-        <div>
+        <div className="sidebar-user-card__avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="presentation">
+            <circle cx="12" cy="8" r="3.25" />
+            <path d="M5.5 19.25c.55-3.35 2.82-5.25 6.5-5.25s5.95 1.9 6.5 5.25" />
+          </svg>
+        </div>
+        <div className="sidebar-user-card__identity">
           <strong>{user.display_name}</strong>
           <span>{user.role === 'admin' ? '管理员' : user.role === 'reviewer' ? '合规审核人' : '业务申请人'}</span>
         </div>
