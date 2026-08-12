@@ -2,12 +2,13 @@
 
 import { useSyncExternalStore } from 'react';
 import {
+  createAction,
   getCaseDetail,
   listCases,
   saveFeedback,
   updateAction,
 } from '../api/client';
-import type { CaseDetailApi, CaseIntake, CaseSummaryApi } from '../types/api';
+import type { CaseAction, CaseDetailApi, CaseIntake, CaseSummaryApi } from '../types/api';
 import type { CaseFeedback, CitationVerdict, SavedCase } from '../types/case';
 
 const listeners = new Set<() => void>();
@@ -156,8 +157,25 @@ export function setFeedbackText(id: string, field: 'missingSources' | 'notes', v
 }
 
 export function setActionStatus(id: string, status: 'open' | 'in_progress' | 'completed'): void {
-  const current = getCase(id);
-  const action = current?.actions.find((item) => item.id === id);
+  const action = findAction(id);
   if (!action) return;
   void updateAction(id, { status }).then(() => openCase(action.case_id));
+}
+
+export function createCaseAction(caseId: string, payload: Omit<CaseAction, 'id' | 'case_id' | 'created_at' | 'updated_at'>): void {
+  void createAction(caseId, payload).then(() => openCase(caseId));
+}
+
+export function updateCaseAction(actionId: string, payload: Partial<Pick<CaseAction, 'title' | 'description' | 'owner_role' | 'priority' | 'status' | 'due_date'>>): void {
+  const action = findAction(actionId);
+  if (!action) return;
+  void updateAction(actionId, payload).then(() => openCase(action.case_id));
+}
+
+function findAction(actionId: string): CaseAction | null {
+  for (const saved of snapshot) {
+    const action = saved.actions.find((item) => item.id === actionId);
+    if (action) return action;
+  }
+  return null;
 }

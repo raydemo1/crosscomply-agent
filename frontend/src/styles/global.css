@@ -5,15 +5,10 @@
  * See: design-system/lawagent/MASTER.md
  * ============================================================ */
 
-/* ---------- Google Fonts ----------
- * Playfair Display -> headings (elegant, authoritative serif)
- * Inter            -> body (modern, highly legible sans)
- * Noto Serif SC    -> Chinese headings (pairs with Playfair)
- * Noto Sans SC     -> Chinese body
- * JetBrains Mono   -> numbers / code
- * NOTE: @import must precede all other rules.
+/* ---------- Self-contained typography ----------
+ * The workbench deliberately uses local/system font stacks so the first
+ * screen does not depend on a remote font CDN or an external network.
  */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ============================================================
  * Design Tokens
@@ -47,9 +42,9 @@
   --color-risk-insufficient: #64748b;
 
   /* ---- Typography ---- */
-  --font-heading: 'Playfair Display', 'Noto Serif SC', Georgia, 'Times New Roman', serif;
-  --font-body: 'Inter', 'Noto Sans SC', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Cascadia Code', Consolas, monospace;
+  --font-heading: Georgia, 'Noto Serif SC', 'Songti SC', SimSun, 'Times New Roman', serif;
+  --font-body: system-ui, -apple-system, 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Consolas, monospace;
 
   --font-size-base: 15px;
   --line-height-base: 1.6;
@@ -4140,6 +4135,11 @@ textarea {
   display: block;
 }
 
+.case-action-row__content {
+  min-width: 0;
+  flex: 1;
+}
+
 .case-action-row strong {
   font-size: 0.86rem;
 }
@@ -4148,6 +4148,20 @@ textarea {
   margin-top: 3px;
   color: var(--color-muted-foreground);
   font-size: 0.78rem;
+}
+
+.case-action-row small {
+  display: block;
+  margin-top: 7px;
+  color: var(--color-muted-foreground);
+  font-size: 0.7rem;
+}
+
+.case-action-row__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .action-status {
@@ -4163,6 +4177,50 @@ textarea {
   color: #166534;
   border-color: #bbf7d0;
   background: #f0fdf4;
+}
+
+.action-status--in_progress {
+  color: #92400e;
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.case-action-edit {
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 0;
+  color: var(--color-muted-foreground);
+  background: transparent;
+  cursor: pointer;
+}
+
+.case-action-form {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  background: #f8fafc;
+}
+
+.case-action-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.case-action-form__grid .form-field--wide {
+  grid-column: 1 / -1;
+}
+
+.case-action-form textarea {
+  min-height: 72px;
+}
+
+.case-action-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .case-operations__actions {
@@ -4494,8 +4552,13 @@ textarea {
   }
 
   .intake-grid,
-  .draft-case-card__grid {
+  .draft-case-card__grid,
+  .case-action-form__grid {
     grid-template-columns: 1fr;
+  }
+
+  .case-action-form__grid .form-field--wide {
+    grid-column: auto;
   }
 
   .form-field--wide {

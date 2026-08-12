@@ -18,10 +18,10 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import type { CaseStatus, CitationGroup, CitationUsage, RetrievalHit, ReviewApiResponse, ReviewFacts } from '../types/api';
+import type { CaseAction, CaseStatus, CitationGroup, CitationUsage, RetrievalHit, ReviewApiResponse, ReviewFacts } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
-import { setActionStatus, setCitationVerdict } from '../store/caseStore';
+import { createCaseAction, setActionStatus, setCitationVerdict, updateCaseAction } from '../store/caseStore';
 import RiskBadge from './RiskBadge';
 import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
@@ -52,6 +52,8 @@ interface CaseDetailPageProps {
   onBack: () => void;
   /** Persist a workflow status transition. */
   onStatusChange: (caseId: string, status: CaseStatus) => void;
+  /** Reviewers and admins can maintain persisted remediation actions. */
+  canManageActions: boolean;
 }
 
 type SavedCaseWithResponse = SavedCase & { response: ReviewApiResponse };
@@ -77,6 +79,7 @@ export default function CaseDetailPage({
   onRerun,
   onBack,
   onStatusChange,
+  canManageActions,
 }: CaseDetailPageProps): JSX.Element {
   const response = saved.response;
   if (!response) {
@@ -97,7 +100,7 @@ export default function CaseDetailPage({
         onRerun={() => onRerun(completedSaved.question, completedSaved.materialText)}
       />
 
-      <CaseOperations saved={saved} onStatusChange={onStatusChange} />
+      <CaseOperations saved={saved} onStatusChange={onStatusChange} canManageActions={canManageActions} />
 
       {failed ? (
         <FailedChain response={response} />
@@ -149,8 +152,62 @@ function DraftCaseView({
   );
 }
 
-function CaseOperations({ saved, onStatusChange }: { saved: SavedCase; onStatusChange: (caseId: string, status: CaseStatus) => void }): JSX.Element {
+type ActionFormState = {
+  title: string;
+  description: string;
+  owner_role: string;
+  priority: CaseAction['priority'];
+  due_date: string;
+};
+
+const EMPTY_ACTION_FORM: ActionFormState = {
+  title: '',
+  description: '',
+  owner_role: 'reviewer',
+  priority: 'medium',
+  due_date: '',
+};
+
+function CaseOperations({ saved, onStatusChange, canManageActions }: { saved: SavedCase; onStatusChange: (caseId: string, status: CaseStatus) => void; canManageActions: boolean }): JSX.Element {
   const openActions = saved.actions.filter((action) => action.status !== 'completed').length;
+  const [actionFormOpen, setActionFormOpen] = useState(false);
+  const [editingActionId, setEditingActionId] = useState<string | null>(null);
+  const [actionForm, setActionForm] = useState<ActionFormState>(EMPTY_ACTION_FORM);
+
+  const beginCreateAction = (): void => {
+    setEditingActionId(null);
+    setActionForm({ ...EMPTY_ACTION_FORM });
+    setActionFormOpen(true);
+  };
+
+  const beginEditAction = (action: CaseAction): void => {
+    setEditingActionId(action.id);
+    setActionForm({
+      title: action.title,
+      description: action.description,
+      owner_role: action.owner_role,
+      priority: action.priority,
+      due_date: action.due_date ?? '',
+    });
+    setActionFormOpen(true);
+  };
+
+  const saveAction = (): void => {
+    if (!actionForm.title.trim()) return;
+    const payload = {
+      title: actionForm.title.trim(),
+      description: actionForm.description.trim(),
+      owner_role: actionForm.owner_role.trim() || 'reviewer',
+      priority: actionForm.priority,
+      status: editingActionId ? saved.actions.find((action) => action.id === editingActionId)?.status ?? 'open' : 'open',
+      due_date: actionForm.due_date || null,
+    };
+    if (editingActionId) updateCaseAction(editingActionId, payload);
+    else createCaseAction(saved.id, payload);
+    setActionFormOpen(false);
+    setEditingActionId(null);
+  };
+
   return (
     <section className="card case-operations">
       <div className="case-operations__heading"><div><div className="report-kicker">案件流程</div><h2>从证据到行动</h2></div><span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span></div>
@@ -159,15 +216,30 @@ function CaseOperations({ saved, onStatusChange }: { saved: SavedCase; onStatusC
         <div className="case-operations__list">
           {saved.actions.map((action) => (
             <div className="case-action-row" key={action.id}>
-              <div><strong>{action.title}</strong><span>{action.description}</span></div>
-              <button type="button" className={`action-status action-status--${action.status}`} onClick={() => setActionStatus(action.id, action.status === 'completed' ? 'open' : 'completed')}>
-                {action.status === 'completed' ? '已完成' : '标记完成'}
-              </button>
+              <div className="case-action-row__content"><strong>{action.title}</strong><span>{action.description || '暂无说明'}</span><small>负责人：{action.owner_role} · 优先级：{action.priority}{action.due_date ? ` · 截止：${action.due_date}` : ''}</small></div>
+              <div className="case-action-row__controls">
+                {canManageActions ? <select aria-label={`动作状态：${action.title}`} className={`action-status action-status--${action.status}`} value={action.status} onChange={(event) => setActionStatus(action.id, event.target.value as CaseAction['status'])}><option value="open">待处理</option><option value="in_progress">进行中</option><option value="completed">已完成</option></select> : <span className={`action-status action-status--${action.status}`}>{action.status === 'completed' ? '已完成' : action.status === 'in_progress' ? '进行中' : '待处理'}</span>}
+                {canManageActions ? <button type="button" className="case-action-edit" onClick={() => beginEditAction(action)}>编辑</button> : null}
+              </div>
             </div>
           ))}
         </div>
       ) : null}
+      {canManageActions && actionFormOpen ? (
+        <div className="case-action-form">
+          <div className="section-title">{editingActionId ? '编辑整改动作' : '新增整改动作'}</div>
+          <div className="case-action-form__grid">
+            <label className="form-field"><span>动作名称</span><input value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} placeholder="例如：完成个人信息保护影响评估" /></label>
+            <label className="form-field"><span>负责人</span><input value={actionForm.owner_role} onChange={(event) => setActionForm({ ...actionForm, owner_role: event.target.value })} placeholder="例如：法务、隐私或业务负责人" /></label>
+            <label className="form-field"><span>优先级</span><select value={actionForm.priority} onChange={(event) => setActionForm({ ...actionForm, priority: event.target.value as ActionFormState['priority'] })}><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></label>
+            <label className="form-field"><span>截止日期</span><input type="date" value={actionForm.due_date} onChange={(event) => setActionForm({ ...actionForm, due_date: event.target.value })} /></label>
+            <label className="form-field form-field--wide"><span>动作说明</span><textarea value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} placeholder="说明完成标准、交付物或风险背景" /></label>
+          </div>
+          <div className="case-action-form__actions"><button type="button" className="case-header__action-btn" onClick={() => setActionFormOpen(false)}>取消</button><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={!actionForm.title.trim()} onClick={saveAction}>保存动作</button></div>
+        </div>
+      ) : null}
       <div className="case-operations__actions">
+        {canManageActions ? <button type="button" className="case-header__action-btn" onClick={beginCreateAction}>+ 新增整改动作</button> : null}
         {saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn" onClick={() => onStatusChange(saved.id, 'submitted')}>重新提交补充材料</button> : null}
         {saved.status === 'completed' ? <span className="case-operations__complete">✓ 审核已完成</span> : null}
       </div>

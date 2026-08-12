@@ -350,6 +350,41 @@ def _sanitize_draft_markdown(draft: LLMReviewResultDraft) -> LLMReviewResultDraf
     )
 
 
+def _extract_markdown_section_items(report: str, section_titles: set[str]) -> list[str]:
+    """Extract ordered or bulleted items from a governed report section.
+
+    The frontend-facing markdown path intentionally keeps the report as one
+    coherent document.  The workbench still needs durable action records, so
+    this small parser promotes the explicitly labelled action section into
+    ``ReviewResult.recommended_actions`` without trying to infer actions from
+    arbitrary prose.
+    """
+
+    headings = list(re.finditer(r"(?m)^\s{0,3}#{1,6}\s+(.+?)\s*$", report))
+    target_start: int | None = None
+    target_end = len(report)
+    for index, match in enumerate(headings):
+        title = re.sub(r"[：:]\s*$", "", match.group(1).strip())
+        if title in section_titles:
+            target_start = match.end()
+            if index + 1 < len(headings):
+                target_end = headings[index + 1].start()
+            break
+    if target_start is None:
+        return []
+
+    actions: list[str] = []
+    for line in report[target_start:target_end].splitlines():
+        item = re.match(r"^\s*(?:[-*•]|\d+[.)、．])\s+(.+?)\s*$", line)
+        if not item:
+            continue
+        value = re.sub(r"(?:\*\*|__|`)", "", item.group(1)).strip()
+        value = re.sub(r"\s+", " ", value)
+        if value and value not in actions:
+            actions.append(value)
+    return actions
+
+
 # ---------------------------------------------------------------------------
 # Full result builder
 # ---------------------------------------------------------------------------
@@ -695,8 +730,9 @@ def build_review_result_with_deepseek(
             post_validate=validate_draft_grounding,
             post_validation_reason="claim_grounding_validation_failed",
         )
-        # markdown path: sanitize the report text and use it as conclusion;
-        # actions/boundaries/missing_info are empty (content lives inside report).
+        # markdown path: sanitize the report text and use it as conclusion.
+        # The explicitly labelled action section is also promoted into
+        # durable case actions by the workbench API.
         # plain path: pass through unchanged so eval sees exactly what the
         # LLM emitted.
         if output_format == "markdown":
@@ -717,7 +753,10 @@ def build_review_result_with_deepseek(
             trigger_reasons = md_draft.trigger_reasons
             risk_level = md_draft.risk_level
             missing_information: list[str] = []
-            recommended_actions: list[str] = []
+            recommended_actions = _extract_markdown_section_items(
+                md_draft.report,
+                {"建议措施", "建议动作"},
+            )
             risk_boundaries: list[str] = []
         else:
             plain_draft: LLMReviewResultDraft = draft  # type: ignore[assignment]
