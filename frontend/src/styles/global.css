@@ -4759,3 +4759,183 @@ textarea {
     gap: 10px 18px;
   }
 }
+
+/* ============================================================
+ * Responsive usability pass
+ * Keep reading widths bounded on wide screens and let touch layouts
+ * reflow before controls become cramped or overlap.
+ * ============================================================ */
+body {
+  overflow-x: hidden;
+  font-size: 16px;
+}
+
+.app-center {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+}
+
+.workspace-hero,
+.review-report-layout,
+.case-detail {
+  width: 100%;
+  max-width: 1360px;
+  margin-inline: auto;
+}
+
+.login-card__copy h1 {
+  letter-spacing: -0.035em;
+}
+
+@media (min-width: 1101px) {
+  .login-shell {
+    grid-template-columns: minmax(520px, 640px) minmax(320px, 420px);
+    justify-content: space-between;
+    padding-inline: clamp(40px, 6vw, 96px);
+    gap: clamp(48px, 7vw, 140px);
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 640px;
+  }
+
+  .login-aside {
+    width: 100%;
+    max-width: 420px;
+    min-width: 0;
+  }
+
+  .login-aside p {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 1100px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 640px);
+    justify-content: center;
+    padding: clamp(32px, 6vw, 64px);
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 640px;
+  }
+
+  .login-aside {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-center {
+    padding: var(--space-md);
+  }
+
+  .app-mobile-nav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .case-detail,
+  .review-report-layout {
+    max-width: none;
+  }
+
+  .case-header__top {
+    display: block;
+  }
+
+  .case-header__actions {
+    width: 100%;
+    margin-top: var(--space-sm);
+  }
+
+  .case-header__action-btn {
+    min-height: 44px;
+    flex: 1 1 140px;
+  }
+
+  .case-header__meta {
+    gap: var(--space-sm);
+    font-size: 0.8125rem;
+  }
+
+  .pipeline {
+    padding: var(--space-md);
+  }
+
+  .pipeline__track {
+    margin-inline: calc(-1 * var(--space-md));
+    padding-inline: var(--space-md);
+  }
+
+  .report-disclosure__body {
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 640px) {
+  .login-shell {
+    align-items: start;
+    justify-content: start;
+    min-height: 100svh;
+    padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+
+  .login-card {
+    max-width: none;
+    padding: 28px 24px;
+  }
+
+  .login-card__copy {
+    margin: 42px 0 26px;
+  }
+
+  .login-card__copy h1 {
+    font-size: clamp(2.35rem, 11vw, 3.25rem);
+    line-height: 1.05;
+  }
+
+  .evidence-sidebar {
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 8px;
+    width: auto;
+    max-height: min(82svh, 720px);
+    border-radius: var(--radius-lg);
+  }
+
+  .evidence-sidebar__head {
+    padding: 12px 14px;
+  }
+
+  .evidence-sidebar__list {
+    max-height: calc(min(82svh, 720px) - 78px);
+    padding: 12px 14px max(var(--space-md), env(safe-area-inset-bottom));
+  }
+
+  .evidence-card__meta-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  .evidence-card__meta-grid strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .evidence-card__full-article {
+    max-height: 28rem;
+    font-size: 0.875rem;
+  }
+
+  .evidence-card__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
