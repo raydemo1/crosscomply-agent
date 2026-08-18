@@ -10,6 +10,8 @@ COPY pyproject.toml README.md ./
 COPY law_agent ./law_agent
 COPY alembic.ini ./
 COPY alembic ./alembic
+COPY docker/fonts/NotoSansSC-Regular.ttf /usr/local/share/fonts/NotoSansSC-Regular.ttf
+COPY docker/fonts/NotoSansSC-SemiBold.ttf /usr/local/share/fonts/NotoSansSC-SemiBold.ttf
 
 RUN python -m pip install --no-cache-dir \
       ".[service]" \

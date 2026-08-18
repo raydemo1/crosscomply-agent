@@ -48,7 +48,18 @@ from law_agent.review.governance_store import (
 )
 from law_agent.review.io import read_review_results
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
-from law_agent.review.reports import DecisionReportData, LegalSource, generate_decision_report
+from law_agent.review.reports import (
+    DecisionReportData,
+    generate_decision_report,
+)
+from law_agent.review.report_data import (
+    build_ai_review,
+    build_legal_sources,
+    build_remediation_details,
+    manual_confirmations_for_report,
+    rule_findings_for_report,
+    selected_path_for_report,
+)
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.rules import ComplianceFacts, evaluate_national_path
 from law_agent.review.schemas import (
@@ -79,6 +90,7 @@ ALLOWED_UPLOAD_SUFFIXES = {
     ".html",
     ".htm",
     ".json",
+    ".csv",
 }
 SESSION_COOKIE = "crosscomply_session"
 
@@ -1539,22 +1551,24 @@ def create_app(
         versions = [
             enterprise().get_material_version(version_id) for version_id in snapshot.version_ids
         ]
-        sources = tuple(
-            LegalSource(
-                title=str(item.get("title", "")),
-                locator=str(item.get("source_url") or item.get("article") or ""),
-            )
-            for item in rule.determination.get("official_bases", [])
-        )
+        actions = store().list_actions(identifier)
+        determination = dict(rule.determination)
+        selected_path = selected_path_for_report(determination)
         report_data = DecisionReportData(
             case_number=case["case_number"],
             decision=approval.status,
             material_hashes=tuple(item.sha256 for item in versions if item is not None),
             rule_version=rule.ruleset_version,
-            legal_sources=sources,
-            remediation_items=tuple(item["title"] for item in store().list_actions(identifier)),
-            approver=approval.approver_name or "Feishu approval",
+            legal_sources=build_legal_sources(case, determination, selected_path),
+            remediation_items=tuple(item["title"] for item in actions),
+            approver=approval.approver_name or "未记录审批人",
             approved_at=approval.decided_at or approval.updated_at,
+            case_title=case.get("title", ""),
+            selected_path=selected_path,
+            rule_findings=rule_findings_for_report(determination),
+            manual_confirmation_items=manual_confirmations_for_report(determination),
+            ai_review=build_ai_review(case),
+            remediation_details=build_remediation_details(actions),
         )
         artifact = generate_decision_report(report_data)
         stored = originals().put_original(
