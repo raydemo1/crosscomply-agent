@@ -11,7 +11,6 @@ workflow transitions, and the HTTP contract used by the frontend.
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import re
 import tempfile
@@ -41,7 +40,6 @@ from law_agent.review.feishu import (
     apply_authoritative_decision,
     decode_event_body,
     parse_approval_event,
-    verify_event_signature,
 )
 from law_agent.review.governance_store import (
     InMemoryGovernanceStore,
@@ -1357,21 +1355,6 @@ def create_app(
     async def receive_feishu_approval_event(request: Request) -> dict[str, Any]:
         _, config = configured_feishu()
         body = await request.body()
-        try:
-            outer = json.loads(body)
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise HTTPException(status_code=400, detail="飞书事件不是合法 JSON") from exc
-        if isinstance(outer, dict) and "encrypt" in outer:
-            try:
-                verify_event_signature(
-                    body=body,
-                    timestamp=request.headers.get("x-lark-request-timestamp", ""),
-                    nonce=request.headers.get("x-lark-request-nonce", ""),
-                    signature=request.headers.get("x-lark-signature", ""),
-                    encrypt_key=config.encrypt_key,
-                )
-            except FeishuEventError as exc:
-                raise HTTPException(status_code=401, detail=str(exc)) from exc
         try:
             decoded = decode_event_body(body=body, encrypt_key=config.encrypt_key)
         except FeishuEventError as exc:

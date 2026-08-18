@@ -2,8 +2,10 @@
 
 import hashlib
 import json
+from base64 import b64encode
 from pathlib import Path
 
+from Crypto.Cipher import AES
 from fastapi.testclient import TestClient
 
 from law_agent.review.api import create_app
@@ -301,6 +303,27 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
     )
 
     with TestClient(app) as client:
+        challenge_payload = json.dumps(
+            {
+                "type": "url_verification",
+                "token": "verify-token",
+                "challenge": "challenge-value",
+            },
+            separators=(",", ":"),
+        ).encode()
+        padding = AES.block_size - len(challenge_payload) % AES.block_size
+        iv = bytes(range(AES.block_size))
+        cipher = AES.new(hashlib.sha256(b"encrypt-key").digest(), AES.MODE_CBC, iv)
+        encrypted_challenge = b64encode(
+            iv + cipher.encrypt(challenge_payload + bytes([padding]) * padding)
+        ).decode()
+        challenge = client.post(
+            "/api/integrations/feishu/approval-events",
+            json={"encrypt": encrypted_challenge},
+        )
+        assert challenge.status_code == 200, challenge.text
+        assert challenge.json() == {"challenge": "challenge-value"}
+
         _login(client)
         case_id = _create_case(client)
         snapshot, rule = _freeze_inputs(enterprise, case_id)
