@@ -229,9 +229,7 @@ def run_evidence_researcher(
 
     query_by_id = {query.query_id: query for query in queries}
     issue_queries = [
-        query_by_id[query_id]
-        for query_id in issue.query_ids
-        if query_id in query_by_id
+        query_by_id[query_id] for query_id in issue.query_ids if query_id in query_by_id
     ]
     if not issue_queries:
         raise ValueError(f"issue {issue.issue_id} has no executable queries")
@@ -239,9 +237,7 @@ def run_evidence_researcher(
     pairs = [(query.text, query.query_type) for query in issue_queries]
     keyword_per_query = keyword_retriever.search_many(pairs, top_k=candidate_top_k)
     vector_per_query = vector_retriever.search_many(pairs, top_k=candidate_top_k)
-    if len(keyword_per_query) != len(issue_queries) or len(vector_per_query) != len(
-        issue_queries
-    ):
+    if len(keyword_per_query) != len(issue_queries) or len(vector_per_query) != len(issue_queries):
         raise RuntimeError(
             f"issue {issue.issue_id} retrieval adapter returned a mismatched result count"
         )
@@ -250,10 +246,7 @@ def run_evidence_researcher(
         per_query_hits: list[list[RetrievalHit]],
     ) -> list[list[RetrievalHit]]:
         return [
-            [
-                hit.model_copy(update={"matched_query_type": query.query_type})
-                for hit in hits
-            ]
+            [hit.model_copy(update={"matched_query_type": query.query_type}) for hit in hits]
             for query, hits in zip(issue_queries, per_query_hits, strict=True)
         ]
 
@@ -290,9 +283,7 @@ def build_evidence_dossiers(
 ) -> list[EvidenceDossier]:
     """Build the deterministic Evidence Gate handoff for every issue."""
 
-    results_by_issue = {
-        result.issue_id: result for result in (research_results or [])
-    }
+    results_by_issue = {result.issue_id: result for result in (research_results or [])}
     dossiers: list[EvidenceDossier] = []
     for issue in issue_plan.issues:
         matched = (
@@ -300,20 +291,12 @@ def build_evidence_dossiers(
             if issue_hits_by_issue is not None
             else results_by_issue[issue.issue_id].evidence_hits
             if issue.issue_id in results_by_issue
-            else [
-                hit
-                for hit in evidence_hits
-                if hit.matched_query_type in set(issue.query_types)
-            ]
+            else [hit for hit in evidence_hits if hit.matched_query_type in set(issue.query_types)]
         )
         chunk_ids = list(dict.fromkeys(hit.chunk_id for hit in matched))
         source_ids = list(dict.fromkeys(hit.source_id for hit in matched))
         found_roles = {hit.citation_role for hit in matched}
-        missing_roles = [
-            role
-            for role in issue.required_evidence_roles
-            if role not in found_roles
-        ]
+        missing_roles = [role for role in issue.required_evidence_roles if role not in found_roles]
         if not matched:
             coverage_status = "missing"
         elif missing_roles:
@@ -455,9 +438,7 @@ def gate_revision_actions(
         ):
             return False
         request_terms = {
-            term
-            for term in tokenize(request_text)
-            if term not in stop_terms and len(term) > 1
+            term for term in tokenize(request_text) if term not in stop_terms and len(term) > 1
         }
         if not request_terms:
             return False
@@ -471,9 +452,7 @@ def gate_revision_actions(
         issue_hits = issue_hits_by_issue.get(action.issue_id or "", [])
         action_text = f"{action.reason} {action.replacement_text or ''}"
         allowed = {
-            hit.chunk_id
-            for hit in issue_hits
-            if hit.can_cite_clause and relevant(hit, action_text)
+            hit.chunk_id for hit in issue_hits if hit.can_cite_clause and relevant(hit, action_text)
         }
         requested = set(action.supporting_chunk_ids)
         if requested and requested.issubset(allowed):
@@ -491,16 +470,13 @@ def gate_revision_actions(
         )
 
     existing_gap_issues = {
-        action.issue_id
-        for action in gated
-        if action.operation == "mark_evidence_gap"
+        action.issue_id for action in gated if action.operation == "mark_evidence_gap"
     }
     for request in decision.targeted_retrieval_requests:
         targeted_citable = [
             hit
             for hit in targeted_hits_by_issue.get(request.issue_id, [])
-            if hit.can_cite_clause
-            and relevant(hit, f"{request.query} {request.reason}")
+            if hit.can_cite_clause and relevant(hit, f"{request.query} {request.reason}")
         ]
         if targeted_citable or request.issue_id in existing_gap_issues:
             continue
@@ -508,10 +484,7 @@ def gate_revision_actions(
             RevisionAction(
                 operation="mark_evidence_gap",
                 issue_id=request.issue_id,
-                reason=(
-                    "定向检索未召回可引用条文，只能收窄结论并披露证据缺口："
-                    f"{request.reason}"
-                ),
+                reason=(f"定向检索未召回可引用条文，只能收窄结论并披露证据缺口：{request.reason}"),
             )
         )
     return gated[:5]

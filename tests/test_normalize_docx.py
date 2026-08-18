@@ -1,7 +1,7 @@
+import subprocess
 import zipfile
 from io import BytesIO
 from pathlib import Path
-import subprocess
 
 import pytest
 
@@ -34,9 +34,8 @@ def _make_docx(
         if table_rows and index == insert_after:
             body_parts.append(_table_xml(table_rows))
     body = "".join(body_parts)
-    if table_rows:
-        if insert_after < 0:
-            body = _table_xml(table_rows) + body
+    if table_rows and insert_after < 0:
+        body = _table_xml(table_rows) + body
     xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
@@ -155,7 +154,9 @@ def test_docling_ocr_options_can_use_remote_kserve(monkeypatch) -> None:
     assert options.headers == {"Authorization": "Bearer test"}
 
 
-def test_default_docling_artifacts_ignores_incomplete_rapidocr_dir(tmp_path: Path, monkeypatch) -> None:
+def test_default_docling_artifacts_ignores_incomplete_rapidocr_dir(
+    tmp_path: Path, monkeypatch
+) -> None:
     artifacts = tmp_path / "docling"
     artifacts.mkdir()
     monkeypatch.setattr(normalize_module, "DEFAULT_DOCLING_ARTIFACTS_PATH", artifacts)

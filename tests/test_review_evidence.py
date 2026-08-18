@@ -7,17 +7,15 @@ from law_agent.review.evidence import (
 )
 from law_agent.review.schemas import (
     EvidenceIssue,
-    EvidenceSelfCheck,
-    ReviewFacts,
     RetrievalHit,
+    ReviewFacts,
 )
-
 from tests.test_review_retrieval_keyword import _make_chunk
-
 
 # ---------------------------------------------------------------------------
 # Helper: create RetrievalHit
 # ---------------------------------------------------------------------------
+
 
 def _hit(
     chunk_id: str = "c1",
@@ -27,15 +25,24 @@ def _hit(
     text: str = "第四条　数据处理者向境外提供数据，应当申报数据出境安全评估。",
 ) -> RetrievalHit:
     return RetrievalHit(
-        chunk_id=chunk_id, doc_id="d1", source_id="s1", title=title, text=text,
-        score=1.0, rank=0, retriever="hybrid",
-        citation_role=citation_role, can_cite_clause=can_cite, source_url="u",
+        chunk_id=chunk_id,
+        doc_id="d1",
+        source_id="s1",
+        title=title,
+        text=text,
+        score=1.0,
+        rank=0,
+        retriever="hybrid",
+        citation_role=citation_role,
+        can_cite_clause=can_cite,
+        source_url="u",
     )
 
 
 # ---------------------------------------------------------------------------
 # Self-check: sufficient evidence
 # ---------------------------------------------------------------------------
+
 
 def test_sufficient_evidence_no_issues() -> None:
     hits = [_hit(citation_role="primary_legal_basis", can_cite=True)]
@@ -54,6 +61,7 @@ def test_sufficient_evidence_no_issues() -> None:
 # Self-check: no primary legal basis
 # ---------------------------------------------------------------------------
 
+
 def test_no_primary_legal_basis_triggers_second_retrieval() -> None:
     hits = [_hit(citation_role="interpretation_auxiliary", can_cite=False)]
     facts = ReviewFacts(cross_border_transfer=True)
@@ -70,6 +78,7 @@ def test_no_primary_legal_basis_triggers_second_retrieval() -> None:
 # ---------------------------------------------------------------------------
 # Self-check: region mismatch
 # ---------------------------------------------------------------------------
+
 
 def test_region_mismatch_triggers_second_retrieval() -> None:
     hits = [_hit(chunk_id="c1", citation_role="primary_legal_basis")]
@@ -100,6 +109,7 @@ def test_region_match_does_not_trigger() -> None:
 # ---------------------------------------------------------------------------
 # Self-check: industry mismatch
 # ---------------------------------------------------------------------------
+
 
 def test_industry_mismatch_triggers_second_retrieval() -> None:
     hits = [_hit(chunk_id="c1", citation_role="primary_legal_basis")]
@@ -134,6 +144,7 @@ def test_industry_match_does_not_trigger() -> None:
 # Self-check: only auxiliary evidence
 # ---------------------------------------------------------------------------
 
+
 def test_only_auxiliary_evidence_triggers() -> None:
     hits = [
         _hit(chunk_id="c1", citation_role="implementation_reference", can_cite=False),
@@ -152,6 +163,7 @@ def test_only_auxiliary_evidence_triggers() -> None:
 # Self-check: cross-border mismatch
 # ---------------------------------------------------------------------------
 
+
 def test_cross_border_mismatch_triggers() -> None:
     hits = [_hit(text="关于个人信息保护的一般规定。", title="个人信息保护法")]
     facts = ReviewFacts(cross_border_transfer=True)
@@ -164,6 +176,7 @@ def test_cross_border_mismatch_triggers() -> None:
 # ---------------------------------------------------------------------------
 # Self-check: critical facts missing
 # ---------------------------------------------------------------------------
+
 
 def test_critical_facts_missing_alone_is_sufficient_with_warning() -> None:
     """When only critical facts are missing but evidence is good, status is
@@ -208,11 +221,14 @@ def test_critical_facts_with_other_issues_still_triggers_retrieval() -> None:
 # Second retrieval plan
 # ---------------------------------------------------------------------------
 
+
 def test_second_retrieval_plan_includes_expansions() -> None:
-    issues = [EvidenceIssue(
-        issue_type="no_primary_legal_basis",
-        description="no primary legal basis",
-    )]
+    issues = [
+        EvidenceIssue(
+            issue_type="no_primary_legal_basis",
+            description="no primary legal basis",
+        )
+    ]
     facts = ReviewFacts(cross_border_transfer=True, region="上海", industry="汽车")
 
     plan = build_second_retrieval_plan(issues, facts, ["no_primary_legal_basis"])
@@ -226,10 +242,12 @@ def test_second_retrieval_plan_includes_expansions() -> None:
 
 
 def test_second_retrieval_plan_includes_fact_keywords() -> None:
-    issues = [EvidenceIssue(
-        issue_type="region_mismatch",
-        description="region mismatch",
-    )]
+    issues = [
+        EvidenceIssue(
+            issue_type="region_mismatch",
+            description="region mismatch",
+        )
+    ]
     facts = ReviewFacts(
         cross_border_transfer=True,
         region="上海",
@@ -250,6 +268,7 @@ def test_second_retrieval_plan_includes_fact_keywords() -> None:
 # ---------------------------------------------------------------------------
 # Post-second-retrieval evaluation
 # ---------------------------------------------------------------------------
+
 
 def test_evaluate_after_second_retrieval_sufficient() -> None:
     """After second retrieval, if evidence is now sufficient, status is sufficient."""
@@ -280,6 +299,3 @@ def test_evaluate_after_second_retrieval_still_insufficient() -> None:
     assert check.second_retrieval_triggered is True
     # Critical: never triggers another retrieval
     assert check.second_retrieval_plan is None
-
-
-

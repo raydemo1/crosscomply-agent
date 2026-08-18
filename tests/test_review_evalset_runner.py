@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import law_agent.review.evalset.runner as runner_module
 from law_agent.review.evalset.cases import get_default_scenarios
 from law_agent.review.evalset.runner import (
     EvalCaseInput,
@@ -11,8 +12,7 @@ from law_agent.review.evalset.runner import (
 )
 from law_agent.review.evalset.schemas import EvalSummary, ModeMetrics
 from law_agent.review.llm import ReviewWorkflowFailed
-from law_agent.review.schemas import ReviewFacts, RetrievalQuery
-import law_agent.review.evalset.runner as runner_module
+from law_agent.review.schemas import RetrievalQuery, ReviewFacts
 
 
 def test_eval_inputs_round_trip_for_fair_workflow_comparison(tmp_path: Path) -> None:

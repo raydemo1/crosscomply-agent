@@ -1,20 +1,20 @@
 from pathlib import Path
 
 from law_agent.review.io import (
+    read_retrieval_traces,
     read_review_cases,
     read_review_results,
-    read_retrieval_traces,
+    write_retrieval_traces,
     write_review_cases,
     write_review_results,
-    write_retrieval_traces,
 )
 from law_agent.review.schemas import (
     EvidenceSelfCheck,
     MaterialRecord,
+    RetrievalTrace,
     ReviewCase,
     ReviewFacts,
     ReviewResult,
-    RetrievalTrace,
 )
 
 

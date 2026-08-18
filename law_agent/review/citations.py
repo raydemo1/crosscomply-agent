@@ -18,14 +18,14 @@ from law_agent.review.schemas import (
     Citation,
     CitationGroup,
     CitationUsage,
-    ReviewFacts,
     RetrievalHit,
+    ReviewFacts,
 )
-
 
 # ---------------------------------------------------------------------------
 # Citation validation
 # ---------------------------------------------------------------------------
+
 
 class CitationValidationError(Exception):
     """Raised when a citation violates governance rules."""
@@ -43,12 +43,11 @@ def validate_citation(hit: RetrievalHit, usage: CitationUsage) -> list[str]:
 
     violations: list[str] = []
 
-    if usage in ("legal_basis", "conditional_basis"):
-        if not hit.can_cite_clause:
-            violations.append(
-                f"citation_role={hit.citation_role} usage={usage} requires "
-                f"can_cite_clause=True, but chunk {hit.chunk_id} has can_cite_clause=False"
-            )
+    if usage in ("legal_basis", "conditional_basis") and not hit.can_cite_clause:
+        violations.append(
+            f"citation_role={hit.citation_role} usage={usage} requires "
+            f"can_cite_clause=True, but chunk {hit.chunk_id} has can_cite_clause=False"
+        )
 
     return violations
 
@@ -65,6 +64,7 @@ def validate_citations(hits_with_usage: list[tuple[RetrievalHit, CitationUsage]]
 # ---------------------------------------------------------------------------
 # Citation grouping
 # ---------------------------------------------------------------------------
+
 
 def _determine_usage(hit: RetrievalHit) -> CitationUsage:
     """Determine the citation usage category from the hit's citation_role."""
@@ -136,8 +136,7 @@ def _full_article_text(
     article_chunks = [
         candidate
         for candidate in chunks_by_id.values()
-        if candidate.source_id == hit.source_id
-        and candidate.article_no == article_no
+        if candidate.source_id == hit.source_id and candidate.article_no == article_no
     ]
     if not article_chunks:
         return None
@@ -223,7 +222,12 @@ def group_citations(
 
     # Build CitationGroup list with scope notes
     result_groups: list[CitationGroup] = []
-    for usage in ("legal_basis", "conditional_basis", "implementation_reference", "policy_explanation"):
+    for usage in (
+        "legal_basis",
+        "conditional_basis",
+        "implementation_reference",
+        "policy_explanation",
+    ):
         citations = groups[usage]
         if not citations:
             continue
@@ -248,9 +252,7 @@ def group_citations(
     numbered_groups: list[CitationGroup] = []
     for group in result_groups:
         numbered = [
-            citation.model_copy(
-                update={"citation_ref": f"法源-{citation_index + offset:02d}"}
-            )
+            citation.model_copy(update={"citation_ref": f"法源-{citation_index + offset:02d}"})
             for offset, citation in enumerate(group.citations)
         ]
         citation_index += len(numbered)
@@ -262,6 +264,7 @@ def group_citations(
 # ---------------------------------------------------------------------------
 # Summary helpers
 # ---------------------------------------------------------------------------
+
 
 def count_citations_by_usage(groups: list[CitationGroup]) -> dict[str, int]:
     """Count citations per usage category."""

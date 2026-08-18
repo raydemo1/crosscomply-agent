@@ -53,9 +53,7 @@ class ServiceGenerationIndex(GenerationIndex):
                 )
         rows = [
             {
-                **chunk_index_document(
-                    chunk, generation_id=generation_id, retrieval_enabled=False
-                ),
+                **chunk_index_document(chunk, generation_id=generation_id, retrieval_enabled=False),
                 "embedding": embeddings[chunk.chunk_id],
             }
             for chunk in chunks

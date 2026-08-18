@@ -112,9 +112,7 @@ def _cmd_retrieve(args: argparse.Namespace) -> int:
     results_path = Path(args.output_dir) / "review_results.jsonl"
     if results_path.exists():
         results = read_review_results(results_path)
-        result = next(
-            (r for r in results if r.review_case_id == args.case_id), None
-        )
+        result = next((r for r in results if r.review_case_id == args.case_id), None)
         if result is not None:
             print(f"\nReview Result: {result.review_result_id}")
             print(f"  Risk level: {result.risk_level}")
@@ -168,13 +166,9 @@ def _cmd_eval(args: argparse.Namespace) -> int:
 
     # Save summary JSON if output specified
     if args.output:
-        import json
-
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(
-            summary.model_dump_json(indent=2), encoding="utf-8"
-        )
+        output_path.write_text(summary.model_dump_json(indent=2), encoding="utf-8")
         print(f"\nSaved JSON summary to {output_path}")
 
     if args.report:
@@ -313,9 +307,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.set_defaults(func=_cmd_run)
 
-    retrieve = subparsers.add_parser(
-        "retrieve", help="Run retrieval for an existing review case"
-    )
+    retrieve = subparsers.add_parser("retrieve", help="Run retrieval for an existing review case")
     retrieve.add_argument("--case-id", required=True)
     retrieve.add_argument(
         "--chunks",
@@ -338,9 +330,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     retrieve.set_defaults(func=_cmd_retrieve)
 
-    eval_parser = subparsers.add_parser(
-        "eval", help="Run evaluation suite on golden-set scenarios"
-    )
+    eval_parser = subparsers.add_parser("eval", help="Run evaluation suite on golden-set scenarios")
     eval_parser.add_argument(
         "--chunks",
         default=str(DEFAULT_CHUNKS_PATH),
@@ -388,9 +378,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     eval_parser.set_defaults(func=_cmd_eval)
 
-    serve = subparsers.add_parser(
-        "serve", help="Start the local FastAPI review API server"
-    )
+    serve = subparsers.add_parser("serve", help="Start the local FastAPI review API server")
     serve.add_argument(
         "--host",
         default="127.0.0.1",

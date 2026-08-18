@@ -164,9 +164,7 @@ def create_review_case(
         if query_planner is None:
             query_planner = plan_queries_with_deepseek
         facts = facts_extractor(material.material_text, question)
-        queries: list[RetrievalQuery] = query_planner(
-            question, facts, material.material_text
-        )
+        queries: list[RetrievalQuery] = query_planner(question, facts, material.material_text)
     else:
         facts = ReviewFacts()
         queries = []
@@ -409,8 +407,7 @@ def run_hybrid_retrieval(
     case, target_trace, traces = _load_case_and_trace(case_id, output_dir)
     if case.review_mode != review_mode:
         raise ValueError(
-            f"review case {case_id} was created for {case.review_mode!r} mode, "
-            f"not {review_mode!r}"
+            f"review case {case_id} was created for {case.review_mode!r} mode, not {review_mode!r}"
         )
 
     facts = case.review_facts
@@ -420,9 +417,7 @@ def run_hybrid_retrieval(
     if multi_agent and target_trace.issue_plan is not None and target_trace.queries:
         issue_plan = target_trace.issue_plan
         agent_steps = [
-            step
-            for step in target_trace.agent_steps
-            if step.agent_name == "case_analyst"
+            step for step in target_trace.agent_steps if step.agent_name == "case_analyst"
         ]
     elif multi_agent:
         analyst_started = time.perf_counter()
@@ -467,8 +462,7 @@ def run_hybrid_retrieval(
             [case if item.review_case_id == case_id else item for item in cases],
         )
         traces = [
-            target_trace if item.trace_id == target_trace.trace_id else item
-            for item in traces
+            target_trace if item.trace_id == target_trace.trace_id else item for item in traces
         ]
         write_retrieval_traces(retrieval_traces_path(output_dir), traces)
         results = read_review_results(review_results_path(output_dir))
@@ -493,9 +487,7 @@ def run_hybrid_retrieval(
     chunks_by_id: dict[str, object] = {c.chunk_id: c for c in chunks}
     candidate_top_k = max(top_k, DEFAULT_CANDIDATE_TOP_K)
     rerank_config = load_rerank_config(mode=rerank_mode)
-    source_fusion_top_k = (
-        max(top_k, rerank_config.window) if rerank_mode != "off" else top_k
-    )
+    source_fusion_top_k = max(top_k, rerank_config.window) if rerank_mode != "off" else top_k
 
     retrieval_started = time.perf_counter()
 
@@ -522,9 +514,7 @@ def run_hybrid_retrieval(
                 candidate_top_k=candidate_top_k,
             )
 
-        issue_research_results = [
-            research_issue(issue) for issue in issue_plan.issues
-        ]
+        issue_research_results = [research_issue(issue) for issue in issue_plan.issues]
         merged_keyword_all = merge_hits_by_chunk_id(
             [result.keyword_hits for result in issue_research_results],
             top_k=candidate_top_k,
@@ -536,8 +526,7 @@ def run_hybrid_retrieval(
         merged_keyword = merged_keyword_all
         merged_vector = merged_vector_all
         issue_hits_by_issue = {
-            result.issue_id: result.evidence_hits
-            for result in issue_research_results
+            result.issue_id: result.evidence_hits for result in issue_research_results
         }
     else:
         keyword_hits_per_query = keyword_retriever.search_many(
@@ -546,12 +535,8 @@ def run_hybrid_retrieval(
         vector_hits_per_query = vector_retriever.search_many(
             retrieval_queries, top_k=candidate_top_k
         )
-        merged_keyword_all = merge_hits_by_chunk_id(
-            keyword_hits_per_query, top_k=candidate_top_k
-        )
-        merged_vector_all = merge_hits_by_chunk_id(
-            vector_hits_per_query, top_k=candidate_top_k
-        )
+        merged_keyword_all = merge_hits_by_chunk_id(keyword_hits_per_query, top_k=candidate_top_k)
+        merged_vector_all = merge_hits_by_chunk_id(vector_hits_per_query, top_k=candidate_top_k)
         initial_query_count = len(initial_queries)
         merged_keyword = merge_hits_by_chunk_id(
             keyword_hits_per_query[:initial_query_count], top_k=candidate_top_k
@@ -564,17 +549,13 @@ def run_hybrid_retrieval(
     # Apply metadata boosts to both component results
     boosted_keyword = apply_boosts_to_hits(merged_keyword, chunks_by_id, facts)
     boosted_vector = apply_boosts_to_hits(merged_vector, chunks_by_id, facts)
-    boosted_keyword_all = apply_boosts_to_hits(
-        merged_keyword_all, chunks_by_id, facts
-    )
+    boosted_keyword_all = apply_boosts_to_hits(merged_keyword_all, chunks_by_id, facts)
     boosted_vector_all = apply_boosts_to_hits(merged_vector_all, chunks_by_id, facts)
 
     # RRF produces a broad chunk-level candidate list; source-aware fusion
     # then collapses repeated chunks from the same legal source into a
     # source-diverse final evidence list.
-    hybrid_candidates = rrf_fuse(
-        boosted_keyword, boosted_vector, top_k=candidate_top_k
-    )
+    hybrid_candidates = rrf_fuse(boosted_keyword, boosted_vector, top_k=candidate_top_k)
     hybrid_hits = source_aware_fuse(
         hybrid_candidates,
         top_k=source_fusion_top_k,
@@ -601,9 +582,7 @@ def run_hybrid_retrieval(
     rerank_info: dict[str, object] = {"initial": rerank_outcome.info}
 
     # Expand neighbors for top hits
-    neighbor_hits = expand_neighbors(
-        hybrid_hits[:5], chunks_by_id, max_neighbors=max_neighbors
-    )
+    neighbor_hits = expand_neighbors(hybrid_hits[:5], chunks_by_id, max_neighbors=max_neighbors)
 
     # Build boost summary for trace
     boosts_summary = compute_boosts_summary(facts, query_types)
@@ -621,9 +600,7 @@ def run_hybrid_retrieval(
             question=case.question,
             material_text=case.material.material_text,
         )
-        self_check = validate_llm_self_check(
-            self_check, hybrid_hits, facts, chunks_by_id
-        )
+        self_check = validate_llm_self_check(self_check, hybrid_hits, facts, chunks_by_id)
     else:
         self_check = run_self_check(hybrid_hits, facts, chunks_by_id)
     second_retrieval_info: dict[str, object] = {}
@@ -645,9 +622,7 @@ def run_hybrid_retrieval(
         expanded_top_k = max(top_k, plan.increased_top_k)
         expanded_candidate_top_k = max(candidate_top_k, expanded_top_k)
         expanded_source_fusion_top_k = (
-            max(expanded_top_k, rerank_config.window)
-            if rerank_mode != "off"
-            else expanded_top_k
+            max(expanded_top_k, rerank_config.window) if rerank_mode != "off" else expanded_top_k
         )
 
         # Run second retrieval with expanded queries
@@ -655,22 +630,14 @@ def run_hybrid_retrieval(
             (query.text, query.query_type)
             for query in list(target_trace.queries) + plan.expanded_queries
         ]
-        kw2_per_query = keyword_retriever.search_many(
-            all_queries, top_k=expanded_candidate_top_k
-        )
-        vec2_per_query = vector_retriever.search_many(
-            all_queries, top_k=expanded_candidate_top_k
-        )
+        kw2_per_query = keyword_retriever.search_many(all_queries, top_k=expanded_candidate_top_k)
+        vec2_per_query = vector_retriever.search_many(all_queries, top_k=expanded_candidate_top_k)
 
         global_indexes = list(range(len(initial_queries))) + list(
             range(len(target_trace.queries), len(all_queries))
         )
-        merged_kw2_all = merge_hits_by_chunk_id(
-            kw2_per_query, top_k=expanded_candidate_top_k
-        )
-        merged_vec2_all = merge_hits_by_chunk_id(
-            vec2_per_query, top_k=expanded_candidate_top_k
-        )
+        merged_kw2_all = merge_hits_by_chunk_id(kw2_per_query, top_k=expanded_candidate_top_k)
+        merged_vec2_all = merge_hits_by_chunk_id(vec2_per_query, top_k=expanded_candidate_top_k)
         merged_kw2 = merge_hits_by_chunk_id(
             [kw2_per_query[index] for index in global_indexes],
             top_k=expanded_candidate_top_k,
@@ -886,19 +853,13 @@ def run_hybrid_retrieval(
                     if request.query.strip()
                 ]
                 targeted_queries_by_issue: dict[str, list[str]] = {}
-                for request, query in zip(
-                    targeted_requests, targeted_queries, strict=True
-                ):
+                for request, query in zip(targeted_requests, targeted_queries, strict=True):
                     targeted_queries_by_issue.setdefault(request.issue_id, []).append(
                         query.query_id
                     )
-                issue_by_id = {
-                    issue.issue_id: issue for issue in issue_plan.issues
-                }
+                issue_by_id = {issue.issue_id: issue for issue in issue_plan.issues}
                 research_inputs = [
-                    issue_by_id[issue_id].model_copy(
-                        update={"query_ids": query_ids}
-                    )
+                    issue_by_id[issue_id].model_copy(update={"query_ids": query_ids})
                     for issue_id, query_ids in targeted_queries_by_issue.items()
                 ]
                 all_research_queries = list(updated_trace.queries) + targeted_queries
@@ -914,12 +875,8 @@ def run_hybrid_retrieval(
                         candidate_top_k=candidate_top_k,
                     )
 
-                targeted_results = [
-                    research_targeted_issue(issue) for issue in research_inputs
-                ]
-                results_by_issue = {
-                    result.issue_id: result for result in issue_research_results
-                }
+                targeted_results = [research_targeted_issue(issue) for issue in research_inputs]
+                results_by_issue = {result.issue_id: result for result in issue_research_results}
                 for targeted_result in targeted_results:
                     prior_result = results_by_issue[targeted_result.issue_id]
                     combined_candidates = rrf_fuse_many(
@@ -957,15 +914,12 @@ def run_hybrid_retrieval(
                         ),
                     )
                     results_by_issue[combined_result.issue_id] = combined_result
-                    targeted_hits_by_issue[combined_result.issue_id] = (
-                        targeted_result.evidence_hits
-                    )
+                    targeted_hits_by_issue[combined_result.issue_id] = targeted_result.evidence_hits
                 issue_research_results = [
                     results_by_issue[issue.issue_id] for issue in issue_plan.issues
                 ]
                 issue_hits_by_issue = {
-                    result.issue_id: result.evidence_hits
-                    for result in issue_research_results
+                    result.issue_id: result.evidence_hits for result in issue_research_results
                 }
 
                 final_evidence = select_issue_aware_hits(
@@ -1057,11 +1011,8 @@ def run_hybrid_retrieval(
                             agent_name="compliance_reviewer",
                             status="failed",
                             decision=f"revision failed: {exc.reason}: {exc.message}",
-                            latency_ms=int(
-                                (time.perf_counter() - revision_started) * 1000
-                            ),
-                            llm_calls=current_telemetry().llm_call_count
-                            - revision_calls_before,
+                            latency_ms=int((time.perf_counter() - revision_started) * 1000),
+                            llm_calls=current_telemetry().llm_call_count - revision_calls_before,
                         )
                     )
                     failed_trace = updated_trace.model_copy(
@@ -1078,9 +1029,7 @@ def run_hybrid_retrieval(
                     write_retrieval_traces(
                         retrieval_traces_path(output_dir),
                         [
-                            failed_trace
-                            if trace.trace_id == target_trace.trace_id
-                            else trace
+                            failed_trace if trace.trace_id == target_trace.trace_id else trace
                             for trace in traces
                         ],
                     )
@@ -1091,11 +1040,8 @@ def run_hybrid_retrieval(
                             agent_name="compliance_reviewer",
                             status="completed",
                             decision="revised once after evidence critique",
-                            latency_ms=int(
-                                (time.perf_counter() - revision_started) * 1000
-                            ),
-                            llm_calls=current_telemetry().llm_call_count
-                            - revision_calls_before,
+                            latency_ms=int((time.perf_counter() - revision_started) * 1000),
+                            llm_calls=current_telemetry().llm_call_count - revision_calls_before,
                         )
                     )
         else:
@@ -1112,8 +1058,7 @@ def run_hybrid_retrieval(
     if results_path.exists():
         existing_results = read_review_results(results_path)
         updated_results = [
-            review_result if r.review_case_id == case_id else r
-            for r in existing_results
+            review_result if r.review_case_id == case_id else r for r in existing_results
         ]
     else:
         updated_results = [review_result]
@@ -1139,10 +1084,7 @@ def run_hybrid_retrieval(
 
     # Rewrite traces file after result generation so telemetry includes the
     # full workflow, including final LLM result generation when enabled.
-    final_traces = [
-        final_trace if t.trace_id == target_trace.trace_id else t
-        for t in traces
-    ]
+    final_traces = [final_trace if t.trace_id == target_trace.trace_id else t for t in traces]
     write_retrieval_traces(retrieval_traces_path(output_dir), final_traces)
 
     return final_trace
@@ -1151,6 +1093,7 @@ def run_hybrid_retrieval(
 # ---------------------------------------------------------------------------
 # Service mode: real Elasticsearch + pgvector hybrid retrieval
 # ---------------------------------------------------------------------------
+
 
 def run_service_retrieval(
     *,

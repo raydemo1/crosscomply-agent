@@ -122,7 +122,7 @@ def evaluate_case(
         second_retrieval_triggered: Whether second retrieval was triggered.
     """
 
-    recall_3, missing_3 = compute_recall_at_k(hits, scenario.expected_sources, 3)
+    recall_3, _missing_3 = compute_recall_at_k(hits, scenario.expected_sources, 3)
     recall_5, missing_5 = compute_recall_at_k(hits, scenario.expected_sources, 5)
     mrr = compute_mrr_at_k(hits, scenario.expected_sources, 10)
     unique_candidates = []
@@ -179,9 +179,7 @@ def evaluate_case(
         and recall_5 < scenario.min_recall_at_5
         and not scenario.should_abstain
     ):
-        bad_reasons.append(
-            f"low_recall_at_5={recall_5:.4f}<min={scenario.min_recall_at_5:.4f}"
-        )
+        bad_reasons.append(f"low_recall_at_5={recall_5:.4f}<min={scenario.min_recall_at_5:.4f}")
         bad_categories.append("retrieval_low_recall")
     if (
         scenario.expected_sources
@@ -199,9 +197,7 @@ def evaluate_case(
         recall_at_5=round(recall_5, 4) if recall_5 is not None else None,
         mrr_at_10=round(mrr, 4) if mrr is not None else None,
         candidate_recall_at_50=(
-            round(candidate_recall_50, 4)
-            if candidate_recall_50 is not None
-            else None
+            round(candidate_recall_50, 4) if candidate_recall_50 is not None else None
         ),
         candidate_unique_source_count=len({hit.source_id for hit in unique_candidates}),
         distinct_source_recall_at_5=(
@@ -262,38 +258,26 @@ def aggregate_metrics(
     mean_recall_5 = sum(c.recall_at_5 or 0.0 for c in source_bearing) / retrieval_denominator
     mean_mrr = sum(c.mrr_at_10 or 0.0 for c in source_bearing) / retrieval_denominator
     mean_candidate_recall_50 = (
-        sum(c.candidate_recall_at_50 or 0.0 for c in source_bearing)
-        / retrieval_denominator
+        sum(c.candidate_recall_at_50 or 0.0 for c in source_bearing) / retrieval_denominator
     )
     mean_distinct_recall_5 = (
-        sum(c.distinct_source_recall_at_5 or 0.0 for c in source_bearing)
-        / retrieval_denominator
+        sum(c.distinct_source_recall_at_5 or 0.0 for c in source_bearing) / retrieval_denominator
     )
     must_have_cases = [c for c in case_results if c.must_have_recall_at_5 is not None]
     optional_cases = [c for c in case_results if c.optional_coverage_at_5 is not None]
-    mean_must_have_recall_5 = (
-        sum(c.must_have_recall_at_5 or 0.0 for c in must_have_cases)
-        / (len(must_have_cases) or 1)
+    mean_must_have_recall_5 = sum(c.must_have_recall_at_5 or 0.0 for c in must_have_cases) / (
+        len(must_have_cases) or 1
     )
-    mean_optional_coverage_5 = (
-        sum(c.optional_coverage_at_5 or 0.0 for c in optional_cases)
-        / (len(optional_cases) or 1)
+    mean_optional_coverage_5 = sum(c.optional_coverage_at_5 or 0.0 for c in optional_cases) / (
+        len(optional_cases) or 1
     )
-    mean_duplicate_sources_10 = (
-        sum(c.duplicate_source_count_at_10 for c in case_results) / total
-    )
+    mean_duplicate_sources_10 = sum(c.duplicate_source_count_at_10 for c in case_results) / total
 
     abstention_correct = sum(1 for c in case_results if c.abstention_correct)
-    second_retrieval_fired = sum(
-        1 for c in case_results if c.second_retrieval_triggered
-    )
-    total_latencies = [
-        c.total_latency_ms for c in case_results if c.total_latency_ms is not None
-    ]
+    second_retrieval_fired = sum(1 for c in case_results if c.second_retrieval_triggered)
+    total_latencies = [c.total_latency_ms for c in case_results if c.total_latency_ms is not None]
     retrieval_latencies = [
-        c.retrieval_latency_ms
-        for c in case_results
-        if c.retrieval_latency_ms is not None
+        c.retrieval_latency_ms for c in case_results if c.retrieval_latency_ms is not None
     ]
     total_llm_calls = sum(c.llm_call_count for c in case_results)
     total_retries = sum(c.retry_count for c in case_results)
@@ -303,16 +287,10 @@ def aggregate_metrics(
     hard_failures = sum(1 for c in case_results if c.workflow_outcome == "hard_failure")
     critic_triggers = sum(1 for c in case_results if c.critic_triggered)
     critic_revisions = sum(1 for c in case_results if c.critic_revised)
-    targeted_retrievals = sum(
-        1 for c in case_results if c.targeted_retrieval_triggered
-    )
+    targeted_retrievals = sum(1 for c in case_results if c.targeted_retrieval_triggered)
 
     bad_count = sum(1 for c in case_results if c.is_bad_case)
-    taxonomy = Counter(
-        category
-        for case in case_results
-        for category in case.bad_case_categories
-    )
+    taxonomy = Counter(category for case in case_results for category in case.bad_case_categories)
 
     return ModeMetrics(
         mode=mode,
@@ -329,9 +307,7 @@ def aggregate_metrics(
         abstention_accuracy=round(abstention_correct / total, 4),
         second_retrieval_trigger_rate=round(second_retrieval_fired / total, 4),
         mean_total_latency_ms=(
-            round(sum(total_latencies) / len(total_latencies), 2)
-            if total_latencies
-            else None
+            round(sum(total_latencies) / len(total_latencies), 2) if total_latencies else None
         ),
         mean_retrieval_latency_ms=(
             round(sum(retrieval_latencies) / len(retrieval_latencies), 2)

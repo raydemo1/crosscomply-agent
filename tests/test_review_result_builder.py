@@ -5,7 +5,7 @@ from law_agent.review.citations import (
     group_citations,
     validate_citation,
 )
-from law_agent.review.schemas import ReviewFacts, RetrievalHit
+from law_agent.review.schemas import RetrievalHit, ReviewFacts
 
 
 def _hit(

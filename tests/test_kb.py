@@ -80,7 +80,9 @@ def test_list_sources_and_remove_source_clears_active_artifacts(tmp_path: Path) 
     second_raw.write_text("第一条 另一份原文。", encoding="utf-8")
 
     kb.ingest_prepared(first, "第一条 原文。", [_chunk("第一条 原文。")], raw_file=first_raw)
-    kb.ingest_prepared(second, "第一条 另一份原文。", [_chunk("第一条 另一份原文。")], raw_file=second_raw)
+    kb.ingest_prepared(
+        second, "第一条 另一份原文。", [_chunk("第一条 另一份原文。")], raw_file=second_raw
+    )
     summaries = kb.list_sources()
     assert [(item.source.source_id, item.chunk_count, item.status) for item in summaries] == [
         ("law_002", 1, "ready"),

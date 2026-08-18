@@ -214,7 +214,11 @@ class KnowledgeBase:
         body_hash = normalized_content_hash(normalized_text)
         state = self._read_state()
         source_state = state["sources"].get(source.source_id)
-        if source_state and source_state["content_hash"] == body_hash and source_state["signature"] == self.signature:
+        if (
+            source_state
+            and source_state["content_hash"] == body_hash
+            and source_state["signature"] == self.signature
+        ):
             return IngestResult("skipped_duplicate", source.source_id, None, 0, len(chunks))
 
         stable_chunks = make_stable_chunks(chunks, source, signature=self.signature)
@@ -223,7 +227,9 @@ class KnowledgeBase:
         with tempfile.TemporaryDirectory(prefix=".ingest-backup-", dir=self.root) as temporary_dir:
             snapshot_root = Path(temporary_dir)
             self._snapshot_current_artifacts(source, snapshot_root)
-            staged_raw = self._stage_canonical_raw(source, raw_file) if raw_file is not None else None
+            staged_raw = (
+                self._stage_canonical_raw(source, raw_file) if raw_file is not None else None
+            )
             cache = state["embedding_cache"]
             cache_keys = [self._embedding_key(chunk) for chunk in stable_chunks]
             missing_positions = [index for index, key in enumerate(cache_keys) if key not in cache]
@@ -247,7 +253,9 @@ class KnowledgeBase:
                 # Stage and verify before current-state artifacts or retrieval change.
                 self.index.stage(source.source_id, generation_id, stable_chunks, embeddings)
                 staged = True
-                self.index.verify(source.source_id, generation_id, {chunk.chunk_id for chunk in stable_chunks})
+                self.index.verify(
+                    source.source_id, generation_id, {chunk.chunk_id for chunk in stable_chunks}
+                )
                 old_generation = self.index.activate(source.source_id, generation_id)
                 activated = True
 
@@ -347,7 +355,9 @@ class KnowledgeBase:
                 status=str(state["sources"].get(source.source_id, {}).get("status", "unknown")),
                 raw_format=self._raw_format(source),
             )
-            for source in sorted(self._read_sources(), key=lambda item: (item.title, item.source_id))
+            for source in sorted(
+                self._read_sources(), key=lambda item: (item.title, item.source_id)
+            )
         ]
 
     def _raw_format(self, source: SourceRecord) -> str:
@@ -378,7 +388,11 @@ class KnowledgeBase:
                 )
                 write_jsonl(
                     self.chunks_path,
-                    [chunk for chunk in read_jsonl(self.chunks_path, Chunk) if chunk.source_id != source_id],
+                    [
+                        chunk
+                        for chunk in read_jsonl(self.chunks_path, Chunk)
+                        if chunk.source_id != source_id
+                    ],
                 )
 
                 state = self._read_state()
@@ -424,7 +438,9 @@ class KnowledgeBase:
     def _write_state(self, state: dict[str, dict]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         temporary = self.state_path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.write_text(
+            json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
         temporary.replace(self.state_path)
 
     def _embedding_key(self, chunk: Chunk) -> str:

@@ -17,9 +17,7 @@ from law_agent.review.schemas import RetrievalHit
 
 
 def test_build_chunks_preserves_character_ranges() -> None:
-    documents = [
-        LegalBenchDocument(file_path="contracts/a.txt", text="abcdefghijklmnopqrstuvwxyz")
-    ]
+    documents = [LegalBenchDocument(file_path="contracts/a.txt", text="abcdefghijklmnopqrstuvwxyz")]
 
     chunks, metas = build_chunks(documents, chunk_size=10, overlap=2)
 
@@ -81,9 +79,7 @@ def test_load_mini_queries_matches_upstream_sampling_shape(tmp_path: Path) -> No
                 for index in range(3)
             ]
         }
-        (benchmarks / f"{name}.json").write_text(
-            json.dumps(payload), encoding="utf-8"
-        )
+        (benchmarks / f"{name}.json").write_text(json.dumps(payload), encoding="utf-8")
         (corpus / f"{name}.txt").write_text("hello world", encoding="utf-8")
 
     queries = load_mini_queries(tmp_path, max_tests_per_benchmark=2)

@@ -1,5 +1,3 @@
-import pytest
-
 from law_agent.data.cli import main
 
 

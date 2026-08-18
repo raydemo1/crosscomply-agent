@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from law_agent.data.io import read_jsonl, write_jsonl
-from law_agent.review.schemas import ReviewCase, ReviewResult, RetrievalTrace
+from law_agent.review.schemas import RetrievalTrace, ReviewCase, ReviewResult
 
 REVIEW_CASES_FILENAME = "review_cases.jsonl"
 RETRIEVAL_TRACES_FILENAME = "retrieval_traces.jsonl"

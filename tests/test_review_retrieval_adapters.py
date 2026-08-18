@@ -174,7 +174,9 @@ def test_build_pgvector_rows_includes_optional_embeddings() -> None:
 def test_index_document_uses_generation_scoped_physical_id() -> None:
     from law_agent.review.retrieval.indexing import chunk_index_document
 
-    document = chunk_index_document(FIXTURE_CHUNKS[0], generation_id="next", retrieval_enabled=False)
+    document = chunk_index_document(
+        FIXTURE_CHUNKS[0], generation_id="next", retrieval_enabled=False
+    )
 
     assert document["chunk_id"] == FIXTURE_CHUNKS[0].chunk_id
     assert document["index_id"] == f"next:{FIXTURE_CHUNKS[0].chunk_id}"

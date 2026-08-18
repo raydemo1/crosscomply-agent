@@ -66,8 +66,7 @@ def build_fact_extraction_messages(
         ChatMessage(
             role="system",
             content=(
-                "你是法律合规审查事实抽取助手。"
-                "只输出 json，不输出解释、markdown 或自然语言。"
+                "你是法律合规审查事实抽取助手。只输出 json，不输出解释、markdown 或自然语言。"
             ),
         ),
         ChatMessage(role="user", content=json.dumps(user_payload, ensure_ascii=False)),

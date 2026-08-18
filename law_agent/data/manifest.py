@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from law_agent.data.schemas import SourceRecord
 from law_agent.data.fetchers.flk_npc import search_sources
-
+from law_agent.data.schemas import SourceRecord
 
 DATA_COMPLIANCE_SEEDS = [
     SourceRecord(

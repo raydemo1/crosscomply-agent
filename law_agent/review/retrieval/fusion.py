@@ -199,9 +199,7 @@ def source_aware_fuse(
             if support_count >= 2:
                 break
 
-        source_score *= SOURCE_QUERY_TYPE_WEIGHTS.get(
-            representative.matched_query_type or "", 1.0
-        )
+        source_score *= SOURCE_QUERY_TYPE_WEIGHTS.get(representative.matched_query_type or "", 1.0)
         scored_sources.append((source_score, source_id, representative))
 
     scored_sources.sort(key=lambda item: (-item[0], item[1]))

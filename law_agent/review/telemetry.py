@@ -14,9 +14,8 @@ class WorkflowTelemetry:
     retry_count: int = 0
 
 
-_current: ContextVar[WorkflowTelemetry] = ContextVar(
-    "lawagent_review_telemetry",
-    default=WorkflowTelemetry(),
+_current: ContextVar[WorkflowTelemetry | None] = ContextVar(
+    "lawagent_review_telemetry", default=None
 )
 
 
@@ -31,16 +30,19 @@ def reset_telemetry() -> WorkflowTelemetry:
 def current_telemetry() -> WorkflowTelemetry:
     """Return counters for the current execution context."""
 
-    return _current.get()
+    telemetry = _current.get()
+    if telemetry is None:
+        telemetry = reset_telemetry()
+    return telemetry
 
 
 def record_llm_call() -> None:
     """Record one attempted LLM call."""
 
-    _current.get().llm_call_count += 1
+    current_telemetry().llm_call_count += 1
 
 
 def record_retry() -> None:
     """Record one retry after a failed call or validation."""
 
-    _current.get().retry_count += 1
+    current_telemetry().retry_count += 1

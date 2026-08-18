@@ -12,7 +12,6 @@ from urllib.error import URLError
 from law_agent.config import PostgresConfig, ServiceConfig, load_service_config
 from law_agent.data.io import read_jsonl, write_json
 from law_agent.data.schemas import Chunk
-from law_agent.llm.embeddings import EmbeddingsProvider, build_embeddings_provider
 from law_agent.external.legalbench_rag.data import (
     DEFAULT_CHUNK_META_PATH,
     DEFAULT_CHUNKS_PATH,
@@ -26,8 +25,10 @@ from law_agent.external.legalbench_rag.schemas import (
     LegalBenchChunkMeta,
     LegalBenchEvalSummary,
 )
+from law_agent.llm.embeddings import EmbeddingsProvider, build_embeddings_provider
 from law_agent.review.retrieval.fusion import rrf_fuse, source_aware_fuse
 from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
+from law_agent.review.retrieval.indexing import chunk_index_document
 from law_agent.review.retrieval.service_backends import (
     build_service_adapters,
     bulk_index_chunks,
@@ -37,7 +38,6 @@ from law_agent.review.retrieval.service_backends import (
     ensure_pgvector_schema,
     upsert_pgvector_rows,
 )
-from law_agent.review.retrieval.indexing import chunk_index_document
 
 DEFAULT_ES_INDEX = "lawagent_legalbench_mini"
 DEFAULT_PG_TABLE = "legalbench_chunks"
@@ -156,21 +156,15 @@ def index_chunks_with_progress(
         expected_dimension=config.embedding.dimension,
     )
     if len(vectors) != len(chunks):
-        raise RuntimeError(
-            f"embedded {len(vectors)} chunks for {len(chunks)} input chunks"
-        )
+        raise RuntimeError(f"embedded {len(vectors)} chunks for {len(chunks)} input chunks")
 
     es_client = None
     conn = None
     try:
         es_client = create_elasticsearch_client(config)
-        analyzers = ensure_elasticsearch_index(
-            es_client, config.elasticsearch.index_name
-        )
+        analyzers = ensure_elasticsearch_index(es_client, config.elasticsearch.index_name)
         conn = create_postgres_connection(config)
-        ensure_pgvector_schema(
-            conn, config.postgres.table_name, config.embedding.dimension
-        )
+        ensure_pgvector_schema(conn, config.postgres.table_name, config.embedding.dimension)
         rows = [
             {**chunk_index_document(chunk), "embedding": vectors[chunk.chunk_id]}
             for chunk in chunks
@@ -213,8 +207,7 @@ def _embed_chunks_with_progress(
         batch_vectors = embeddings.embed_texts(texts)
         if len(batch_vectors) != len(batch):
             raise RuntimeError(
-                f"embedding provider returned {len(batch_vectors)} vectors for "
-                f"{len(batch)} texts"
+                f"embedding provider returned {len(batch_vectors)} vectors for {len(batch)} texts"
             )
         for chunk, vector in zip(batch, batch_vectors, strict=True):
             if len(vector) != expected_dimension:
@@ -227,8 +220,7 @@ def _embed_chunks_with_progress(
         elapsed = time.perf_counter() - started
         rate = done / elapsed if elapsed > 0 else 0.0
         print(
-            f"embedded {done}/{total} chunks "
-            f"({rate:.1f} chunks/s, batch={len(batch)})",
+            f"embedded {done}/{total} chunks ({rate:.1f} chunks/s, batch={len(batch)})",
             flush=True,
         )
         if sleep_seconds > 0 and done < total:
@@ -296,7 +288,9 @@ def evaluate_legalbench(
     return summary
 
 
-def prewarm_vector_queries(vector_adapter: object, queries: Sequence[str], *, batch_size: int) -> None:
+def prewarm_vector_queries(
+    vector_adapter: object, queries: Sequence[str], *, batch_size: int
+) -> None:
     """Pre-embed LegalBench queries in batches with transient-read retries."""
 
     if batch_size < 1:
@@ -309,17 +303,14 @@ def prewarm_vector_queries(vector_adapter: object, queries: Sequence[str], *, ba
     total = len(unique_queries)
     for start in range(0, total, batch_size):
         batch = [
-            query
-            for query in unique_queries[start : start + batch_size]
-            if query not in cache
+            query for query in unique_queries[start : start + batch_size] if query not in cache
         ]
         if not batch:
             continue
         vectors = _embed_texts_with_retries(embed_texts, batch)
         if len(vectors) != len(batch):
             raise RuntimeError(
-                f"embedding provider returned {len(vectors)} vectors for "
-                f"{len(batch)} queries"
+                f"embedding provider returned {len(vectors)} vectors for {len(batch)} queries"
             )
         for query, vector in zip(batch, vectors, strict=True):
             cache[query] = vector
@@ -418,11 +409,7 @@ def _build_summary(
         else 0.0
         for result in case_results
     ]
-    bad_cases = [
-        result
-        for result in case_results
-        if not result.span_recall_at_10
-    ]
+    bad_cases = [result for result in case_results if not result.span_recall_at_10]
     bad_cases.sort(key=lambda result: (result.best_span_overlap, result.doc_hit_rank or 999))
     return LegalBenchEvalSummary(
         generated_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

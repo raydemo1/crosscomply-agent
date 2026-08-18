@@ -11,10 +11,10 @@ from __future__ import annotations
 from law_agent.config import load_service_config
 from law_agent.llm.embeddings import MockEmbeddings
 
-
 # ---------------------------------------------------------------------------
 # Always-on: embedding providers and service config (no services required)
 # ---------------------------------------------------------------------------
+
 
 def test_mock_embeddings_are_deterministic_and_dimensioned() -> None:
     embeddings = MockEmbeddings(dimension=8)

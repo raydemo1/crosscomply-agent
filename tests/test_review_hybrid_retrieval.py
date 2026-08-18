@@ -59,11 +59,20 @@ def stub_llm_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
 # Metadata boost tests
 # ---------------------------------------------------------------------------
 
+
 def test_primary_legal_basis_gets_boost() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="primary_legal_basis",
+        can_cite_clause=True,
+        source_url="u",
     )
     chunk = _make_chunk(chunk_id="c1")
     facts = ReviewFacts()
@@ -74,13 +83,19 @@ def test_primary_legal_basis_gets_boost() -> None:
 
 def test_cross_border_primary_legal_basis_gets_extra_soft_boost() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="primary_legal_basis",
+        can_cite_clause=True,
+        source_url="u",
     )
-    chunk = _make_chunk(chunk_id="c1").model_copy(
-        update={"topic_tags": ["数据出境", "数据合规"]}
-    )
+    chunk = _make_chunk(chunk_id="c1").model_copy(update={"topic_tags": ["数据出境", "数据合规"]})
     facts = ReviewFacts(cross_border_transfer=True)
 
     boost = compute_boost_for_hit(hit, chunk, facts)
@@ -91,9 +106,17 @@ def test_cross_border_primary_legal_basis_gets_extra_soft_boost() -> None:
 
 def test_interpretation_auxiliary_gets_demoted() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="interpretation_auxiliary", can_cite_clause=False, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="interpretation_auxiliary",
+        can_cite_clause=False,
+        source_url="u",
     )
     chunk = _make_chunk(chunk_id="c1", citation_role="interpretation_auxiliary")
     facts = ReviewFacts()
@@ -104,9 +127,17 @@ def test_interpretation_auxiliary_gets_demoted() -> None:
 
 def test_conditional_local_basis_boosted_when_region_matches() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="conditional_local_basis", can_cite_clause=False, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="conditional_local_basis",
+        can_cite_clause=False,
+        source_url="u",
     )
     chunk = _make_chunk(
         chunk_id="c1",
@@ -121,9 +152,17 @@ def test_conditional_local_basis_boosted_when_region_matches() -> None:
 
 def test_conditional_local_basis_boosted_when_ftz_region_matches_parent() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="conditional_local_basis", can_cite_clause=False, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="conditional_local_basis",
+        can_cite_clause=False,
+        source_url="u",
     )
     chunk = _make_chunk(
         chunk_id="c1",
@@ -138,9 +177,17 @@ def test_conditional_local_basis_boosted_when_ftz_region_matches_parent() -> Non
 
 def test_conditional_local_basis_downweighted_when_region_mismatch() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="conditional_local_basis", can_cite_clause=False, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="conditional_local_basis",
+        can_cite_clause=False,
+        source_url="u",
     )
     chunk = _make_chunk(
         chunk_id="c1",
@@ -155,9 +202,17 @@ def test_conditional_local_basis_downweighted_when_region_mismatch() -> None:
 
 def test_conditional_industry_basis_boosted_when_industry_matches() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="conditional_industry_basis", can_cite_clause=True, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="conditional_industry_basis",
+        can_cite_clause=True,
+        source_url="u",
     )
     chunk = _make_chunk(
         chunk_id="c1",
@@ -171,9 +226,17 @@ def test_conditional_industry_basis_boosted_when_industry_matches() -> None:
 
 def test_conditional_industry_basis_uses_industry_aliases() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="conditional_industry_basis", can_cite_clause=True, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="conditional_industry_basis",
+        can_cite_clause=True,
+        source_url="u",
     )
     chunk = _make_chunk(
         chunk_id="c1",
@@ -187,9 +250,17 @@ def test_conditional_industry_basis_uses_industry_aliases() -> None:
 
 def test_conditional_industry_basis_downweighted_when_industry_mismatch() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="conditional_industry_basis", can_cite_clause=True, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="conditional_industry_basis",
+        can_cite_clause=True,
+        source_url="u",
     )
     chunk = _make_chunk(
         chunk_id="c1",
@@ -214,9 +285,17 @@ def test_boosts_summary_records_active_rules() -> None:
 
 def test_apply_boosts_to_hits_multiplies_scores() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=2.0, rank=0, retriever="keyword",
-        citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=2.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="primary_legal_basis",
+        can_cite_clause=True,
+        source_url="u",
     )
     chunk = _make_chunk(chunk_id="c1")
     facts = ReviewFacts()
@@ -227,9 +306,17 @@ def test_apply_boosts_to_hits_multiplies_scores() -> None:
 
 def test_missing_information_query_hits_are_downweighted() -> None:
     hit = RetrievalHit(
-        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
-        score=2.0, rank=0, retriever="keyword",
-        citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="t",
+        text="x",
+        score=2.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="primary_legal_basis",
+        can_cite_clause=True,
+        source_url="u",
         matched_query_type="missing_information",
     )
     chunk = _make_chunk(chunk_id="c1")
@@ -247,13 +334,22 @@ def test_missing_information_query_hits_are_downweighted() -> None:
 # RRF fusion tests
 # ---------------------------------------------------------------------------
 
+
 def _make_hit(
     chunk_id: str, rank: int, score: float = 1.0, retriever: str = "keyword"
 ) -> RetrievalHit:
     return RetrievalHit(
-        chunk_id=chunk_id, doc_id="d", source_id="s", title="t", text="x",
-        score=score, rank=rank, retriever=retriever,
-        citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+        chunk_id=chunk_id,
+        doc_id="d",
+        source_id="s",
+        title="t",
+        text="x",
+        score=score,
+        rank=rank,
+        retriever=retriever,
+        citation_role="primary_legal_basis",
+        can_cite_clause=True,
+        source_url="u",
     )
 
 
@@ -304,10 +400,18 @@ def test_rrf_fuse_respects_top_k() -> None:
 def test_rrf_fuse_preserves_metadata_from_base_hit() -> None:
     keyword_hits = [
         RetrievalHit(
-            chunk_id="a", doc_id="d1", source_id="s1", title="法规标题",
-            text="法规正文", score=1.0, rank=0, retriever="keyword",
-            citation_role="primary_legal_basis", can_cite_clause=True,
-            source_url="http://example.com", matched_query_type="legal_issue",
+            chunk_id="a",
+            doc_id="d1",
+            source_id="s1",
+            title="法规标题",
+            text="法规正文",
+            score=1.0,
+            rank=0,
+            retriever="keyword",
+            citation_role="primary_legal_basis",
+            can_cite_clause=True,
+            source_url="http://example.com",
+            matched_query_type="legal_issue",
         )
     ]
     vector_hits: list[RetrievalHit] = []
@@ -359,6 +463,7 @@ def test_source_evidence_packets_keep_same_source_supporting_chunks() -> None:
 # Neighbor expansion tests
 # ---------------------------------------------------------------------------
 
+
 def test_expand_neighbors_pulls_prev_and_next() -> None:
     chunk_a = _make_chunk(chunk_id="a", chunk_index=0, next_chunk_id="b")
     chunk_b = _make_chunk(chunk_id="b", chunk_index=1, prev_chunk_id="a", next_chunk_id="c")
@@ -368,9 +473,17 @@ def test_expand_neighbors_pulls_prev_and_next() -> None:
 
     top_hits = [
         RetrievalHit(
-            chunk_id="b", doc_id="d", source_id="s", title="t", text="x",
-            score=1.0, rank=0, retriever="hybrid",
-            citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+            chunk_id="b",
+            doc_id="d",
+            source_id="s",
+            title="t",
+            text="x",
+            score=1.0,
+            rank=0,
+            retriever="hybrid",
+            citation_role="primary_legal_basis",
+            can_cite_clause=True,
+            source_url="u",
         )
     ]
 
@@ -390,14 +503,30 @@ def test_expand_neighbors_skips_chunks_already_in_top_hits() -> None:
     # Both a and b are in top hits, so no neighbors should be added
     top_hits = [
         RetrievalHit(
-            chunk_id="a", doc_id="d", source_id="s", title="t", text="x",
-            score=1.0, rank=0, retriever="hybrid",
-            citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+            chunk_id="a",
+            doc_id="d",
+            source_id="s",
+            title="t",
+            text="x",
+            score=1.0,
+            rank=0,
+            retriever="hybrid",
+            citation_role="primary_legal_basis",
+            can_cite_clause=True,
+            source_url="u",
         ),
         RetrievalHit(
-            chunk_id="b", doc_id="d", source_id="s", title="t", text="x",
-            score=0.8, rank=1, retriever="hybrid",
-            citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+            chunk_id="b",
+            doc_id="d",
+            source_id="s",
+            title="t",
+            text="x",
+            score=0.8,
+            rank=1,
+            retriever="hybrid",
+            citation_role="primary_legal_basis",
+            can_cite_clause=True,
+            source_url="u",
         ),
     ]
 
@@ -419,14 +548,30 @@ def test_expand_neighbors_deduplicates() -> None:
     # b's prev is a, c's next is d -> should get a and d
     top_hits = [
         RetrievalHit(
-            chunk_id="b", doc_id="d", source_id="s", title="t", text="x",
-            score=1.0, rank=0, retriever="hybrid",
-            citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+            chunk_id="b",
+            doc_id="d",
+            source_id="s",
+            title="t",
+            text="x",
+            score=1.0,
+            rank=0,
+            retriever="hybrid",
+            citation_role="primary_legal_basis",
+            can_cite_clause=True,
+            source_url="u",
         ),
         RetrievalHit(
-            chunk_id="c", doc_id="d", source_id="s", title="t", text="x",
-            score=0.8, rank=1, retriever="hybrid",
-            citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+            chunk_id="c",
+            doc_id="d",
+            source_id="s",
+            title="t",
+            text="x",
+            score=0.8,
+            rank=1,
+            retriever="hybrid",
+            citation_role="primary_legal_basis",
+            can_cite_clause=True,
+            source_url="u",
         ),
     ]
 
@@ -446,9 +591,17 @@ def test_neighbor_rank_convention() -> None:
 
     top_hits = [
         RetrievalHit(
-            chunk_id="b", doc_id="d", source_id="s", title="t", text="x",
-            score=1.0, rank=0, retriever="hybrid",
-            citation_role="primary_legal_basis", can_cite_clause=True, source_url="u",
+            chunk_id="b",
+            doc_id="d",
+            source_id="s",
+            title="t",
+            text="x",
+            score=1.0,
+            rank=0,
+            retriever="hybrid",
+            citation_role="primary_legal_basis",
+            can_cite_clause=True,
+            source_url="u",
         )
     ]
 
@@ -461,6 +614,7 @@ def test_neighbor_rank_convention() -> None:
 # Integration: run_hybrid_retrieval service
 # ---------------------------------------------------------------------------
 
+
 def _write_fixture_corpus(tmp_path: Path) -> Path:
     chunks_path = tmp_path / "chunks.jsonl"
     # Add prev/next links to fixture chunks for neighbor testing
@@ -469,7 +623,9 @@ def _write_fixture_corpus(tmp_path: Path) -> Path:
         linked = chunk.model_copy(
             update={
                 "prev_chunk_id": FIXTURE_CHUNKS[i - 1].chunk_id if i > 0 else None,
-                "next_chunk_id": FIXTURE_CHUNKS[i + 1].chunk_id if i < len(FIXTURE_CHUNKS) - 1 else None,
+                "next_chunk_id": FIXTURE_CHUNKS[i + 1].chunk_id
+                if i < len(FIXTURE_CHUNKS) - 1
+                else None,
             }
         )
         linked_chunks.append(linked)
@@ -748,9 +904,7 @@ def test_multi_agent_reuses_researcher_and_reviewer_after_critic(
 
     def fake_build_result(**kwargs):
         revision_inputs.append(kwargs.get("critique_instructions"))
-        reviewer_handoffs.append(
-            (kwargs.get("issue_plan"), kwargs.get("evidence_dossiers"))
-        )
+        reviewer_handoffs.append((kwargs.get("issue_plan"), kwargs.get("evidence_dossiers")))
         return ReviewResult(
             review_result_id="result_test",
             review_case_id="review_test",
@@ -816,10 +970,7 @@ def test_multi_agent_reuses_researcher_and_reviewer_after_critic(
     ]
     assert [step.status for step in reviewer_steps] == ["completed", "completed"]
     assert any(query.text == analyst_query.text for query in trace.queries)
-    assert any(
-        query.text == "个人信息保护法 第三十九条 境外提供"
-        for query in trace.queries
-    )
+    assert any(query.text == "个人信息保护法 第三十九条 境外提供" for query in trace.queries)
     assert [step.agent_name for step in trace.agent_steps] == [
         "case_analyst",
         "evidence_researcher",
@@ -926,9 +1077,7 @@ def test_multi_agent_reviewer_revision_failure_is_persisted_and_raised(
             output_dir=tmp_path,
             top_k=5,
             review_mode="multi_agent",
-            keyword_retriever=_RecordingSearchManyRetriever(
-                FIXTURE_CHUNKS, "elasticsearch"
-            ),
+            keyword_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "elasticsearch"),
             vector_retriever=_RecordingSearchManyRetriever(FIXTURE_CHUNKS, "pgvector"),
         )
 

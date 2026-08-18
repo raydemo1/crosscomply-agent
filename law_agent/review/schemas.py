@@ -12,9 +12,7 @@ from law_agent.data.schemas import Authority, ClauseCitationRole, DocType, LawSt
 ReviewInputMode = Literal["pasted_text", "uploaded_file"]
 ReviewMode = Literal["llm", "multi_agent"]
 RiskLevel = Literal["high", "medium", "low", "insufficient_evidence"]
-_SEMANTIC_NULL_STRINGS = frozenset(
-    {"null", "none", "unknown", "n/a", "未知", "未提供", "未说明"}
-)
+_SEMANTIC_NULL_STRINGS = frozenset({"null", "none", "unknown", "n/a", "未知", "未提供", "未说明"})
 RetrievalQueryType = Literal[
     "legal_issue",
     "material_fact",

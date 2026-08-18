@@ -1,3 +1,4 @@
+# ruff: noqa: S110
 """Real service backends for Elasticsearch + PostgreSQL/pgvector retrieval.
 
 This module turns the dependency-free adapters in ``adapters.py`` into fully
@@ -41,15 +42,14 @@ def _validate_pg_identifier(value: str, *, field_name: str = "identifier") -> st
     """Return a conservative PostgreSQL identifier or fail before SQL building."""
 
     if not _PG_IDENTIFIER_RE.fullmatch(value):
-        raise RuntimeError(
-            f"{field_name} must match {_PG_IDENTIFIER_RE.pattern}; got {value!r}"
-        )
+        raise RuntimeError(f"{field_name} must match {_PG_IDENTIFIER_RE.pattern}; got {value!r}")
     return value
 
 
 # ---------------------------------------------------------------------------
 # Elasticsearch
 # ---------------------------------------------------------------------------
+
 
 def create_elasticsearch_client(config: ServiceConfig) -> Any:
     """Create a real Elasticsearch client from ``ServiceConfig``."""
@@ -58,8 +58,7 @@ def create_elasticsearch_client(config: ServiceConfig) -> Any:
         from elasticsearch import Elasticsearch
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError(
-            "elasticsearch is not installed; install with "
-            "pip install 'lawagent[service]'"
+            "elasticsearch is not installed; install with pip install 'lawagent[service]'"
         ) from exc
 
     es_cfg = config.elasticsearch
@@ -124,7 +123,11 @@ def _es_mapping(*, analyzer: str, search_analyzer: str) -> dict[str, Any]:
             "applicable_region": keyword,
             "issuing_body": keyword,
             "legal_domain": keyword,
-            "applicable_subjects": {"type": "text", "analyzer": analyzer, "fields": {"raw": keyword}},
+            "applicable_subjects": {
+                "type": "text",
+                "analyzer": analyzer,
+                "fields": {"raw": keyword},
+            },
             "topic_tags": {"type": "text", "analyzer": analyzer, "fields": {"raw": keyword}},
             "char_count": {"type": "integer"},
             "generation_id": keyword,
@@ -210,8 +213,7 @@ def bulk_index_chunks(
         from elasticsearch import helpers
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError(
-            "elasticsearch is not installed; install with "
-            "pip install 'lawagent[service]'"
+            "elasticsearch is not installed; install with pip install 'lawagent[service]'"
         ) from exc
 
     actions = _bulk_actions(
@@ -229,6 +231,7 @@ def bulk_index_chunks(
 # ---------------------------------------------------------------------------
 # PostgreSQL / pgvector
 # ---------------------------------------------------------------------------
+
 
 def create_postgres_connection(config: ServiceConfig) -> Any:
     """Create a psycopg connection from ``ServiceConfig``."""
@@ -390,13 +393,36 @@ def upsert_pgvector_rows(
         return 0
     sql = _pgvector_upsert_sql(table_name)
     column_order = [
-        "index_id", "chunk_id", "doc_id", "source_id", "title", "text", "chunk_index",
-        "doc_type", "heading_path", "article_no", "paragraph_no", "item_no",
-        "citation_label", "citation_role", "can_cite_clause", "prev_chunk_id",
-        "next_chunk_id", "authority", "law_status", "publish_date",
-        "effective_date", "source_url", "applicable_region", "issuing_body",
-        "legal_domain", "applicable_subjects", "topic_tags", "char_count",
-        "generation_id", "retrieval_enabled",
+        "index_id",
+        "chunk_id",
+        "doc_id",
+        "source_id",
+        "title",
+        "text",
+        "chunk_index",
+        "doc_type",
+        "heading_path",
+        "article_no",
+        "paragraph_no",
+        "item_no",
+        "citation_label",
+        "citation_role",
+        "can_cite_clause",
+        "prev_chunk_id",
+        "next_chunk_id",
+        "authority",
+        "law_status",
+        "publish_date",
+        "effective_date",
+        "source_url",
+        "applicable_region",
+        "issuing_body",
+        "legal_domain",
+        "applicable_subjects",
+        "topic_tags",
+        "char_count",
+        "generation_id",
+        "retrieval_enabled",
     ]
     with conn.cursor() as cur:
         for row in rows:
@@ -404,8 +430,7 @@ def upsert_pgvector_rows(
             embedding = row.get("embedding")
             if embedding is None:
                 raise RuntimeError(
-                    f"chunk {row.get('chunk_id')} has no embedding; "
-                    "embed chunks before upserting"
+                    f"chunk {row.get('chunk_id')} has no embedding; embed chunks before upserting"
                 )
             values.append(_vector_literal(embedding))
             cur.execute(sql, values)
@@ -450,6 +475,7 @@ def make_pgvector_search_fn(
 # ---------------------------------------------------------------------------
 # Adapter assembly
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ServiceAdapters:
@@ -528,6 +554,7 @@ def build_service_adapters(
 # Corpus indexing convenience
 # ---------------------------------------------------------------------------
 
+
 def _embed_chunk_texts(
     chunks: Sequence[Chunk],
     embeddings: EmbeddingsProvider,
@@ -564,8 +591,7 @@ def _flush_embedding_batch(
     vectors = embeddings.embed_texts(texts)
     if len(vectors) != len(batch):
         raise RuntimeError(
-            f"embedding provider returned {len(vectors)} vectors for "
-            f"{len(batch)} texts"
+            f"embedding provider returned {len(vectors)} vectors for {len(batch)} texts"
         )
     for (chunk_id, _text), vector in zip(batch, vectors, strict=True):
         sink[chunk_id] = vector
@@ -591,9 +617,7 @@ def index_corpus_to_services(
 
     vectors = _embed_chunk_texts(chunks, embeddings)
     if len(vectors) != len(chunks):
-        raise RuntimeError(
-            f"embedded {len(vectors)} chunks for {len(chunks)} input chunks"
-        )
+        raise RuntimeError(f"embedded {len(vectors)} chunks for {len(chunks)} input chunks")
     for chunk in chunks:
         vector = vectors.get(chunk.chunk_id)
         if vector is None:
@@ -672,9 +696,7 @@ def healthcheck(config: ServiceConfig) -> dict[str, Any]:
         conn = create_postgres_connection(config)
         with conn.cursor() as cur:
             cur.execute("SELECT 1")
-            table_name = _validate_pg_identifier(
-                config.postgres.table_name, field_name="PG_TABLE"
-            )
+            table_name = _validate_pg_identifier(config.postgres.table_name, field_name="PG_TABLE")
             cur.execute(
                 "SELECT to_regclass(%s)",
                 (table_name,),

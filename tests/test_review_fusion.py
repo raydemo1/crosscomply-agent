@@ -154,8 +154,7 @@ def test_source_aware_fuse_prefers_specific_query_types_over_missing_information
 
 def test_rrf_fuse_many_includes_issue_specific_candidates() -> None:
     global_candidates = [
-        _make_hit(f"global_{index}", score=100 - index, rank=index)
-        for index in range(50)
+        _make_hit(f"global_{index}", score=100 - index, rank=index) for index in range(50)
     ]
     issue_candidate = _make_hit("issue_specific", score=1.0, rank=0)
 

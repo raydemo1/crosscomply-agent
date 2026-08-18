@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 
 from law_agent.review.cli import main
-from law_agent.review.io import read_review_cases, read_review_results, read_retrieval_traces
-from law_agent.review.schemas import ReviewFacts, RetrievalQuery
+from law_agent.review.io import read_retrieval_traces, read_review_cases, read_review_results
+from law_agent.review.schemas import RetrievalQuery, ReviewFacts
 from law_agent.review.service import create_review_case
 
 
@@ -41,11 +41,23 @@ def stub_llm_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
             ),
         ]
         if facts.industry:
-            queries.append(RetrievalQuery(query_id="q_industry", query_type="industry_condition", text=facts.industry))
+            queries.append(
+                RetrievalQuery(
+                    query_id="q_industry", query_type="industry_condition", text=facts.industry
+                )
+            )
         if facts.region:
-            queries.append(RetrievalQuery(query_id="q_region", query_type="region_condition", text=facts.region))
+            queries.append(
+                RetrievalQuery(
+                    query_id="q_region", query_type="region_condition", text=facts.region
+                )
+            )
         if len(queries) < 3:
-            queries.append(RetrievalQuery(query_id="q_missing", query_type="missing_information", text="补充事实"))
+            queries.append(
+                RetrievalQuery(
+                    query_id="q_missing", query_type="missing_information", text="补充事实"
+                )
+            )
         return queries
 
     monkeypatch.setattr("law_agent.review.service.extract_facts_with_deepseek", fake_facts)

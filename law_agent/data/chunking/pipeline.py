@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from law_agent.data.chunking.law import split_law_article_sections
-from law_agent.data.chunking.law import chunk_law_document
+from law_agent.data.chunking.law import chunk_law_document, split_law_article_sections
 from law_agent.data.chunking.structured import chunk_structured_document
 from law_agent.data.schemas import Chunk, Document
 
@@ -65,9 +64,13 @@ def _normalize_tiny_chunks(document: Document, chunks: list[Chunk]) -> list[Chun
                 update={
                     "chunk_id": f"{document.doc_id}:{new_index:04d}",
                     "chunk_index": new_index,
-                    "prev_chunk_id": f"{document.doc_id}:{new_index - 1:04d}" if new_index > 0 else None,
+                    "prev_chunk_id": f"{document.doc_id}:{new_index - 1:04d}"
+                    if new_index > 0
+                    else None,
                     "next_chunk_id": (
-                        f"{document.doc_id}:{new_index + 1:04d}" if new_index + 1 < len(merged) else None
+                        f"{document.doc_id}:{new_index + 1:04d}"
+                        if new_index + 1 < len(merged)
+                        else None
                     ),
                 }
             )

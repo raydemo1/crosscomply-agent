@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-_PUNCT_RE = re.compile(r"[，。；：、（）《》""''【】「」　]")
+_PUNCT_RE = re.compile(r"[，。；：、（）《》" "''【】「」　]")
 _STRIP_RE = re.compile(r"[^\u4e00-\u9fff\u3400-\u4dbfA-Za-z0-9\s]")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf]")
 _ASCII_RUN_RE = re.compile(r"[a-z0-9]+(?:[/-][a-z0-9]+)*")
@@ -34,8 +34,7 @@ def tokenize(text: str) -> list[str]:
         tokens.extend(cjk_chars)
     else:
         tokens.extend(
-            cjk_chars[index] + cjk_chars[index + 1]
-            for index in range(len(cjk_chars) - 1)
+            cjk_chars[index] + cjk_chars[index + 1] for index in range(len(cjk_chars) - 1)
         )
         tokens.append(cjk_chars[-1])
     return [token for token in tokens if token]

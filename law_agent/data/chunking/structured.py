@@ -26,9 +26,9 @@ DECORATIVE_TABLE_LINE_RE = re.compile(r"^\|[-:| \t]+\|?$")
 # Markdown table: a header row, a separator row (|---|---|), and 1+ data rows.
 # Each row starts and ends with `|`. The separator row only contains `-`, `:`, `|`, spaces.
 MARKDOWN_TABLE_RE = re.compile(
-    r"(?:^[ \t]*\|[^\n]*\|[ \t]*\n)"            # header row
-    r"(?:[ \t]*\|[-:| \t]+\|[ \t]*\n)"          # separator row
-    r"(?:[ \t]*\|[^\n]*\|[ \t]*\n?)+",          # 1+ data rows
+    r"(?:^[ \t]*\|[^\n]*\|[ \t]*\n)"  # header row
+    r"(?:[ \t]*\|[-:| \t]+\|[ \t]*\n)"  # separator row
+    r"(?:[ \t]*\|[^\n]*\|[ \t]*\n?)+",  # 1+ data rows
     re.MULTILINE,
 )
 MARKDOWN_TABLE_ROW_RE = re.compile(r"^[ \t]*\|[^\n]*\|[ \t]*$", re.MULTILINE)
@@ -104,7 +104,7 @@ def split_table_aware_units(text: str) -> list[StructuredUnit]:
     heading_path: list[str] = []
 
     for table_index, match in enumerate(TABLE_RE.finditer(text), start=1):
-        before = text[cursor:match.start()]
+        before = text[cursor : match.start()]
         before_units = split_heading_units(before)
         if before_units:
             units.extend(before_units)
@@ -130,6 +130,7 @@ def _markdown_tables_to_html(text: str) -> str:
     alignment is retained (important for "数据类别" columns that are sometimes
     blank in the source documents).
     """
+
     def replacer(match: re.Match[str]) -> str:
         table_text = match.group(0)
         rows: list[list[str]] = []
@@ -148,9 +149,7 @@ def _markdown_tables_to_html(text: str) -> str:
         html_rows = []
         for row in rows:
             tag = "th" if row is rows[0] else "td"
-            html_rows.append(
-                "<tr>" + "".join(f"<{tag}>{c}</{tag}>" for c in row) + "</tr>"
-            )
+            html_rows.append("<tr>" + "".join(f"<{tag}>{c}</{tag}>" for c in row) + "</tr>")
         return "<table>" + "".join(html_rows) + "</table>"
 
     return MARKDOWN_TABLE_RE.sub(replacer, text)
@@ -229,7 +228,9 @@ def split_heading_units(text: str) -> list[StructuredUnit]:
     def flush() -> None:
         nonlocal current_heading, current_path, current_lines
         if current_lines and not (
-            len(current_lines) == 1 and current_heading and current_lines[0].strip() == current_heading
+            len(current_lines) == 1
+            and current_heading
+            and current_lines[0].strip() == current_heading
         ):
             citation = " ".join(current_path) if current_path else None
             units.extend(_split_long_text("\n".join(current_lines), current_path, citation))
@@ -286,7 +287,10 @@ def _is_decorative_table_shard(text: str) -> bool:
 def _is_reference_unit(unit: StructuredUnit) -> bool:
     """References are useful source metadata, not legal-answer evidence."""
 
-    return any(re.sub(r"\s+", "", heading).lower() in {"参考文献", "references"} for heading in unit.heading_path)
+    return any(
+        re.sub(r"\s+", "", heading).lower() in {"参考文献", "references"}
+        for heading in unit.heading_path
+    )
 
 
 def _chunks_from_units(document: Document, units: list[StructuredUnit]) -> list[Chunk]:
@@ -294,8 +298,11 @@ def _chunks_from_units(document: Document, units: list[StructuredUnit]) -> list[
     citation_role = citation_role_for_source(document.source_id)
 
     kept_units = [
-        unit for unit in units
-        if unit.text.strip() and not _is_decorative_table_shard(unit.text) and not _is_reference_unit(unit)
+        unit
+        for unit in units
+        if unit.text.strip()
+        and not _is_decorative_table_shard(unit.text)
+        and not _is_reference_unit(unit)
     ]
     for index, unit in enumerate(kept_units):
         heading_path = [document.title, *unit.heading_path]
@@ -321,9 +328,7 @@ def _chunks_from_units(document: Document, units: list[StructuredUnit]) -> list[
                 can_cite_clause=False,
                 prev_chunk_id=f"{document.doc_id}:{index - 1:04d}" if index > 0 else None,
                 next_chunk_id=(
-                    f"{document.doc_id}:{index + 1:04d}"
-                    if index + 1 < len(kept_units)
-                    else None
+                    f"{document.doc_id}:{index + 1:04d}" if index + 1 < len(kept_units) else None
                 ),
                 authority=document.authority,
                 law_status=document.law_status,
@@ -437,7 +442,9 @@ def _strip_tags(value: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _split_long_text(text: str, heading_path: list[str], citation_label: str | None) -> list[StructuredUnit]:
+def _split_long_text(
+    text: str, heading_path: list[str], citation_label: str | None
+) -> list[StructuredUnit]:
     lines = _meaningful_lines(text)
     if not lines:
         return []

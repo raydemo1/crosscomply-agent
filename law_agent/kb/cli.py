@@ -33,7 +33,8 @@ def _infer_title(path: Path) -> str:
 
 def _provisional_source(path: Path) -> SourceRecord:
     return SourceRecord(
-        source_id="candidate_" + hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()[:12],
+        source_id="candidate_"
+        + hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()[:12],
         title=_infer_title(path),
         source_url=path.resolve().as_uri(),
         source_site="local_import",
@@ -121,7 +122,18 @@ def _print_sources(summaries: list[SourceSummary]) -> None:
     print(divider)
     for number, summary in enumerate(summaries, start=1):
         source = summary.source
-        print(row([number, source.title, source.doc_type, summary.raw_format, summary.chunk_count, summary.status]))
+        print(
+            row(
+                [
+                    number,
+                    source.title,
+                    source.doc_type,
+                    summary.raw_format,
+                    summary.chunk_count,
+                    summary.status,
+                ]
+            )
+        )
     print(divider)
 
 
@@ -195,11 +207,15 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
 
     if args.metadata:
         source = _load_metadata(Path(args.metadata))
-        if args.as_new and source.source_id in {item.source_id for item in local_kb._read_sources()}:
+        if args.as_new and source.source_id in {
+            item.source_id for item in local_kb._read_sources()
+        }:
             raise RuntimeError("--as-new 的 metadata source_id 必须是尚未使用的新 ID")
     else:
         if args.non_interactive:
-            raise RuntimeError("--non-interactive requires --metadata when the file is not a duplicate")
+            raise RuntimeError(
+                "--non-interactive requires --metadata when the file is not a duplicate"
+            )
         candidates = local_kb.title_candidates(document.title)
         if candidates and not args.as_new:
             print("发现可能需要更正的来源：")
@@ -261,14 +277,18 @@ def build_parser() -> argparse.ArgumentParser:
     ingest = subparsers.add_parser("ingest", help="导入文件并自动判断重复、新增或更正")
     ingest.add_argument("file")
     ingest.add_argument("--corpus", default=str(DEFAULT_CORPUS))
-    ingest.add_argument("--parser", choices=["auto", "plain", "docx", "docling", "mineru"], default="auto")
+    ingest.add_argument(
+        "--parser", choices=["auto", "plain", "docx", "docling", "mineru"], default="auto"
+    )
     ingest.add_argument(
         "--as-new",
         action="store_true",
         help="即使正文或标题相同也作为独立来源入库，并跳过标题匹配更新确认",
     )
     ingest.add_argument("--metadata", help="批处理用 SourceRecord JSON；指定后不进入交互")
-    ingest.add_argument("--non-interactive", action="store_true", help="拒绝交互；新增或更新时必须提供 --metadata")
+    ingest.add_argument(
+        "--non-interactive", action="store_true", help="拒绝交互；新增或更新时必须提供 --metadata"
+    )
     ingest.set_defaults(func=_cmd_ingest)
 
     list_sources = subparsers.add_parser("list", help="列出当前知识库资料")

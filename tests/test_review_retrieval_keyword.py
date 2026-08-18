@@ -11,10 +11,10 @@ from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
 from law_agent.review.retrieval.text import normalize_text, tokenize
 from law_agent.review.schemas import RetrievalHit
 
-
 # ---------------------------------------------------------------------------
 # Chunk fixtures mirroring real corpus structure
 # ---------------------------------------------------------------------------
+
 
 def _make_chunk(
     *,
@@ -120,6 +120,7 @@ FIXTURE_CHUNKS: list[Chunk] = [
 # Tokenization tests
 # ---------------------------------------------------------------------------
 
+
 def test_normalize_text_converts_chinese_punctuation() -> None:
     assert normalize_text("数据出境，安全评估。") == "数据出境 安全评估"
 
@@ -146,23 +147,48 @@ def test_tokenize_single_cjk_char_kept_as_unigram() -> None:
 # Merge hits tests
 # ---------------------------------------------------------------------------
 
+
 def test_merge_hits_deduplicates_by_chunk_id() -> None:
     hit_a = RetrievalHit(
-        chunk_id="chunk_1", doc_id="d1", source_id="s1", title="t1", text="x",
-        score=2.0, rank=0, retriever="keyword",
-        citation_role="primary_legal_basis", can_cite_clause=True, source_url="u1",
+        chunk_id="chunk_1",
+        doc_id="d1",
+        source_id="s1",
+        title="t1",
+        text="x",
+        score=2.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="primary_legal_basis",
+        can_cite_clause=True,
+        source_url="u1",
         matched_query_type="legal_issue",
     )
     hit_b = RetrievalHit(
-        chunk_id="chunk_1", doc_id="d1", source_id="s1", title="t1", text="x",
-        score=3.0, rank=1, retriever="keyword",
-        citation_role="primary_legal_basis", can_cite_clause=True, source_url="u1",
+        chunk_id="chunk_1",
+        doc_id="d1",
+        source_id="s1",
+        title="t1",
+        text="x",
+        score=3.0,
+        rank=1,
+        retriever="keyword",
+        citation_role="primary_legal_basis",
+        can_cite_clause=True,
+        source_url="u1",
         matched_query_type="material_fact",
     )
     hit_c = RetrievalHit(
-        chunk_id="chunk_2", doc_id="d2", source_id="s2", title="t2", text="y",
-        score=1.0, rank=0, retriever="keyword",
-        citation_role="primary_legal_basis", can_cite_clause=True, source_url="u2",
+        chunk_id="chunk_2",
+        doc_id="d2",
+        source_id="s2",
+        title="t2",
+        text="y",
+        score=1.0,
+        rank=0,
+        retriever="keyword",
+        citation_role="primary_legal_basis",
+        can_cite_clause=True,
+        source_url="u2",
         matched_query_type="legal_issue",
     )
 
@@ -178,12 +204,21 @@ def test_merge_hits_deduplicates_by_chunk_id() -> None:
 
 def test_merge_hits_respects_top_k() -> None:
     hits = [
-        [RetrievalHit(
-            chunk_id=f"chunk_{i}", doc_id=f"d{i}", source_id=f"s{i}",
-            title=f"t{i}", text="x", score=float(i), rank=0,
-            retriever="keyword", citation_role="primary_legal_basis",
-            can_cite_clause=True, source_url=f"u{i}",
-        )]
+        [
+            RetrievalHit(
+                chunk_id=f"chunk_{i}",
+                doc_id=f"d{i}",
+                source_id=f"s{i}",
+                title=f"t{i}",
+                text="x",
+                score=float(i),
+                rank=0,
+                retriever="keyword",
+                citation_role="primary_legal_basis",
+                can_cite_clause=True,
+                source_url=f"u{i}",
+            )
+        ]
         for i in range(5)
     ]
     merged = merge_hits_by_chunk_id(hits, top_k=3)
@@ -193,6 +228,7 @@ def test_merge_hits_respects_top_k() -> None:
 # ---------------------------------------------------------------------------
 # Corpus loader tests
 # ---------------------------------------------------------------------------
+
 
 def _write_chunks_jsonl(path: Path, chunks: list[Chunk]) -> None:
     write_jsonl(path, chunks)

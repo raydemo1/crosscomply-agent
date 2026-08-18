@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from law_agent.config import RerankConfig
-from law_agent.review.retrieval.rerank import RerankScore, Reranker, rerank_hits
-from law_agent.review.schemas import ReviewFacts, RetrievalHit, RetrievalQuery
+from law_agent.review.retrieval.rerank import Reranker, RerankScore, rerank_hits
+from law_agent.review.schemas import RetrievalHit, RetrievalQuery, ReviewFacts
 
 
 class _FakeReranker(Reranker):

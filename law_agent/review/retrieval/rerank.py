@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
 import json
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 from law_agent.config import RerankConfig, RerankMode, require_rerank_config
-from law_agent.review.schemas import ReviewFacts, RetrievalHit, RetrievalQuery
+from law_agent.review.schemas import RetrievalHit, RetrievalQuery, ReviewFacts
 
 MAX_RERANK_QUERY_CHARS = 1200
 MAX_RERANK_DOCUMENT_CHARS = 1400
@@ -163,8 +163,7 @@ def rerank_hits(
     )
     ordered_hits.extend(original_hits[window:])
     selected = [
-        hit.model_copy(update={"rank": rank})
-        for rank, hit in enumerate(ordered_hits[:top_k])
+        hit.model_copy(update={"rank": rank}) for rank, hit in enumerate(ordered_hits[:top_k])
     ]
     info = {
         "mode": rerank_config.mode,
@@ -199,8 +198,7 @@ def _apply_rerank_scores(
     scored_hits: list[tuple[float, int, RetrievalHit]] = []
     for index, hit in enumerate(hits):
         final_score = (
-            blend_weight * rerank_norm[index]
-            + (1.0 - blend_weight) * original_norm[index]
+            blend_weight * rerank_norm[index] + (1.0 - blend_weight) * original_norm[index]
         )
         scored_hits.append(
             (

@@ -24,21 +24,19 @@ from __future__ import annotations
 
 import json
 
-from law_agent.data.schemas import Chunk
-from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.config import require_llm_config
-from law_agent.data.schemas import StrictModel
+from law_agent.data.schemas import Chunk, StrictModel
+from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.llm import StructuredLLMNode
-from law_agent.review.query_planner import LLMRetrievalQuery
-from law_agent.review.query_planner import _QueryIdGenerator
+from law_agent.review.query_planner import LLMRetrievalQuery, _QueryIdGenerator
 from law_agent.review.schemas import (
     EvidenceIssue,
     EvidenceIssueType,
-    EvidenceStatus,
     EvidenceSelfCheck,
-    ReviewFacts,
+    EvidenceStatus,
     RetrievalHit,
     RetrievalQuery,
+    ReviewFacts,
     SecondRetrievalPlan,
 )
 
@@ -91,13 +89,11 @@ class LLMEvidenceSelfCheck(StrictModel):
 # Self-check logic
 # ---------------------------------------------------------------------------
 
+
 def _check_primary_legal_basis(hits: list[RetrievalHit]) -> EvidenceIssue | None:
     """Check if any primary_legal_basis evidence is present."""
 
-    has_primary = any(
-        h.citation_role == "primary_legal_basis" and h.can_cite_clause
-        for h in hits
-    )
+    has_primary = any(h.citation_role == "primary_legal_basis" and h.can_cite_clause for h in hits)
     if not has_primary:
         return EvidenceIssue(
             issue_type="no_primary_legal_basis",
@@ -121,8 +117,7 @@ def _check_region_match(
     for hit in hits:
         chunk = chunks_by_id.get(hit.chunk_id)
         if chunk and (
-            chunk.applicable_region == region_code
-            or chunk.applicable_region == facts.region
+            chunk.applicable_region == region_code or chunk.applicable_region == facts.region
         ):
             has_local = True
             break
@@ -169,7 +164,11 @@ def _check_only_auxiliary_evidence(hits: list[RetrievalHit]) -> EvidenceIssue | 
     if not hits:
         return None
 
-    non_auxiliary_roles = {"primary_legal_basis", "conditional_local_basis", "conditional_industry_basis"}
+    non_auxiliary_roles = {
+        "primary_legal_basis",
+        "conditional_local_basis",
+        "conditional_industry_basis",
+    }
     has_non_auxiliary = any(h.citation_role in non_auxiliary_roles for h in hits)
 
     if not has_non_auxiliary:
@@ -212,9 +211,7 @@ def _check_critical_facts_missing(facts: ReviewFacts) -> EvidenceIssue | None:
     evidence sufficiency issue.
     """
 
-    critical_missing = [
-        f for f in facts.missing_information if f in _CRITICAL_MISSING_FACTS
-    ]
+    critical_missing = [f for f in facts.missing_information if f in _CRITICAL_MISSING_FACTS]
     if critical_missing:
         return EvidenceIssue(
             issue_type="critical_facts_missing",
@@ -264,13 +261,9 @@ def run_self_check(
         )
 
     # Separate evidence-quality issues from input-quality issues
-    has_critical_missing = any(
-        i.issue_type == "critical_facts_missing" for i in issues
-    )
+    has_critical_missing = any(i.issue_type == "critical_facts_missing" for i in issues)
     # Evidence-quality issues are potentially fixable by second retrieval
-    evidence_issues = [
-        i for i in issues if i.issue_type != "critical_facts_missing"
-    ]
+    evidence_issues = [i for i in issues if i.issue_type != "critical_facts_missing"]
 
     # If the ONLY issue is critical_facts_missing (evidence is actually good),
     # do NOT abstain — mark as sufficient with a warning. Missing facts is an
@@ -294,9 +287,7 @@ def run_self_check(
     )
 
 
-def needs_llm_self_check(
-    *, question: str, material_text: str, facts: ReviewFacts
-) -> bool:
+def needs_llm_self_check(*, question: str, material_text: str, facts: ReviewFacts) -> bool:
     """Return whether scope or sparse-fact ambiguity needs semantic judgment."""
 
     text = f"{question}\n{material_text}".lower()
@@ -323,6 +314,7 @@ def needs_llm_self_check(
 # ---------------------------------------------------------------------------
 # DeepSeek evidence checker
 # ---------------------------------------------------------------------------
+
 
 def build_evidence_check_messages(
     hits: list[RetrievalHit],
@@ -404,8 +396,7 @@ def build_evidence_check_messages(
         ChatMessage(
             role="system",
             content=(
-                "你是法律合规审查证据自检助手。"
-                "只输出 json，不输出解释、markdown 或自然语言。"
+                "你是法律合规审查证据自检助手。只输出 json，不输出解释、markdown 或自然语言。"
             ),
         ),
         ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
@@ -516,10 +507,7 @@ def validate_llm_self_check(
     }
     validated_issues: list[EvidenceIssue] = []
     for issue in llm_check.issues:
-        if (
-            issue.issue_type in objective_types
-            and issue.issue_type not in rule_confirmed
-        ):
+        if issue.issue_type in objective_types and issue.issue_type not in rule_confirmed:
             continue  # LLM hallucinated — rule says this issue does not exist
         validated_issues.append(issue)
 
@@ -544,6 +532,7 @@ def validate_llm_self_check(
 # Second retrieval plan
 # ---------------------------------------------------------------------------
 
+
 def build_second_retrieval_plan(
     issues: list[EvidenceIssue],
     facts: ReviewFacts,
@@ -556,7 +545,10 @@ def build_second_retrieval_plan(
 
     # Add legal terminology expansions based on issue types
     expansion_terms: list[str] = []
-    if "no_primary_legal_basis" in triggered_reasons or "only_auxiliary_evidence" in triggered_reasons:
+    if (
+        "no_primary_legal_basis" in triggered_reasons
+        or "only_auxiliary_evidence" in triggered_reasons
+    ):
         expansion_terms.extend(["数据出境", "安全评估", "个人信息"])
     if "region_mismatch" in triggered_reasons and facts.region:
         expansion_terms.extend(["负面清单", "自贸区"])
@@ -611,6 +603,7 @@ def build_second_retrieval_plan(
 # Post-second-retrieval evaluation
 # ---------------------------------------------------------------------------
 
+
 def evaluate_after_second_retrieval(
     hits: list[RetrievalHit],
     facts: ReviewFacts,
@@ -650,7 +643,8 @@ def evaluate_after_second_retrieval(
     # coverage limits, not evidence sufficiency failures.
     has_citable_basis = any(
         h.can_cite_clause
-        and h.citation_role in (
+        and h.citation_role
+        in (
             "primary_legal_basis",
             "conditional_local_basis",
             "conditional_industry_basis",

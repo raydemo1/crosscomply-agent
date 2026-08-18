@@ -4,10 +4,10 @@ from law_agent.review.evalset.metrics import aggregate_metrics, evaluate_case
 from law_agent.review.evalset.schemas import EvalScenario
 from law_agent.review.schemas import RetrievalHit
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _hit(
     source_id: str = "s1",
@@ -17,9 +17,17 @@ def _hit(
     rank: int = 0,
 ) -> RetrievalHit:
     return RetrievalHit(
-        chunk_id=chunk_id, doc_id="d1", source_id=source_id, title="t", text="x",
-        score=1.0, rank=rank, retriever="hybrid",
-        citation_role=citation_role, can_cite_clause=can_cite, source_url="u",
+        chunk_id=chunk_id,
+        doc_id="d1",
+        source_id=source_id,
+        title="t",
+        text="x",
+        score=1.0,
+        rank=rank,
+        retriever="hybrid",
+        citation_role=citation_role,
+        can_cite_clause=can_cite,
+        source_url="u",
     )
 
 
@@ -53,8 +61,7 @@ def test_aggregate_retrieval_uses_only_source_bearing_cases() -> None:
 
 def test_candidate_recall_uses_strict_unique_top_50_chunks() -> None:
     candidates = [
-        _hit(source_id="noise", chunk_id=f"noise-{index}", rank=index)
-        for index in range(50)
+        _hit(source_id="noise", chunk_id=f"noise-{index}", rank=index) for index in range(50)
     ] + [_hit(source_id="s1", chunk_id="expected-too-late", rank=50)]
     result = evaluate_case(
         _scenario(["s1"]),

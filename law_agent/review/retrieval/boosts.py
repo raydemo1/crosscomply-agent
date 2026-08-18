@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from law_agent.data.citation_policy import IMPLEMENTATION_REFERENCE_SOURCE_IDS
 from law_agent.data.schemas import Chunk
-from law_agent.review.schemas import ReviewFacts, RetrievalHit, RetrievalQueryType
+from law_agent.review.schemas import RetrievalHit, RetrievalQueryType, ReviewFacts
 
 # ---------------------------------------------------------------------------
 # Region mapping: Chinese name -> ISO 3166-2 subdivision code
@@ -102,8 +102,7 @@ def compute_boost_for_hit(
     # governance only (can_cite_clause=False). Their *retrievability* must stay
     # identical to primary law — so they are treated as primary-like for boosts.
     is_primary_like = (
-        role == "primary_legal_basis"
-        or hit.source_id in IMPLEMENTATION_REFERENCE_SOURCE_IDS
+        role == "primary_legal_basis" or hit.source_id in IMPLEMENTATION_REFERENCE_SOURCE_IDS
     )
     if is_primary_like:
         boost *= PRIMARY_LEGAL_BASIS_BOOST
@@ -199,9 +198,7 @@ def apply_boosts_to_hits(
             boosted.append(hit)
             continue
         factor = compute_boost_for_hit(hit, chunk, facts, query_type)
-        boosted.append(
-            hit.model_copy(update={"score": round(hit.score * factor, 6)})
-        )
+        boosted.append(hit.model_copy(update={"score": round(hit.score * factor, 6)}))
     return boosted
 
 
@@ -236,9 +233,7 @@ def _region_matches(chunk_region: str, fact_region: str) -> bool:
         return True
     # LLMs often emit free-trade-zone scoped codes such as CN-CQ-FTZ,
     # while corpus metadata stores the province/municipality code.
-    return fact_value.startswith(f"{chunk_value}-") or chunk_value.startswith(
-        f"{fact_value}-"
-    )
+    return fact_value.startswith(f"{chunk_value}-") or chunk_value.startswith(f"{fact_value}-")
 
 
 def _industry_matches(chunk: Chunk, industry: str) -> bool:

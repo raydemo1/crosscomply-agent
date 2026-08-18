@@ -47,22 +47,30 @@ def expand_neighbors(
             continue
 
         # Expand prev
-        if chunk.prev_chunk_id and chunk.prev_chunk_id in chunks_by_id:
-            if chunk.prev_chunk_id not in top_chunk_ids and chunk.prev_chunk_id not in seen:
-                seen.add(chunk.prev_chunk_id)
-                prev_chunk = chunks_by_id[chunk.prev_chunk_id]
-                neighbors.append(_make_neighbor_hit(prev_chunk, PREV_RANK, hit.matched_query_type))
-                if len(neighbors) >= max_neighbors:
-                    break
+        if (
+            chunk.prev_chunk_id
+            and chunk.prev_chunk_id in chunks_by_id
+            and chunk.prev_chunk_id not in top_chunk_ids
+            and chunk.prev_chunk_id not in seen
+        ):
+            seen.add(chunk.prev_chunk_id)
+            prev_chunk = chunks_by_id[chunk.prev_chunk_id]
+            neighbors.append(_make_neighbor_hit(prev_chunk, PREV_RANK, hit.matched_query_type))
+            if len(neighbors) >= max_neighbors:
+                break
 
         # Expand next
-        if chunk.next_chunk_id and chunk.next_chunk_id in chunks_by_id:
-            if chunk.next_chunk_id not in top_chunk_ids and chunk.next_chunk_id not in seen:
-                seen.add(chunk.next_chunk_id)
-                next_chunk = chunks_by_id[chunk.next_chunk_id]
-                neighbors.append(_make_neighbor_hit(next_chunk, NEXT_RANK, hit.matched_query_type))
-                if len(neighbors) >= max_neighbors:
-                    break
+        if (
+            chunk.next_chunk_id
+            and chunk.next_chunk_id in chunks_by_id
+            and chunk.next_chunk_id not in top_chunk_ids
+            and chunk.next_chunk_id not in seen
+        ):
+            seen.add(chunk.next_chunk_id)
+            next_chunk = chunks_by_id[chunk.next_chunk_id]
+            neighbors.append(_make_neighbor_hit(next_chunk, NEXT_RANK, hit.matched_query_type))
+            if len(neighbors) >= max_neighbors:
+                break
 
     return neighbors
 

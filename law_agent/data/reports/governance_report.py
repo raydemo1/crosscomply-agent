@@ -71,7 +71,9 @@ def build_data_governance_report(
     lines.append(f"- 款级 chunk 数：{paragraph_chunks}")
     lines.append(f"- 项级独立 chunk 数：{item_chunks}")
     lines.append(f"- 含表格 chunk 数：{table_chunks}")
-    lines.extend(f"- heading_path 深度 {key}: {value}" for key, value in sorted(heading_depths.items()))
+    lines.extend(
+        f"- heading_path 深度 {key}: {value}" for key, value in sorted(heading_depths.items())
+    )
     lines.extend(["", "## 清洗规则命中", ""])
     if rule_hits:
         lines.extend(f"- {key}: {value}" for key, value in sorted(rule_hits.items()))

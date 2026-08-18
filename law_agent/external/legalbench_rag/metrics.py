@@ -65,7 +65,9 @@ def _first_span_hit_rank(
 ) -> int | None:
     for index, hit in enumerate(hits, start=1):
         meta = chunk_meta_by_id[hit.chunk_id]
-        if any(_span_overlap(meta, snippet.file_path, snippet.span) > 0 for snippet in query.snippets):
+        if any(
+            _span_overlap(meta, snippet.file_path, snippet.span) > 0 for snippet in query.snippets
+        ):
             return index
     return None
 
@@ -96,9 +98,7 @@ def _precision_at_k(
         for snippet in query.snippets:
             if meta.file_path != snippet.file_path:
                 continue
-            relevant_retrieved += _intersection_len(
-                (meta.char_start, meta.char_end), snippet.span
-            )
+            relevant_retrieved += _intersection_len((meta.char_start, meta.char_end), snippet.span)
     if total_retrieved == 0:
         return 0.0
     return relevant_retrieved / total_retrieved

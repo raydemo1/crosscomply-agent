@@ -20,6 +20,7 @@ from law_agent.review.schemas import (
 
 QueryPlanner = Callable[[str, ReviewFacts, str | None], list[RetrievalQuery]]
 
+
 class _QueryIdGenerator:
     """Deterministic counter-based query ID generator."""
 
@@ -462,9 +463,7 @@ def plan_issue_queries_with_deepseek(
     def validate_issue_scope(plan: LLMQueryPlan) -> LLMQueryPlan:
         allowed_types = set(issue.query_types)
         invalid = [
-            query.query_type
-            for query in plan.queries
-            if query.query_type not in allowed_types
+            query.query_type for query in plan.queries if query.query_type not in allowed_types
         ]
         if invalid:
             raise ValueError(

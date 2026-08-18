@@ -1,4 +1,5 @@
 """Rebuild ES + pgvector index from chunks.jsonl, with progress output."""
+
 from __future__ import annotations
 
 import sys
@@ -20,13 +21,13 @@ def main() -> int:
 
     from law_agent.llm.embeddings import build_embeddings_provider
     from law_agent.review.retrieval.service_backends import (
+        _embed_chunk_texts,
         bulk_index_chunks,
         create_elasticsearch_client,
         create_postgres_connection,
         ensure_elasticsearch_index,
         ensure_pgvector_schema,
         upsert_pgvector_rows,
-        _embed_chunk_texts,
     )
 
     print("Building embeddings provider...", flush=True)
@@ -50,13 +51,15 @@ def main() -> int:
     print("Connecting to pgvector...", flush=True)
     conn = create_postgres_connection(config)
     ensure_pgvector_schema(conn, config.postgres.table_name, config.embedding.dimension)
-    print(f"  PG table: {config.postgres.table_name}, dim: {config.embedding.dimension}", flush=True)
+    print(
+        f"  PG table: {config.postgres.table_name}, dim: {config.embedding.dimension}", flush=True
+    )
 
     print("Upserting pgvector rows...", flush=True)
     from law_agent.review.retrieval.indexing import chunk_index_document
+
     rows = [
-        {**chunk_index_document(chunk), "embedding": vectors[chunk.chunk_id]}
-        for chunk in chunks
+        {**chunk_index_document(chunk), "embedding": vectors[chunk.chunk_id]} for chunk in chunks
     ]
     pg_count = upsert_pgvector_rows(conn, config.postgres.table_name, rows)
     print(f"  pgvector rows: {pg_count}", flush=True)

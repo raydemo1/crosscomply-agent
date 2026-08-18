@@ -113,7 +113,9 @@ class OpenAICompatibleClient:
             raise RuntimeError("LLM strict tool response did not include tool_calls")
         arguments = tool_calls[0].get("function", {}).get("arguments")
         if not isinstance(arguments, str):
-            raise RuntimeError("LLM strict tool response did not include JSON arguments")
+            raise RuntimeError(  # noqa: TRY004
+                "LLM strict tool response did not include JSON arguments"
+            )
         try:
             return _loads_tool_arguments(arguments)
         except json.JSONDecodeError as exc:

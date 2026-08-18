@@ -131,9 +131,7 @@ class StructuredLLMNode(Generic[ModelT]):
                 parsed = self.output_model.model_validate(raw, strict=True)
             except ValidationError as exc:
                 last_reason = "pydantic_validation_failed"
-                last_message = (
-                    f"{self.node_name} output did not match the required JSON schema"
-                )
+                last_message = f"{self.node_name} output did not match the required JSON schema"
                 messages = [
                     *messages,
                     ChatMessage(

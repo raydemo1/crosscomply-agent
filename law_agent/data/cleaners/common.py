@@ -153,7 +153,11 @@ def _remove_contents_table(lines: list[str]) -> tuple[list[str], int]:
                 continue
             break
 
-        if catalog_headings and cursor < len(lines) and lines[cursor].strip() == catalog_headings[0]:
+        if (
+            catalog_headings
+            and cursor < len(lines)
+            and lines[cursor].strip() == catalog_headings[0]
+        ):
             removed += cursor - index
             index = cursor
             continue
@@ -244,7 +248,9 @@ def _remove_mechanical_lines(lines: list[str]) -> tuple[list[str], dict[str, int
         if SOURCE_AVAILABILITY_RE.match(stripped):
             hits["source_availability_lines"] += 1
             continue
-        if STANDALONE_SOURCE_URL_RE.match(stripped_plain) or MARKDOWN_SOURCE_LINK_RE.match(stripped):
+        if STANDALONE_SOURCE_URL_RE.match(stripped_plain) or MARKDOWN_SOURCE_LINK_RE.match(
+            stripped
+        ):
             hits["standalone_source_url_lines"] += 1
             continue
         if STANDALONE_YEAR_MONTH_RE.match(stripped):
@@ -370,4 +376,6 @@ def clean_text(text: str, *, title: str | None = None) -> CleanResult:
     text, count = _apply_counted_sub(BLANK_LINES_RE, "\n\n", text.strip())
     hits["blank_lines"] = count
 
-    return CleanResult(text=text + "\n", rule_hits={key: value for key, value in hits.items() if value})
+    return CleanResult(
+        text=text + "\n", rule_hits={key: value for key, value in hits.items() if value}
+    )

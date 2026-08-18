@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from law_agent.config import require_llm_config
 from law_agent.data.schemas import (
@@ -58,7 +58,7 @@ def _llm_enrichment(document: CleanedDocument) -> Enrichment:
         enrichment_meta=EnrichmentMeta(
             model=config.model,
             prompt_version="0.1.0",
-            generated_at=datetime.now(timezone.utc).isoformat(),
+            generated_at=datetime.now(UTC).isoformat(),
         ),
     )
 

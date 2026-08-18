@@ -10,13 +10,19 @@ from law_agent.data.schemas import Chunk, Document
 
 # PDF parsers such as Docling can serialize article headings as ``## 第一条``.
 # Treat the Markdown prefix as presentation, not part of the legal identity.
-ARTICLE_RE = re.compile(r"(?:#{1,6}\s+)?(?:\*\*)?(第[一二三四五六七八九十百千万零〇\d]+条)(?:\*\*)?")
-ARTICLE_HEADING_RE = re.compile(r"^(?:#{1,6}\s+)?(?:\*\*)?(第[一二三四五六七八九十百千万零〇\d]+条)(?:\*\*)?")
+ARTICLE_RE = re.compile(
+    r"(?:#{1,6}\s+)?(?:\*\*)?(第[一二三四五六七八九十百千万零〇\d]+条)(?:\*\*)?"
+)
+ARTICLE_HEADING_RE = re.compile(
+    r"^(?:#{1,6}\s+)?(?:\*\*)?(第[一二三四五六七八九十百千万零〇\d]+条)(?:\*\*)?"
+)
 BOOK_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+编")
 PART_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+篇")
 CHAPTER_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+章")
 SECTION_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+节")
-ITEM_RE = re.compile(r"^(（[一二三四五六七八九十百千万零〇\d]+）|\([一二三四五六七八九十百千万零〇\d]+\))")
+ITEM_RE = re.compile(
+    r"^(（[一二三四五六七八九十百千万零〇\d]+）|\([一二三四五六七八九十百千万零〇\d]+\))"
+)
 ARTICLE_HARD_LIMIT_CHARS = 650
 MIN_PARAGRAPH_CHUNK_CHARS = 120
 
@@ -223,11 +229,7 @@ def chunk_law_document(document: Document) -> list[Chunk]:
             LawArticle(article_no=article_no, text=article_text, heading_path=[article_no])
             for article_no, article_text in split_law_articles(document.text)
         ]
-    units = [
-        unit
-        for article in article_sections
-        for unit in split_law_units(article)
-    ]
+    units = [unit for article in article_sections for unit in split_law_units(article)]
     chunks: list[Chunk] = []
     citation_role = citation_role_for_source(document.source_id)
     for index, unit in enumerate(units):
@@ -254,9 +256,7 @@ def chunk_law_document(document: Document) -> list[Chunk]:
                 can_cite_clause=can_cite_clause_chunk(document.source_id, article_no),
                 prev_chunk_id=f"{document.doc_id}:{index - 1:04d}" if index > 0 else None,
                 next_chunk_id=(
-                    f"{document.doc_id}:{index + 1:04d}"
-                    if index + 1 < len(units)
-                    else None
+                    f"{document.doc_id}:{index + 1:04d}" if index + 1 < len(units) else None
                 ),
                 authority=document.authority,
                 law_status=document.law_status,

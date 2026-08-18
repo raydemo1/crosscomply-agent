@@ -24,4 +24,3 @@ def test_source_record_parses_manifest_strings() -> None:
 
     assert record.topic_tags == ["个人信息保护", "数据合规"]
     assert record.include_in_mvp is True
-

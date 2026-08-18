@@ -20,16 +20,14 @@ class KeywordSearchAdapter(Protocol):
         *,
         top_k: int = 10,
         query_type: RetrievalQueryType | None = None,
-    ) -> list[RetrievalHit]:
-        ...
+    ) -> list[RetrievalHit]: ...
 
     def search_many(
         self,
         queries: Sequence[tuple[str, RetrievalQueryType | None]],
         *,
         top_k: int = 10,
-    ) -> list[list[RetrievalHit]]:
-        ...
+    ) -> list[list[RetrievalHit]]: ...
 
 
 class VectorSearchAdapter(Protocol):
@@ -38,8 +36,7 @@ class VectorSearchAdapter(Protocol):
         queries: Sequence[tuple[str, RetrievalQueryType | None]],
         *,
         top_k: int = 10,
-    ) -> list[list[RetrievalHit]]:
-        ...
+    ) -> list[list[RetrievalHit]]: ...
 
 
 class ElasticsearchKeywordAdapter:
@@ -60,19 +57,21 @@ class ElasticsearchKeywordAdapter:
             "size": top_k,
             "query": {
                 "bool": {
-                    "must": [{
-                        "multi_match": {
-                            "query": query,
-                            "fields": [
-                                "title^2",
-                                "citation_label^2",
-                                "heading_path",
-                                "text",
-                                "topic_tags",
-                                "applicable_subjects",
-                            ],
+                    "must": [
+                        {
+                            "multi_match": {
+                                "query": query,
+                                "fields": [
+                                    "title^2",
+                                    "citation_label^2",
+                                    "heading_path",
+                                    "text",
+                                    "topic_tags",
+                                    "applicable_subjects",
+                                ],
+                            }
                         }
-                    }],
+                    ],
                     # Legacy records without this field remain searchable;
                     # staged generations explicitly set it to false.
                     "must_not": [{"term": {"retrieval_enabled": False}}],
@@ -99,8 +98,7 @@ class ElasticsearchKeywordAdapter:
         top_k: int = 10,
     ) -> list[list[RetrievalHit]]:
         return [
-            self.search(query, top_k=top_k, query_type=query_type)
-            for query, query_type in queries
+            self.search(query, top_k=top_k, query_type=query_type) for query, query_type in queries
         ]
 
 

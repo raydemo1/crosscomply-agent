@@ -158,12 +158,8 @@ def test_issue_aware_selection_reserves_evidence_for_each_issue() -> None:
             RetrievalQuery(query_id="q_2", query_type="region_condition", text="地区条件"),
         ]
     )
-    legal = _hit().model_copy(
-        update={"chunk_id": "legal", "source_id": "law", "score": 0.8}
-    )
-    region = _hit().model_copy(
-        update={"chunk_id": "region", "source_id": "region", "score": 0.7}
-    )
+    legal = _hit().model_copy(update={"chunk_id": "legal", "source_id": "law", "score": 0.8})
+    region = _hit().model_copy(update={"chunk_id": "region", "source_id": "region", "score": 0.7})
     global_best = _hit().model_copy(
         update={"chunk_id": "global", "source_id": "guide", "score": 0.9}
     )
@@ -209,9 +205,7 @@ def test_issue_aware_selection_does_not_force_weak_medium_hit_into_top_five() ->
 
 
 def test_single_issue_selection_preserves_global_ranking() -> None:
-    plan = _issue_plan(
-        [RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心条件")]
-    )
+    plan = _issue_plan([RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心条件")])
     global_hits = [
         _hit().model_copy(
             update={
@@ -254,9 +248,7 @@ def test_issue_aware_selection_never_repeats_a_source() -> None:
         _hit().model_copy(update={"chunk_id": "a1", "source_id": "source_a"}),
         _hit().model_copy(update={"chunk_id": "b1", "source_id": "source_b"}),
     ]
-    duplicate = _hit().model_copy(
-        update={"chunk_id": "a2", "source_id": "source_a", "score": 1.0}
-    )
+    duplicate = _hit().model_copy(update={"chunk_id": "a2", "source_id": "source_a", "score": 1.0})
 
     selected = select_issue_aware_hits(
         plan,
@@ -269,9 +261,7 @@ def test_issue_aware_selection_never_repeats_a_source() -> None:
 
 
 def test_dossiers_can_use_issue_specific_candidate_pools() -> None:
-    plan = _issue_plan(
-        [RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心条件")]
-    )
+    plan = _issue_plan([RetrievalQuery(query_id="q_1", query_type="legal_issue", text="核心条件")])
     precise = _hit().model_copy(update={"chunk_id": "precise", "source_id": "law"})
 
     dossiers = build_evidence_dossiers(
@@ -357,9 +347,7 @@ def test_revision_gate_rejects_irrelevant_citable_hit_for_external_law() -> None
 
 
 def test_critic_only_runs_for_risk_or_evidence_signals() -> None:
-    plan = _issue_plan(
-        [RetrievalQuery(query_id="q_1", query_type="legal_issue", text="一般问题")]
-    )
+    plan = _issue_plan([RetrievalQuery(query_id="q_1", query_type="legal_issue", text="一般问题")])
     low_result = ReviewResult(
         review_result_id="r",
         review_case_id="c",
@@ -398,7 +386,7 @@ def test_critic_only_runs_for_risk_or_evidence_signals() -> None:
 def test_evidence_critic_returns_strict_revision_decision() -> None:
     client = FakeClient(
         {
-                "decision": "research_required",
+            "decision": "research_required",
             "unsupported_claims": ["缺少依据的结论"],
             "missing_issue_ids": ["issue_1"],
             "revision_instructions": ["删除无依据结论并覆盖 issue_1"],

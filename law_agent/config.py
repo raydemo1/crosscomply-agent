@@ -47,13 +47,9 @@ def load_llm_config() -> LLMConfig:
     load_env_file()
     base_url = os.getenv("OPENAI_COMPATIBLE_BASE_URL", "https://api.deepseek.com").rstrip("/")
     timeout = os.getenv("OPENAI_COMPATIBLE_TIMEOUT_SECONDS", "60")
-    structured_output_mode = os.getenv(
-        "OPENAI_COMPATIBLE_STRUCTURED_OUTPUT", "strict_tool"
-    )
+    structured_output_mode = os.getenv("OPENAI_COMPATIBLE_STRUCTURED_OUTPUT", "strict_tool")
     if structured_output_mode not in ("json_object", "strict_tool"):
-        raise RuntimeError(
-            "OPENAI_COMPATIBLE_STRUCTURED_OUTPUT must be json_object or strict_tool"
-        )
+        raise RuntimeError("OPENAI_COMPATIBLE_STRUCTURED_OUTPUT must be json_object or strict_tool")
     reasoning_effort = os.getenv("OPENAI_COMPATIBLE_REASONING_EFFORT", "none")
     if reasoning_effort not in ("none", "low", "medium", "high", "max"):
         raise RuntimeError(
@@ -61,9 +57,7 @@ def load_llm_config() -> LLMConfig:
         )
     return LLMConfig(
         base_url=base_url,
-        beta_base_url=os.getenv(
-            "OPENAI_COMPATIBLE_BETA_BASE_URL", f"{base_url}/beta"
-        ).rstrip("/"),
+        beta_base_url=os.getenv("OPENAI_COMPATIBLE_BETA_BASE_URL", f"{base_url}/beta").rstrip("/"),
         api_key=os.getenv("OPENAI_COMPATIBLE_API_KEY") or None,
         model=os.getenv("OPENAI_COMPATIBLE_MODEL", "deepseek-v4-flash"),
         timeout_seconds=int(timeout),
@@ -216,9 +210,7 @@ def load_rerank_config(*, mode: RerankMode | None = None) -> RerankConfig:
                 _default_rerank_model(embedding.model),
             ),
         ),
-        timeout_seconds=int(
-            os.getenv("RERANK_TIMEOUT_SECONDS", str(embedding.timeout_seconds))
-        ),
+        timeout_seconds=int(os.getenv("RERANK_TIMEOUT_SECONDS", str(embedding.timeout_seconds))),
         window=int(os.getenv("RERANK_WINDOW", str(DEFAULT_RERANK_WINDOW))),
         blend_weight=float(os.getenv("RERANK_BLEND_WEIGHT", "0.4")),
     )
@@ -233,9 +225,7 @@ def require_rerank_config(*, mode: RerankMode | None = None) -> RerankConfig:
     if not config.base_url:
         raise RuntimeError("RERANK_BASE_URL is required when rerank is enabled")
     if not config.api_key:
-        raise RuntimeError(
-            "RERANK_API_KEY or EMBEDDING_API_KEY is required when rerank is enabled"
-        )
+        raise RuntimeError("RERANK_API_KEY or EMBEDDING_API_KEY is required when rerank is enabled")
     if not config.model:
         raise RuntimeError("RERANK_MODEL is required when rerank is enabled")
     if config.window < 1:
@@ -256,9 +246,7 @@ def load_service_config() -> ServiceConfig:
         verify_certs=os.getenv("ES_VERIFY_CERTS", "true").lower() == "true",
     )
     pg = PostgresConfig(
-        dsn=os.getenv(
-            "PG_DSN", "postgresql://lawagent:lawagent@localhost:5432/lawagent"
-        ),
+        dsn=os.getenv("PG_DSN", "postgresql://lawagent:lawagent@localhost:5432/lawagent"),
         table_name=os.getenv("PG_TABLE", "lawagent_chunks"),
     )
     return ServiceConfig(

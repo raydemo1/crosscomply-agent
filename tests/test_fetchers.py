@@ -6,7 +6,10 @@ from law_agent.data.schemas import SourceRecord
 
 
 def test_strip_html_removes_flk_highlight_tags() -> None:
-    assert strip_html("中华人民共和国<em class='highlight'>个人信息保护</em>法") == "中华人民共和国个人信息保护法"
+    assert (
+        strip_html("中华人民共和国<em class='highlight'>个人信息保护</em>法")
+        == "中华人民共和国个人信息保护法"
+    )
 
 
 def test_flk_issuing_body_is_not_guessed_when_missing() -> None:

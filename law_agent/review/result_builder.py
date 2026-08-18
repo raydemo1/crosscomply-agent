@@ -115,14 +115,11 @@ def validate_grounded_claims(
     cleaned: list[GroundedClaim] = []
     for claim in claims:
         valid_ids = [
-            cid for cid in claim.supporting_chunk_ids
-            if cid in allowed_ids and cid in citable_ids
+            cid for cid in claim.supporting_chunk_ids if cid in allowed_ids and cid in citable_ids
         ]
         if not valid_ids:
             continue
-        cleaned.append(
-            claim.model_copy(update={"supporting_chunk_ids": valid_ids})
-        )
+        cleaned.append(claim.model_copy(update={"supporting_chunk_ids": valid_ids}))
     return cleaned
 
 
@@ -187,7 +184,7 @@ def _sanitize_markdown_text(text: str) -> str:
     bold_count = text.count("**")
     if bold_count % 2 == 1:
         idx = text.rfind("**")
-        text = text[:idx] + text[idx + 2:]
+        text = text[:idx] + text[idx + 2 :]
 
     # Un-bold overly long spans (whole-sentence bolding).
     def _unbold_long(match: re.Match[str]) -> str:
@@ -210,9 +207,7 @@ _CIRCLED_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳
 
 # Match legal article references like "《个人信息保护法》第三十九条" or
 # standalone "第三十九条" / "第七条" in the report text.
-_ARTICLE_REF_RE = re.compile(
-    r"(?:《[^》]+》)?\s*第[一二三四五六七八九十百零〇\d]+条"
-)
+_ARTICLE_REF_RE = re.compile(r"(?:《[^》]+》)?\s*第[一二三四五六七八九十百零〇\d]+条")
 
 
 def _extract_cite_phrase(claim_text: str) -> str | None:
@@ -273,7 +268,7 @@ def inject_citation_markers(
     pending_markers: list[tuple[str, str | None]] = []
 
     text = report
-    for index, claim in enumerate(claims[:len(_CIRCLED_NUMBERS)]):
+    for index, claim in enumerate(claims[: len(_CIRCLED_NUMBERS)]):
         marker = _CIRCLED_NUMBERS[index]
         citation_ref = next(
             (
@@ -312,12 +307,14 @@ def inject_citation_markers(
                 if law_name:
                     # Match optional 《》, law name, optional 》, optional **,
                     # then article number, then optional **.
-                    pattern = re.compile(
-                        re.escape(article_part)
-                    )
+                    pattern = re.compile(re.escape(article_part))
                     # First try the full precise form with law name.
                     full_pattern = re.compile(
-                        r"《?" + re.escape(law_name) + r"》?\s*\**\s*" + re.escape(article_part) + r"\**"
+                        r"《?"
+                        + re.escape(law_name)
+                        + r"》?\s*\**\s*"
+                        + re.escape(article_part)
+                        + r"\**"
                     )
                     patterns_to_try = [full_pattern, pattern]
                 else:
@@ -338,11 +335,7 @@ def inject_citation_markers(
                     while insert_at < len(text) and text[insert_at] == "*":
                         insert_at += 1
                     if insert_at not in marked_positions:
-                        ref_attr = (
-                            f' data-citation-ref="{citation_ref}"'
-                            if citation_ref
-                            else ""
-                        )
+                        ref_attr = f' data-citation-ref="{citation_ref}"' if citation_ref else ""
                         sup = (
                             f'<sup class="cite-marker" id="cite-marker-{index}"'
                             f' data-claim-index="{index}"{ref_attr}>{marker}</sup>'
@@ -394,20 +387,12 @@ def _sanitize_draft_markdown(draft: LLMReviewResultDraft) -> LLMReviewResultDraf
         update={
             "conclusion": _sanitize_markdown_text(draft.conclusion),
             "claims": [
-                claim.model_copy(
-                    update={"text": _sanitize_markdown_text(claim.text)}
-                )
+                claim.model_copy(update={"text": _sanitize_markdown_text(claim.text)})
                 for claim in draft.claims
             ],
-            "recommended_actions": [
-                _sanitize_markdown_text(a) for a in draft.recommended_actions
-            ],
-            "risk_boundaries": [
-                _sanitize_markdown_text(b) for b in draft.risk_boundaries
-            ],
-            "missing_information": [
-                _sanitize_markdown_text(m) for m in draft.missing_information
-            ],
+            "recommended_actions": [_sanitize_markdown_text(a) for a in draft.recommended_actions],
+            "risk_boundaries": [_sanitize_markdown_text(b) for b in draft.risk_boundaries],
+            "missing_information": [_sanitize_markdown_text(m) for m in draft.missing_information],
         }
     )
 
@@ -454,6 +439,7 @@ def _extract_markdown_section_items(report: str, section_titles: set[str]) -> li
 # ---------------------------------------------------------------------------
 # DeepSeek structured result generation
 # ---------------------------------------------------------------------------
+
 
 def build_result_generation_messages(
     *,
@@ -579,8 +565,7 @@ def build_result_generation_messages(
         ]
         extra_markdown_instructions = []
         system_content = (
-            "你是企业数据合规审查结果生成助手。"
-            "只输出 json，不输出解释、markdown 或自然语言。"
+            "你是企业数据合规审查结果生成助手。只输出 json，不输出解释、markdown 或自然语言。"
         )
         # plain path keeps the HEAD instruction 5 verbatim.
         missing_facts_instruction = (
@@ -592,12 +577,8 @@ def build_result_generation_messages(
             "source_id": packet.source_id,
             "title": packet.title,
             "representative_chunk": _llm_evidence_hit(packet.representative_chunk),
-            "supporting_chunks": [
-                _llm_evidence_hit(hit) for hit in packet.supporting_chunks[:2]
-            ],
-            "neighbor_chunks": [
-                _llm_evidence_hit(hit) for hit in packet.neighbor_chunks[:2]
-            ],
+            "supporting_chunks": [_llm_evidence_hit(hit) for hit in packet.supporting_chunks[:2]],
+            "neighbor_chunks": [_llm_evidence_hit(hit) for hit in packet.neighbor_chunks[:2]],
         }
         for packet in (source_evidence_packets or [])
     ]
@@ -614,9 +595,7 @@ def build_result_generation_messages(
     # each chunk's can_cite_clause flag — it just copies ids from this list.
     # Non-citable chunks (guides/templates/Q&A/local lists) remain in
     # evidence_packets as background context but cannot be cited.
-    citable_chunk_ids = sorted(
-        {hit.chunk_id for hit in evidence_hits if hit.can_cite_clause}
-    )
+    citable_chunk_ids = sorted({hit.chunk_id for hit in evidence_hits if hit.can_cite_clause})
     payload = {
         "question": question,
         "material_excerpt": (material_text or "")[:3000],
@@ -624,9 +603,7 @@ def build_result_generation_messages(
         "citable_chunk_ids": citable_chunk_ids,
         "review_facts": facts.model_dump(),
         "evidence_self_check": self_check.model_dump(),
-        "retrieval_queries": [
-            query.model_dump() for query in (retrieval_queries or [])
-        ],
+        "retrieval_queries": [query.model_dump() for query in (retrieval_queries or [])],
         "second_retrieval": second_retrieval or {},
         "evidence_packets": evidence_packets,
         "corpus_scope": {
@@ -775,6 +752,7 @@ def build_review_result_with_deepseek(
         structured_output_mode=node_mode,
     )
     try:
+
         def validate_draft_grounding(draft_to_validate):
             validated_claims = validate_grounded_claims(
                 draft_to_validate.claims,
@@ -887,9 +865,7 @@ def build_revision_patch_messages(
 
     citable_hits = [hit for hit in evidence_hits if hit.can_cite_clause]
     payload = {
-        "original_result": result.model_dump(
-            exclude={"citations", "applicable_evidence"}
-        ),
+        "original_result": result.model_dump(exclude={"citations", "applicable_evidence"}),
         "revision_actions": [action.model_dump() for action in actions],
         "allowed_citable_evidence": [
             {
@@ -991,41 +967,32 @@ def _validate_revision_patch(
         and result.risk_level != "insufficient_evidence"
         and "abstain" not in operations
     ):
-        raise ValueError(
-            "only an explicit abstain action may transition to insufficient_evidence"
-        )
+        raise ValueError("only an explicit abstain action may transition to insufficient_evidence")
 
     allowed_ids = {hit.chunk_id for hit in evidence_hits if hit.can_cite_clause}
-    proposed_claims = [
-        replacement.claim for replacement in patch.replace_claims
-    ] + list(patch.add_claims)
+    proposed_claims = [replacement.claim for replacement in patch.replace_claims] + list(
+        patch.add_claims
+    )
     for claim in proposed_claims:
-        if not claim.supporting_chunk_ids or not set(
-            claim.supporting_chunk_ids
-        ).issubset(allowed_ids):
+        if not claim.supporting_chunk_ids or not set(claim.supporting_chunk_ids).issubset(
+            allowed_ids
+        ):
             raise ValueError("revision patch claim uses unavailable legal evidence")
 
     requires_conclusion_change = any(
-        action.operation
-        in {"remove_claim", "narrow_claim", "mark_evidence_gap", "abstain"}
+        action.operation in {"remove_claim", "narrow_claim", "mark_evidence_gap", "abstain"}
         for action in actions
     )
     if requires_conclusion_change and not patch.conclusion:
         raise ValueError("revision actions require a narrowed conclusion")
 
-    proposed_text = "\n".join(
-        [patch.conclusion or ""] + [claim.text for claim in proposed_claims]
-    )
+    proposed_text = "\n".join([patch.conclusion or ""] + [claim.text for claim in proposed_claims])
     original_titles = set(re.findall(r"《([^》]+)》", result.conclusion))
     allowed_text = "\n".join(hit.title + "\n" + hit.text for hit in evidence_hits)
     introduced_titles = set(re.findall(r"《([^》]+)》", proposed_text)) - original_titles
-    unavailable_titles = [
-        title for title in introduced_titles if title not in allowed_text
-    ]
+    unavailable_titles = [title for title in introduced_titles if title not in allowed_text]
     if unavailable_titles:
-        raise ValueError(
-            f"revision introduced unavailable legal sources: {unavailable_titles}"
-        )
+        raise ValueError(f"revision introduced unavailable legal sources: {unavailable_titles}")
     return patch
 
 
@@ -1105,8 +1072,7 @@ def apply_review_result_patch(
     """Apply a validated patch while preserving every untouched result field."""
 
     replacements = {
-        replacement.claim_index: replacement.claim
-        for replacement in patch.replace_claims
+        replacement.claim_index: replacement.claim for replacement in patch.replace_claims
     }
     removed = set(patch.remove_claim_indexes)
     claims = [
@@ -1128,9 +1094,7 @@ def apply_review_result_patch(
     def merged(existing: list[str], additions: list[str]) -> list[str]:
         return list(dict.fromkeys([*existing, *additions]))
 
-    citation_groups, _violations = group_citations(
-        evidence_hits, result.review_facts, chunks_by_id
-    )
+    citation_groups, _violations = group_citations(evidence_hits, result.review_facts, chunks_by_id)
     claims = attach_citation_refs(claims, citation_groups)
     citation_ref_by_chunk_id = {
         citation.chunk_id: citation.citation_ref
@@ -1144,9 +1108,7 @@ def apply_review_result_patch(
         evidence_hits,
         citation_ref_by_chunk_id,
     )
-    citations = [
-        citation for group in citation_groups for citation in group.citations
-    ]
+    citations = [citation for group in citation_groups for citation in group.citations]
 
     return result.model_copy(
         update={
@@ -1159,9 +1121,7 @@ def apply_review_result_patch(
             "recommended_actions": merged(
                 result.recommended_actions, patch.append_recommended_actions
             ),
-            "risk_boundaries": merged(
-                result.risk_boundaries, patch.append_risk_boundaries
-            ),
+            "risk_boundaries": merged(result.risk_boundaries, patch.append_risk_boundaries),
             "citations": citations,
             "applicable_evidence": citation_groups,
         }
@@ -1216,12 +1176,8 @@ def revise_review_result_with_deepseek(
         return result.model_copy(
             update={
                 "claims": [],
-                "missing_information": list(
-                    dict.fromkeys([*result.missing_information, *gaps])
-                ),
-                "risk_boundaries": list(
-                    dict.fromkeys([*result.risk_boundaries, *gaps])
-                ),
+                "missing_information": list(dict.fromkeys([*result.missing_information, *gaps])),
+                "risk_boundaries": list(dict.fromkeys([*result.risk_boundaries, *gaps])),
             }
         )
 
@@ -1233,8 +1189,7 @@ def revise_review_result_with_deepseek(
     language_actions = [
         action
         for action in actions
-        if action.operation
-        in {"narrow_claim", "add_supported_claim", "change_risk_boundary"}
+        if action.operation in {"narrow_claim", "add_supported_claim", "change_risk_boundary"}
     ]
     if deterministic_actions:
         remove_indexes = sorted(

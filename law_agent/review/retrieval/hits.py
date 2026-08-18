@@ -20,7 +20,4 @@ def merge_hits_by_chunk_id(
                 best[hit.chunk_id] = hit
 
     merged = sorted(best.values(), key=lambda hit: (-hit.score, hit.chunk_id))
-    return [
-        hit.model_copy(update={"rank": rank})
-        for rank, hit in enumerate(merged[:top_k])
-    ]
+    return [hit.model_copy(update={"rank": rank}) for rank, hit in enumerate(merged[:top_k])]

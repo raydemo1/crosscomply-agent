@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
-import re
 import json
 import os
+import re
 import shutil
 import subprocess
 import zipfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html import escape, unescape
-from io import BytesIO
 from importlib.metadata import PackageNotFoundError, version
+from io import BytesIO
 from pathlib import Path
 from typing import Literal
 from xml.etree import ElementTree as ET
 
 from law_agent.data.schemas import Document, IngestMeta, SourceRecord
-
 
 HTML_TAG_RE = re.compile(r"<[^>]+>")
 SCRIPT_STYLE_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
@@ -86,7 +85,9 @@ def _read_text(
             raise RuntimeError(f"docx parser cannot parse {suffix or 'extensionless'} files")
         return ParsedText(_docx_to_text(path.read_bytes()), "docx_parser", "0.1.0")
     if parser == "plain":
-        return ParsedText(path.read_text(encoding="utf-8", errors="replace"), "plain_text_parser", "0.1.0")
+        return ParsedText(
+            path.read_text(encoding="utf-8", errors="replace"), "plain_text_parser", "0.1.0"
+        )
     if suffix == ".json":
         data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
         return ParsedText(_json_to_text(data), "json_parser", "0.1.0")
@@ -97,7 +98,9 @@ def _read_text(
         return ParsedText(_html_to_text(raw), "html_text_parser", "0.1.0")
     if suffix in DOC_PARSER_FORMATS:
         return _docling_to_text(path)
-    return ParsedText(path.read_text(encoding="utf-8", errors="replace"), "plain_text_parser", "0.1.0")
+    return ParsedText(
+        path.read_text(encoding="utf-8", errors="replace"), "plain_text_parser", "0.1.0"
+    )
 
 
 def _docling_to_text(path: Path) -> ParsedText:
@@ -163,9 +166,7 @@ def _wrap_image_as_pdf(path: Path) -> tuple[Path, Path]:
     try:
         from PIL import Image
     except ImportError as exc:
-        raise RuntimeError(
-            "Parsing image files requires Pillow: `pip install Pillow`."
-        ) from exc
+        raise RuntimeError("Parsing image files requires Pillow: `pip install Pillow`.") from exc
     try:
         img = Image.open(path)
         # Flatten onto white so transparency/alpha does not break PDF export.
@@ -223,7 +224,7 @@ def _json_env_dict(name: str) -> dict[str, object]:
         return {}
     value = json.loads(raw)
     if not isinstance(value, dict):
-        raise RuntimeError(f"{name} must be a JSON object")
+        raise RuntimeError(f"{name} must be a JSON object")  # noqa: TRY004
     return value
 
 
@@ -262,7 +263,12 @@ def _docling_rapidocr_available(artifacts_path: Path) -> bool:
         rapidocr_root / "onnx" / "PP-OCRv4" / "det" / "ch_PP-OCRv4_det_mobile.onnx",
         rapidocr_root / "onnx" / "PP-OCRv4" / "cls" / "ch_ppocr_mobile_v2.0_cls_mobile.onnx",
         rapidocr_root / "onnx" / "PP-OCRv4" / "rec" / "ch_PP-OCRv4_rec_mobile.onnx",
-        rapidocr_root / "paddle" / "PP-OCRv4" / "rec" / "ch_PP-OCRv4_rec_mobile" / "ppocr_keys_v1.txt",
+        rapidocr_root
+        / "paddle"
+        / "PP-OCRv4"
+        / "rec"
+        / "ch_PP-OCRv4_rec_mobile"
+        / "ppocr_keys_v1.txt",
         rapidocr_root / "resources" / "fonts" / "FZYTK.TTF",
     ]
     return all(path.exists() for path in required)
@@ -291,7 +297,9 @@ def _docling_tableformer_available(artifacts_path: Path | None) -> bool:
         return True
 
     # Legacy: docling-project--docling-models (old TableFormer fast variant)
-    legacy_root = artifacts_path / "docling-project--docling-models" / "model_artifacts" / "tableformer"
+    legacy_root = (
+        artifacts_path / "docling-project--docling-models" / "model_artifacts" / "tableformer"
+    )
     legacy_required = [
         legacy_root / "fast" / "tm_config.json",
         legacy_root / "fast" / "tableformer_fast.safetensors",
@@ -311,6 +319,7 @@ def _mineru_to_text(path: Path, parser_output_dir: Path | None = None) -> Parsed
     command = [executable, "-p", str(path), "-o", str(output_dir), "-b", "pipeline"]
     completed = subprocess.run(
         command,
+        check=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -343,9 +352,11 @@ def _find_mineru_markdown(output_dir: Path, source_stem: str) -> Path | None:
 def _docx_to_text(content: bytes) -> str:
     if content[:4] != b"PK\x03\x04":
         raise RuntimeError("DOCX parser received a non-zip document")
-    with zipfile.ZipFile(BytesIO(content), "r") as archive:
-        with archive.open("word/document.xml") as document_xml:
-            tree = ET.parse(document_xml)
+    with (
+        zipfile.ZipFile(BytesIO(content), "r") as archive,
+        archive.open("word/document.xml") as document_xml,
+    ):
+        tree = ET.parse(document_xml)
     body = tree.find(f"{WORD_NS}body")
     if body is None:
         return ""
@@ -372,7 +383,8 @@ def _table_to_html(table: ET.Element) -> str:
         cells: list[str] = []
         for cell in row.findall(f"{WORD_NS}tc"):
             cell_text = "\n".join(
-                text for paragraph in cell.findall(f"{WORD_NS}p")
+                text
+                for paragraph in cell.findall(f"{WORD_NS}p")
                 if (text := _paragraph_text(paragraph))
             )
             cells.append(f"<td>{escape(cell_text)}</td>")
@@ -450,7 +462,7 @@ def normalize_source(
         raw_format=raw_path.suffix.lstrip(".") or record.file_format,
         text=text,
         ingest_meta=IngestMeta(
-            fetched_at=datetime.now(timezone.utc).isoformat(),
+            fetched_at=datetime.now(UTC).isoformat(),
             parser=parsed.parser,
             parser_version=parsed.parser_version,
         ),

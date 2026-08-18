@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
-from law_agent.data.cleaners.common import clean_text
 from law_agent.config import require_llm_config
 from law_agent.data.chunking.pipeline import chunk_document
+from law_agent.data.cleaners.common import clean_text
 from law_agent.data.cleaners.pipeline import clean_document
 from law_agent.data.enrichment.generator import enrich_document
-from law_agent.data.evalset.build_cases import RetrievalCase, build_retrieval_cases
+from law_agent.data.evalset.build_cases import build_retrieval_cases
 from law_agent.data.fetchers.generic import fetch_source
 from law_agent.data.io import read_jsonl, read_manifest, write_json, write_jsonl, write_manifest
 from law_agent.data.manifest import build_manifest
@@ -179,7 +180,9 @@ def _cmd_pipeline_run(args: argparse.Namespace) -> int:
     _cmd_clean(argparse.Namespace(input=str(normalized_path), output=str(cleaned_path)))
     _cmd_enrich(argparse.Namespace(input=str(cleaned_path), output=str(enriched_path)))
     _cmd_chunk(argparse.Namespace(input=str(enriched_path), output=str(chunks_path)))
-    _cmd_evalset_build(argparse.Namespace(chunks=str(chunks_path), output=str(eval_path), limit=args.limit))
+    _cmd_evalset_build(
+        argparse.Namespace(chunks=str(chunks_path), output=str(eval_path), limit=args.limit)
+    )
     _cmd_report_governance(
         argparse.Namespace(
             normalized=str(normalized_path),

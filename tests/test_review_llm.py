@@ -491,9 +491,7 @@ def test_result_generation_drops_ungrounded_material_fact_claim() -> None:
         max_retries=0,
     )
 
-    assert [claim.text for claim in result.claims] == [
-        "数据出境义务需要依据适用法规核验。"
-    ]
+    assert [claim.text for claim in result.claims] == ["数据出境义务需要依据适用法规核验。"]
     assert result.claims[0].supporting_chunk_ids == ["c1"]
 
 
@@ -620,21 +618,23 @@ def test_non_abstain_revision_cannot_transition_to_insufficient_evidence() -> No
         review_facts=ReviewFacts(),
         claims=[{"text": "存在有界风险。", "supporting_chunk_ids": ["c1"]}],
     )
-    client = FakeClient(outputs=[{
-        "risk_level": "insufficient_evidence",
-        "conclusion": "证据不足。",
-        "remove_claim_indexes": [0],
-        "replace_claims": [],
-        "add_claims": [],
-        "append_missing_information": [],
-        "append_recommended_actions": [],
-        "append_risk_boundaries": [],
-    }])
+    client = FakeClient(
+        outputs=[
+            {
+                "risk_level": "insufficient_evidence",
+                "conclusion": "证据不足。",
+                "remove_claim_indexes": [0],
+                "replace_claims": [],
+                "add_claims": [],
+                "append_missing_information": [],
+                "append_recommended_actions": [],
+                "append_risk_boundaries": [],
+            }
+        ]
+    )
     result = revise_review_result_with_deepseek(
         result=original,
-        actions=[RevisionAction(
-            operation="narrow_claim", claim_index=0, reason="需要收窄"
-        )],
+        actions=[RevisionAction(operation="narrow_claim", claim_index=0, reason="需要收窄")],
         evidence_hits=[_hit()],
         client=client,  # type: ignore[arg-type]
         max_retries=0,
@@ -787,25 +787,29 @@ def test_revision_compiler_prefers_replacement_over_duplicate_removal() -> None:
         review_facts=ReviewFacts(),
         claims=[{"text": "原主张。", "supporting_chunk_ids": ["c1"]}],
     )
-    client = FakeClient(outputs=[{
-        "risk_level": None,
-        "conclusion": "收窄后的结论。",
-        "remove_claim_indexes": [0],
-        "replace_claims": [{
-            "claim_index": 0,
-            "claim": {"text": "收窄后的主张。", "supporting_chunk_ids": ["c1"]},
-        }],
-        "add_claims": [],
-        "append_missing_information": [],
-        "append_recommended_actions": [],
-        "append_risk_boundaries": [],
-    }])
+    client = FakeClient(
+        outputs=[
+            {
+                "risk_level": None,
+                "conclusion": "收窄后的结论。",
+                "remove_claim_indexes": [0],
+                "replace_claims": [
+                    {
+                        "claim_index": 0,
+                        "claim": {"text": "收窄后的主张。", "supporting_chunk_ids": ["c1"]},
+                    }
+                ],
+                "add_claims": [],
+                "append_missing_information": [],
+                "append_recommended_actions": [],
+                "append_risk_boundaries": [],
+            }
+        ]
+    )
 
     result = revise_review_result_with_deepseek(
         result=original,
-        actions=[RevisionAction(
-            operation="narrow_claim", claim_index=0, reason="收窄"
-        )],
+        actions=[RevisionAction(operation="narrow_claim", claim_index=0, reason="收窄")],
         evidence_hits=[_hit()],
         client=client,  # type: ignore[arg-type]
         max_retries=0,
@@ -827,9 +831,7 @@ def test_revision_application_degrades_when_claims_lose_support() -> None:
 
     result = revise_review_result_with_deepseek(
         result=original,
-        actions=[RevisionAction(
-            operation="mark_evidence_gap", reason="缺少当前依据"
-        )],
+        actions=[RevisionAction(operation="mark_evidence_gap", reason="缺少当前依据")],
         evidence_hits=[_hit()],
         client=FakeClient(outputs=[]),  # type: ignore[arg-type]
         max_retries=0,

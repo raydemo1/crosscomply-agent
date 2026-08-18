@@ -125,15 +125,10 @@ def run_evaluation(
             service_adapters.close()
 
     mode_metrics = {
-        mode: aggregate_metrics(results, mode)
-        for mode, results in results_by_mode.items()
+        mode: aggregate_metrics(results, mode) for mode, results in results_by_mode.items()
     }
 
-    all_results = [
-        result
-        for results in results_by_mode.values()
-        for result in results
-    ]
+    all_results = [result for results in results_by_mode.values() for result in results]
     all_bad = [r for r in all_results if r.is_bad_case]
 
     return EvalSummary(
@@ -209,8 +204,7 @@ def _read_eval_inputs(path: Path) -> dict[str, EvalCaseInput]:
         inputs[payload["case_id"]] = EvalCaseInput(
             facts=ReviewFacts.model_validate(payload["facts"], strict=True),
             queries=[
-                RetrievalQuery.model_validate(query, strict=True)
-                for query in payload["queries"]
+                RetrievalQuery.model_validate(query, strict=True) for query in payload["queries"]
             ],
         )
     return inputs
@@ -374,9 +368,7 @@ def _run_single_case_safely(
             recall_at_3=None if not scenario.expected_sources else 0.0,
             recall_at_5=None if not scenario.expected_sources else 0.0,
             mrr_at_10=None if not scenario.expected_sources else 0.0,
-            candidate_recall_at_50=(
-                None if not scenario.expected_sources else 0.0
-            ),
+            candidate_recall_at_50=(None if not scenario.expected_sources else 0.0),
             abstention_correct=False,
             is_bad_case=True,
             bad_reasons=[f"workflow_failed:{exc.failed_node}:{exc.reason}"],
@@ -415,9 +407,7 @@ def format_summary_text(summary: EvalSummary) -> str:
 
         lines.append(f"\n--- {mode_name.upper()} mode ---")
         lines.append(f"  Total cases:        {metrics.total_cases}")
-        lines.append(
-            f"  Source-bearing cases: {metrics.source_bearing_case_count}"
-        )
+        lines.append(f"  Source-bearing cases: {metrics.source_bearing_case_count}")
         lines.append(f"  Mean Recall@3:      {metrics.mean_recall_at_3:.4f}")
         lines.append(f"  Mean Recall@5:      {metrics.mean_recall_at_5:.4f}")
         lines.append(f"  Mean MRR@10:        {metrics.mean_mrr_at_10:.4f}")
@@ -433,13 +423,13 @@ def format_summary_text(summary: EvalSummary) -> str:
         )
         lines.append(f"  Duplicate src@10:   {metrics.mean_duplicate_source_count_at_10:.4f}")
         lines.append(f"  Abstention accuracy: {metrics.abstention_accuracy:.4f}")
-        lines.append(f"  Second retrieval trigger rate: {metrics.second_retrieval_trigger_rate:.4f}")
+        lines.append(
+            f"  Second retrieval trigger rate: {metrics.second_retrieval_trigger_rate:.4f}"
+        )
         if metrics.mean_total_latency_ms is not None:
             lines.append(f"  Mean total latency: {metrics.mean_total_latency_ms:.2f} ms")
         if metrics.mean_retrieval_latency_ms is not None:
-            lines.append(
-                f"  Mean retrieval latency: {metrics.mean_retrieval_latency_ms:.2f} ms"
-            )
+            lines.append(f"  Mean retrieval latency: {metrics.mean_retrieval_latency_ms:.2f} ms")
         lines.append(f"  LLM calls / retries: {metrics.total_llm_calls} / {metrics.total_retries}")
         lines.append(f"  Workflow success rate: {metrics.workflow_success_rate:.4f}")
         lines.append(f"  Clean success rate: {metrics.clean_success_rate:.4f}")
@@ -449,14 +439,12 @@ def format_summary_text(summary: EvalSummary) -> str:
             lines.append(f"  Critic trigger rate: {metrics.critic_trigger_rate:.4f}")
             lines.append(f"  Critic revision rate: {metrics.critic_revision_rate:.4f}")
             lines.append(
-                "  Targeted retrieval rate: "
-                f"{metrics.targeted_retrieval_trigger_rate:.4f}"
+                f"  Targeted retrieval rate: {metrics.targeted_retrieval_trigger_rate:.4f}"
             )
         lines.append(f"  Bad cases:          {metrics.bad_case_count}")
         if metrics.bad_case_taxonomy:
             taxonomy = ", ".join(
-                f"{category}={count}"
-                for category, count in metrics.bad_case_taxonomy.items()
+                f"{category}={count}" for category, count in metrics.bad_case_taxonomy.items()
             )
             lines.append(f"  Bad taxonomy:       {taxonomy}")
 
@@ -469,9 +457,7 @@ def format_summary_text(summary: EvalSummary) -> str:
                 continue
             seen.add(key)
             categories = (
-                f" categories={case.bad_case_categories}"
-                if case.bad_case_categories
-                else ""
+                f" categories={case.bad_case_categories}" if case.bad_case_categories else ""
             )
             lines.append(f"  {case.case_id}: {case.bad_reasons}{categories}")
             if case.missing_sources:

@@ -7,8 +7,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from law_agent.review.evalset.manual_labels import MANUAL_LABELS
-from law_agent.review.schemas import StrictModel
-from law_agent.review.schemas import AgentStep
+from law_agent.review.schemas import AgentStep, StrictModel
 
 BadCaseCategory = Literal[
     "retrieval_zero_recall",
@@ -22,6 +21,7 @@ WorkflowOutcome = Literal["clean_success", "degraded_success", "hard_failure"]
 # ---------------------------------------------------------------------------
 # Golden set case schema
 # ---------------------------------------------------------------------------
+
 
 class EvalScenario(StrictModel):
     """A single golden-set scenario for evaluation."""
@@ -57,7 +57,7 @@ class EvalScenario(StrictModel):
     tags: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def apply_manual_labels(self) -> "EvalScenario":
+    def apply_manual_labels(self) -> EvalScenario:
         """Apply manually curated must-have/optional labels.
 
         All labels are defined in ``manual_labels.py`` — no automatic
@@ -79,6 +79,7 @@ class EvalScenario(StrictModel):
 # ---------------------------------------------------------------------------
 # Per-case eval result
 # ---------------------------------------------------------------------------
+
 
 class CaseMetricResult(StrictModel):
     """Metrics for a single scenario case."""
@@ -122,6 +123,7 @@ class CaseMetricResult(StrictModel):
 # ---------------------------------------------------------------------------
 # Aggregated metrics
 # ---------------------------------------------------------------------------
+
 
 class ModeMetrics(StrictModel):
     """Aggregated metrics for one retrieval mode."""

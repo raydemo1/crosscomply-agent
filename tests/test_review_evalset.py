@@ -3,10 +3,10 @@
 from law_agent.review.evalset.cases import get_default_scenarios, get_scenarios
 from law_agent.review.evalset.metrics import (
     aggregate_metrics,
-    count_duplicate_sources_at_k,
     compute_mrr_at_k,
     compute_recall_at_k,
     compute_source_pool_recall,
+    count_duplicate_sources_at_k,
     distinct_source_hits_at_k,
     evaluate_case,
     ordered_unique_sources,
@@ -14,10 +14,10 @@ from law_agent.review.evalset.metrics import (
 from law_agent.review.evalset.schemas import CaseMetricResult, EvalScenario
 from law_agent.review.schemas import RetrievalHit
 
-
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _hit(
     source_id: str = "s1",
@@ -27,15 +27,24 @@ def _hit(
     rank: int = 0,
 ) -> RetrievalHit:
     return RetrievalHit(
-        chunk_id=chunk_id, doc_id="d1", source_id=source_id, title="t", text="x",
-        score=1.0, rank=rank, retriever="hybrid",
-        citation_role=citation_role, can_cite_clause=can_cite, source_url="u",
+        chunk_id=chunk_id,
+        doc_id="d1",
+        source_id=source_id,
+        title="t",
+        text="x",
+        score=1.0,
+        rank=rank,
+        retriever="hybrid",
+        citation_role=citation_role,
+        can_cite_clause=can_cite,
+        source_url="u",
     )
 
 
 # ---------------------------------------------------------------------------
 # Golden set tests
 # ---------------------------------------------------------------------------
+
 
 def test_default_scenarios_includes_abstention_case() -> None:
     scenarios = get_default_scenarios()
@@ -70,9 +79,7 @@ def test_eval_suites_are_distinct_and_have_unique_case_ids() -> None:
     assert len(base) == 24
     assert 80 <= len(full) <= 120
     assert len({case.case_id for case in full}) == len(full)
-    assert {case.case_id for case in quick}.issubset(
-        {case.case_id for case in full}
-    )
+    assert {case.case_id for case in quick}.issubset({case.case_id for case in full})
 
 
 def test_full_suite_covers_required_domains() -> None:
@@ -107,6 +114,7 @@ def test_source_bearing_scenarios_partition_must_have_and_optional_sources() -> 
 # Recall@K tests
 # ---------------------------------------------------------------------------
 
+
 def test_recall_at_k_all_found() -> None:
     hits = [_hit(source_id="s1"), _hit(source_id="s2", rank=1)]
     score, missing = compute_recall_at_k(hits, ["s1", "s2"], k=5)
@@ -131,9 +139,7 @@ def test_recall_at_k_empty_expected() -> None:
 def test_recall_at_k_respects_k() -> None:
     """Only top-K positions are considered, not rank field."""
 
-    hits = [
-        _hit(source_id=f"s{i}", rank=i) for i in range(6)
-    ]  # 6 hits, s5 is at position 5
+    hits = [_hit(source_id=f"s{i}", rank=i) for i in range(6)]  # 6 hits, s5 is at position 5
     score, _ = compute_recall_at_k(hits, ["s5"], k=3)
     assert score == 0.0  # s5 is at position 5, outside top-3
 
@@ -169,6 +175,7 @@ def test_ordered_unique_sources_preserves_result_order() -> None:
 # MRR@K tests
 # ---------------------------------------------------------------------------
 
+
 def test_mrr_at_k_first_hit() -> None:
     hits = [_hit(source_id="s1", rank=0)]
     assert compute_mrr_at_k(hits, ["s1"], k=10) == 1.0
@@ -192,6 +199,7 @@ def test_mrr_at_k_empty_expected() -> None:
 # ---------------------------------------------------------------------------
 # evaluate_case tests
 # ---------------------------------------------------------------------------
+
 
 def test_evaluate_case_good_retrieval() -> None:
     scenario = EvalScenario(
@@ -351,11 +359,16 @@ def test_evaluate_case_second_retrieval_recorded_as_fact() -> None:
 # Aggregate metrics tests
 # ---------------------------------------------------------------------------
 
+
 def test_aggregate_metrics_calculates_means() -> None:
     results = [
         CaseMetricResult(
-            case_id="c1", recall_at_3=1.0, recall_at_5=1.0, mrr_at_10=1.0,
-            candidate_recall_at_50=1.0, distinct_source_recall_at_5=1.0,
+            case_id="c1",
+            recall_at_3=1.0,
+            recall_at_5=1.0,
+            mrr_at_10=1.0,
+            candidate_recall_at_50=1.0,
+            distinct_source_recall_at_5=1.0,
             duplicate_source_count_at_10=0,
             abstention_correct=True,
             second_retrieval_triggered=True,
@@ -365,16 +378,22 @@ def test_aggregate_metrics_calculates_means() -> None:
             retry_count=0,
         ),
         CaseMetricResult(
-            case_id="c2", recall_at_3=0.5, recall_at_5=0.5, mrr_at_10=0.5,
-            candidate_recall_at_50=0.75, distinct_source_recall_at_5=0.25,
+            case_id="c2",
+            recall_at_3=0.5,
+            recall_at_5=0.5,
+            mrr_at_10=0.5,
+            candidate_recall_at_50=0.75,
+            distinct_source_recall_at_5=0.25,
             duplicate_source_count_at_10=2,
             abstention_correct=False,
-            second_retrieval_triggered=False, is_bad_case=True,
+            second_retrieval_triggered=False,
+            is_bad_case=True,
             total_latency_ms=300,
             retrieval_latency_ms=80,
             llm_call_count=4,
             retry_count=1,
-            bad_reasons=["test"], bad_case_categories=["abstention_error"],
+            bad_reasons=["test"],
+            bad_case_categories=["abstention_error"],
         ),
     ]
 
@@ -408,6 +427,7 @@ def test_aggregate_metrics_empty() -> None:
 # ---------------------------------------------------------------------------
 # Runner integration test (fixture corpus)
 # ---------------------------------------------------------------------------
+
 
 def test_format_summary_text_contains_key_metrics() -> None:
     from law_agent.review.evalset.runner import format_summary_text
