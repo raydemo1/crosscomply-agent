@@ -105,6 +105,7 @@ def test_legacy_approval_instance_event_is_supported() -> None:
     assert event.idempotency_key == "legacy-event-1"
     assert event.instance_id == "instance-legacy"
     assert event.decision == "rejected"
+    assert event.approval_time == "2026-08-18T08:00:00+00:00"
 
 
 def test_encrypted_event_body_is_decrypted_with_configured_key() -> None:

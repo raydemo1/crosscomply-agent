@@ -12,6 +12,7 @@ import json
 from base64 import b64decode
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Literal, Protocol
 
 from Crypto.Cipher import AES
@@ -228,13 +229,15 @@ def parse_approval_event(
     stable_event_id = event_id if isinstance(event_id, str) and event_id else None
     idempotency_key = stable_event_id or hashlib.sha256(body).hexdigest()
     approver_id = _first_string(instance, "approver_id", "user_id", "open_id")
-    approval_time = _first_string(
-        instance,
-        "approval_time",
-        "instance_operate_time",
-        "operate_time",
-        "end_time",
-        "update_time",
+    approval_time = _normalize_approval_time(
+        _first_string(
+            instance,
+            "approval_time",
+            "instance_operate_time",
+            "operate_time",
+            "end_time",
+            "update_time",
+        )
     )
     return VerifiedApprovalEvent(
         idempotency_key=idempotency_key,
@@ -246,6 +249,27 @@ def parse_approval_event(
         approval_time=approval_time,
         payload=payload,
     )
+
+
+def _normalize_approval_time(value: str | None) -> str | None:
+    """Normalize Feishu's ISO or millisecond timestamps for PostgreSQL."""
+
+    if not value:
+        return None
+    if value.isdigit():
+        timestamp = int(value)
+        seconds = timestamp / 1000 if timestamp >= 10_000_000_000 else timestamp
+        try:
+            return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+        except (OverflowError, OSError, ValueError):
+            raise FeishuEventError("飞书审批事件时间戳无效") from None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise FeishuEventError("飞书审批事件时间格式无效") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.isoformat()
 
 
 def decode_event_body(*, body: bytes, encrypt_key: str) -> Mapping[str, Any]:
