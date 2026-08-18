@@ -10,8 +10,6 @@ CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 
 
 [在线体验 CrossComply 前端演示](https://crosscomply-agent.vercel.app)
 
-![CrossComply 审查报告与引用依据](docs/images/crosscomply-review-report.png)
-
 公开站内置一份由真实 service 检索生成的审查报告：结论中的关键法律依据与合规义务直接关联右侧法源证据，完整工作流默认收起。公开站不提供共享审查后端；需要运行新的审查时，请按下文部署完整服务。
 
 ## Full evaluation result
@@ -76,7 +74,7 @@ Remove-Item Env:CROSSCOMPLY_BOOTSTRAP_ADMIN_PASSWORD
 
 **飞书审批表单：** 审批定义中创建六个单行文本控件，并将控件 ID 依次设为 `case_number`、`title`、`decision_summary`、`key_actions`、`case_url`、`task_id`。审批人直接在飞书查看风险、候选路径和关键整改项并完成通过或拒绝；只有需要核验材料原文、法源与完整证据链时才打开 `case_url`。正式 PDF 在飞书终态回写后生成。
 
-**完整案例：** [`examples/hero_case/cross_border_saas/`](examples/hero_case/cross_border_saas/README.md) 提供一套脱敏的境外 CRM/AI SaaS 采购材料、人工确认事实、飞书演示事件和报告哈希校验脚本。
+**完整案例：** [`examples/hero_case/cross_border_saas/`](examples/hero_case/cross_border_saas/README.md) 提供一套脱敏的境外 CRM/AI SaaS 采购材料、人工确认事实、飞书演示事件和报告校验脚本。
 
 ### 3. 索引语料并检查服务
 

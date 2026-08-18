@@ -84,7 +84,7 @@
   },
   "rendered_report": {
     "filename": "decision_report_example.md",
-    "sha256": "a005cd8e98e659fac0599d78e64855bbac6f830909a16fa7a08859c303a5a870",
+    "sha256": "5c512cbf92dc32e15da45692779b0745b15f3542c9c0209b300cab76f9465a21",
     "pdf_sha256": null,
     "pdf_note": "PDF 应由实际报告服务生成后写入哈希；本案例包不把 Markdown 冒充 PDF。"
   },

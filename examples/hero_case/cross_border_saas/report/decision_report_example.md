@@ -8,7 +8,6 @@
 | --- | --- |
 | 案件编号 | CC-2026-DEMO-001 |
 | 采购项目 | NimbusCRM AI 企业版（虚构） |
-| 材料快照 | MS-CC-2026-DEMO-001-V2 |
 | 规则版本 | cn-cross-border-main-path-2026.08-demo |
 | 候选路径 | 个人信息出境标准合同；个人信息保护认证 |
 | 本次选择 | 个人信息出境标准合同 |
@@ -53,15 +52,6 @@
 
 具体 `source_id`、官方页面、引用角色和版本边界见 `report_data.json` 与 `bootstrap/official_sources.csv`。
 
-## 材料完整性
+## 归档说明
 
-| 文件 | SHA-256 |
-| --- | --- |
-| 01_procurement_application.md | 2d9d36dfc73301e4bdd90220565e85e82e03a08c0b272a21ee6336f02e55c29a |
-| 02_vendor_dpa_excerpt.md | 91076b0630632ebe6a6c37b22c3150f2fddf8f6058bcfbad0428156b2828de91 |
-| 03_data_inventory.csv | a9285d1141a5d07288c506d40562c81aff42a87ee17885f9dbc412abf04c22c2 |
-| 04_security_questionnaire.md | 70727b5e834be670d0929e000f4927b2b7127ec959c86a9b9837523572df33d4 |
-
-## 审计声明
-
-本示例报告只对材料快照 `MS-CC-2026-DEMO-001-V2`、规则版本 `cn-cross-border-main-path-2026.08-demo` 和飞书实例 `fi_demo_cc_2026_001` 有效。任何材料或决定变化均应产生新版本和新哈希，不得覆盖历史记录。
+本示例报告基于上述案件材料和审批记录生成。材料或决定发生变化时，应重新审查并形成新的报告版本。
