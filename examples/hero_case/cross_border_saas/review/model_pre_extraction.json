@@ -1,0 +1,85 @@
+{
+  "artifact_type": "fixed_demo_model_output",
+  "artifact_version": "1.0",
+  "case_no": "CC-2026-DEMO-001",
+  "generated_at": "2026-08-15T10:05:00+08:00",
+  "model": {
+    "identifier": "openai-compatible/demo-model-placeholder",
+    "data_boundary": "演示占位：生产部署时应记录企业批准的模型、端点和数据边界摘要",
+    "live_run": false
+  },
+  "material_snapshot": {
+    "snapshot_id": "MS-CC-2026-DEMO-001-V1",
+    "files": [
+      {
+        "filename": "01_procurement_application.md",
+        "sha256": "a4ac27e1f300d03f36e2d8a7b3836aa36cc7fd3d2186770b4190eac392c9c6ba"
+      },
+      {
+        "filename": "02_vendor_dpa_excerpt.md",
+        "sha256": "91076b0630632ebe6a6c37b22c3150f2fddf8f6058bcfbad0428156b2828de91"
+      }
+    ]
+  },
+  "extracted_facts": {
+    "business_activity": {
+      "value": "采购境外托管的 CRM / AI SaaS，用于客户关系管理、工单协作和沟通摘要",
+      "evidence": ["01_procurement_application.md#业务目标"]
+    },
+    "cross_border_transfer": {
+      "value": true,
+      "evidence": ["01_procurement_application.md#申请信息", "02_vendor_dpa_excerpt.md#2-数据托管与跨境处理"]
+    },
+    "overseas_recipient": {
+      "value": "Acme Cloud Europe B.V.（虚构）",
+      "evidence": ["01_procurement_application.md#申请信息"]
+    },
+    "hosting_region": {
+      "value": "德国法兰克福",
+      "evidence": ["02_vendor_dpa_excerpt.md#2-数据托管与跨境处理"]
+    },
+    "personal_information_involved": {
+      "value": true,
+      "evidence": ["01_procurement_application.md#拟上传或同步的数据"]
+    },
+    "sensitive_personal_information_involved": {
+      "value": null,
+      "evidence": [],
+      "reason": "申请材料只有拟禁止上传字段的表述，不能据此确认实际字段和日志是否包含敏感个人信息"
+    },
+    "ciio_status": {
+      "value": null,
+      "evidence": [],
+      "reason": "材料未提供企业是否被认定为关键信息基础设施运营者的确认"
+    },
+    "important_data_involved": {
+      "value": null,
+      "evidence": [],
+      "reason": "材料未提供适用目录比对或主管部门确认"
+    },
+    "cumulative_personal_information_subjects_since_jan_1": {
+      "value": null,
+      "evidence": [],
+      "reason": "材料未提供按自然人去重的累计人数"
+    },
+    "cumulative_sensitive_personal_information_subjects_since_jan_1": {
+      "value": null,
+      "evidence": [],
+      "reason": "材料未提供敏感个人信息主体累计人数"
+    },
+    "statutory_exemption": {
+      "value": null,
+      "evidence": [],
+      "reason": "需由法务结合合同必要、人力资源管理等法定情形确认"
+    }
+  },
+  "needs_info": [
+    "确认 CIIO 状态",
+    "完成重要数据目录比对",
+    "提供当年累计个人信息主体去重人数",
+    "提供当年累计敏感个人信息主体去重人数",
+    "确认是否命中法定豁免",
+    "补充境外远程运维地点、分处理者及删除证明机制"
+  ],
+  "guardrail": "这是未经人工确认的模型预抽取演示。任何 null 关键事实必须进入 needs_info，不得推测或据此送审。"
+}

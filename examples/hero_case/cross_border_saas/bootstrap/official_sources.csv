@@ -1,0 +1,10 @@
+source_id,title,official_page,issuing_body,citation_role,required_for_demo,purpose,verification_note
+flk_npc_ff8081817b6472a3017b656cc2040044,中华人民共和国个人信息保护法,https://flk.npc.gov.cn/law-search/search/flfgDetails?bbbs=ff8081817b6472a3017b656cc2040044,全国人民代表大会常务委员会,primary_legal_basis,true,个人信息出境与影响评估基础法律,运行 bootstrap 前核验现行状态和页面可访问性
+cac_cross_border_data_flow_rules_2024,促进和规范数据跨境流动规定,https://www.cac.gov.cn/2024-03/22/c_1712776611775634.htm,国家互联网信息办公室,primary_legal_basis,true,全国主路径阈值与豁免,以国家网信办官方页面为准
+cac_personal_info_export_standard_contract_measures_2023,个人信息出境标准合同办法,https://www.cac.gov.cn/2023-02/24/c_1678884830036813.htm,国家互联网信息办公室,primary_legal_basis,true,标准合同路径要求,以国家网信办官方页面为准
+cac_personal_info_export_standard_contract_template_2023,个人信息出境标准合同（范本）,https://www.cac.gov.cn/rootimages/uploadimg/1678884832607075/1678884832607075.pdf,国家互联网信息办公室,implementation_reference,true,合同附件与条款整改对照,PDF为官方范本但不作为条款级法律依据
+cac_personal_info_export_standard_contract_filing_guide_v2_2024,个人信息出境标准合同备案指南（第二版）,https://www.cac.gov.cn/2024-03/22/c_1712783131692707.htm,国家互联网信息办公室,implementation_reference,true,备案材料和操作说明,指南用于落地说明而非条款级结论引用
+cac_data_export_security_assessment_measures_2022,数据出境安全评估办法,https://www.cac.gov.cn/2022-07/07/c_1658811536396503.htm,国家互联网信息办公室,primary_legal_basis,false,用于展示未命中安全评估路径的对照依据,以国家网信办官方页面为准
+cac_data_export_security_assessment_filing_guide_v3_2025,数据出境安全评估申报指南（第三版）,https://www.cac.gov.cn/2025-06/27/c_1752652339765002.htm,国家互联网信息办公室,implementation_reference,false,安全评估分支申报操作说明,入库前核验官方附件与现有source_id内容一致
+cac_data_export_policy_qna_2026_07,数据出境安全管理政策法规问答（2026年7月）,https://www.cac.gov.cn/2026-07/24/c_1786638883119336.htm,国家互联网信息办公室,interpretation_auxiliary,false,最新官方解释与人工复核辅助,只作解释辅助不替代正式依据
+flk_npc_ff80818179f5e0800179f885c7e70392,中华人民共和国数据安全法,https://flk.npc.gov.cn/law-search/search/flfgDetails?bbbs=ff80818179f5e0800179f885c7e70392,全国人民代表大会常务委员会,primary_legal_basis,false,重要数据判断的基础法律背景,运行 bootstrap 前核验现行状态和页面可访问性

@@ -1,0 +1,92 @@
+{
+  "artifact_type": "decision_report_render_data_example",
+  "artifact_version": "1.0",
+  "example_only": true,
+  "case": {
+    "case_no": "CC-2026-DEMO-001",
+    "title": "NimbusCRM AI 境外 SaaS 采购上线前审查（虚构）",
+    "material_snapshot_id": "MS-CC-2026-DEMO-001-V2",
+    "rule_version": "cn-cross-border-main-path-2026.08-demo",
+    "review_task_id": "task_demo_cc_2026_001",
+    "review_completed_at": "2026-08-17T09:12:30+08:00"
+  },
+  "decision": {
+    "status": "conditionally_approved",
+    "label": "附条件通过",
+    "authority": "feishu",
+    "approval_instance_id": "fi_demo_cc_2026_001",
+    "approval_event_id": "evt_demo_cc_001_approved",
+    "approver_display_name": "测试审批人A",
+    "approver_role": "法务审核人",
+    "decided_at": "2026-08-17T15:40:12+08:00",
+    "comment": "完成 ACT-001/002/004/005/006/007 并上传证据后方可接入生产数据；ACT-003 按法定要求跟踪。"
+  },
+  "pathway": {
+    "selected": "personal_information_export_standard_contract",
+    "selected_label": "个人信息出境标准合同",
+    "alternatives": ["personal_information_protection_certification"],
+    "needs_info": [],
+    "manual_confirmation_completed": true
+  },
+  "material_hashes": [
+    {
+      "filename": "01_procurement_application.md",
+      "sha256": "a4ac27e1f300d03f36e2d8a7b3836aa36cc7fd3d2186770b4190eac392c9c6ba"
+    },
+    {
+      "filename": "02_vendor_dpa_excerpt.md",
+      "sha256": "91076b0630632ebe6a6c37b22c3150f2fddf8f6058bcfbad0428156b2828de91"
+    },
+    {
+      "filename": "03_data_inventory.csv",
+      "sha256": "a9285d1141a5d07288c506d40562c81aff42a87ee17885f9dbc412abf04c22c2"
+    },
+    {
+      "filename": "04_security_questionnaire.md",
+      "sha256": "70727b5e834be670d0929e000f4927b2b7127ec959c86a9b9837523572df33d4"
+    }
+  ],
+  "official_sources": [
+    {
+      "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+      "title": "中华人民共和国个人信息保护法",
+      "citation_role": "primary_legal_basis",
+      "source_url": "https://flk.npc.gov.cn/law-search/search/flfgDetails?bbbs=ff8081817b6472a3017b656cc2040044"
+    },
+    {
+      "source_id": "cac_cross_border_data_flow_rules_2024",
+      "title": "促进和规范数据跨境流动规定",
+      "citation_role": "primary_legal_basis",
+      "source_url": "https://www.cac.gov.cn/2024-03/22/c_1712776611775634.htm"
+    },
+    {
+      "source_id": "cac_personal_info_export_standard_contract_measures_2023",
+      "title": "个人信息出境标准合同办法",
+      "citation_role": "primary_legal_basis",
+      "source_url": "https://www.cac.gov.cn/2023-02/24/c_1678884830036813.htm"
+    },
+    {
+      "source_id": "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
+      "title": "个人信息出境标准合同备案指南（第二版）",
+      "citation_role": "implementation_reference",
+      "source_url": "https://www.cac.gov.cn/2024-03/22/c_1712783131692707.htm"
+    },
+    {
+      "source_id": "cac_personal_info_export_standard_contract_template_2023",
+      "title": "个人信息出境标准合同（范本）",
+      "citation_role": "implementation_reference",
+      "source_url": "https://www.cac.gov.cn/rootimages/uploadimg/1678884832607075/1678884832607075.pdf"
+    }
+  ],
+  "remediation": {
+    "blocking_before_production": ["ACT-001", "ACT-002", "ACT-004", "ACT-005", "ACT-006", "ACT-007"],
+    "ongoing": ["ACT-003", "ACT-008"]
+  },
+  "rendered_report": {
+    "filename": "decision_report_example.md",
+    "sha256": "8eadf71e1fc57739f4e28b75a58b176fdef2e7cdeba661b47544bd346ba925fe",
+    "pdf_sha256": null,
+    "pdf_note": "PDF 应由实际报告服务生成后写入哈希；本案例包不把 Markdown 冒充 PDF。"
+  },
+  "audit_boundary": "所有 ID、审批人和时间均为演示数据。生产报告必须从持久化材料版本、规则快照、审批记录和报告记录生成。"
+}

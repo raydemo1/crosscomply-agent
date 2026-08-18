@@ -1,0 +1,62 @@
+{
+  "artifact_type": "deterministic_rule_decision_example",
+  "case_no": "CC-2026-DEMO-001",
+  "snapshot_id": "MS-CC-2026-DEMO-001-V2",
+  "rule_version": "cn-cross-border-main-path-2026.08-demo",
+  "evaluated_at": "2026-08-17T09:00:00+08:00",
+  "inputs": {
+    "ciio_status": false,
+    "important_data_involved": false,
+    "cumulative_personal_information_subjects_since_jan_1": 182400,
+    "cumulative_non_sensitive_personal_information_subjects_since_jan_1": 182400,
+    "cumulative_sensitive_personal_information_subjects_since_jan_1": 2400,
+    "statutory_exemption": false
+  },
+  "matched_rules": [
+    {
+      "rule_id": "CN-XB-2024-STANDARD-CONTRACT-PI",
+      "result": true,
+      "reason": "非 CIIO、未识别重要数据，累计个人信息主体超过十万人但不满一百万人"
+    },
+    {
+      "rule_id": "CN-XB-2024-STANDARD-CONTRACT-SPI",
+      "result": true,
+      "reason": "累计敏感个人信息主体不满一万人"
+    },
+    {
+      "rule_id": "CN-XB-2024-SECURITY-ASSESSMENT",
+      "result": false,
+      "reason": "本快照未命中 CIIO、重要数据或安全评估人数阈值条件"
+    },
+    {
+      "rule_id": "CN-XB-2024-STATUTORY-EXEMPTION",
+      "result": false,
+      "reason": "法务未确认命中本案例可适用的法定豁免"
+    }
+  ],
+  "candidate_paths": [
+    {
+      "path": "personal_information_export_standard_contract",
+      "label": "个人信息出境标准合同",
+      "selected_for_demo": true
+    },
+    {
+      "path": "personal_information_protection_certification",
+      "label": "个人信息保护认证",
+      "selected_for_demo": false
+    }
+  ],
+  "needs_info": [],
+  "manual_confirmation_required": [
+    "重要数据判断仅限当前材料快照，须由企业责任人签署",
+    "自由文本敏感信息控制须在上线前验证",
+    "标准合同文本、影响评估和备案材料须由法务复核"
+  ],
+  "official_basis_source_ids": [
+    "flk_npc_ff8081817b6472a3017b656cc2040044",
+    "cac_cross_border_data_flow_rules_2024",
+    "cac_personal_info_export_standard_contract_measures_2023",
+    "cac_personal_info_export_standard_contract_filing_guide_v2_2024"
+  ],
+  "boundary": "该文件是英雄案例的预期规则输出，不是在线法律意见。自由贸易试验区、粤港澳和行业特例不在本次确定性规则判定中。"
+}

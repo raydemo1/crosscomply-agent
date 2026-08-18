@@ -1,0 +1,81 @@
+{
+  "artifact_type": "human_confirmed_fact_record",
+  "artifact_version": "1.0",
+  "case_no": "CC-2026-DEMO-001",
+  "snapshot_id": "MS-CC-2026-DEMO-001-V2",
+  "snapshot_created_at": "2026-08-16T17:30:00+08:00",
+  "materials": [
+    {
+      "filename": "01_procurement_application.md",
+      "version": 1,
+      "sha256": "a4ac27e1f300d03f36e2d8a7b3836aa36cc7fd3d2186770b4190eac392c9c6ba"
+    },
+    {
+      "filename": "02_vendor_dpa_excerpt.md",
+      "version": 1,
+      "sha256": "91076b0630632ebe6a6c37b22c3150f2fddf8f6058bcfbad0428156b2828de91"
+    },
+    {
+      "filename": "03_data_inventory.csv",
+      "version": 1,
+      "sha256": "a9285d1141a5d07288c506d40562c81aff42a87ee17885f9dbc412abf04c22c2"
+    },
+    {
+      "filename": "04_security_questionnaire.md",
+      "version": 1,
+      "sha256": "70727b5e834be670d0929e000f4927b2b7127ec959c86a9b9837523572df33d4"
+    }
+  ],
+  "facts": {
+    "business_activity": "采购境外 CRM / AI SaaS，用于客户关系管理、工单协作和沟通摘要",
+    "cross_border_transfer": true,
+    "overseas_recipient": "Acme Cloud Europe B.V.（虚构）",
+    "hosting_region": "德国法兰克福",
+    "ciio_status": false,
+    "important_data_involved": false,
+    "important_data_boundary": "仅表示本材料快照中未识别；新增字段、用途或目录变化必须重审",
+    "personal_information_involved": true,
+    "sensitive_personal_information_involved": true,
+    "cumulative_personal_information_subjects_since_jan_1": 182400,
+    "cumulative_non_sensitive_personal_information_subjects_since_jan_1": 182400,
+    "cumulative_sensitive_personal_information_subjects_since_jan_1": 2400,
+    "counting_method": "以自然人为单位跨数据集去重；DI-004 与 DI-001 不重复累加",
+    "statutory_exemption": false,
+    "selected_candidate_path": "personal_information_export_standard_contract",
+    "alternative_candidate_path": "personal_information_protection_certification"
+  },
+  "confirmations": [
+    {
+      "fact_keys": ["ciio_status"],
+      "confirmed_by_role": "信息安全负责人",
+      "confirmed_at": "2026-08-16T14:20:00+08:00",
+      "basis": ["04_security_questionnaire.md#企业侧确认"]
+    },
+    {
+      "fact_keys": ["important_data_involved", "important_data_boundary"],
+      "confirmed_by_role": "数据治理负责人",
+      "confirmed_at": "2026-08-16T15:05:00+08:00",
+      "basis": ["03_data_inventory.csv", "04_security_questionnaire.md#企业侧确认"]
+    },
+    {
+      "fact_keys": ["cumulative_personal_information_subjects_since_jan_1", "cumulative_non_sensitive_personal_information_subjects_since_jan_1", "counting_method"],
+      "confirmed_by_role": "数据治理负责人",
+      "confirmed_at": "2026-08-16T15:30:00+08:00",
+      "basis": ["03_data_inventory.csv", "04_security_questionnaire.md#企业侧确认"]
+    },
+    {
+      "fact_keys": ["sensitive_personal_information_involved", "cumulative_sensitive_personal_information_subjects_since_jan_1"],
+      "confirmed_by_role": "信息安全负责人",
+      "confirmed_at": "2026-08-16T15:45:00+08:00",
+      "basis": ["03_data_inventory.csv#DI-003", "04_security_questionnaire.md#企业侧确认"]
+    },
+    {
+      "fact_keys": ["statutory_exemption", "selected_candidate_path", "alternative_candidate_path"],
+      "confirmed_by_role": "法务审核人",
+      "confirmed_at": "2026-08-16T17:20:00+08:00",
+      "basis": ["04_security_questionnaire.md#企业侧确认", "review/rule_decision.json"]
+    }
+  ],
+  "unresolved_facts": [],
+  "human_confirmation_statement": "确认人只对列明事实、材料版本和确认时间负责；模型预抽取未被逐项确认的内容不进入本记录。"
+}

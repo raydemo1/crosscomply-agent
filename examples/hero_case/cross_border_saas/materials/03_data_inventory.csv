@@ -1,0 +1,5 @@
+record_id,data_subject,data_category,example_fields,sensitive_personal_info,important_data_status,purpose,source_system,overseas_recipient,hosting_region,retention,cumulative_subjects_since_jan_1,confirmation_basis
+DI-001,企业客户联系人,身份与职业联系信息,"姓名;公司;部门;职务;工作邮箱;工作电话",否,经目录比对与数据治理负责人确认不属于已识别重要数据,客户关系管理,中国区销售系统,Acme Cloud Europe B.V.,德国法兰克福,合同期内及终止后60日,180000,CRM去重主体统计快照2026-08-15
+DI-002,中国区销售与客服员工,员工基本信息,"姓名;企业邮箱;部门;岗位",否,经目录比对与数据治理负责人确认不属于已识别重要数据,账号开通与协作,企业身份目录,Acme Cloud Europe B.V.,德国法兰克福,任职期间及离职后30日,2400,HR主数据去重统计快照2026-08-15
+DI-003,中国区销售与客服员工,账号安全日志,"账号标识;登录时间;IP地址;设备标识;管理员操作记录",是,经目录比对与数据治理负责人确认不属于已识别重要数据,访问控制与安全审计,NimbusCRM审计模块,Acme Cloud Europe B.V.,德国法兰克福,180日,2400,统一身份平台与日志策略核对2026-08-15
+DI-004,企业客户联系人,沟通与工单内容,"会议纪要;邮件摘要;支持工单;跟进记录",待人工拦截,经目录比对与数据治理负责人确认不属于已识别重要数据,销售跟进与客户支持,中国区销售系统,Acme Cloud Europe B.V.,德国法兰克福,合同期内及终止后60日,180000,按主体并集计数且不得与DI-001重复累加

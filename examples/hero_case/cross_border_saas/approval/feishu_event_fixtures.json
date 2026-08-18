@@ -1,0 +1,34 @@
+{
+  "fixture_notice": "无签名、无密钥、不可发送的飞书审批事件演示数据；字段名需在接入时映射到企业实际飞书事件版本。",
+  "events": [
+    {
+      "event_id": "evt_demo_cc_001_approved",
+      "event_type": "approval_instance",
+      "instance_id": "fi_demo_cc_2026_001",
+      "status": "APPROVED",
+      "decision": "CONDITIONAL_APPROVAL",
+      "case_no": "CC-2026-DEMO-001",
+      "material_snapshot_id": "MS-CC-2026-DEMO-001-V2",
+      "approver": {
+        "display_name": "测试审批人A",
+        "role": "法务审核人"
+      },
+      "decided_at": "2026-08-17T15:40:12+08:00",
+      "comment": "完成 ACT-001/002/004/005/006/007 并上传证据后方可接入生产数据；ACT-003 按法定要求跟踪。"
+    },
+    {
+      "event_id": "evt_demo_cc_002_rejected",
+      "event_type": "approval_instance",
+      "instance_id": "fi_demo_cc_2026_002",
+      "status": "REJECTED",
+      "case_no": "CC-2026-DEMO-001-REJECT-BRANCH",
+      "material_snapshot_id": "MS-CC-2026-DEMO-001-V2",
+      "approver": {
+        "display_name": "测试审批人B",
+        "role": "信息安全审核人"
+      },
+      "decided_at": "2026-08-17T16:05:00+08:00",
+      "comment": "供应商拒绝固化分处理者和删除证明机制。"
+    }
+  ]
+}

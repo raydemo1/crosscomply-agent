@@ -1,43 +1,200 @@
-services:
-  elasticsearch:
-    build:
-      context: docker
-      dockerfile: elasticsearch.Dockerfile
-    image: lawagent-elasticsearch:8.13.0-ik
-    container_name: lawagent-es
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-    volumes:
-      - esdata:/usr/share/elasticsearch/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:9200 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 40s
+name: crosscomply
 
+x-backend-environment: &backend-environment
+  ES_URL: http://elasticsearch:9200
+  ES_INDEX: ${ES_INDEX:-lawagent_chunks}
+  ES_INDEX_NAME: ${ES_INDEX_NAME:-lawagent_chunks}
+  ES_VERIFY_CERTS: "false"
+  PG_DSN: postgresql://${POSTGRES_USER:-lawagent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lawagent}
+  PG_TABLE: ${PG_TABLE:-lawagent_chunks}
+  CROSSCOMPLY_MINIO_ENDPOINT: minio:9000
+  CROSSCOMPLY_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-crosscomply}
+  CROSSCOMPLY_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+  CROSSCOMPLY_MINIO_BUCKET: ${MINIO_BUCKET:-crosscomply-materials}
+  CROSSCOMPLY_MINIO_SECURE: "false"
+
+services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: lawagent-pg
     environment:
-      POSTGRES_USER: lawagent
-      POSTGRES_PASSWORD: lawagent
-      POSTGRES_DB: lawagent
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-lawagent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-lawagent}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lawagent"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 10s
+    restart: unless-stopped
+    networks: [backend]
+
+  elasticsearch:
+    build:
+      context: docker
+      dockerfile: elasticsearch.Dockerfile
+    image: crosscomply-elasticsearch:8.13.0-ik
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms512m -Xmx512m}
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+    networks: [backend]
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-crosscomply}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    networks: [backend]
+
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2025-04-08T15-39-49Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-crosscomply}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+      MINIO_BUCKET: ${MINIO_BUCKET:-crosscomply-materials}
+    entrypoint: ["/bin/sh", "/bootstrap/create-minio-bucket.sh"]
+    volumes:
+      - ./docker/create-minio-bucket.sh:/bootstrap/create-minio-bucket.sh:ro
+    restart: "no"
+    networks: [backend]
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file:
+      - path: ${CROSSCOMPLY_ENV_FILE:-.env}
+        required: false
+    environment:
+      PG_DSN: postgresql+psycopg://${POSTGRES_USER:-lawagent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lawagent}
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file:
+      - path: ${CROSSCOMPLY_ENV_FILE:-.env}
+        required: false
+    environment: *backend-environment
+    volumes:
+      - ${CROSSCOMPLY_CORPUS_DIR:-./data/corpus/legal_docs_20260702}:/app/data/corpus/legal_docs_20260702:ro
+    command: ["uvicorn", "law_agent.review.api:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    networks: [backend]
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file:
+      - path: ${CROSSCOMPLY_ENV_FILE:-.env}
+        required: false
+    environment: *backend-environment
+    volumes:
+      - ${CROSSCOMPLY_CORPUS_DIR:-./data/corpus/legal_docs_20260702}:/app/data/corpus/legal_docs_20260702:ro
+    command: ["python", "-m", "law_agent.review.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks: [backend]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+    networks: [frontend]
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "${CROSSCOMPLY_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+    networks: [frontend, backend]
 
 volumes:
   esdata:
   pgdata:
+  miniodata:
+
+networks:
+  frontend:
+    internal: true
+  backend:

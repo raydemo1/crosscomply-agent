@@ -4,6 +4,8 @@
 
 CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 Agentic RAG 项目，主线是“材料输入 -> 审查事实抽取 -> 混合检索 -> 证据自检 -> 受控二次召回 -> 结构化审查结果与引用”。复杂审查可使用确定性 Multi-Agent 模式：Case Analyst 依次提取事实、拆分议题并按议题并行生成查询；Evidence Researchers 按议题执行检索，Evidence Gate 确定性形成证据 dossier；Compliance Reviewer 复用受控报告生成链路，结合议题计划和 dossier 写出结果；条件式 Evidence Critic 只作 `accept`、`research_required` 或 `revision_required` 路由，最多复用一次 Researcher 补证和一次 Reviewer 修订。检索不可满足的法规要求会披露为 evidence gap，而不是交给模型猜测。
 
+在完整部署中，这条审查链路可用作企业数据出境上线前的合规闸门：确定性规则负责硬条件计算，LLM/Multi-Agent 继续负责证据化深审，最终决定由飞书审批回写。
+
 ## Product preview
 
 [在线体验 CrossComply 前端演示](https://crosscomply-agent.vercel.app)
@@ -22,6 +24,8 @@ CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 
 
 三组均使用相同的 82 个场景、冻结事实与查询输入、真实 service 检索、DeepSeek-V4-Flash，以及人工复核的核心/辅助法源标签。Must-have 覆盖 76 个含核心法源的场景，Optional 覆盖 28 个需要指南、模板、Q&A 或国标补充的场景。相较 LLM 基线，有界 Multi-Agent 的 Recall@5、Must-have Recall@5 和 Optional coverage@5 分别提升 3.51pp、3.50pp 和 3.57pp。
 
+> 上表对应已冻结的 82 个评测场景与现有产物。企业流程功能开发默认不触发高成本模型评测；仅在需要更新对外指标时显式重跑。
+
 ## 开发命令
 
 ```powershell
@@ -31,7 +35,7 @@ pytest
 
 ## 一键启动与评测流程
 
-这段是给新接手项目的人照着跑的最短路径，目标是启动 ES + pgvector、完成语料索引、检查服务健康、启动 API 和前端，并跑一轮评测。
+这段是给新接手项目的人照着跑的最短路径，目标是启动 ES + pgvector、完成语料索引、检查服务健康、启动 API 和前端，并跑一轮评测。Docker 编排同时包含独立 worker、MinIO、反向代理和 Alembic 基线初始化。
 
 ### 1. 准备环境
 
@@ -42,11 +46,14 @@ pip install -e ".[service]"
 
 编辑 `.env`，至少填入：
 
+- `POSTGRES_PASSWORD`
+- `MINIO_ROOT_PASSWORD`
 - `OPENAI_COMPATIBLE_API_KEY`
 - `EMBEDDING_API_KEY`
+- 飞书集成时填入 `CROSSCOMPLY_FEISHU_APP_ID`、`CROSSCOMPLY_FEISHU_APP_SECRET`、`CROSSCOMPLY_FEISHU_APPROVAL_CODE`、`CROSSCOMPLY_FEISHU_VERIFICATION_TOKEN`、`CROSSCOMPLY_FEISHU_ENCRYPT_KEY`
 - 如不使用默认本地服务，再调整 `ES_URL`、`PG_DSN`、`ES_INDEX`、`PG_TABLE`
 
-### 2. 启动 ES + pgvector
+### 2. 启动服务栈
 
 ```powershell
 docker compose up -d --build
@@ -54,6 +61,20 @@ docker compose ps
 ```
 
 等 Elasticsearch 和 Postgres 都变成 healthy 后继续。
+
+统一入口为 `http://127.0.0.1:8080`，数据服务不暴露到宿主机公网端口。
+
+**首次部署账号：** 系统不创建预置申请人、审核人或管理员账号。新库首次启动后，显式执行：
+
+```powershell
+$env:CROSSCOMPLY_BOOTSTRAP_ADMIN_PASSWORD = "请替换为至少 12 位的强密码"
+docker compose run --rm -e CROSSCOMPLY_BOOTSTRAP_ADMIN_PASSWORD=$env:CROSSCOMPLY_BOOTSTRAP_ADMIN_PASSWORD api python -m law_agent.review.bootstrap_admin --username admin@example.com --display-name "系统管理员"
+Remove-Item Env:CROSSCOMPLY_BOOTSTRAP_ADMIN_PASSWORD
+```
+
+后续账号由管理员在系统内创建、停用、重置密码和分配角色。
+
+**完整案例：** [`examples/hero_case/cross_border_saas/`](examples/hero_case/cross_border_saas/README.md) 提供一套脱敏的境外 CRM/AI SaaS 采购材料、人工确认事实、飞书演示事件和报告哈希校验脚本。
 
 ### 3. 索引语料并检查服务
 
@@ -407,7 +428,7 @@ npm run build
 # 产物输出到 frontend/dist/
 ```
 
-前端是服务端案件工作台，首次进入需要使用服务端配置的工作台账号登录。请在后端环境中设置 `CROSSCOMPLY_SEED_PASSWORD`，服务首次启动时会创建申请人、审核人和管理员账号，并在空案件库中写入一条待确认案件作为工作台入口；案件、审查结果、整改动作、反馈和审计时间线均持久化在 PostgreSQL。
+前端是服务端案件工作台，首次进入需要使用服务端账号登录。新库通过 `python -m law_agent.review.bootstrap_admin` 显式创建第一个管理员；后续账号、案件、材料快照、审查任务、整改动作和审计时间线均持久化在 PostgreSQL，原件与决策报告保存在 MinIO。
 
 若要部署可执行实时审查的实例，请先自行部署本仓库的 FastAPI、Elasticsearch 与 pgvector 服务，再让前端通过同域反向代理访问 `/api`；本地开发可直接使用上述 Vite 代理。也可以在构建前端时设置 `VITE_API_BASE_URL` 指向自行部署的 API，并相应配置后端允许该前端域名跨域访问。
 
@@ -421,9 +442,15 @@ npm run build
 | POST | `/api/cases` | 创建案件并保存采集事实 |
 | GET | `/api/cases` | 获取当前用户可见的案件队列 |
 | GET | `/api/cases/{case_id}` | 获取案件、结果、动作和时间线 |
-| POST | `/api/cases/{case_id}/run` | 运行证据化审查 |
+| POST | `/api/cases/{case_id}/materials` | 上传并版本化保存材料原件 |
+| POST | `/api/cases/{case_id}/material-snapshots` | 冻结材料快照并执行全国主路径判定 |
+| POST | `/api/cases/{case_id}/run` | 创建异步证据化审查任务 |
+| GET | `/api/tasks/{task_id}` | 查询审查任务、失败节点和重试记录 |
 | PATCH | `/api/cases/{case_id}` | 更新案件材料与事实 |
-| POST | `/api/cases/{case_id}/status` | 提交、退回补充或完成案件 |
+| POST | `/api/cases/{case_id}/status` | 提交或退回补充案件 |
+| POST | `/api/cases/{case_id}/feishu-approval` | 发起飞书审批 |
+| POST | `/api/integrations/feishu/approval-events` | 验签并幂等回写审批终态 |
+| POST | `/api/cases/{case_id}/reports` | 生成带 SHA-256 的 PDF 决策报告 |
 | POST | `/api/cases/{case_id}/feedback` | 保存人工反馈与引用判定 |
 | GET | `/api/cases/{case_id}/events` | 获取审计事件 |
 | GET | `/api/dashboard/summary` | 获取案件状态与风险摘要 |
