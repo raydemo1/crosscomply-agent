@@ -116,8 +116,8 @@ def test_chunk_document_splits_negative_list_table_rows_under_limit() -> None:
         "<td>仅限于会员管理场景，个人信息计算数量以自然人为单位去重。</td></tr>"
     )
     document = _document(
-        source_id="missing_20260702_018",
-        doc_id="missing_20260702_018",
+        source_id="guangxi_free_trade_zone_data_export_negative_list_2025",
+        doc_id="guangxi_free_trade_zone_data_export_negative_list_2025",
         title="中国（广西）自由贸易试验区数据出境管理清单（负面清单）（2025版）",
         text="行业领域一：地理信息与气象数据服务\n<table>" + row * 20 + "</table>",
     )

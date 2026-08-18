@@ -16,7 +16,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_sources=[
             "cac_data_export_security_assessment_measures_2022",
             "cac_cross_border_data_flow_rules_2024",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
         tags=["cross_border", "assessment", "important_data"],
@@ -39,7 +39,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         material_text="过去一年公司通过海外客服系统处理约12万名境内用户的姓名、手机号和订单问题，后续还会继续同步。",
         expected_sources=[
             "cac_data_export_security_assessment_measures_2022",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["primary_legal_basis"],
@@ -52,7 +52,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_sources=[
             "cac_data_export_security_assessment_measures_2022",
             "cac_personal_info_export_standard_contract_template_2023",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
         tags=["cross_border", "onward_transfer", "change"],
@@ -62,7 +62,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="安全评估有效期快到了，续期和重新申报有什么依据？",
         material_text="公司两年前通过数据出境安全评估，接收方、目的和数据范围基本未变，现在想确认有效期届满前如何处理。",
         expected_sources=[
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
             "cac_data_export_security_assessment_measures_2022",
         ],
         expected_citation_roles=["primary_legal_basis"],
@@ -268,8 +268,8 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="车企处理车外影像数据，要按汽车重要数据管理吗？",
         material_text="智能汽车在公共道路测试时采集车外视频、道路标识和行人轨迹，企业想确认汽车数据安全管理依据。",
         expected_sources=[
-            "missing_20260702_001",
-            "missing_20260702_004",
+            "cac_automotive_data_security_provisions_2021",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
         ],
         expected_citation_roles=["conditional_industry_basis"],
         tags=["automotive", "important_data", "mapping"],
@@ -279,8 +279,8 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="汽车数据出境安全指引和正式出境规则之间怎么配合看？",
         material_text="车企拟把车辆运行状态、故障日志和定位轨迹提供给境外研发中心，用于算法迭代。",
         expected_sources=[
-            "missing_20260702_002",
-            "missing_20260702_001",
+            "cac_automotive_data_export_security_guide_2026",
+            "cac_automotive_data_security_provisions_2021",
             "cac_data_export_security_assessment_measures_2022",
         ],
         expected_citation_roles=["conditional_industry_basis", "primary_legal_basis"],
@@ -291,7 +291,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="车联网平台收集车主手机号和行驶位置，个人信息保护依据看什么？",
         material_text="车联网 App 收集车主手机号、车辆绑定关系、实时位置和行驶路线，用于远程控车和服务提醒。",
         expected_sources=[
-            "missing_20260702_001",
+            "cac_automotive_data_security_provisions_2021",
             "flk_npc_ff8081817b6472a3017b656cc2040044",
             "tc260_sensitive_pip_identification_guide_2024",
         ],
@@ -303,8 +303,8 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="把道路采集数据用于高精地图训练，测绘地理信息安全怎么判断？",
         material_text="自动驾驶测试车辆采集道路影像、交通标志、经纬度轨迹和道路设施信息，用于地图更新和模型训练。",
         expected_sources=[
-            "missing_20260702_004",
-            "missing_20260702_001",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "cac_automotive_data_security_provisions_2021",
         ],
         expected_citation_roles=["conditional_industry_basis"],
         tags=["automotive", "mapping", "geographic_information"],
@@ -314,8 +314,8 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="汽车数据处理者年度报告义务从哪些文件找？",
         material_text="车企在境内运营联网车辆服务，处理车主个人信息、车辆运行数据和车外环境数据，希望确认持续合规义务。",
         expected_sources=[
-            "missing_20260702_001",
-            "missing_20260702_002",
+            "cac_automotive_data_security_provisions_2021",
+            "cac_automotive_data_export_security_guide_2026",
         ],
         expected_citation_roles=["conditional_industry_basis"],
         tags=["automotive", "ongoing_obligations"],
@@ -325,9 +325,9 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="汽车数据跨境时，如果涉及重要数据，申报材料要看哪些？",
         material_text="车企将被识别为重要数据的道路环境数据提供给境外算法团队，准备办理数据出境安全评估。",
         expected_sources=[
-            "missing_20260702_001",
-            "missing_20260702_002",
-            "missing_20260702_009",
+            "cac_automotive_data_security_provisions_2021",
+            "cac_automotive_data_export_security_guide_2026",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["conditional_industry_basis", "primary_legal_basis"],
         tags=["automotive", "important_data", "assessment"],
@@ -341,7 +341,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="金融信息服务平台做数据分类分级，行业指南和国标怎么一起用？",
         material_text="平台处理行情浏览、投顾咨询、交易意向和用户画像标签，准备建立金融信息服务数据分级目录。",
         expected_sources=[
-            "missing_20260702_012",
+            "cac_financial_information_service_data_classification_guide_2026",
             "tc260_gbt_43697_2024_data_classification_rules",
             "tc260_network_data_classification_guide_2021",
         ],
@@ -353,7 +353,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="金融用户画像和交易线索能不能按一般数据处理？",
         material_text="金融资讯平台希望把用户风险偏好、浏览行为、交易线索和账户标签用于精准营销。",
         expected_sources=[
-            "missing_20260702_012",
+            "cac_financial_information_service_data_classification_guide_2026",
             "flk_npc_ff8081817b6472a3017b656cc2040044",
             "tc260_sensitive_pip_processing_requirements_2025",
         ],
@@ -365,7 +365,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="金融信息服务数据出境时，行业分类分级是否会影响评估？",
         material_text="金融信息服务平台拟向境外分析团队提供用户行为日志、资讯订阅偏好和投顾咨询摘要。",
         expected_sources=[
-            "missing_20260702_012",
+            "cac_financial_information_service_data_classification_guide_2026",
             "cac_data_export_security_assessment_measures_2022",
             "cac_cross_border_data_flow_rules_2024",
         ],
@@ -378,7 +378,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         material_text="公司准备对金融资讯数据、用户行为日志、客户服务记录和运营报表建立分类分级制度。",
         expected_sources=[
             "flk_npc_ff80818179f5e0800179f885c7e70392",
-            "missing_20260702_012",
+            "cac_financial_information_service_data_classification_guide_2026",
             "tc260_gbt_43697_2024_data_classification_rules",
         ],
         expected_citation_roles=["primary_legal_basis", "conditional_industry_basis"],
@@ -393,7 +393,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="福建自贸区数据出境负面清单要看哪份？",
         material_text="企业在福建自贸试验区开展跨境电商业务，拟把订单、物流和售后信息同步给境外仓。",
         expected_sources=[
-            "missing_20260702_010",
+            "fujian_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis", "primary_legal_basis"],
@@ -404,7 +404,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="广东自贸区企业把客户资料给境外合作方，地方负面清单看哪里？",
         material_text="企业位于广东自贸试验区，拟向境外合作伙伴提供客户联系方式、订单和服务记录。",
         expected_sources=[
-            "missing_20260702_014",
+            "guangdong_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis", "primary_legal_basis"],
@@ -415,7 +415,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="江苏自贸区制造业数据出境，地方负面清单是否覆盖？",
         material_text="江苏自贸试验区内制造企业计划把设备运行数据和供应链数据发给境外集团，用于生产协同。",
         expected_sources=[
-            "missing_20260702_015",
+            "jiangsu_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis", "primary_legal_basis"],
@@ -426,7 +426,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="广西自贸区面向东盟业务的数据出境，地方清单怎么查？",
         material_text="企业在广西自贸试验区运营跨境物流平台，拟向东盟合作方共享订单、车辆和客户联系信息。",
         expected_sources=[
-            "missing_20260702_018",
+            "guangxi_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis", "primary_legal_basis"],
@@ -437,7 +437,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="深圳企业处理个人数据和公共数据，地方数据条例要不要引用？",
         material_text="深圳企业建设城市服务平台，处理用户注册资料、办事记录和部分公共数据资源，想确认地方数据条例依据。",
         expected_sources=[
-            "missing_20260702_011",
+            "shenzhen_data_regulation_2021",
             "flk_npc_ff80818179f5e0800179f885c7e70392",
         ],
         expected_citation_roles=["conditional_local_basis", "primary_legal_basis"],
@@ -448,8 +448,8 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="同一个跨境电商业务在浙江和福建自贸区，地方清单能混用吗？",
         material_text="集团分别在浙江和福建自贸试验区运营跨境电商业务，想比较订单和物流数据出境时的地方负面清单。",
         expected_sources=[
-            "missing_20260702_017",
-            "missing_20260702_010",
+            "zhejiang_free_trade_zone_data_export_negative_list_2024",
+            "fujian_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis", "primary_legal_basis"],
@@ -460,8 +460,8 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="广东和海南的旅游消费数据出境清单是否都要看？",
         material_text="集团在广东和海南都有旅游消费业务，计划统一向境外营销平台提供游客画像和消费记录。",
         expected_sources=[
-            "missing_20260702_014",
-            "missing_20260702_007",
+            "guangdong_free_trade_zone_data_export_negative_list_2025",
+            "hainan_free_trade_port_data_export_negative_list_2024",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis", "primary_legal_basis"],
@@ -472,7 +472,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="企业注册在上海但业务不在自贸区，能直接适用上海自贸区负面清单吗？",
         material_text="公司注册地在上海市区，业务系统和数据处理活动不在临港新片区或上海自贸试验区内。",
         expected_sources=[
-            "missing_20260702_013",
+            "shanghai_free_trade_zone_data_export_negative_list_2024",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis", "primary_legal_basis"],
@@ -678,7 +678,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="地方负面清单说不在清单内，全国规则又有安全评估门槛，应该怎么判断？",
         material_text="企业在广东自贸区，业务数据未出现在地方负面清单描述中，但预计一年向境外提供超过100万人个人信息。",
         expected_sources=[
-            "missing_20260702_014",
+            "guangdong_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
             "cac_data_export_security_assessment_measures_2022",
         ],

@@ -35,7 +35,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_data_export_security_assessment_measures_2022",
             "cac_data_export_assessment_qna_2022",
             "cac_cross_border_data_flow_rules_2024",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
                 should_abstain=False,
@@ -51,7 +51,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         ),
         expected_sources=[
             "cac_data_export_security_assessment_measures_2022",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
                 should_abstain=False,
@@ -82,7 +82,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         ),
         expected_sources=[
             "cac_data_export_security_assessment_measures_2022",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
                 should_abstain=False,
@@ -97,7 +97,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         ),
         expected_sources=[
             "cac_data_export_security_assessment_measures_2022",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
                 should_abstain=False,
@@ -179,8 +179,8 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "需将数据传输至海外研发中心进行分析。"
         ),
         expected_sources=[
-            "missing_20260702_001",
-            "missing_20260702_002",
+            "cac_automotive_data_security_provisions_2021",
+            "cac_automotive_data_export_security_guide_2026",
             "cac_data_export_security_assessment_measures_2022",
         ],
         expected_citation_roles=[
@@ -198,8 +198,8 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "需要了解行业安全要求。"
         ),
         expected_sources=[
-            "missing_20260702_001",
-            "missing_20260702_004",
+            "cac_automotive_data_security_provisions_2021",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
         ],
         expected_citation_roles=["conditional_industry_basis"],
                 should_abstain=False,
@@ -213,8 +213,8 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "算法团队可能用于高精地图和辅助驾驶模型训练。"
         ),
         expected_sources=[
-            "missing_20260702_004",
-            "missing_20260702_001",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "cac_automotive_data_security_provisions_2021",
         ],
         expected_citation_roles=["conditional_industry_basis"],
                 should_abstain=False,
@@ -228,8 +228,8 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "拟提供给境外研发团队。"
         ),
         expected_sources=[
-            "missing_20260702_016",
-            "missing_20260702_001",
+            "chongqing_free_trade_zone_data_export_negative_list_2025",
+            "cac_automotive_data_security_provisions_2021",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis", "conditional_industry_basis"],
@@ -248,8 +248,8 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "需要了解负面清单管理要求。"
         ),
         expected_sources=[
-            "missing_20260702_013",
-            "missing_20260702_006",
+            "shanghai_free_trade_zone_data_export_negative_list_2024",
+            "shanghai_free_trade_zone_data_export_negative_list_qna_2024",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis"],
@@ -264,7 +264,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "想了解天津版负面清单的规定。"
         ),
         expected_sources=[
-            "missing_20260702_005",
+            "tianjin_free_trade_zone_data_export_negative_list_2024",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis"],
@@ -278,7 +278,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "公司在海南自贸港运营旅游平台，需要将游客数据传输至境外关联公司。"
         ),
         expected_sources=[
-            "missing_20260702_007",
+            "hainan_free_trade_port_data_export_negative_list_2024",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis"],
@@ -293,7 +293,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "提供给海外营销团队用于活动投放。"
         ),
         expected_sources=[
-            "missing_20260702_008",
+            "beijing_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis"],
@@ -308,7 +308,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "同步给境外仓和海外客服团队。"
         ),
         expected_sources=[
-            "missing_20260702_017",
+            "zhejiang_free_trade_zone_data_export_negative_list_2024",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis"],
@@ -377,7 +377,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "需要建立行业数据分类分级规则。"
         ),
         expected_sources=[
-            "missing_20260702_012",
+            "cac_financial_information_service_data_classification_guide_2026",
             "tc260_gbt_43697_2024_data_classification_rules",
         ],
         expected_citation_roles=["conditional_industry_basis", "implementation_reference"],

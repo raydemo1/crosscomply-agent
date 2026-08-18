@@ -84,21 +84,21 @@ def test_citation_policy_marks_only_primary_sources_clause_citable() -> None:
         "implementation_reference"
     )
 
-    assert citation_role_for_source("missing_20260702_009") == "primary_legal_basis"
-    assert citation_role_for_source("missing_20260702_011") == "conditional_local_basis"
-    assert citation_role_for_source("missing_20260702_001") == "conditional_industry_basis"
-    assert can_cite_clause("missing_20260702_001") is False
-    assert can_cite_clause_chunk("missing_20260702_001", "第十三条") is False
-    assert citation_role_for_source("missing_20260702_002") == "conditional_industry_basis"
-    assert can_cite_clause("missing_20260702_002") is False
-    assert citation_role_for_source("missing_20260702_004") == "conditional_industry_basis"
-    assert citation_role_for_source("missing_20260702_012") == "conditional_industry_basis"
-    assert citation_role_for_source("missing_20260702_006") == "interpretation_auxiliary"
+    assert citation_role_for_source("cac_data_export_security_assessment_filing_guide_v3_2025") == "primary_legal_basis"
+    assert citation_role_for_source("shenzhen_data_regulation_2021") == "conditional_local_basis"
+    assert citation_role_for_source("cac_automotive_data_security_provisions_2021") == "conditional_industry_basis"
+    assert can_cite_clause("cac_automotive_data_security_provisions_2021") is False
+    assert can_cite_clause_chunk("cac_automotive_data_security_provisions_2021", "第十三条") is False
+    assert citation_role_for_source("cac_automotive_data_export_security_guide_2026") == "conditional_industry_basis"
+    assert can_cite_clause("cac_automotive_data_export_security_guide_2026") is False
+    assert citation_role_for_source("mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022") == "conditional_industry_basis"
+    assert citation_role_for_source("cac_financial_information_service_data_classification_guide_2026") == "conditional_industry_basis"
+    assert citation_role_for_source("shanghai_free_trade_zone_data_export_negative_list_qna_2024") == "interpretation_auxiliary"
 
 
 def test_frontend_and_default_retrieval_policy_are_separate() -> None:
-    assert default_retrievable_for_source("missing_20260702_009") is True
-    assert frontend_direct_reference_for_source("missing_20260702_009") is True
+    assert default_retrievable_for_source("cac_data_export_security_assessment_filing_guide_v3_2025") is True
+    assert frontend_direct_reference_for_source("cac_data_export_security_assessment_filing_guide_v3_2025") is True
 
     assert default_retrievable_for_source("cac_cross_border_data_flow_rules_2024") is True
     assert frontend_direct_reference_for_source("cac_cross_border_data_flow_rules_2024") is False

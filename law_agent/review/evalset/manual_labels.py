@@ -24,14 +24,14 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         [
             "cac_data_export_security_assessment_measures_2022",
             "cac_cross_border_data_flow_rules_2024",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         ["cac_data_export_assessment_qna_2022"],
     ),
     "eval_cross_border_002": (
         [
             "cac_data_export_security_assessment_measures_2022",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         [],
     ),
@@ -45,14 +45,14 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     "eval_cross_border_004": (
         [
             "cac_data_export_security_assessment_measures_2022",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         [],
     ),
     "eval_cross_border_005": (
         [
             "cac_data_export_security_assessment_measures_2022",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         [],
     ),
@@ -91,24 +91,24 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     # ------------------------------------------------------------------
     "eval_automotive_001": (
         [
-            "missing_20260702_001",
-            "missing_20260702_002",
+            "cac_automotive_data_security_provisions_2021",
+            "cac_automotive_data_export_security_guide_2026",
             "cac_data_export_security_assessment_measures_2022",
         ],
         [],
     ),
     "eval_automotive_002": (
-        ["missing_20260702_001", "missing_20260702_004"],
+        ["cac_automotive_data_security_provisions_2021", "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022"],
         [],
     ),
     "eval_automotive_003": (
-        ["missing_20260702_004", "missing_20260702_001"],
+        ["mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022", "cac_automotive_data_security_provisions_2021"],
         [],
     ),
     "eval_automotive_004": (
         [
-            "missing_20260702_016",
-            "missing_20260702_001",
+            "chongqing_free_trade_zone_data_export_negative_list_2025",
+            "cac_automotive_data_security_provisions_2021",
             "cac_cross_border_data_flow_rules_2024",
         ],
         [],
@@ -118,23 +118,23 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     # Regional negative list (base)
     # ------------------------------------------------------------------
     "eval_shanghai_001": (
-        ["missing_20260702_013", "cac_cross_border_data_flow_rules_2024"],
-        ["missing_20260702_006"],
+        ["shanghai_free_trade_zone_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
+        ["shanghai_free_trade_zone_data_export_negative_list_qna_2024"],
     ),
     "eval_tianjin_001": (
-        ["missing_20260702_005", "cac_cross_border_data_flow_rules_2024"],
+        ["tianjin_free_trade_zone_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
         [],
     ),
     "eval_hainan_001": (
-        ["missing_20260702_007", "cac_cross_border_data_flow_rules_2024"],
+        ["hainan_free_trade_port_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
         [],
     ),
     "eval_beijing_001": (
-        ["missing_20260702_008", "cac_cross_border_data_flow_rules_2024"],
+        ["beijing_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
         [],
     ),
     "eval_zhejiang_001": (
-        ["missing_20260702_017", "cac_cross_border_data_flow_rules_2024"],
+        ["zhejiang_free_trade_zone_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
         [],
     ),
 
@@ -167,7 +167,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ["tc260_network_data_classification_guide_2021"],
     ),
     "eval_financial_001": (
-        ["missing_20260702_012"],
+        ["cac_financial_information_service_data_classification_guide_2026"],
         ["tc260_gbt_43697_2024_data_classification_rules"],
     ),
 
@@ -184,7 +184,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         [
             "cac_data_export_security_assessment_measures_2022",
             "cac_cross_border_data_flow_rules_2024",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         [],
     ),
@@ -199,7 +199,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     "eval_cross_border_008": (
         [
             "cac_data_export_security_assessment_measures_2022",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         [],
@@ -207,13 +207,13 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     "eval_cross_border_009": (
         [
             "cac_data_export_security_assessment_measures_2022",
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         ["cac_personal_info_export_standard_contract_template_2023"],
     ),
     "eval_cross_border_010": (
         [
-            "missing_20260702_009",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
             "cac_data_export_security_assessment_measures_2022",
         ],
         [],
@@ -328,37 +328,37 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     # Automotive (extra)
     # ------------------------------------------------------------------
     "eval_automotive_005": (
-        ["missing_20260702_001", "missing_20260702_004"],
+        ["cac_automotive_data_security_provisions_2021", "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022"],
         [],
     ),
     "eval_automotive_006": (
         [
-            "missing_20260702_002",
-            "missing_20260702_001",
+            "cac_automotive_data_export_security_guide_2026",
+            "cac_automotive_data_security_provisions_2021",
             "cac_data_export_security_assessment_measures_2022",
         ],
         [],
     ),
     "eval_automotive_007": (
         [
-            "missing_20260702_001",
+            "cac_automotive_data_security_provisions_2021",
             "flk_npc_ff8081817b6472a3017b656cc2040044",
         ],
         ["tc260_sensitive_pip_identification_guide_2024"],
     ),
     "eval_automotive_008": (
-        ["missing_20260702_004", "missing_20260702_001"],
+        ["mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022", "cac_automotive_data_security_provisions_2021"],
         [],
     ),
     "eval_automotive_009": (
-        ["missing_20260702_001", "missing_20260702_002"],
+        ["cac_automotive_data_security_provisions_2021", "cac_automotive_data_export_security_guide_2026"],
         [],
     ),
     "eval_automotive_010": (
         [
-            "missing_20260702_001",
-            "missing_20260702_002",
-            "missing_20260702_009",
+            "cac_automotive_data_security_provisions_2021",
+            "cac_automotive_data_export_security_guide_2026",
+            "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         [],
     ),
@@ -367,7 +367,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     # Financial (extra)
     # ------------------------------------------------------------------
     "eval_financial_002": (
-        ["missing_20260702_012"],
+        ["cac_financial_information_service_data_classification_guide_2026"],
         [
             "tc260_gbt_43697_2024_data_classification_rules",
             "tc260_network_data_classification_guide_2021",
@@ -375,14 +375,14 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     ),
     "eval_financial_003": (
         [
-            "missing_20260702_012",
+            "cac_financial_information_service_data_classification_guide_2026",
             "flk_npc_ff8081817b6472a3017b656cc2040044",
         ],
         ["tc260_sensitive_pip_processing_requirements_2025"],
     ),
     "eval_financial_004": (
         [
-            "missing_20260702_012",
+            "cac_financial_information_service_data_classification_guide_2026",
             "cac_data_export_security_assessment_measures_2022",
             "cac_cross_border_data_flow_rules_2024",
         ],
@@ -391,7 +391,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     "eval_financial_005": (
         [
             "flk_npc_ff80818179f5e0800179f885c7e70392",
-            "missing_20260702_012",
+            "cac_financial_information_service_data_classification_guide_2026",
         ],
         ["tc260_gbt_43697_2024_data_classification_rules"],
     ),
@@ -400,46 +400,46 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     # Regional negative lists (extra)
     # ------------------------------------------------------------------
     "eval_fujian_001": (
-        ["missing_20260702_010", "cac_cross_border_data_flow_rules_2024"],
+        ["fujian_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
         [],
     ),
     "eval_guangdong_001": (
-        ["missing_20260702_014", "cac_cross_border_data_flow_rules_2024"],
+        ["guangdong_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
         [],
     ),
     "eval_jiangsu_001": (
-        ["missing_20260702_015", "cac_cross_border_data_flow_rules_2024"],
+        ["jiangsu_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
         [],
     ),
     "eval_guangxi_001": (
-        ["missing_20260702_018", "cac_cross_border_data_flow_rules_2024"],
+        ["guangxi_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
         [],
     ),
     "eval_shenzhen_001": (
         [
-            "missing_20260702_011",
+            "shenzhen_data_regulation_2021",
             "flk_npc_ff80818179f5e0800179f885c7e70392",
         ],
         [],
     ),
     "eval_regional_compare_001": (
         [
-            "missing_20260702_017",
-            "missing_20260702_010",
+            "zhejiang_free_trade_zone_data_export_negative_list_2024",
+            "fujian_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         [],
     ),
     "eval_regional_compare_002": (
         [
-            "missing_20260702_014",
-            "missing_20260702_007",
+            "guangdong_free_trade_zone_data_export_negative_list_2025",
+            "hainan_free_trade_port_data_export_negative_list_2024",
             "cac_cross_border_data_flow_rules_2024",
         ],
         [],
     ),
     "eval_regional_boundary_001": (
-        ["missing_20260702_013", "cac_cross_border_data_flow_rules_2024"],
+        ["shanghai_free_trade_zone_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
         [],
     ),
     "eval_regional_boundary_002": (
@@ -554,7 +554,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     ),
     "eval_conflict_001": (
         [
-            "missing_20260702_014",
+            "guangdong_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
             "cac_data_export_security_assessment_measures_2022",
         ],

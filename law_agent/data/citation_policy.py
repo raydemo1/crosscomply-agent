@@ -24,7 +24,7 @@ CLAUSE_CITABLE_SOURCE_IDS = {
     "cac_cybersecurity_review_measures_2022",
     "cac_personal_info_protection_certification_rules_2022",
     "cac_personal_info_export_certification_measures_2025",
-    "missing_20260702_009",
+    "cac_data_export_security_assessment_filing_guide_v3_2025",
 }
 
 LOCAL_CONDITIONAL_SOURCE_IDS = {
@@ -32,24 +32,24 @@ LOCAL_CONDITIONAL_SOURCE_IDS = {
     "flk_npc_ff808181857bbb76018594676d0f2a7d",
     "flk_npc_ff8081817ddb1774017dea2a41241fc9",
     "flk_npc_ff8081819cf9f6cf019d763ae3b028eb",
-    "missing_20260702_005",
-    "missing_20260702_007",
-    "missing_20260702_008",
-    "missing_20260702_010",
-    "missing_20260702_011",
-    "missing_20260702_013",
-    "missing_20260702_014",
-    "missing_20260702_015",
-    "missing_20260702_016",
-    "missing_20260702_017",
-    "missing_20260702_018",
+    "tianjin_free_trade_zone_data_export_negative_list_2024",
+    "hainan_free_trade_port_data_export_negative_list_2024",
+    "beijing_free_trade_zone_data_export_negative_list_2025",
+    "fujian_free_trade_zone_data_export_negative_list_2025",
+    "shenzhen_data_regulation_2021",
+    "shanghai_free_trade_zone_data_export_negative_list_2024",
+    "guangdong_free_trade_zone_data_export_negative_list_2025",
+    "jiangsu_free_trade_zone_data_export_negative_list_2025",
+    "chongqing_free_trade_zone_data_export_negative_list_2025",
+    "zhejiang_free_trade_zone_data_export_negative_list_2024",
+    "guangxi_free_trade_zone_data_export_negative_list_2025",
 }
 
 INDUSTRY_CONDITIONAL_SOURCE_IDS = {
-    "missing_20260702_001",
-    "missing_20260702_002",
-    "missing_20260702_004",
-    "missing_20260702_012",
+    "cac_automotive_data_security_provisions_2021",
+    "cac_automotive_data_export_security_guide_2026",
+    "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+    "cac_financial_information_service_data_classification_guide_2026",
 }
 
 INTERPRETATION_AUXILIARY_SOURCE_IDS = {
@@ -58,7 +58,7 @@ INTERPRETATION_AUXILIARY_SOURCE_IDS = {
     "cac_network_data_security_regulation_qna_2024",
     "cac_data_export_policy_qna_2025_04",
     "cac_data_export_policy_qna_2026_01",
-    "missing_20260702_006",
+    "shanghai_free_trade_zone_data_export_negative_list_qna_2024",
 }
 
 IMPLEMENTATION_REFERENCE_SOURCE_IDS = {
@@ -75,7 +75,7 @@ FRONTEND_DIRECT_REFERENCE_SOURCE_IDS = {
     "cac_personal_info_export_standard_contract_measures_2023",
     "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
     "cac_personal_info_export_standard_contract_template_2023",
-    "missing_20260702_009",
+    "cac_data_export_security_assessment_filing_guide_v3_2025",
 }
 
 
