@@ -42,7 +42,10 @@ def test_chunk_document_splits_faq_by_question_blocks() -> None:
         "数据出境安全管理政策问答",
         "问：什么情形需要申报数据出境安全评估？",
     ]
-    assert chunks[0].citation_label == "数据出境安全管理政策问答 问：什么情形需要申报数据出境安全评估？"
+    assert (
+        chunks[0].citation_label
+        == "数据出境安全管理政策问答 问：什么情形需要申报数据出境安全评估？"
+    )
     assert "答：达到规定数量" in chunks[0].text
     assert chunks[0].can_cite_clause is False
 

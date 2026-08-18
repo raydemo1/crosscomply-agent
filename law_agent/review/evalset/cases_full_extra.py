@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from law_agent.review.evalset.schemas import EvalScenario
 
-
 FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
     # ------------------------------------------------------------------
     # Cross-border data export assessment
@@ -113,7 +112,6 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_citation_roles=["primary_legal_basis"],
         tags=["cross_border", "regional", "boundary"],
     ),
-
     # ------------------------------------------------------------------
     # Standard contract and filing
     # ------------------------------------------------------------------
@@ -184,7 +182,6 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_citation_roles=["primary_legal_basis"],
         tags=["standard_contract", "template"],
     ),
-
     # ------------------------------------------------------------------
     # Personal information protection certification
     # ------------------------------------------------------------------
@@ -259,7 +256,6 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_citation_roles=["primary_legal_basis", "implementation_reference"],
         tags=["certification", "processor"],
     ),
-
     # ------------------------------------------------------------------
     # Automotive and smart connected vehicle data
     # ------------------------------------------------------------------
@@ -332,7 +328,6 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_citation_roles=["conditional_industry_basis", "primary_legal_basis"],
         tags=["automotive", "important_data", "assessment"],
     ),
-
     # ------------------------------------------------------------------
     # Financial data and classification
     # ------------------------------------------------------------------
@@ -384,7 +379,6 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_citation_roles=["primary_legal_basis", "conditional_industry_basis"],
         tags=["financial", "classification", "data_security_law"],
     ),
-
     # ------------------------------------------------------------------
     # Regional negative lists and local rules
     # ------------------------------------------------------------------
@@ -489,7 +483,6 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_citation_roles=["primary_legal_basis"],
         tags=["regional", "boundary", "no_local_region"],
     ),
-
     # ------------------------------------------------------------------
     # TC260 / GB/T standards and implementation references
     # ------------------------------------------------------------------
@@ -562,7 +555,6 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_citation_roles=["primary_legal_basis", "implementation_reference"],
         tags=["tc260", "personal_info", "security_controls"],
     ),
-
     # ------------------------------------------------------------------
     # Official Q&A and interpretation materials
     # ------------------------------------------------------------------
@@ -610,7 +602,6 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         expected_citation_roles=["interpretation_auxiliary", "primary_legal_basis"],
         tags=["qna", "network_data_security"],
     ),
-
     # ------------------------------------------------------------------
     # Insufficient evidence, out-of-corpus, conflict, and boundary scenarios
     # ------------------------------------------------------------------

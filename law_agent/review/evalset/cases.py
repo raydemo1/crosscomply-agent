@@ -28,8 +28,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         case_id="eval_cross_border_001",
         question="这种规模的出境要不要先向网信部门申报？",
         material_text=(
-            "我们会将手机号和定位信息发送给新加坡服务商用于推荐优化。"
-            "目前日均处理约50万用户的数据。"
+            "我们会将手机号和定位信息发送给新加坡服务商用于推荐优化。目前日均处理约50万用户的数据。"
         ),
         expected_sources=[
             "cac_data_export_security_assessment_measures_2022",
@@ -38,7 +37,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         must_not_cite_as_clause=[],
         tags=["cross_border", "assessment", "personal_info"],
     ),
@@ -54,7 +53,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["cross_border", "assessment", "large_scale"],
     ),
     EvalScenario(
@@ -70,7 +69,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_data_export_assessment_qna_2022",
         ],
         expected_citation_roles=["primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["cross_border", "post_assessment"],
     ),
     EvalScenario(
@@ -85,7 +84,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["cross_border", "assessment", "implicit"],
     ),
     EvalScenario(
@@ -100,10 +99,9 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_data_export_security_assessment_filing_guide_v3_2025",
         ],
         expected_citation_roles=["primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["cross_border", "post_assessment", "change"],
     ),
-
     # ------------------------------------------------------------------
     # Standard contract for personal info export
     # ------------------------------------------------------------------
@@ -119,22 +117,21 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
         ],
         expected_citation_roles=["primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["standard_contract", "small_scale"],
     ),
     EvalScenario(
         case_id="eval_standard_contract_002",
         question="签完那份个人信息出境合同后，备案包里通常要放哪些材料？",
         material_text=(
-            "我们准备用标准合同方式将客户信息传输至境外合作方，"
-            "需要了解备案流程和所需材料。"
+            "我们准备用标准合同方式将客户信息传输至境外合作方，需要了解备案流程和所需材料。"
         ),
         expected_sources=[
             "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
             "cac_personal_info_export_standard_contract_template_2023",
         ],
         expected_citation_roles=["primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["standard_contract", "filing"],
     ),
     EvalScenario(
@@ -149,7 +146,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
         ],
         expected_citation_roles=["primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["standard_contract", "implicit", "employee"],
     ),
     EvalScenario(
@@ -164,10 +161,9 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_personal_info_export_standard_contract_measures_2023",
         ],
         expected_citation_roles=["primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["standard_contract", "template", "obligations"],
     ),
-
     # ------------------------------------------------------------------
     # Smart connected vehicle / automotive
     # ------------------------------------------------------------------
@@ -175,8 +171,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         case_id="eval_automotive_001",
         question="车端坐标和轨迹给海外算法团队，会碰到哪些汽车数据专项要求？",
         material_text=(
-            "智能网联汽车采集车辆位置和行驶轨迹数据，"
-            "需将数据传输至海外研发中心进行分析。"
+            "智能网联汽车采集车辆位置和行驶轨迹数据，需将数据传输至海外研发中心进行分析。"
         ),
         expected_sources=[
             "cac_automotive_data_security_provisions_2021",
@@ -194,15 +189,14 @@ BASE_SCENARIOS: list[EvalScenario] = [
         case_id="eval_automotive_002",
         question="车企日常处理车主信息和车辆运行数据，行业安全要求看哪些依据？",
         material_text=(
-            "汽车制造商在车辆生产和运营中处理车主个人信息和车辆运行数据，"
-            "需要了解行业安全要求。"
+            "汽车制造商在车辆生产和运营中处理车主个人信息和车辆运行数据，需要了解行业安全要求。"
         ),
         expected_sources=[
             "cac_automotive_data_security_provisions_2021",
             "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
         ],
         expected_citation_roles=["conditional_industry_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["automotive", "industry", "security"],
     ),
     EvalScenario(
@@ -217,7 +211,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "cac_automotive_data_security_provisions_2021",
         ],
         expected_citation_roles=["conditional_industry_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["automotive", "mapping", "industry"],
     ),
     EvalScenario(
@@ -236,17 +230,13 @@ BASE_SCENARIOS: list[EvalScenario] = [
         should_abstain=False,
         tags=["automotive", "regional", "chongqing", "cross_border"],
     ),
-
     # ------------------------------------------------------------------
     # Regional negative list
     # ------------------------------------------------------------------
     EvalScenario(
         case_id="eval_shanghai_001",
         question="临港业务的数据能不能自由传到境外，上海这边要先看哪张清单？",
-        material_text=(
-            "公司在上海自贸区开展业务，涉及用户数据出境，"
-            "需要了解负面清单管理要求。"
-        ),
+        material_text=("公司在上海自贸区开展业务，涉及用户数据出境，需要了解负面清单管理要求。"),
         expected_sources=[
             "shanghai_free_trade_zone_data_export_negative_list_2024",
             "shanghai_free_trade_zone_data_export_negative_list_qna_2024",
@@ -259,10 +249,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
     EvalScenario(
         case_id="eval_tianjin_001",
         question="天津自贸区企业做个人信息出境，地方清单会不会额外限制？",
-        material_text=(
-            "企业在天津自贸区注册，处理个人信息拟出境，"
-            "想了解天津版负面清单的规定。"
-        ),
+        material_text=("企业在天津自贸区注册，处理个人信息拟出境，想了解天津版负面清单的规定。"),
         expected_sources=[
             "tianjin_free_trade_zone_data_export_negative_list_2024",
             "cac_cross_border_data_flow_rules_2024",
@@ -274,9 +261,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
     EvalScenario(
         case_id="eval_hainan_001",
         question="海南旅游平台把游客数据给境外关联公司，要注意自贸港哪些本地规则？",
-        material_text=(
-            "公司在海南自贸港运营旅游平台，需要将游客数据传输至境外关联公司。"
-        ),
+        material_text=("公司在海南自贸港运营旅游平台，需要将游客数据传输至境外关联公司。"),
         expected_sources=[
             "hainan_free_trade_port_data_export_negative_list_2024",
             "cac_cross_border_data_flow_rules_2024",
@@ -322,8 +307,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         case_id="eval_sensitive_001",
         question="商场做人脸客流分析，个人信息保护上要重点看哪些依据？",
         material_text=(
-            "公司计划在商场部署人脸识别系统进行客流分析，"
-            "收集顾客人脸信息用于商业分析。"
+            "公司计划在商场部署人脸识别系统进行客流分析，收集顾客人脸信息用于商业分析。"
         ),
         expected_sources=[
             "tc260_sensitive_pip_identification_guide_2024",
@@ -331,7 +315,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "flk_npc_ff8081817b6472a3017b656cc2040044",
         ],
         expected_citation_roles=["implementation_reference", "primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["sensitive", "facial_recognition"],
     ),
     EvalScenario(
@@ -347,7 +331,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "tc260_sensitive_pip_processing_requirements_2025",
         ],
         expected_citation_roles=["primary_legal_basis", "implementation_reference"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["sensitive", "location", "marketing"],
     ),
     # ------------------------------------------------------------------
@@ -366,7 +350,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "flk_npc_ff80818179f5e0800179f885c7e70392",
         ],
         expected_citation_roles=["implementation_reference", "primary_legal_basis"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["classification", "data_security"],
     ),
     EvalScenario(
@@ -381,10 +365,9 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "tc260_gbt_43697_2024_data_classification_rules",
         ],
         expected_citation_roles=["conditional_industry_basis", "implementation_reference"],
-                should_abstain=False,
+        should_abstain=False,
         tags=["classification", "financial", "industry"],
     ),
-
     # ------------------------------------------------------------------
     # Abstention case (insufficient info)
     # ------------------------------------------------------------------
@@ -394,7 +377,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         material_text="我们处理一些数据。",
         expected_sources=[],
         expected_citation_roles=[],
-                should_abstain=True,
+        should_abstain=True,
         must_not_cite_as_clause=[],
         tags=["abstention", "insufficient_info"],
     ),
@@ -404,7 +387,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         material_text="产品还在立项阶段，暂时没有确定会处理哪些数据、服务对象、地区或第三方合作方。",
         expected_sources=[],
         expected_citation_roles=[],
-                should_abstain=True,
+        should_abstain=True,
         must_not_cite_as_clause=[],
         tags=["abstention", "insufficient_info"],
     ),

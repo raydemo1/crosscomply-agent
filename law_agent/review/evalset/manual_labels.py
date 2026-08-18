@@ -16,7 +16,6 @@ from __future__ import annotations
 
 # type: dict[str, tuple[list[str], list[str]]]
 MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
-
     # ------------------------------------------------------------------
     # Cross-border data export assessment (base)
     # ------------------------------------------------------------------
@@ -56,7 +55,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         [],
     ),
-
     # ------------------------------------------------------------------
     # Standard contract (base)
     # ------------------------------------------------------------------
@@ -85,7 +83,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         [],
     ),
-
     # ------------------------------------------------------------------
     # Automotive (base)
     # ------------------------------------------------------------------
@@ -98,11 +95,17 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         [],
     ),
     "eval_automotive_002": (
-        ["cac_automotive_data_security_provisions_2021", "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022"],
+        [
+            "cac_automotive_data_security_provisions_2021",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+        ],
         [],
     ),
     "eval_automotive_003": (
-        ["mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022", "cac_automotive_data_security_provisions_2021"],
+        [
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "cac_automotive_data_security_provisions_2021",
+        ],
         [],
     ),
     "eval_automotive_004": (
@@ -113,31 +116,44 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         [],
     ),
-
     # ------------------------------------------------------------------
     # Regional negative list (base)
     # ------------------------------------------------------------------
     "eval_shanghai_001": (
-        ["shanghai_free_trade_zone_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "shanghai_free_trade_zone_data_export_negative_list_2024",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         ["shanghai_free_trade_zone_data_export_negative_list_qna_2024"],
     ),
     "eval_tianjin_001": (
-        ["tianjin_free_trade_zone_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "tianjin_free_trade_zone_data_export_negative_list_2024",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         [],
     ),
     "eval_hainan_001": (
-        ["hainan_free_trade_port_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "hainan_free_trade_port_data_export_negative_list_2024",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         [],
     ),
     "eval_beijing_001": (
-        ["beijing_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "beijing_free_trade_zone_data_export_negative_list_2025",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         [],
     ),
     "eval_zhejiang_001": (
-        ["zhejiang_free_trade_zone_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "zhejiang_free_trade_zone_data_export_negative_list_2024",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         [],
     ),
-
     # ------------------------------------------------------------------
     # Sensitive personal information (base)
     # ------------------------------------------------------------------
@@ -155,7 +171,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         ["tc260_sensitive_pip_processing_requirements_2025"],
     ),
-
     # ------------------------------------------------------------------
     # Data classification (base)
     # ------------------------------------------------------------------
@@ -170,13 +185,11 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ["cac_financial_information_service_data_classification_guide_2026"],
         ["tc260_gbt_43697_2024_data_classification_rules"],
     ),
-
     # ------------------------------------------------------------------
     # Abstention (base) — no expected sources
     # ------------------------------------------------------------------
     "eval_abstain_001": ([], []),
     "eval_abstain_002": ([], []),
-
     # ------------------------------------------------------------------
     # Cross-border (extra)
     # ------------------------------------------------------------------
@@ -243,7 +256,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         [],
     ),
-
     # ------------------------------------------------------------------
     # Standard contract (extra)
     # ------------------------------------------------------------------
@@ -280,7 +292,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         [],
     ),
-
     # ------------------------------------------------------------------
     # Certification (extra)
     # ------------------------------------------------------------------
@@ -323,12 +334,14 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ["cac_personal_info_export_certification_measures_2025"],
         ["tc260_cross_border_certification_spec_2022"],
     ),
-
     # ------------------------------------------------------------------
     # Automotive (extra)
     # ------------------------------------------------------------------
     "eval_automotive_005": (
-        ["cac_automotive_data_security_provisions_2021", "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022"],
+        [
+            "cac_automotive_data_security_provisions_2021",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+        ],
         [],
     ),
     "eval_automotive_006": (
@@ -347,11 +360,17 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ["tc260_sensitive_pip_identification_guide_2024"],
     ),
     "eval_automotive_008": (
-        ["mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022", "cac_automotive_data_security_provisions_2021"],
+        [
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "cac_automotive_data_security_provisions_2021",
+        ],
         [],
     ),
     "eval_automotive_009": (
-        ["cac_automotive_data_security_provisions_2021", "cac_automotive_data_export_security_guide_2026"],
+        [
+            "cac_automotive_data_security_provisions_2021",
+            "cac_automotive_data_export_security_guide_2026",
+        ],
         [],
     ),
     "eval_automotive_010": (
@@ -362,7 +381,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         [],
     ),
-
     # ------------------------------------------------------------------
     # Financial (extra)
     # ------------------------------------------------------------------
@@ -395,24 +413,35 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         ["tc260_gbt_43697_2024_data_classification_rules"],
     ),
-
     # ------------------------------------------------------------------
     # Regional negative lists (extra)
     # ------------------------------------------------------------------
     "eval_fujian_001": (
-        ["fujian_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "fujian_free_trade_zone_data_export_negative_list_2025",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         [],
     ),
     "eval_guangdong_001": (
-        ["guangdong_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "guangdong_free_trade_zone_data_export_negative_list_2025",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         [],
     ),
     "eval_jiangsu_001": (
-        ["jiangsu_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "jiangsu_free_trade_zone_data_export_negative_list_2025",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         [],
     ),
     "eval_guangxi_001": (
-        ["guangxi_free_trade_zone_data_export_negative_list_2025", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "guangxi_free_trade_zone_data_export_negative_list_2025",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         [],
     ),
     "eval_shenzhen_001": (
@@ -439,7 +468,10 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         [],
     ),
     "eval_regional_boundary_001": (
-        ["shanghai_free_trade_zone_data_export_negative_list_2024", "cac_cross_border_data_flow_rules_2024"],
+        [
+            "shanghai_free_trade_zone_data_export_negative_list_2024",
+            "cac_cross_border_data_flow_rules_2024",
+        ],
         [],
     ),
     "eval_regional_boundary_002": (
@@ -449,7 +481,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         [],
     ),
-
     # ------------------------------------------------------------------
     # TC260 / GB/T standards (extra)
     # ------------------------------------------------------------------
@@ -497,7 +528,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         ["tc260_sensitive_pip_processing_requirements_2025"],
     ),
-
     # ------------------------------------------------------------------
     # Q&A and interpretation materials (extra)
     # ------------------------------------------------------------------
@@ -529,7 +559,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
         ],
         [],
     ),
-
     # ------------------------------------------------------------------
     # Abstention / out-of-corpus / boundary / conflict (extra)
     # ------------------------------------------------------------------
@@ -537,7 +566,6 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     "eval_abstain_004": ([], []),
     "eval_out_of_corpus_001": ([], []),
     "eval_out_of_corpus_002": ([], []),
-
     "eval_boundary_001": (
         [
             "flk_npc_ff8081817b6472a3017b656cc2040044",
