@@ -48,10 +48,6 @@ from law_agent.review.governance_store import (
 )
 from law_agent.review.io import read_review_results
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
-from law_agent.review.reports import (
-    DecisionReportData,
-    generate_decision_report,
-)
 from law_agent.review.report_data import (
     build_ai_review,
     build_legal_sources,
@@ -59,6 +55,10 @@ from law_agent.review.report_data import (
     manual_confirmations_for_report,
     rule_findings_for_report,
     selected_path_for_report,
+)
+from law_agent.review.reports import (
+    DecisionReportData,
+    generate_decision_report,
 )
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.rules import ComplianceFacts, evaluate_national_path

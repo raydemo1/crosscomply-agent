@@ -12,7 +12,7 @@ import json
 from base64 import b64decode
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
 from Crypto.Cipher import AES
@@ -260,15 +260,15 @@ def _normalize_approval_time(value: str | None) -> str | None:
         timestamp = int(value)
         seconds = timestamp / 1000 if timestamp >= 10_000_000_000 else timestamp
         try:
-            return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(seconds, tz=UTC).isoformat()
         except (OverflowError, OSError, ValueError):
             raise FeishuEventError("飞书审批事件时间戳无效") from None
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise FeishuEventError("飞书审批事件时间格式无效") from exc
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed.isoformat()
 
 

@@ -109,14 +109,9 @@ def generate_decision_report(data: DecisionReportData) -> DecisionReportArtifact
         from reportlab.pdfgen.canvas import Canvas
         from reportlab.platypus import (
             BaseDocTemplate,
-            Flowable,
             Frame,
             PageBreak,
             PageTemplate,
-            Paragraph,
-            Spacer,
-            Table,
-            TableStyle,
         )
     except ImportError as exc:  # pragma: no cover - exercised in minimal deployments
         raise RuntimeError(
@@ -580,7 +575,7 @@ def _decision_packet(data, styles, colors):
 def _rich_decision_packet(data, styles, colors):
     from reportlab.platypus import Spacer, Table, TableStyle
 
-    status, status_color, status_bg = _status_label(data.decision)
+    status, _, _ = _status_label(data.decision)
     story: list[Flowable] = [_section_heading("审查结论与合规依据", "01", styles)]
 
     if data.ai_review is not None:

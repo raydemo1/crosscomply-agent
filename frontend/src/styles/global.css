@@ -5079,10 +5079,8 @@ textarea {
   margin-top: 12px;
 }
 .report-record > div { min-width: 0; }
-.report-record span,
-.report-record code { display: block; }
+.report-record span { display: block; }
 .report-record span { color: var(--color-muted-foreground); font-size: 0.68rem; }
-.report-record code { overflow: hidden; margin-top: 2px; font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
 
 .case-operations,
 .case-timeline,
