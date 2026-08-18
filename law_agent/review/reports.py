@@ -45,7 +45,6 @@ class DecisionReportData:
     approved_at: str
     case_title: str = ""
     selected_path: str = ""
-    rule_findings: tuple[str, ...] = ()
     manual_confirmation_items: tuple[str, ...] = ()
     ai_review: AIReviewSummary | None = None
     remediation_details: tuple[RemediationDetail, ...] = ()
@@ -276,6 +275,18 @@ def _build_styles(ParagraphStyle, get_sample_styles, *, body_font, bold_font, mo
         "callout": ParagraphStyle("callout", parent=sample["BodyText"], fontName=body_font, fontSize=9.2, leading=14, textColor=colors.HexColor(INK)),
         "opinion_label": ParagraphStyle("opinion_label", parent=sample["BodyText"], fontName=bold_font, fontSize=10.2, leading=14, textColor=colors.white),
         "opinion": ParagraphStyle("opinion", parent=sample["BodyText"], fontName=body_font, fontSize=10.8, leading=17, textColor=colors.HexColor(INK)),
+        "opinion_body": ParagraphStyle(
+            "opinion_body",
+            parent=sample["BodyText"],
+            fontName=body_font,
+            fontSize=10.8,
+            leading=17,
+            textColor=colors.HexColor(INK),
+            backColor=colors.HexColor(SOFT_BLUE),
+            borderColor=colors.HexColor("#BFDBFE"),
+            borderWidth=0.7,
+            borderPadding=12,
+        ),
     }
 
 
@@ -292,17 +303,17 @@ def _section_heading(title: str, index: str, styles):
     return _p(f'<font color="{GOLD}">{index}</font>  {html.escape(title)}', styles["section"], escape=False)
 
 
-def _clean_ai_text(value: object, *, limit: int = 360) -> str:
+def _clean_ai_text(value: object, *, limit: int | None = 360) -> str:
     text = html.unescape(str(value or ""))
     text = re.sub(r"<[^>]+>", "", text)
     text = text.replace("**", "").replace("__", "")
     text = re.sub(r"\s+", " ", text).strip()
-    if len(text) <= limit:
+    if limit is None or len(text) <= limit:
         return text
     return f"{text[: limit - 1].rstrip()}…"
 
 
-def _narrative_text(value: object, *, limit: int = 1200) -> str:
+def _narrative_text(value: object, *, limit: int | None = 1200) -> str:
     text = html.unescape(str(value or ""))
     text = re.sub(r"<[^>]+>", "", text)
     text = text.replace("**", "").replace("__", "")
@@ -313,19 +324,25 @@ def _narrative_text(value: object, *, limit: int = 1200) -> str:
     text = re.sub(r"\n\s*\n+", "\n", text)
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r" *\n *", "\n", text).strip()
-    if len(text) <= limit:
+    if limit is None or len(text) <= limit:
         return text
     return f"{text[: limit - 1].rstrip()}…"
 
 
-def _narrative_html(value: object, *, limit: int = 1200) -> str:
+def _narrative_html(value: object, *, limit: int | None = 1200) -> str:
     return html.escape(_narrative_text(value, limit=limit)).replace("\n", "<br/>")
 
 
 def _review_conclusion_parts(value: object) -> tuple[str, tuple[str, ...]]:
-    """Separate the readable conclusion from embedded confirmation bullets."""
+    """Split the AI conclusion into a full lead paragraph and verification items.
 
-    text = _narrative_text(value, limit=2200)
+    Lines are classified but never truncated: every conclusion line is either
+    kept in the lead or collected as a verification item, so the approver sees
+    the complete conclusion.  Generic "本结论基于…" boundary lines are dropped
+    because the report already states its material basis elsewhere.
+    """
+
+    text = _narrative_text(value)
     lead: list[str] = []
     attention: list[str] = []
     for raw_line in text.splitlines():
@@ -335,10 +352,8 @@ def _review_conclusion_parts(value: object) -> tuple[str, tuple[str, ...]]:
         if re.match(r"^(需确认|需取得|需开展|需与|材料中)", line):
             attention.append(line)
             continue
-        if re.match(r"^\d+[.、]", line):
-            continue
         lead.append(line)
-    return "\n".join(lead[:2]), tuple(dict.fromkeys(attention))
+    return "\n".join(lead), tuple(dict.fromkeys(attention))
 
 
 def _strip_article_prefix(value: object, article: str) -> str:
@@ -374,7 +389,7 @@ def _status_label(decision: str) -> tuple[str, str, str]:
         return "附条件通过", GOLD, SOFT_GOLD
     if normalized in {"rejected", "驳回"}:
         return "审批驳回", RED, "#FEF2F2"
-    if normalized in {"canceled", "cancelled", "已撤回"}:
+    if normalized in {"withdrawn", "canceled", "cancelled", "已撤回"}:
         return "审批已撤回", MUTED, "#F1F5F9"
     return decision or "待定", MUTED, "#F1F5F9"
 
@@ -472,106 +487,6 @@ class BrandMark(Flowable):
         canvas.restoreState()
 
 
-class DecisionFlow(Flowable):
-    def __init__(self, *, colors, body_font, bold_font):
-        super().__init__()
-        self.width = 155 * mm
-        self.height = 28 * mm
-        self.colors = colors
-        self.body_font = body_font
-        self.bold_font = bold_font
-
-    def draw(self):
-        canvas = self.canv
-        canvas.saveState()
-        labels = [("01", "材料", "冻结快照"), ("02", "规则", "路径判定"), ("03", "证据", "深度审查"), ("04", "审批", "企业决定"), ("05", "归档", "报告留痕")]
-        step_x = self.width / 5
-        center_y = self.height - 12
-        for i, (number, title, caption) in enumerate(labels):
-            x = 14 + i * step_x
-            if i < len(labels) - 1:
-                canvas.setStrokeColor(self.colors.HexColor(BORDER))
-                canvas.setLineWidth(1)
-                canvas.line(x + 12, center_y, x + step_x - 12, center_y)
-            canvas.setFillColor(self.colors.HexColor(NAVY if i < 4 else GOLD))
-            canvas.circle(x, center_y, 11, fill=1, stroke=0)
-            canvas.setFillColor(self.colors.white)
-            canvas.setFont(self.bold_font, 7.2)
-            canvas.drawCentredString(x, center_y - 2.2, number)
-            canvas.setFillColor(self.colors.HexColor(INK))
-            canvas.setFont(self.bold_font, 9.2)
-            canvas.drawCentredString(x, center_y - 24, title)
-            canvas.setFillColor(self.colors.HexColor(MUTED))
-            canvas.setFont(self.body_font, 8.2)
-            canvas.drawCentredString(x, center_y - 34, caption)
-        canvas.restoreState()
-
-
-def _decision_packet(data, styles, colors):
-    from reportlab.platypus import Spacer, Table, TableStyle
-
-    status, status_color, status_bg = _status_label(data.decision)
-    story: list[Flowable] = [_section_heading("结论与依据", "01", styles)]
-
-    decision = Table([
-        [_p("审查结论", styles["card_label"]), _p("审批人", styles["card_label"]), _p("决定时间", styles["card_label"])],
-        [_p(status, styles["card_value"]), _p(data.approver, styles["table_body"]), _p(data.approved_at, styles["table_mono"])],
-    ], colWidths=[50 * mm, 48 * mm, 57 * mm], rowHeights=[9 * mm, 19 * mm])
-    decision.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.white),
-        ("BACKGROUND", (0, 1), (0, 1), colors.HexColor(status_bg)),
-        ("TEXTCOLOR", (0, 1), (0, 1), colors.HexColor(status_color)),
-        ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor(BORDER)),
-        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor(BORDER)),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 11),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 11),
-    ]))
-    story.extend([decision, Spacer(1, 13 * mm), _p("适用规则与法源", styles["section"])])
-
-    source_rows = [[_p("项目", styles["table_head"]), _p("内容", styles["table_head"])], [_p("规则版本", styles["table_body"]), _p(data.rule_version, styles["table_mono"])]]
-    for source in data.legal_sources:
-        source_rows.append([_p("法源", styles["table_body"]), _p(f"{source.title}<br/>{source.locator}", styles["table_body"])])
-    if not data.legal_sources:
-        source_rows.append([_p("法源", styles["table_body_muted"]), _p("本次报告未记录法源", styles["table_body_muted"])])
-    source_table = Table(source_rows, colWidths=[32 * mm, 123 * mm], repeatRows=1)
-    source_table.setStyle(_table_style(colors, header=BLUE))
-    story.extend([source_table, Spacer(1, 13 * mm), _p("整改事项", styles["section"])])
-
-    if data.remediation_items:
-        action_rows = [[_p("序号", styles["table_head"]), _p("待办事项", styles["table_head"]), _p("状态", styles["table_head"])]]
-        action_rows.extend([[_p(f"{i:02d}", styles["table_body"]), _p(item, styles["table_body"]), _p("待闭环", styles["table_body"])] for i, item in enumerate(data.remediation_items, 1)])
-        actions = Table(action_rows, colWidths=[18 * mm, 109 * mm, 28 * mm], repeatRows=1)
-        actions.setStyle(_table_style(colors, header=GOLD))
-        story.append(actions)
-    else:
-        clear = Table([[_p("本次审查无待办整改事项", styles["card_value"])]], colWidths=[155 * mm])
-        clear.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(SOFT_GREEN)),
-            ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor(GREEN)),
-            ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#BBF7D0")),
-            ("LEFTPADDING", (0, 0), (-1, -1), 12),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-            ("TOPPADDING", (0, 0), (-1, -1), 11),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 11),
-        ]))
-        story.append(clear)
-
-    story.extend([Spacer(1, 13 * mm), _p("报告范围", styles["section"])])
-    scope_note = Table([[_p(f"本报告对应案件 {data.case_number}，基于 {len(data.material_hashes)} 份已冻结材料生成。底层材料校验信息由系统留存，不在面向审批人的报告中展开。", styles["callout"])]], colWidths=[155 * mm])
-    scope_note.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(SOFT_BLUE)),
-        ("LINEBEFORE", (0, 0), (0, -1), 3, colors.HexColor(NAVY)),
-        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#BFDBFE")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-    ]))
-    story.append(scope_note)
-    return story
-
-
 def _rich_decision_packet(data, styles, colors):
     from reportlab.platypus import Spacer, Table, TableStyle
 
@@ -602,23 +517,21 @@ def _rich_decision_packet(data, styles, colors):
             story.extend([
                 Spacer(1, 9 * mm),
             ])
-            opinion_card = Table([
-                [_p("审查意见", styles["opinion_label"])],
-                [_p(_narrative_html(conclusion_text, limit=900), styles["opinion"], escape=False)],
-            ], colWidths=[155 * mm])
-            opinion_card.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(NAVY)),
-                ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor(SOFT_BLUE)),
-                ("LINEBEFORE", (0, 1), (0, 1), 4, colors.HexColor(GOLD)),
-                ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#BFDBFE")),
+            opinion_header = Table(
+                [[_p("审查意见", styles["opinion_label"])]],
+                colWidths=[155 * mm],
+            )
+            opinion_header.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(NAVY)),
                 ("LEFTPADDING", (0, 0), (-1, -1), 12),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-                ("TOPPADDING", (0, 0), (-1, 0), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                ("TOPPADDING", (0, 1), (-1, 1), 11),
-                ("BOTTOMPADDING", (0, 1), (-1, 1), 11),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
             ]))
-            story.append(opinion_card)
+            story.append(opinion_header)
+            # A standalone paragraph (not a table cell) so a long conclusion
+            # flows across pages instead of being truncated.
+            story.append(_p(_narrative_html(conclusion_text), styles["opinion_body"], escape=False))
 
         context_rows = []
         for label, value in (
@@ -648,9 +561,9 @@ def _rich_decision_packet(data, styles, colors):
 
         attention = list(conclusion_attention)
         attention.extend(
-            f"材料缺口：{_clean_ai_text(item, limit=180)}" for item in ai.missing_information
+            f"材料缺口：{_clean_ai_text(item, limit=600)}" for item in ai.missing_information
         )
-        attention.extend(f"边界：{_clean_ai_text(item, limit=180)}" for item in ai.risk_boundaries)
+        attention.extend(f"边界：{_clean_ai_text(item, limit=600)}" for item in ai.risk_boundaries)
         attention = list(dict.fromkeys(attention))
         if attention:
             story.extend([Spacer(1, 9 * mm), _p("待核实事项", styles["section"])])

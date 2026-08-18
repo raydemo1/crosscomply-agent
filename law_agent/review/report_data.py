@@ -245,17 +245,6 @@ def selected_path_for_report(determination: dict[str, Any]) -> str:
     return ""
 
 
-def rule_findings_for_report(determination: dict[str, Any]) -> tuple[str, ...]:
-    hits = determination.get("rule_hits") or determination.get("matched_rules") or []
-    findings: list[str] = []
-    for item in hits:
-        summary = item.get("summary") or item.get("reason") or item.get("rule_id") if isinstance(item, dict) else item
-        text = _compact_text(summary, limit=260)
-        if text and text not in findings:
-            findings.append(text)
-    return tuple(findings)
-
-
 def manual_confirmations_for_report(determination: dict[str, Any]) -> tuple[str, ...]:
     values = determination.get("manual_confirmation_reasons") or determination.get("manual_confirmation_required") or []
     return _text_items(values, limit=240)

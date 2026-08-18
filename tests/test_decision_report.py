@@ -67,7 +67,6 @@ def test_report_surfaces_case_specific_ai_review_and_action_details(tmp_path) ->
         material_hashes=("c" * 64,),
         rule_version="national-path-2026.08",
         selected_path="个人信息出境标准合同路径",
-        rule_findings=("当前材料未识别重要数据，适用标准合同路径",),
         manual_confirmation_items=("法务确认标准合同与影响评估均已完成",),
         legal_sources=(LegalSource("个人信息保护法", "第三十八条"),),
         remediation_items=("完成影响评估",),

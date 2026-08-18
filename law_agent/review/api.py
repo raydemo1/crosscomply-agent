@@ -53,7 +53,6 @@ from law_agent.review.report_data import (
     build_legal_sources,
     build_remediation_details,
     manual_confirmations_for_report,
-    rule_findings_for_report,
     selected_path_for_report,
 )
 from law_agent.review.reports import (
@@ -1565,7 +1564,6 @@ def create_app(
             approved_at=approval.decided_at or approval.updated_at,
             case_title=case.get("title", ""),
             selected_path=selected_path,
-            rule_findings=rule_findings_for_report(determination),
             manual_confirmation_items=manual_confirmations_for_report(determination),
             ai_review=build_ai_review(case),
             remediation_details=build_remediation_details(actions),
