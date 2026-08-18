@@ -34,7 +34,7 @@ Get-Content -Raw -Encoding UTF8 (Join-Path $caseRoot "approval\feishu_event_fixt
 Write-Output "OK JSON fixtures parsed"
 
 if ($failed) {
-    throw "英雄案例完整性校验失败。材料变化后应生成新版本并更新快照，不能静默覆盖哈希。"
+    throw "案例完整性校验失败。材料变化后应生成新版本并更新快照，不能静默覆盖哈希。"
 }
 
-Write-Output "PASS hero case integrity"
+Write-Output "PASS case integrity"

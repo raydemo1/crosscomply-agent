@@ -57,7 +57,7 @@
 
 | 文件 | SHA-256 |
 | --- | --- |
-| 01_procurement_application.md | a4ac27e1f300d03f36e2d8a7b3836aa36cc7fd3d2186770b4190eac392c9c6ba |
+| 01_procurement_application.md | 2d9d36dfc73301e4bdd90220565e85e82e03a08c0b272a21ee6336f02e55c29a |
 | 02_vendor_dpa_excerpt.md | 91076b0630632ebe6a6c37b22c3150f2fddf8f6058bcfbad0428156b2828de91 |
 | 03_data_inventory.csv | a9285d1141a5d07288c506d40562c81aff42a87ee17885f9dbc412abf04c22c2 |
 | 04_security_questionnaire.md | 70727b5e834be670d0929e000f4927b2b7127ec959c86a9b9837523572df33d4 |
