@@ -62,6 +62,12 @@ function fromSummary(item: CaseSummaryApi): SavedCase {
     actions: [],
     events: [],
     feedback: null,
+    materialSnapshot: null,
+    ruleDecision: null,
+    reviewTask: null,
+    feishuApproval: null,
+    signedDecision: null,
+    report: null,
   };
 }
 
@@ -80,6 +86,12 @@ export function fromDetail(detail: CaseDetailApi): SavedCase {
     actions: detail.actions,
     events: detail.events,
     feedback: toFeedback(detail),
+    materialSnapshot: detail.material_snapshot,
+    ruleDecision: detail.rule_decision,
+    reviewTask: detail.review_task,
+    feishuApproval: detail.feishu_approval,
+    signedDecision: detail.signed_decision,
+    report: detail.report,
   };
 }
 

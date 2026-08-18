@@ -3,7 +3,18 @@
  */
 
 import type { ReviewApiResponse } from './api';
-import type { CaseAction, CaseEvent, CaseIntake, CaseStatus } from './api';
+import type {
+  CaseAction,
+  CaseEvent,
+  CaseIntake,
+  CaseStatus,
+  FeishuApprovalApi,
+  MaterialSnapshotApi,
+  ReportRecordApi,
+  ReviewTaskApi,
+  RuleDecisionApi,
+  SignedDecisionApi,
+} from './api';
 
 /** Per-citation human feedback (keyed by `chunk_id`). */
 export type CitationVerdict = 'correct' | 'wrong';
@@ -45,6 +56,12 @@ export interface SavedCase {
   actions: CaseAction[];
   events: CaseEvent[];
   feedback: CaseFeedback | null;
+  materialSnapshot: MaterialSnapshotApi | null;
+  ruleDecision: RuleDecisionApi | null;
+  reviewTask: ReviewTaskApi | null;
+  feishuApproval: FeishuApprovalApi | null;
+  signedDecision: SignedDecisionApi | null;
+  report: ReportRecordApi | null;
 }
 
 /** A lightweight summary used to render the sidebar history list. */

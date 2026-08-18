@@ -22,12 +22,15 @@ import type { CaseAction, CaseStatus, Citation, CitationGroup, RetrievalHit, Rev
 import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
 import { createCaseAction, setActionStatus, setCitationVerdict, updateCaseAction } from '../store/caseStore';
+import { openCase } from '../store/caseStore';
+import { createDecisionReport, createFeishuApproval, reportDownloadUrl, retryReviewTask, runCase, waitForReviewTask } from '../api/client';
 import RiskBadge from './RiskBadge';
 import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
 import GroundedClaims, { cssId } from './GroundedClaims';
 import MarkdownText from './MarkdownText';
 import { downloadHtml, downloadMarkdown } from '../utils/report';
+import { CASE_STATUS_LABELS, REVIEW_TASK_STATUS_LABELS, TERMINAL_CASE_STATUSES } from '../utils/workflow';
 import {
   EVIDENCE_ISSUE_LABELS,
   EVIDENCE_STATUS_BADGE_CLASS,
@@ -54,8 +57,6 @@ interface CaseDetailPageProps {
   onRerun: (question: string, material: string) => void;
   /** Called when the user wants to go back to the workbench. */
   onBack: () => void;
-  /** Persist a workflow status transition. */
-  onStatusChange: (caseId: string, status: CaseStatus) => void;
   /** Reviewers and admins can maintain persisted remediation actions. */
   canManageActions: boolean;
   viewerRole: UserRole;
@@ -83,13 +84,14 @@ export default function CaseDetailPage({
   onEdit,
   onRerun,
   onBack,
-  onStatusChange,
   canManageActions,
   viewerRole,
 }: CaseDetailPageProps): JSX.Element {
+  const [workflowOperation, setWorkflowOperation] = useState<string | null>(null);
+  const [workflowError, setWorkflowError] = useState<string | null>(null);
   const response = saved.response;
   if (!response) {
-    return <DraftCaseView saved={saved} canEdit={canEdit} onEdit={onEdit} onBack={onBack} onStatusChange={onStatusChange} />;
+    return <DraftCaseView saved={saved} canEdit={canEdit} onEdit={onEdit} onBack={onBack} canManageActions={canManageActions} workflowOperation={workflowOperation} workflowError={workflowError} setWorkflowOperation={setWorkflowOperation} setWorkflowError={setWorkflowError} />;
   }
   const failed = isReviewFailedResponse(response);
   const completedSaved = saved as SavedCaseWithResponse;
@@ -106,7 +108,11 @@ export default function CaseDetailPage({
         onRerun={() => onRerun(completedSaved.question, completedSaved.materialText)}
       />
 
-      <CaseOperations saved={saved} onStatusChange={onStatusChange} canManageActions={canManageActions} />
+      <HeroCaseProgress saved={saved} />
+      <EnterpriseDecisionChain saved={saved} />
+      <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} />
+
+      <CaseOperations saved={saved} canManageActions={canManageActions} />
 
       {failed ? (
         <FailedChain response={response} />
@@ -126,13 +132,21 @@ function DraftCaseView({
   canEdit,
   onEdit,
   onBack,
-  onStatusChange,
+  canManageActions,
+  workflowOperation,
+  workflowError,
+  setWorkflowOperation,
+  setWorkflowError,
 }: {
   saved: SavedCase;
   canEdit: boolean;
   onEdit: (saved: SavedCase) => void;
   onBack: () => void;
-  onStatusChange: (caseId: string, status: CaseStatus) => void;
+  canManageActions: boolean;
+  workflowOperation: string | null;
+  workflowError: string | null;
+  setWorkflowOperation: (value: string | null) => void;
+  setWorkflowError: (value: string | null) => void;
 }): JSX.Element {
   return (
     <div className="case-detail">
@@ -142,6 +156,9 @@ function DraftCaseView({
         <h1 className="case-header__title">{saved.question}</h1>
         <div className="case-header__meta"><span className={'status-chip status-chip--' + saved.status}>{statusLabel(saved.status)}</span><span>{saved.savedAt.replace('T', ' ').slice(0, 16)}</span></div>
       </header>
+      <HeroCaseProgress saved={saved} />
+      <EnterpriseDecisionChain saved={saved} />
+      <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} />
       <section className="card draft-case-card">
         <div className="section-title">提交前检查</div>
         <div className="draft-case-card__grid">
@@ -152,11 +169,235 @@ function DraftCaseView({
         </div>
         <p className="draft-case-card__hint">确认材料和关键事实后提交。</p>
         {canEdit && saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onEdit(saved)}>编辑并补充</button> : null}
-        {!canEdit && saved.status === 'draft' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onStatusChange(saved.id, 'submitted')}>提交审核</button> : null}
       </section>
       <Timeline events={saved.events} />
     </div>
   );
+}
+
+const HERO_STEPS = [
+  ['采购申请', '境外 SaaS 场景'],
+  ['材料立卷', '原件与版本哈希'],
+  ['事实确认', '关键事实不推测'],
+  ['全国路径', '确定性规则判定'],
+  ['证据深审', '法源与例外说明'],
+  ['补件整改', '缺口闭环'],
+  ['飞书审批', '企业最终决定'],
+  ['决策归档', '报告与审计留痕'],
+] as const;
+
+function currentHeroStep(saved: SavedCase): number {
+  return {
+    draft: 1,
+    needs_info: saved.reviewTask ? 5 : 2,
+    pending_review: 3,
+    review_running: 4,
+    pending_feishu_approval: 6,
+    approved: 7,
+    conditionally_approved: 7,
+    rejected: 7,
+    run_failed: 4,
+  }[saved.status];
+}
+
+function HeroCaseProgress({ saved }: { saved: SavedCase }): JSX.Element {
+  const activeStep = currentHeroStep(saved);
+  return (
+    <section className="card hero-case-progress" aria-label="企业采购境外 SaaS 合规流程">
+      <div className="hero-case-progress__heading">
+        <div><span>企业英雄案例</span><strong>境外 SaaS 上线前合规闸门</strong></div>
+        <span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span>
+      </div>
+      <ol className="hero-case-progress__steps">
+        {HERO_STEPS.map(([title, caption], index) => {
+          const state = index < activeStep ? 'is-done' : index === activeStep ? 'is-current' : '';
+          return (
+            <li className={state} key={title} aria-current={index === activeStep ? 'step' : undefined}>
+              <span className="hero-case-progress__index">{index < activeStep ? '✓' : String(index + 1).padStart(2, '0')}</span>
+              <div><strong>{title}</strong><small>{caption}</small></div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+function EnterpriseDecisionChain({ saved }: { saved: SavedCase }): JSX.Element | null {
+  const { materialSnapshot, ruleDecision, reviewTask, feishuApproval, signedDecision, report } = saved;
+  if (!materialSnapshot && !ruleDecision && !reviewTask && !feishuApproval && !signedDecision && !report) return null;
+
+  return (
+    <section className="enterprise-chain" aria-label="企业决策证据链">
+      {materialSnapshot ? (
+        <article className="card enterprise-record">
+          <div className="enterprise-record__heading"><div><span>01</span><h2>材料快照</h2></div><code title={materialSnapshot.fingerprint}>{materialSnapshot.fingerprint.slice(0, 12)}</code></div>
+          <p>本次审查绑定不可变材料快照，共 {materialSnapshot.version_ids.length} 个原件版本。</p>
+          <div className="enterprise-materials">
+            {materialSnapshot.version_ids.map((versionId, index) => (
+              <div key={versionId}>
+                <span><strong>材料版本 {index + 1}</strong><small>已冻结到本次审查</small></span>
+                <span><code title={versionId}>{versionId}</code></span>
+              </div>
+            ))}
+          </div>
+        </article>
+      ) : null}
+
+      {ruleDecision ? (
+        <article className="card enterprise-record enterprise-record--rules">
+          <div className="enterprise-record__heading"><div><span>02</span><h2>全国主路径判定</h2></div><code>{ruleDecision.ruleset_version}</code></div>
+          <div className="enterprise-paths">
+            {ruleDecision.determination.candidate_paths.map((path) => <div key={path.code} className={path.confidence === 'determined' ? 'is-determined' : 'is-possible'}><strong>{path.label}</strong><span>{path.reason}</span></div>)}
+          </div>
+          {ruleDecision.determination.needs_info.length > 0 ? <div className="enterprise-callout enterprise-callout--warning"><strong>送审前必须确认</strong><ul>{ruleDecision.determination.needs_info.map((fact) => <li key={fact.key}>{fact.reason}</li>)}</ul></div> : null}
+          {ruleDecision.determination.requires_rag_human_confirmation ? <div className="enterprise-callout"><strong>需要检索与人工确认</strong><span>{ruleDecision.determination.manual_confirmation_reasons.join('；')}</span></div> : null}
+          {ruleDecision.determination.official_bases.length > 0 ? <div className="enterprise-bases">{ruleDecision.determination.official_bases.map((basis) => <a key={basis.basis_id} href={basis.source_url} target="_blank" rel="noreferrer"><strong>{basis.title} {basis.article}</strong><span>{basis.issuing_body} ↗</span></a>)}</div> : null}
+        </article>
+      ) : null}
+
+      {reviewTask ? (
+        <article className="card enterprise-record">
+          <div className="enterprise-record__heading"><div><span>03</span><h2>证据化审查任务</h2></div><span className={`task-state task-state--${reviewTask.status}`}>{REVIEW_TASK_STATUS_LABELS[reviewTask.status]}</span></div>
+          <div className="enterprise-record__facts">
+            <div><span>任务编号</span><code>{reviewTask.id.slice(0, 18)}</code></div>
+            <div><span>当前节点</span><strong>{reviewTask.current_node || (reviewTask.status === 'queued' ? '等待 Worker' : '准备审查')}</strong></div>
+            <div><span>执行模型</span><strong>{reviewTask.model_id}</strong></div>
+            <div><span>执行次数</span><strong>{reviewTask.attempt_count}</strong></div>
+          </div>
+          {reviewTask.status === 'failed' ? <div className="enterprise-callout enterprise-callout--danger"><strong>{reviewTask.error_category || '审查任务失败'}</strong><span>{reviewTask.error_message || '可由审核人发起重试，失败节点和记录已保留。'}</span></div> : null}
+        </article>
+      ) : null}
+
+      {(feishuApproval || signedDecision || report) ? (
+        <article className="card enterprise-record enterprise-record--approval">
+          <div className="enterprise-record__heading"><div><span>04</span><h2>审批与正式归档</h2></div>{signedDecision ? <strong>{statusLabel(saved.status)}</strong> : <span>等待企业决定</span>}</div>
+          {feishuApproval ? <div className="approval-ledger"><div><span>飞书审批实例</span><code>{feishuApproval.instance_id}</code></div><div><span>审批状态</span><strong>{approvalStatusLabel(feishuApproval.status)}</strong></div>{feishuApproval.approver_name ? <div><span>审批人</span><strong>{feishuApproval.approver_name}</strong></div> : null}{feishuApproval.decided_at ? <div><span>审批时间</span><strong>{formatTime(feishuApproval.decided_at)}</strong></div> : null}</div> : null}
+          {signedDecision ? <div className="signed-decision"><span aria-hidden="true">✓</span><div><strong>最终决定已签署</strong><small>{signedDecision.approver_name || '飞书审批人'} · {signedDecision.decided_at ? formatTime(signedDecision.decided_at) : '审批时间已留痕'}</small></div></div> : null}
+          {report ? <div className="report-record"><div><span>PDF 报告 SHA-256</span><code title={report.sha256}>{report.sha256}</code></div><a className="case-header__action-btn case-header__action-btn--accent" href={reportDownloadUrl(report.id)}>下载正式报告</a></div> : null}
+        </article>
+      ) : null}
+    </section>
+  );
+}
+
+interface CaseWorkflowActionsProps {
+  saved: SavedCase;
+  canManage: boolean;
+  operation: string | null;
+  error: string | null;
+  setOperation: (value: string | null) => void;
+  setError: (value: string | null) => void;
+}
+
+function CaseWorkflowActions({
+  saved,
+  canManage,
+  operation,
+  error,
+  setOperation,
+  setError,
+}: CaseWorkflowActionsProps): JSX.Element | null {
+  if (!canManage) return null;
+
+  const execute = async (name: string, action: () => Promise<void>): Promise<void> => {
+    setOperation(name);
+    setError(null);
+    try {
+      await action();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '流程操作失败');
+    } finally {
+      setOperation(null);
+    }
+  };
+
+  const startReview = (): void => {
+    void execute('run', async () => {
+      const queued = await runCase(saved.id);
+      await openCase(saved.id);
+      await waitForReviewTask(queued.task_id, async () => {
+        await openCase(saved.id);
+      });
+      await openCase(saved.id);
+    });
+  };
+
+  const retryReview = (): void => {
+    const taskId = saved.reviewTask?.id;
+    if (!taskId) return;
+    void execute('retry', async () => {
+      const retried = await retryReviewTask(taskId);
+      await openCase(saved.id);
+      await waitForReviewTask(retried.id, async () => {
+        await openCase(saved.id);
+      });
+      await openCase(saved.id);
+    });
+  };
+
+  const createApproval = (): void => {
+    void execute('approval', async () => {
+      await createFeishuApproval(saved.id);
+      await openCase(saved.id);
+    });
+  };
+
+  const createReport = (): void => {
+    void execute('report', async () => {
+      await createDecisionReport(saved.id);
+      await openCase(saved.id);
+    });
+  };
+
+  const hasAction = saved.status === 'pending_review'
+    || saved.status === 'run_failed'
+    || saved.status === 'pending_feishu_approval'
+    || TERMINAL_CASE_STATUSES.has(saved.status);
+  if (!hasAction && !error) return null;
+
+  return (
+    <section className="card workflow-actions" aria-label="审核流程操作">
+      <div className="workflow-actions__copy">
+        <span>审核人操作</span>
+        <strong>{workflowActionTitle(saved)}</strong>
+        <small>{workflowActionHint(saved)}</small>
+      </div>
+      <div className="workflow-actions__controls">
+        {saved.status === 'pending_review' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '审查运行中…' : '启动证据化审查'}</button> : null}
+        {saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? '重新运行中…' : '重试失败任务'}</button> : null}
+        {saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
+        {TERMINAL_CASE_STATUSES.has(saved.status) && !saved.report ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createReport}>{operation === 'report' ? '正在生成报告…' : '生成正式 PDF 报告'}</button> : null}
+        {saved.report ? <a className="case-header__action-btn case-header__action-btn--accent" href={reportDownloadUrl(saved.report.id)}>下载正式报告</a> : null}
+      </div>
+      {error ? <div className="workflow-actions__error" role="alert">{error}</div> : null}
+    </section>
+  );
+}
+
+function workflowActionTitle(saved: SavedCase): string {
+  if (saved.status === 'pending_review') return '材料与规则已冻结，可以启动审查';
+  if (saved.status === 'run_failed') return '失败记录已保留，可以人工重试';
+  if (saved.status === 'pending_feishu_approval') return saved.feishuApproval ? '飞书审批已发起，等待权威回写' : '审查已完成，可以发起飞书审批';
+  if (TERMINAL_CASE_STATUSES.has(saved.status)) return saved.report ? '正式决定与报告已经归档' : '飞书已回写最终决定，可以生成报告';
+  return '流程状态已更新';
+}
+
+function workflowActionHint(saved: SavedCase): string {
+  if (saved.status === 'pending_review') return '任务将进入 PostgreSQL 队列，由独立 Worker 执行。';
+  if (saved.status === 'run_failed') return `失败节点：${saved.reviewTask?.current_node || '未记录'}；重试不会覆盖历史尝试。`;
+  if (saved.status === 'pending_feishu_approval') return '最终通过、退回或撤回状态仅接受飞书验签事件。';
+  return '报告将绑定本次材料快照、规则版本、审批人和审批时间。';
+}
+
+function approvalStatusLabel(status: NonNullable<SavedCase['feishuApproval']>['status']): string {
+  return {
+    pending: '审批中',
+    approved: '已通过',
+    conditionally_approved: '附条件通过',
+    rejected: '已退回',
+    withdrawn: '已撤回',
+  }[status];
 }
 
 type ActionFormState = {
@@ -175,7 +416,7 @@ const EMPTY_ACTION_FORM: ActionFormState = {
   due_date: '',
 };
 
-function CaseOperations({ saved, onStatusChange, canManageActions }: { saved: SavedCase; onStatusChange: (caseId: string, status: CaseStatus) => void; canManageActions: boolean }): JSX.Element {
+function CaseOperations({ saved, canManageActions }: { saved: SavedCase; canManageActions: boolean }): JSX.Element {
   const openActions = saved.actions.filter((action) => action.status !== 'completed').length;
   const [actionFormOpen, setActionFormOpen] = useState(false);
   const [editingActionId, setEditingActionId] = useState<string | null>(null);
@@ -247,8 +488,7 @@ function CaseOperations({ saved, onStatusChange, canManageActions }: { saved: Sa
       ) : null}
       <div className="case-operations__actions">
         {canManageActions ? <button type="button" className="case-header__action-btn" onClick={beginCreateAction}>+ 新增整改动作</button> : null}
-        {saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn" onClick={() => onStatusChange(saved.id, 'submitted')}>重新提交补充材料</button> : null}
-        {saved.status === 'completed' ? <span className="case-operations__complete">✓ 审核已完成</span> : null}
+        {TERMINAL_CASE_STATUSES.has(saved.status) ? <span className="case-operations__complete">✓ 飞书审批结果已归档</span> : null}
       </div>
     </section>
   );
@@ -273,7 +513,7 @@ function eventLabel(event: string): string {
 }
 
 function statusLabel(status: CaseStatus): string {
-  return { draft: '草稿', submitted: '待审核', in_review: '审查中', needs_info: '待补充', completed: '已完成', review_failed: '运行失败' }[status];
+  return CASE_STATUS_LABELS[status];
 }
 
 // ---------------------------------------------------------------------------

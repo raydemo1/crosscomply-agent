@@ -7,19 +7,26 @@ import type {
   CaseIntake,
   CaseListApi,
   CaseStatus,
+  ComplianceFactsApi,
   DashboardSummaryApi,
   EvalJobResponse,
   EvalRerankMode,
   EvalRunOptions,
   EvalSummary,
   HealthResponse,
-  ReviewApiResponse,
+  FreezeMaterialSnapshotResponse,
+  FeishuApprovalApi,
+  MaterialVersionApi,
+  ManagedUserApi,
+  ReportRecordApi,
+  ReviewTaskApi,
   WorkbenchUser,
 } from '../types/api';
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') ?? '';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const REVIEW_TIMEOUT_MS = 120_000;
+const TASK_POLL_INTERVAL_MS = 1_500;
 
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const ALLOWED_UPLOAD_SUFFIXES = [
@@ -155,6 +162,46 @@ export async function getCurrentUser(): Promise<WorkbenchUser | null> {
   }
 }
 
+export async function listManagedUsers(): Promise<{ items: ManagedUserApi[]; total: number }> {
+  return request<{ items: ManagedUserApi[]; total: number }>('/api/admin/users');
+}
+
+export async function createManagedUser(payload: {
+  username: string;
+  display_name: string;
+  password: string;
+  role: WorkbenchUser['role'];
+}): Promise<ManagedUserApi> {
+  return request<ManagedUserApi>('/api/admin/users', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function setManagedUserState(userId: string, active: boolean): Promise<ManagedUserApi> {
+  return request<ManagedUserApi>(`/api/admin/users/${encodeURIComponent(userId)}/state`, {
+    method: 'PATCH',
+    body: JSON.stringify({ active }),
+  });
+}
+
+export async function assignManagedUserRole(
+  userId: string,
+  role: WorkbenchUser['role'],
+): Promise<ManagedUserApi> {
+  return request<ManagedUserApi>(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function resetManagedUserPassword(userId: string, password: string): Promise<ManagedUserApi> {
+  return request<ManagedUserApi>(`/api/admin/users/${encodeURIComponent(userId)}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}
+
 export interface CreateCaseInput {
   title?: string;
   question: string;
@@ -226,11 +273,84 @@ export async function updateCaseStatus(caseId: string, status: CaseStatus, note 
   });
 }
 
-export async function runCase(caseId: string): Promise<CaseDetailApi & { run_status: CaseStatus | 'review_failed' }> {
-  return request<CaseDetailApi & { run_status: CaseStatus | 'review_failed' }>(
-    `/api/cases/${encodeURIComponent(caseId)}/run`,
-    { method: 'POST', timeoutMs: REVIEW_TIMEOUT_MS },
+export async function uploadMaterial(
+  caseId: string,
+  logicalName: string,
+  file: File,
+): Promise<MaterialVersionApi> {
+  validateUploadFile(file);
+  const formData = new FormData();
+  formData.append('logical_name', logicalName);
+  formData.append('file', file);
+  return request<MaterialVersionApi>(`/api/cases/${encodeURIComponent(caseId)}/materials`, {
+    method: 'POST',
+    body: formData,
+    timeoutMs: REVIEW_TIMEOUT_MS,
+  });
+}
+
+export async function freezeMaterialSnapshot(
+  caseId: string,
+  versionIds: string[],
+  facts: ComplianceFactsApi,
+): Promise<FreezeMaterialSnapshotResponse> {
+  return request<FreezeMaterialSnapshotResponse>(
+    `/api/cases/${encodeURIComponent(caseId)}/material-snapshots`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ version_ids: versionIds, facts }),
+    },
   );
+}
+
+export interface EnqueueReviewResponse {
+  task_id: string;
+  status: ReviewTaskApi['status'];
+}
+
+export async function runCase(caseId: string): Promise<EnqueueReviewResponse> {
+  return request<EnqueueReviewResponse>(
+    `/api/cases/${encodeURIComponent(caseId)}/run`,
+    { method: 'POST' },
+  );
+}
+
+export async function getReviewTask(taskId: string): Promise<ReviewTaskApi> {
+  return request<ReviewTaskApi>(`/api/tasks/${encodeURIComponent(taskId)}`);
+}
+
+export async function retryReviewTask(taskId: string): Promise<ReviewTaskApi> {
+  return request<ReviewTaskApi>(`/api/tasks/${encodeURIComponent(taskId)}/retry`, {
+    method: 'POST',
+  });
+}
+
+export async function createFeishuApproval(caseId: string): Promise<FeishuApprovalApi> {
+  return request<FeishuApprovalApi>(`/api/cases/${encodeURIComponent(caseId)}/feishu-approval`, {
+    method: 'POST',
+  });
+}
+
+export async function createDecisionReport(caseId: string): Promise<ReportRecordApi> {
+  return request<ReportRecordApi>(`/api/cases/${encodeURIComponent(caseId)}/reports`, {
+    method: 'POST',
+  });
+}
+
+export function reportDownloadUrl(reportId: string): string {
+  return buildUrl(`/api/reports/${encodeURIComponent(reportId)}/download`);
+}
+
+export async function waitForReviewTask(
+  taskId: string,
+  onUpdate?: (task: ReviewTaskApi) => void | Promise<void>,
+): Promise<ReviewTaskApi> {
+  while (true) {
+    const task = await getReviewTask(taskId);
+    await onUpdate?.(task);
+    if (task.status === 'succeeded' || task.status === 'failed') return task;
+    await new Promise<void>((resolve) => window.setTimeout(resolve, TASK_POLL_INTERVAL_MS));
+  }
 }
 
 export async function createAction(caseId: string, payload: Omit<CaseAction, 'id' | 'case_id' | 'created_at' | 'updated_at'>): Promise<CaseAction> {

@@ -15,6 +15,7 @@
 import type { CaseIntake, ReviewFacts, CitationGroup, RetrievalHit, RetrievalQuery } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { SavedCase } from '../types/case';
+import { CASE_STATUS_LABELS } from './workflow';
 import {
   CITATION_ROLE_LABELS,
   AUTHORITY_LABELS,
@@ -131,14 +132,7 @@ function requireResponse(saved: SavedCase): NonNullable<SavedCase['response']> {
 }
 
 function caseStatusLabel(status: SavedCase['status']): string {
-  return {
-    draft: '草稿',
-    submitted: '待审核',
-    in_review: '审查中',
-    needs_info: '待补充',
-    completed: '已完成',
-    review_failed: '运行失败',
-  }[status];
+  return CASE_STATUS_LABELS[status];
 }
 
 function intakeToMarkdown(intake: CaseIntake): string {

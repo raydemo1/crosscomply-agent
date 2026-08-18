@@ -339,18 +339,177 @@ export interface HealthResponse {
 export type UserRole = 'requester' | 'reviewer' | 'admin';
 export type CaseStatus =
   | 'draft'
-  | 'submitted'
-  | 'in_review'
   | 'needs_info'
-  | 'completed'
-  | 'review_failed';
+  | 'pending_review'
+  | 'review_running'
+  | 'pending_feishu_approval'
+  | 'approved'
+  | 'conditionally_approved'
+  | 'rejected'
+  | 'run_failed';
 export type ActionStatus = 'open' | 'in_progress' | 'completed';
+export type ReviewTaskStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+
+export interface MaterialVersionApi {
+  id: string;
+  material_id: string;
+  case_id: string;
+  logical_name: string;
+  version_number: number;
+  filename: string;
+  content_type: string;
+  object_key: string;
+  sha256: string;
+  byte_size: number;
+  parse_status: 'pending' | 'parsing' | 'ready' | 'failed';
+  uploaded_by: string;
+  parser: string | null;
+  parser_version: string | null;
+  parsed_text: string | null;
+  created_at: string;
+}
+
+export interface MaterialSnapshotApi {
+  id: string;
+  case_id: string;
+  fingerprint: string;
+  version_ids: string[];
+  created_by: string;
+  created_at: string;
+}
+
+export interface CandidateCompliancePathApi {
+  code: string;
+  label: string;
+  confidence: 'determined' | 'possible';
+  reason: string;
+}
+
+export interface MissingFactApi {
+  key: string;
+  reason: string;
+}
+
+export interface RuleHitApi {
+  rule_id: string;
+  summary: string;
+  basis_ids: string[];
+}
+
+export interface OfficialBasisApi {
+  basis_id: string;
+  title: string;
+  article: string;
+  issuing_body: string;
+  source_url: string;
+}
+
+export interface ComplianceDecisionApi {
+  status: 'determined' | 'needs_info';
+  rule_version: string;
+  candidate_paths: CandidateCompliancePathApi[];
+  needs_info: MissingFactApi[];
+  rule_hits: RuleHitApi[];
+  official_bases: OfficialBasisApi[];
+  requires_rag_human_confirmation: boolean;
+  manual_confirmation_reasons: string[];
+}
+
+export interface ComplianceFactsApi {
+  cross_border_transfer: boolean | null;
+  is_ciio: boolean | null;
+  important_data: boolean | null;
+  contains_personal_information: boolean | null;
+  contains_sensitive_personal_information: boolean | null;
+  cumulative_personal_information_subjects: number | null;
+  cumulative_sensitive_personal_information_subjects: number | null;
+  claimed_exemption: 'overseas_data_transit' | 'individual_contract' | 'hr_management' | 'emergency' | null;
+  exemption_facts_confirmed: boolean | null;
+  special_regimes: Array<'free_trade_zone' | 'greater_bay_area' | 'industry_specific'>;
+}
+
+export interface RuleDecisionApi {
+  id: string;
+  case_id: string;
+  material_snapshot_id: string;
+  ruleset_version: string;
+  facts: ComplianceFactsApi;
+  determination: ComplianceDecisionApi;
+  created_at: string;
+}
+
+export interface ReviewTaskAttemptApi {
+  attempt_number: number;
+  worker_id: string;
+  status: 'running' | 'succeeded' | 'failed';
+  failed_node: string | null;
+  error_category: string | null;
+  error_message: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface ReviewTaskApi {
+  id: string;
+  case_id: string;
+  material_snapshot_id: string;
+  rule_snapshot_id: string;
+  idempotency_key: string;
+  status: ReviewTaskStatus;
+  current_node: string | null;
+  error_category: string | null;
+  error_message: string | null;
+  attempt_count: number;
+  model_id: string;
+  data_boundary_summary: Record<string, unknown>;
+  result: Record<string, unknown> | null;
+  attempts: ReviewTaskAttemptApi[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeishuApprovalApi {
+  id: string;
+  case_id: string;
+  task_id: string;
+  provider: string;
+  instance_id: string;
+  status: 'pending' | 'approved' | 'conditionally_approved' | 'rejected' | 'withdrawn';
+  approver_name: string | null;
+  decided_at: string | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SignedDecisionApi = FeishuApprovalApi;
+
+export interface ReportRecordApi {
+  id: string;
+  case_id: string;
+  approval_id: string;
+  object_key: string;
+  sha256: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface FreezeMaterialSnapshotResponse {
+  material_snapshot: MaterialSnapshotApi;
+  rule_decision: RuleDecisionApi;
+}
 
 export interface WorkbenchUser {
   id: string;
   username: string;
   display_name: string;
   role: UserRole;
+}
+
+export interface ManagedUserApi extends WorkbenchUser {
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CaseIntake {
@@ -435,6 +594,12 @@ export interface CaseDetailApi {
   actions: CaseAction[];
   events: CaseEvent[];
   feedback: CaseFeedbackApi | null;
+  material_snapshot: MaterialSnapshotApi | null;
+  rule_decision: RuleDecisionApi | null;
+  review_task: ReviewTaskApi | null;
+  feishu_approval: FeishuApprovalApi | null;
+  signed_decision: SignedDecisionApi | null;
+  report: ReportRecordApi | null;
 }
 
 export interface CaseListApi {

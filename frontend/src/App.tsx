@@ -1,14 +1,55 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import type { CaseIntake, CaseStatus, DashboardSummaryApi, WorkbenchUser } from './types/api';
+import type { CaseIntake, ComplianceFactsApi, DashboardSummaryApi, WorkbenchUser } from './types/api';
 import type { Page } from './components/Sidebar';
 import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
 import LoginPage from './components/LoginPage';
-import { ApiError, createCase, getCurrentUser, getDashboardSummary, login, logout, runCase, updateCase, updateCaseStatus } from './api/client';
-import { EMPTY_INTAKE, fromDetail, openCase, refreshCases, useCaseStore } from './store/caseStore';
+import { ApiError, createCase, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
+import { EMPTY_INTAKE, openCase, refreshCases, useCaseStore } from './store/caseStore';
 
 const GovernanceConsolePage = lazy(() => import('./components/GovernanceConsolePage'));
 const CaseDetailPage = lazy(() => import('./components/CaseDetailPage'));
+
+function confirmedBoolean<T extends string>(
+  value: T,
+  positive: T,
+  negative: T,
+): boolean | null {
+  if (value === positive) return true;
+  if (value === negative) return false;
+  return null;
+}
+
+function confirmedCount(value: string): number | null {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) return null;
+  const count = Number(normalized);
+  return Number.isSafeInteger(count) ? count : null;
+}
+
+function toComplianceFacts(intake: CaseIntake): ComplianceFactsApi {
+  return {
+    cross_border_transfer: intake.cross_border_transfer,
+    is_ciio: confirmedBoolean(intake.ciio_status, 'ciio', 'not_ciio'),
+    important_data: confirmedBoolean(
+      intake.important_data_status,
+      'important',
+      'not_important',
+    ),
+    contains_personal_information: intake.data_types.length > 0 ? true : null,
+    contains_sensitive_personal_information: intake.sensitive_personal_info,
+    cumulative_personal_information_subjects: confirmedCount(intake.annual_non_sensitive_count),
+    cumulative_sensitive_personal_information_subjects: confirmedCount(intake.annual_sensitive_count),
+    claimed_exemption: null,
+    exemption_facts_confirmed: null,
+    special_regimes: [],
+  };
+}
+
+function materialOriginal(material: string, file?: File | null): File {
+  if (file) return file;
+  return new File([material], 'case-material.txt', { type: 'text/plain;charset=utf-8' });
+}
 
 export default function App(): JSX.Element {
   const [user, setUser] = useState<WorkbenchUser | null>(null);
@@ -79,22 +120,29 @@ export default function App(): JSX.Element {
           question: q,
           material_text: m,
           intake: confirmedIntake,
-          facts_confirmed: true,
         })
         : await createCase({ question: q, materialText: m, intake: confirmedIntake, reviewMode, rerankMode, file });
-      const submitted = await updateCaseStatus(saved.case.id, 'submitted');
-      if (user.role === 'reviewer' || user.role === 'admin') {
-        const result = await runCase(submitted.case.id);
-        const detail = fromDetail(result);
-        // The store is refreshed from the server so response, actions and events stay together.
-        await openCase(detail.id);
-      } else {
-        await openCase(submitted.case.id);
-      }
-      setDashboardSummary(await getDashboardSummary());
       setEditingCaseId(null);
       setActiveCaseId(saved.case.id);
       setPage('case-detail');
+      const version = await uploadMaterial(
+        saved.case.id,
+        'review_material',
+        materialOriginal(m, file),
+      );
+      const frozen = await freezeMaterialSnapshot(
+        saved.case.id,
+        [version.id],
+        toComplianceFacts(confirmedIntake),
+      );
+      if (frozen.rule_decision.determination.needs_info.length > 0) {
+        await openCase(saved.case.id);
+        setDashboardSummary(await getDashboardSummary());
+        return;
+      }
+      const pending = await updateCaseStatus(saved.case.id, 'pending_review');
+      await openCase(pending.case.id);
+      setDashboardSummary(await getDashboardSummary());
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : '提交案件时发生未知错误');
     } finally {
@@ -125,16 +173,6 @@ export default function App(): JSX.Element {
     setEditingCaseId(saved.id);
     setError(null);
     setPage('workbench');
-  }, []);
-
-  const handleStatusChange = useCallback(async (caseId: string, status: CaseStatus): Promise<void> => {
-    try {
-      await updateCaseStatus(caseId, status);
-      await openCase(caseId);
-      setDashboardSummary(await getDashboardSummary());
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '无法更新案件状态');
-    }
   }, []);
 
   const handleRerun = useCallback((q: string, m: string): void => {
@@ -178,7 +216,7 @@ export default function App(): JSX.Element {
           </div>
         </div>
         {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
-        {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} canEdit={user.role === 'requester'} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onStatusChange={(id, status) => void handleStatusChange(id, status)} /></Suspense> : null}
+        {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} canEdit={user.role === 'requester'} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} /></Suspense> : null}
         {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} reviewMode={reviewMode} rerankMode={rerankMode} editingCaseId={editingCaseId} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onReviewModeChange={setReviewMode} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
         {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从案件记录中选择一个案件。</p></div> : null}
       </main>

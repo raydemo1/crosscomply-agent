@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { relativeTime, truncate } from '../utils/display';
+import { CASE_STATUS_LABELS } from '../utils/workflow';
 
 export type Page = 'workbench' | 'governance' | 'case-detail';
 
@@ -23,15 +24,6 @@ const SCENARIOS = [
   '是否需要数据出境安全评估？',
   '个人信息出境应走哪条合规路径？',
 ];
-
-const STATUS_LABELS: Record<SavedCase['status'], string> = {
-  draft: '草稿',
-  submitted: '待审核',
-  in_review: '审查中',
-  needs_info: '待补充',
-  completed: '已完成',
-  review_failed: '运行失败',
-};
 
 const RISK_DOT_CLASS: Record<string, string> = {
   high: 'risk-dot risk-dot--high',
@@ -136,7 +128,7 @@ export default function Sidebar({
                 <span className="history-item__question">{truncate(item.question, 32)}</span>
               </div>
               <div className="history-item__meta">
-                <span>{STATUS_LABELS[item.status]}</span>
+                <span>{CASE_STATUS_LABELS[item.status]}</span>
                 <span>{relativeTime(item.savedAt)}</span>
               </div>
             </button>
