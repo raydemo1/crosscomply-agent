@@ -8,7 +8,6 @@ never selected implicitly at runtime.
 from __future__ import annotations
 
 import hashlib
-import os
 import secrets
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -20,113 +19,14 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pwdlib import PasswordHash
 
-CaseStatus = Literal[
-    "draft",
-    "submitted",
-    "in_review",
-    "needs_info",
-    "completed",
-    "review_failed",
-]
+from law_agent.review.workflow import CASE_TRANSITIONS, CaseStatus
+
 UserRole = Literal["requester", "reviewer", "admin"]
 ActionStatus = Literal["open", "in_progress", "completed"]
-
-CASE_TRANSITIONS: dict[str, set[str]] = {
-    "draft": {"submitted"},
-    "submitted": {"in_review", "needs_info"},
-    "in_review": {"needs_info", "completed", "review_failed"},
-    "needs_info": {"submitted", "in_review"},
-    "completed": set(),
-    "review_failed": {"in_review", "needs_info"},
-}
-INITIAL_CASE_ID = "case_initial_cross_border_review"
 
 
 def _jsonb(value: Any) -> Jsonb:
     return Jsonb(value or {})
-
-SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    display_name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('requester', 'reviewer', 'admin')),
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS review_cases (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    question TEXT NOT NULL,
-    material_text TEXT NOT NULL,
-    material_source TEXT,
-    intake_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    status TEXT NOT NULL CHECK (
-        status IN ('draft', 'submitted', 'in_review', 'needs_info', 'completed', 'review_failed')
-    ),
-    review_mode TEXT NOT NULL DEFAULT 'llm',
-    rerank_mode TEXT NOT NULL DEFAULT 'off',
-    created_by TEXT NOT NULL REFERENCES users(id),
-    owner_id TEXT REFERENCES users(id),
-    facts_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
-    risk_level TEXT,
-    trace_id TEXT,
-    response_json JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS review_cases_created_by_idx ON review_cases(created_by);
-CREATE INDEX IF NOT EXISTS review_cases_status_idx ON review_cases(status);
-CREATE INDEX IF NOT EXISTS review_cases_updated_at_idx ON review_cases(updated_at DESC);
-
-CREATE TABLE IF NOT EXISTS case_actions (
-    id TEXT PRIMARY KEY,
-    case_id TEXT NOT NULL REFERENCES review_cases(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    owner_role TEXT NOT NULL DEFAULT 'reviewer',
-    priority TEXT NOT NULL DEFAULT 'medium',
-    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'completed')),
-    due_date DATE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS case_events (
-    id TEXT PRIMARY KEY,
-    case_id TEXT NOT NULL REFERENCES review_cases(id) ON DELETE CASCADE,
-    actor_id TEXT NOT NULL REFERENCES users(id),
-    event_type TEXT NOT NULL,
-    from_status TEXT,
-    to_status TEXT,
-    payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS case_events_case_idx ON case_events(case_id, created_at);
-
-CREATE TABLE IF NOT EXISTS case_feedback (
-    case_id TEXT PRIMARY KEY REFERENCES review_cases(id) ON DELETE CASCADE,
-    actor_id TEXT NOT NULL REFERENCES users(id),
-    conclusion_useful BOOLEAN,
-    missing_sources TEXT NOT NULL DEFAULT '',
-    notes TEXT NOT NULL DEFAULT '',
-    citation_verdicts_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token_hash TEXT UNIQUE NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS sessions_token_idx ON sessions(token_hash);
-"""
 
 
 @dataclass(frozen=True)
@@ -148,6 +48,7 @@ class UserRecord:
 @dataclass
 class MemoryCase:
     id: str
+    case_number: str
     title: str
     question: str
     material_text: str
@@ -174,6 +75,10 @@ def case_id() -> str:
     return f"case_{uuid4().hex[:16]}"
 
 
+def case_number() -> str:
+    return f"CC-{datetime.now(UTC):%Y%m%d}-{uuid4().hex[:8].upper()}"
+
+
 def event_id() -> str:
     return f"event_{uuid4().hex[:16]}"
 
@@ -195,6 +100,7 @@ def _json_value(value: Any) -> Any:
 def _row_case(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": row["id"],
+        "case_number": row.get("case_number", row["id"]),
         "title": row["title"],
         "question": row["question"],
         "material_text": row["material_text"],
@@ -271,101 +177,23 @@ class PostgresCaseStore:
         return psycopg.connect(self.dsn, row_factory=dict_row)
 
     def initialize(self) -> None:
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(SCHEMA_SQL)
-            conn.commit()
-        seed_password = os.getenv("CROSSCOMPLY_SEED_PASSWORD", "").strip()
-        if seed_password:
-            self._seed_users(seed_password)
-            self._seed_initial_case()
-
-    def _seed_users(self, password: str) -> None:
-        users = (
-            ("requester@crosscomply.local", "业务申请人", "requester"),
-            ("reviewer@crosscomply.local", "合规审核人", "reviewer"),
-            ("admin@crosscomply.local", "系统管理员", "admin"),
-        )
-        password_hash = self._password_hasher.hash(password)
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                for username, display_name, role in users:
-                    cur.execute(
-                        """
-                        INSERT INTO users (id, username, display_name, role, password_hash)
-                        VALUES (%s, %s, %s, %s, %s)
-                        ON CONFLICT (username) DO NOTHING
-                        """,
-                        (f"user_{uuid4().hex[:16]}", username, display_name, role, password_hash),
-                    )
-            conn.commit()
-
-    def _seed_initial_case(self) -> None:
-        now = datetime.now(UTC)
-        intake = {
-            "business_activity": "移动应用个性化推荐和算法优化",
-            "data_types": ["手机号", "精确定位", "设备标识"],
-            "sensitive_personal_info": True,
-            "cross_border_transfer": True,
-            "important_data_status": "under_review",
-            "ciio_status": "unknown",
-            "annual_non_sensitive_count": "待确认",
-            "annual_sensitive_count": "待确认",
-            "overseas_recipient": "新加坡云服务商",
-            "destination_region": "新加坡",
-            "processing_purpose": "个性化推荐和算法优化",
-            "transfer_mechanism": "待审核人判断",
-            "vendor_name": "新加坡云服务商",
-            "contract_status": "待补充",
-            "legal_basis_or_consent": "待补充",
-            "notes": "请补充年度数据量、单独同意和供应商合同信息。",
-        }
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT id FROM users WHERE username = %s", ("requester@crosscomply.local",))
-            requester = cur.fetchone()
-            if requester is None:
-                return
-            cur.execute("SELECT 1 FROM review_cases LIMIT 1")
-            if cur.fetchone() is not None:
-                return
             cur.execute(
-                """
-                INSERT INTO review_cases (
-                    id, title, question, material_text, material_source, intake_json,
-                    status, review_mode, rerank_mode, created_by, owner_id,
-                    facts_confirmed, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    INITIAL_CASE_ID,
-                    "移动应用推荐数据出境审查",
-                    "这个业务是否需要数据出境安全评估？",
-                    "我们将境内移动应用用户的手机号、精确定位和设备标识发送给新加坡云服务商，用于个性化推荐和算法优化。当前尚未确认年度数据量、单独同意和供应商合同安排。",
-                    "initial_workbench",
-                    _jsonb(intake),
-                    "draft",
-                    "llm",
-                    "off",
-                    requester["id"],
-                    requester["id"],
-                    False,
-                    now,
-                    now,
-                ),
+                "SELECT version_num FROM alembic_version WHERE version_num = %s",
+                ("0001_enterprise_baseline",),
             )
-            cur.execute(
-                """
-                INSERT INTO case_events (id, case_id, actor_id, event_type, to_status, payload_json)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                (event_id(), INITIAL_CASE_ID, requester["id"], "case_created", "draft", _jsonb({"source": "initial_workbench"})),
-            )
-            conn.commit()
+            if cur.fetchone() is None:
+                raise RuntimeError(
+                    "数据库未应用 CrossComply 企业基线，请先运行 alembic upgrade head"
+                )
 
     def authenticate(self, username: str, password: str) -> UserRecord | None:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
-                "SELECT id, username, display_name, role, password_hash FROM users WHERE username = %s",
+                """
+                SELECT id, username, display_name, role, password_hash
+                FROM users WHERE username = %s AND active = TRUE
+                """,
                 (username.strip().lower(),),
             )
             row = cur.fetchone()
@@ -390,7 +218,7 @@ class PostgresCaseStore:
                 """
                 SELECT u.id, u.username, u.display_name, u.role
                 FROM sessions s JOIN users u ON u.id = s.user_id
-                WHERE s.token_hash = %s AND s.expires_at > now()
+                WHERE s.token_hash = %s AND s.expires_at > now() AND u.active = TRUE
                 """,
                 (hash_session_token(token),),
             )
@@ -409,14 +237,15 @@ class PostgresCaseStore:
             cur.execute(
                 """
                 INSERT INTO review_cases (
-                    id, title, question, material_text, material_source, intake_json,
+                    id, case_number, title, question, material_text, material_source, intake_json,
                     status, review_mode, rerank_mode, created_by, owner_id,
                     facts_confirmed, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING *
                 """,
                 (
                     identifier,
+                    kwargs.get("case_number") or case_number(),
                     kwargs.get("title") or kwargs["question"][:80],
                     kwargs["question"],
                     kwargs["material_text"],
@@ -459,9 +288,19 @@ class PostgresCaseStore:
 
     def update_case(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
         allowed = {
-            "title", "question", "material_text", "material_source", "intake_json",
-            "status", "review_mode", "rerank_mode", "owner_id", "facts_confirmed",
-            "risk_level", "trace_id", "response_json",
+            "title",
+            "question",
+            "material_text",
+            "material_source",
+            "intake_json",
+            "status",
+            "review_mode",
+            "rerank_mode",
+            "owner_id",
+            "facts_confirmed",
+            "risk_level",
+            "trace_id",
+            "response_json",
         }
         updates = {key: value for key, value in kwargs.items() if key in allowed}
         for key in ("intake_json", "response_json"):
@@ -495,27 +334,42 @@ class PostgresCaseStore:
                 RETURNING *
                 """,
                 (
-                    event_id(), identifier, actor_id, kwargs["event_type"],
-                    kwargs.get("from_status"), kwargs.get("to_status"), _jsonb(kwargs.get("payload")),
+                    event_id(),
+                    identifier,
+                    actor_id,
+                    kwargs["event_type"],
+                    kwargs.get("from_status"),
+                    kwargs.get("to_status"),
+                    _jsonb(kwargs.get("payload")),
                 ),
             )
             row = cur.fetchone()
             conn.commit()
         return {
-            "id": row["id"], "case_id": row["case_id"], "actor_id": row["actor_id"],
-            "event_type": row["event_type"], "from_status": row["from_status"],
-            "to_status": row["to_status"], "payload": row["payload_json"] or {},
+            "id": row["id"],
+            "case_id": row["case_id"],
+            "actor_id": row["actor_id"],
+            "event_type": row["event_type"],
+            "from_status": row["from_status"],
+            "to_status": row["to_status"],
+            "payload": row["payload_json"] or {},
             "created_at": _json_value(row["created_at"]),
         }
 
     def list_events(self, identifier: str) -> list[dict[str, Any]]:
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT * FROM case_events WHERE case_id = %s ORDER BY created_at", (identifier,))
+            cur.execute(
+                "SELECT * FROM case_events WHERE case_id = %s ORDER BY created_at", (identifier,)
+            )
             return [
                 {
-                    "id": row["id"], "case_id": row["case_id"], "actor_id": row["actor_id"],
-                    "event_type": row["event_type"], "from_status": row["from_status"],
-                    "to_status": row["to_status"], "payload": row["payload_json"] or {},
+                    "id": row["id"],
+                    "case_id": row["case_id"],
+                    "actor_id": row["actor_id"],
+                    "event_type": row["event_type"],
+                    "from_status": row["from_status"],
+                    "to_status": row["to_status"],
+                    "payload": row["payload_json"] or {},
                     "created_at": _json_value(row["created_at"]),
                 }
                 for row in cur.fetchall()
@@ -523,15 +377,21 @@ class PostgresCaseStore:
 
     def list_actions(self, identifier: str) -> list[dict[str, Any]]:
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT * FROM case_actions WHERE case_id = %s ORDER BY created_at", (identifier,))
+            cur.execute(
+                "SELECT * FROM case_actions WHERE case_id = %s ORDER BY created_at", (identifier,)
+            )
             return [self._action_dict(row) for row in cur.fetchall()]
 
     @staticmethod
     def _action_dict(row: dict[str, Any]) -> dict[str, Any]:
         return {
-            "id": row["id"], "case_id": row["case_id"], "title": row["title"],
-            "description": row["description"], "owner_role": row["owner_role"],
-            "priority": row["priority"], "status": row["status"],
+            "id": row["id"],
+            "case_id": row["case_id"],
+            "title": row["title"],
+            "description": row["description"],
+            "owner_role": row["owner_role"],
+            "priority": row["priority"],
+            "status": row["status"],
             "due_date": _json_value(row["due_date"]),
             "created_at": _json_value(row["created_at"]),
             "updated_at": _json_value(row["updated_at"]),
@@ -545,9 +405,14 @@ class PostgresCaseStore:
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING *
                 """,
                 (
-                    action_id(), identifier, kwargs["title"], kwargs.get("description", ""),
-                    kwargs.get("owner_role", "reviewer"), kwargs.get("priority", "medium"),
-                    kwargs.get("status", "open"), kwargs.get("due_date"),
+                    action_id(),
+                    identifier,
+                    kwargs["title"],
+                    kwargs.get("description", ""),
+                    kwargs.get("owner_role", "reviewer"),
+                    kwargs.get("priority", "medium"),
+                    kwargs.get("status", "open"),
+                    kwargs.get("due_date"),
                 ),
             )
             row = cur.fetchone()
@@ -577,9 +442,11 @@ class PostgresCaseStore:
         if row is None:
             return None
         return {
-            "case_id": row["case_id"], "actor_id": row["actor_id"],
+            "case_id": row["case_id"],
+            "actor_id": row["actor_id"],
             "conclusion_useful": row["conclusion_useful"],
-            "missing_sources": row["missing_sources"], "notes": row["notes"],
+            "missing_sources": row["missing_sources"],
+            "notes": row["notes"],
             "citation_verdicts": row["citation_verdicts_json"] or {},
             "updated_at": _json_value(row["updated_at"]),
         }
@@ -601,8 +468,11 @@ class PostgresCaseStore:
                 RETURNING *
                 """,
                 (
-                    identifier, actor_id, kwargs.get("conclusion_useful"),
-                    kwargs.get("missing_sources", ""), kwargs.get("notes", ""),
+                    identifier,
+                    actor_id,
+                    kwargs.get("conclusion_useful"),
+                    kwargs.get("missing_sources", ""),
+                    kwargs.get("notes", ""),
                     _jsonb(kwargs.get("citation_verdicts")),
                 ),
             )
@@ -677,25 +547,44 @@ class InMemoryCaseStore:
     @staticmethod
     def _case_dict(item: MemoryCase) -> dict[str, Any]:
         return {
-            "id": item.id, "title": item.title, "question": item.question,
-            "material_text": item.material_text, "material_source": item.material_source,
-            "intake": item.intake, "status": item.status, "review_mode": item.review_mode,
-            "rerank_mode": item.rerank_mode, "created_by": item.created_by,
-            "owner_id": item.owner_id, "facts_confirmed": item.facts_confirmed,
-            "risk_level": item.risk_level, "trace_id": item.trace_id,
-            "response": item.response, "created_at": item.created_at, "updated_at": item.updated_at,
+            "id": item.id,
+            "case_number": item.case_number,
+            "title": item.title,
+            "question": item.question,
+            "material_text": item.material_text,
+            "material_source": item.material_source,
+            "intake": item.intake,
+            "status": item.status,
+            "review_mode": item.review_mode,
+            "rerank_mode": item.rerank_mode,
+            "created_by": item.created_by,
+            "owner_id": item.owner_id,
+            "facts_confirmed": item.facts_confirmed,
+            "risk_level": item.risk_level,
+            "trace_id": item.trace_id,
+            "response": item.response,
+            "created_at": item.created_at,
+            "updated_at": item.updated_at,
         }
 
     def create_case(self, **kwargs: Any) -> dict[str, Any]:
         now = utc_now()
         item = MemoryCase(
-            id=kwargs.get("id") or case_id(), title=kwargs.get("title") or kwargs["question"][:80],
-            question=kwargs["question"], material_text=kwargs["material_text"],
-            material_source=kwargs.get("material_source"), intake=kwargs.get("intake") or {},
-            status=kwargs.get("status", "draft"), review_mode=kwargs.get("review_mode", "llm"),
-            rerank_mode=kwargs.get("rerank_mode", "off"), created_by=kwargs["created_by"],
-            owner_id=kwargs.get("owner_id"), facts_confirmed=kwargs.get("facts_confirmed", False),
-            created_at=now, updated_at=now,
+            id=kwargs.get("id") or case_id(),
+            case_number=kwargs.get("case_number") or case_number(),
+            title=kwargs.get("title") or kwargs["question"][:80],
+            question=kwargs["question"],
+            material_text=kwargs["material_text"],
+            material_source=kwargs.get("material_source"),
+            intake=kwargs.get("intake") or {},
+            status=kwargs.get("status", "draft"),
+            review_mode=kwargs.get("review_mode", "llm"),
+            rerank_mode=kwargs.get("rerank_mode", "off"),
+            created_by=kwargs["created_by"],
+            owner_id=kwargs.get("owner_id"),
+            facts_confirmed=kwargs.get("facts_confirmed", False),
+            created_at=now,
+            updated_at=now,
         )
         self.cases[item.id] = item
         return self._case_dict(item)
@@ -710,7 +599,11 @@ class InMemoryCaseStore:
             items = [item for item in items if item.created_by == user.id]
         if query and query.strip():
             needle = query.strip().lower()
-            items = [item for item in items if needle in item.question.lower() or needle in item.id.lower()]
+            items = [
+                item
+                for item in items
+                if needle in item.question.lower() or needle in item.id.lower()
+            ]
         items.sort(key=lambda item: item.updated_at, reverse=True)
         return [self._case_dict(item) for item in items]
 
@@ -728,9 +621,13 @@ class InMemoryCaseStore:
 
     def add_event(self, identifier: str, actor_id: str, **kwargs: Any) -> dict[str, Any]:
         event = {
-            "id": event_id(), "case_id": identifier, "actor_id": actor_id,
-            "event_type": kwargs["event_type"], "from_status": kwargs.get("from_status"),
-            "to_status": kwargs.get("to_status"), "payload": kwargs.get("payload") or {},
+            "id": event_id(),
+            "case_id": identifier,
+            "actor_id": actor_id,
+            "event_type": kwargs["event_type"],
+            "from_status": kwargs.get("from_status"),
+            "to_status": kwargs.get("to_status"),
+            "payload": kwargs.get("payload") or {},
             "created_at": utc_now(),
         }
         self.events.append(event)
@@ -745,10 +642,16 @@ class InMemoryCaseStore:
     def create_action(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
         now = utc_now()
         action = {
-            "id": action_id(), "case_id": identifier, "title": kwargs["title"],
-            "description": kwargs.get("description", ""), "owner_role": kwargs.get("owner_role", "reviewer"),
-            "priority": kwargs.get("priority", "medium"), "status": kwargs.get("status", "open"),
-            "due_date": kwargs.get("due_date"), "created_at": now, "updated_at": now,
+            "id": action_id(),
+            "case_id": identifier,
+            "title": kwargs["title"],
+            "description": kwargs.get("description", ""),
+            "owner_role": kwargs.get("owner_role", "reviewer"),
+            "priority": kwargs.get("priority", "medium"),
+            "status": kwargs.get("status", "open"),
+            "due_date": kwargs.get("due_date"),
+            "created_at": now,
+            "updated_at": now,
         }
         self.actions[action["id"]] = action
         return action
@@ -766,7 +669,8 @@ class InMemoryCaseStore:
 
     def save_feedback(self, identifier: str, actor_id: str, **kwargs: Any) -> dict[str, Any]:
         feedback = {
-            "case_id": identifier, "actor_id": actor_id,
+            "case_id": identifier,
+            "actor_id": actor_id,
             "conclusion_useful": kwargs.get("conclusion_useful"),
             "missing_sources": kwargs.get("missing_sources", ""),
             "notes": kwargs.get("notes", ""),
@@ -784,4 +688,9 @@ class InMemoryCaseStore:
             counts[item["status"]] = counts.get(item["status"], 0) + 1
             if item.get("risk_level") in risks:
                 risks[item["risk_level"]] += 1
-        return {"total_cases": len(cases), "status_counts": counts, "risk_counts": risks, "recent_cases": cases[:5]}
+        return {
+            "total_cases": len(cases),
+            "status_counts": counts,
+            "risk_counts": risks,
+            "recent_cases": cases[:5],
+        }

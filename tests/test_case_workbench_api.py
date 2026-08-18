@@ -7,10 +7,13 @@ from fastapi.testclient import TestClient
 
 from law_agent.review.api import ReviewResponse, _normalize_review_response_payload, create_app
 from law_agent.review.case_store import InMemoryCaseStore
+from law_agent.review.enterprise_store import InMemoryEnterpriseStore
 from law_agent.review.schemas import EvidenceSelfCheck, ReviewFacts, ReviewResult
 
 
-def _review_response(*, risk_level: str = "medium", missing: list[str] | None = None) -> ReviewResponse:
+def _review_response(
+    *, risk_level: str = "medium", missing: list[str] | None = None
+) -> ReviewResponse:
     facts = ReviewFacts(
         business_activity="推荐系统",
         data_types=["手机号", "定位信息"],
@@ -34,7 +37,9 @@ def _review_response(*, risk_level: str = "medium", missing: list[str] | None = 
         trace_id="trace_test",
         review_facts=facts,
         review_result=result,
-        evidence_self_check=EvidenceSelfCheck(status="sufficient" if risk_level != "insufficient_evidence" else "insufficient"),
+        evidence_self_check=EvidenceSelfCheck(
+            status="sufficient" if risk_level != "insufficient_evidence" else "insufficient"
+        ),
     )
 
 
@@ -45,6 +50,7 @@ def app(tmp_path: Path):
     return create_app(
         chunks_path=chunks,
         case_store=InMemoryCaseStore(seed_password="pw"),
+        enterprise_store=InMemoryEnterpriseStore(),
     )
 
 
@@ -74,6 +80,35 @@ def _create_case(client: TestClient) -> str:
     return response.json()["case"]["id"]
 
 
+def _freeze_inputs(app, case_id: str, *, needs_info: bool = False) -> None:
+    enterprise = app.state.enterprise_store
+    version = enterprise.create_material_version(
+        case_id=case_id,
+        logical_name="vendor_dpa",
+        filename="dpa.txt",
+        content_type="text/plain",
+        object_key=f"cases/{case_id}/dpa.txt",
+        sha256="a" * 64,
+        byte_size=20,
+        uploaded_by="user_test",
+        parse_status="ready",
+        parsed_text="DPA",
+    )
+    snapshot = enterprise.create_material_snapshot(
+        case_id=case_id, version_ids=[version.id], created_by="user_test"
+    )
+    enterprise.create_rule_snapshot(
+        case_id=case_id,
+        material_snapshot_id=snapshot.id,
+        ruleset_version="national-cross-border-2024.03-v1",
+        facts={},
+        determination={
+            "status": "needs_info" if needs_info else "determined",
+            "needs_info": [{"key": "important_data"}] if needs_info else [],
+        },
+    )
+
+
 def test_login_creates_session_and_persists_case(app) -> None:
     with TestClient(app) as client:
         _login(client, "requester@crosscomply.local")
@@ -95,68 +130,76 @@ def test_role_permissions_and_case_status_flow(app) -> None:
     reviewer = TestClient(app)
     _login(requester, "requester@crosscomply.local")
     case_id = _create_case(requester)
+    _freeze_inputs(app, case_id)
 
     submitted = requester.post(
         f"/api/cases/{case_id}/status",
-        json={"status": "submitted"},
+        json={"status": "pending_review"},
     )
     assert submitted.status_code == 200
     assert submitted.json()["case"]["facts_confirmed"] is True
 
     denied = requester.post(
         f"/api/cases/{case_id}/status",
-        json={"status": "in_review"},
+        json={"status": "review_running"},
     )
     assert denied.status_code == 403
 
     _login(reviewer, "reviewer@crosscomply.local")
     visible = reviewer.get(f"/api/cases/{case_id}")
     assert visible.status_code == 200
+    system_status = reviewer.post(
+        f"/api/cases/{case_id}/status",
+        json={"status": "review_running"},
+    )
+    assert system_status.status_code == 403
     reviewing = reviewer.post(
         f"/api/cases/{case_id}/status",
-        json={"status": "in_review"},
+        json={"status": "needs_info"},
     )
     assert reviewing.status_code == 200
 
 
-def test_run_persists_review_actions_and_audit_events(app, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("law_agent.review.api._run_review", lambda _app, _case: _review_response())
+def test_run_persists_queued_task_and_audit_event(app) -> None:
     with TestClient(app) as client:
         _login(client, "reviewer@crosscomply.local")
         case_id = _create_case(client)
-        assert client.post(f"/api/cases/{case_id}/status", json={"status": "submitted"}).status_code == 200
+        _freeze_inputs(app, case_id)
+        assert (
+            client.post(
+                f"/api/cases/{case_id}/status", json={"status": "pending_review"}
+            ).status_code
+            == 200
+        )
 
         response = client.post(f"/api/cases/{case_id}/run")
-        assert response.status_code == 200, response.text
+        assert response.status_code == 202, response.text
         body = response.json()
-        assert body["run_status"] == "completed"
-        assert body["case"]["risk_level"] == "medium"
-        assert len(body["actions"]) == 2
-        assert {event["event_type"] for event in body["events"]} >= {
-            "case_created", "status_changed", "review_started", "review_completed",
-            "action_created",
+        assert body["status"] == "queued"
+        task = client.get(f"/api/tasks/{body['task_id']}")
+        assert task.status_code == 200
+        assert task.json()["status"] == "queued"
+        events = client.get(f"/api/cases/{case_id}/events").json()["items"]
+        assert {event["event_type"] for event in events} >= {
+            "case_created",
+            "status_changed",
+            "review_queued",
         }
 
-        persisted = client.get(f"/api/cases/{case_id}").json()
-        assert persisted["case"]["response"]["review_result"]["conclusion"]
 
-
-def test_evidence_gap_stays_in_needs_info(app, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "law_agent.review.api._run_review",
-        lambda _app, _case: _review_response(risk_level="insufficient_evidence", missing=["年度数据量"]),
-    )
+def test_evidence_gap_stays_in_needs_info(app) -> None:
     with TestClient(app) as client:
         _login(client, "reviewer@crosscomply.local")
         case_id = _create_case(client)
-        assert client.post(f"/api/cases/{case_id}/status", json={"status": "submitted"}).status_code == 200
+        _freeze_inputs(app, case_id, needs_info=True)
+        app.state.case_store.update_case(case_id, status="pending_review")
 
         response = client.post(f"/api/cases/{case_id}/run")
-        assert response.status_code == 200
-        assert response.json()["run_status"] == "needs_info"
+        assert response.status_code == 409
+        assert "关键事实缺失" in response.json()["detail"]
 
-        complete = client.post(f"/api/cases/{case_id}/status", json={"status": "completed"})
-        assert complete.status_code == 409
+        complete = client.post(f"/api/cases/{case_id}/status", json={"status": "approved"})
+        assert complete.status_code == 403
 
 
 def test_actions_feedback_and_dashboard_are_persisted(app) -> None:
@@ -193,7 +236,10 @@ def test_old_response_normalization_preserves_unknown_metadata_and_unique_refs()
         "citation_groups": [
             {"usage": "legal_basis", "citations": [{"citation_ref": "法源-02", "chunk_id": "c1"}]},
             {"usage": "conditional_basis", "citations": [{"chunk_id": "c2"}]},
-            {"usage": "policy_explanation", "citations": [{"citation_ref": "法源-02", "chunk_id": "c3"}]},
+            {
+                "usage": "policy_explanation",
+                "citations": [{"citation_ref": "法源-02", "chunk_id": "c3"}],
+            },
         ],
         "review_result": {
             "claims": [{"text": "结论", "supporting_chunk_ids": ["c1", "c2", "c3"]}],
@@ -202,9 +248,15 @@ def test_old_response_normalization_preserves_unknown_metadata_and_unique_refs()
     }
 
     normalized = _normalize_review_response_payload(response)
-    citations = [citation for group in normalized["citation_groups"] for citation in group["citations"]]
+    citations = [
+        citation for group in normalized["citation_groups"] for citation in group["citations"]
+    ]
     assert [citation["citation_ref"] for citation in citations] == ["法源-02", "法源-01", "法源-03"]
     assert len({citation["citation_ref"] for citation in citations}) == 3
     assert citations[1]["doc_type"] == "unknown"
     assert citations[1]["authority"] == "unknown"
-    assert normalized["review_result"]["claims"][0]["supporting_citation_refs"] == ["法源-02", "法源-01", "法源-03"]
+    assert normalized["review_result"]["claims"][0]["supporting_citation_refs"] == [
+        "法源-02",
+        "法源-01",
+        "法源-03",
+    ]
