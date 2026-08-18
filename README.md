@@ -79,8 +79,8 @@ Remove-Item Env:CROSSCOMPLY_BOOTSTRAP_ADMIN_PASSWORD
 ### 3. 索引语料并检查服务
 
 ```powershell
-python -m law_agent.review index-service --execute
-python -m law_agent.review service-doctor
+docker compose exec -T api python -m law_agent.review index-service --execute
+docker compose exec -T api python -m law_agent.review service-doctor
 ```
 
 `service-doctor` 应看到：
@@ -362,11 +362,11 @@ python -m law_agent.review retrieve `
 # 1. 更新 .env 中的 EMBEDDING_MODEL / EMBEDDING_DIM
 
 # 2. 删除旧索引
-docker exec lawagent-pg psql -U lawagent -c "DROP TABLE IF EXISTS lawagent_chunks;"
-python -c "from law_agent.config import load_service_config; from law_agent.review.retrieval.service_backends import create_elasticsearch_client; c=load_service_config(); es=create_elasticsearch_client(c); es.indices.delete(index=c.elasticsearch.index_name, ignore_unavailable=True); es.close()"
+docker compose exec -T postgres sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "DROP TABLE IF EXISTS lawagent_chunks;"'
+docker compose exec -T api python -c "from law_agent.config import load_service_config; from law_agent.review.retrieval.service_backends import create_elasticsearch_client; c=load_service_config(); es=create_elasticsearch_client(c); es.indices.delete(index=c.elasticsearch.index_name, ignore_unavailable=True); es.close()"
 
 # 3. 重新索引
-python -m law_agent.review index-service --execute
+docker compose exec -T api python -m law_agent.review index-service --execute
 ```
 
 ### 本地 Embedding（可选）
