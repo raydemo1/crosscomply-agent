@@ -4735,7 +4735,7 @@ textarea {
 .status-chip--rejected,
 .status-chip--run_failed { color: #991b1b; background: #fee2e2; }
 
-/* Enterprise hero case — an auditable gate, not a decorative marketing stepper. */
+/* Enterprise case — an auditable gate, not a decorative marketing stepper. */
 .hero-case-progress {
   padding: 20px 22px;
   overflow: hidden;

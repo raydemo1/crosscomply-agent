@@ -205,7 +205,7 @@ function HeroCaseProgress({ saved }: { saved: SavedCase }): JSX.Element {
   return (
     <section className="card hero-case-progress" aria-label="企业采购境外 SaaS 合规流程">
       <div className="hero-case-progress__heading">
-        <div><span>企业英雄案例</span><strong>境外 SaaS 上线前合规闸门</strong></div>
+        <div><span>企业案例</span><strong>境外 SaaS 上线前合规闸门</strong></div>
         <span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span>
       </div>
       <ol className="hero-case-progress__steps">
