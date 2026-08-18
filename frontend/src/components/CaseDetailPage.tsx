@@ -51,6 +51,7 @@ import {
 
 interface CaseDetailPageProps {
   saved: SavedCase;
+  demoMode?: boolean;
   canEdit: boolean;
   onEdit: (saved: SavedCase) => void;
   /** Called when the user wants to start a fresh review from this case's inputs. */
@@ -80,6 +81,7 @@ const FACT_FIELDS: Array<{ key: string; label: string; render: (f: ReviewFacts) 
 
 export default function CaseDetailPage({
   saved,
+  demoMode = false,
   canEdit,
   onEdit,
   onRerun,
@@ -104,12 +106,13 @@ export default function CaseDetailPage({
     <div className="case-detail">
       <CaseHeader
         saved={completedSaved}
+        demoMode={demoMode}
         onBack={onBack}
         onRerun={() => onRerun(completedSaved.question, completedSaved.materialText)}
       />
 
       <HeroCaseProgress saved={saved} />
-      <EnterpriseDecisionChain saved={saved} />
+      <EnterpriseDecisionChain saved={saved} demoMode={demoMode} />
       <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} />
 
       <CaseOperations saved={saved} canManageActions={canManageActions} />
@@ -119,6 +122,7 @@ export default function CaseDetailPage({
       ) : (
         <ReviewChain
           saved={completedSaved}
+          demoMode={demoMode}
           onVerdictChange={handleVerdict}
           viewerRole={viewerRole}
         />
@@ -223,7 +227,7 @@ function HeroCaseProgress({ saved }: { saved: SavedCase }): JSX.Element {
   );
 }
 
-function EnterpriseDecisionChain({ saved }: { saved: SavedCase }): JSX.Element | null {
+function EnterpriseDecisionChain({ saved, demoMode = false }: { saved: SavedCase; demoMode?: boolean }): JSX.Element | null {
   const { materialSnapshot, ruleDecision, reviewTask, feishuApproval, signedDecision, report } = saved;
   if (!materialSnapshot && !ruleDecision && !reviewTask && !feishuApproval && !signedDecision && !report) return null;
 
@@ -274,7 +278,7 @@ function EnterpriseDecisionChain({ saved }: { saved: SavedCase }): JSX.Element |
           <div className="enterprise-record__heading"><div><span>04</span><h2>审批与正式归档</h2></div>{signedDecision ? <strong>{statusLabel(saved.status)}</strong> : <span>等待企业决定</span>}</div>
           {feishuApproval ? <div className="approval-ledger"><div><span>飞书审批实例</span><code>{feishuApproval.instance_id}</code></div><div><span>审批状态</span><strong>{approvalStatusLabel(feishuApproval.status)}</strong></div>{feishuApproval.approver_name ? <div><span>审批人</span><strong>{feishuApproval.approver_name}</strong></div> : null}{feishuApproval.decided_at ? <div><span>审批时间</span><strong>{formatTime(feishuApproval.decided_at)}</strong></div> : null}</div> : null}
           {signedDecision ? <div className="signed-decision"><span aria-hidden="true">✓</span><div><strong>最终决定已签署</strong><small>{signedDecision.approver_name || '飞书审批人'} · {signedDecision.decided_at ? formatTime(signedDecision.decided_at) : '审批时间已留痕'}</small></div></div> : null}
-          {report ? <div className="report-record"><div><span>正式决策报告</span></div><a className="case-header__action-btn case-header__action-btn--accent" href={reportDownloadUrl(report.id)}>下载正式报告</a></div> : null}
+          {report ? <div className="report-record"><div><span>正式决策报告</span></div>{demoMode ? <span className="report-record__demo">内置演示报告</span> : <a className="case-header__action-btn case-header__action-btn--accent" href={reportDownloadUrl(report.id)}>下载正式报告</a>}</div> : null}
         </article>
       ) : null}
     </section>
@@ -522,11 +526,12 @@ function statusLabel(status: CaseStatus): string {
 
 interface CaseHeaderProps {
   saved: SavedCaseWithResponse;
+  demoMode: boolean;
   onBack: () => void;
   onRerun: () => void;
 }
 
-function CaseHeader({ saved, onBack, onRerun }: CaseHeaderProps): JSX.Element {
+function CaseHeader({ saved, demoMode, onBack, onRerun }: CaseHeaderProps): JSX.Element {
   const response = saved.response;
   const failed = isReviewFailedResponse(response);
   const risk = failed ? null : response.review_result.risk_level;
@@ -538,9 +543,7 @@ function CaseHeader({ saved, onBack, onRerun }: CaseHeaderProps): JSX.Element {
           ← 返回工作台
         </button>
         <div className="case-header__actions">
-          <button type="button" className="case-header__action-btn" onClick={onRerun}>
-            以此为模板重审
-          </button>
+          {demoMode ? null : <button type="button" className="case-header__action-btn" onClick={onRerun}>以此为模板重审</button>}
           <button type="button" className="case-header__action-btn" onClick={() => downloadMarkdown(saved)}>
             导出 Markdown
           </button>
@@ -615,11 +618,12 @@ function FailedChain({ response }: { response: Extract<ReviewApiResponse, { stat
 
 interface ReviewChainProps {
   saved: SavedCaseWithResponse;
+  demoMode: boolean;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
   viewerRole: UserRole;
 }
 
-function ReviewChain({ saved, onVerdictChange, viewerRole }: ReviewChainProps): JSX.Element {
+function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole }: ReviewChainProps): JSX.Element {
   const response = saved.response as Extract<ReviewApiResponse, { review_case_id: string }>;
   const result = response.review_result;
   const facts = response.review_facts;
@@ -781,10 +785,11 @@ function ReviewChain({ saved, onVerdictChange, viewerRole }: ReviewChainProps): 
                 groups={response.citation_groups}
                 evidenceChunks={evidenceChunks}
                 verdicts={verdicts}
+                readOnly={demoMode}
                 onVerdictChange={onVerdictChange}
                 viewerRole={viewerRole}
               />
-              <FeedbackPanel saved={saved} />
+              {demoMode ? <div className="demo-readonly-note">公开演示仅供浏览，人工评价与整改动作需要接入自己的服务端后保存。</div> : <FeedbackPanel saved={saved} />}
             </div>
           </details>
         </main>

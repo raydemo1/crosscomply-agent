@@ -8,6 +8,7 @@ import {
   saveFeedback,
   updateAction,
 } from '../api/client';
+import { DEMO_CASE } from '../demo/demoCase';
 import type { CaseAction, CaseDetailApi, CaseIntake, CaseSummaryApi } from '../types/api';
 import type { CaseFeedback, CitationVerdict, SavedCase } from '../types/case';
 
@@ -35,6 +36,11 @@ export const EMPTY_INTAKE: CaseIntake = {
 
 function notify(): void {
   listeners.forEach((listener) => listener());
+}
+
+export function initializeDemoCase(): void {
+  snapshot = [DEMO_CASE];
+  notify();
 }
 
 function toFeedback(detail: CaseDetailApi): CaseFeedback | null {
@@ -116,6 +122,10 @@ export async function refreshCases(): Promise<SavedCase[]> {
 }
 
 export async function openCase(id: string): Promise<SavedCase> {
+  if (id === DEMO_CASE.id) {
+    mergeCase(DEMO_CASE);
+    return DEMO_CASE;
+  }
   const detail = await getCaseDetail(id);
   const next = fromDetail(detail);
   mergeCase(next);

@@ -22,6 +22,7 @@ interface CitationListProps {
   groups: CitationGroup[];
   evidenceChunks: RetrievalHit[] | undefined;
   verdicts: Record<string, CitationVerdict>;
+  readOnly?: boolean;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
   viewerRole: UserRole;
 }
@@ -30,6 +31,7 @@ export default function CitationList({
   groups,
   evidenceChunks,
   verdicts,
+  readOnly = false,
   onVerdictChange,
   viewerRole,
 }: CitationListProps): JSX.Element {
@@ -64,6 +66,7 @@ export default function CitationList({
                 citation={citation}
                 chunk={chunkMap.get(citation.chunk_id)}
                 verdict={verdicts[citation.chunk_id] ?? null}
+                readOnly={readOnly}
                 onVerdictChange={onVerdictChange}
                 viewerRole={viewerRole}
               />
@@ -79,12 +82,14 @@ function GovernanceRow({
   citation,
   chunk,
   verdict,
+  readOnly,
   onVerdictChange,
   viewerRole,
 }: {
   citation: CitationGroup['citations'][number];
   chunk: RetrievalHit | undefined;
   verdict: CitationVerdict | null;
+  readOnly: boolean;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
   viewerRole: UserRole;
 }): JSX.Element {
@@ -112,7 +117,7 @@ function GovernanceRow({
               <span><span className="cite-row__meta-label">评分</span><code>{chunk.score.toFixed(4)}</code></span>
             </div>
           ) : null}
-          <div className="cite-row__feedback">
+          {readOnly ? null : <div className="cite-row__feedback">
             <span className="cite-row__field-label">人工引用评价</span>
             <div className="cite-row__verdicts">
               <button
@@ -130,7 +135,7 @@ function GovernanceRow({
                 需复核
               </button>
             </div>
-          </div>
+          </div>}
         </div>
       ) : null}
     </div>

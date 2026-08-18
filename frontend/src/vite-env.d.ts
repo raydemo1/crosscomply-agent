@@ -9,6 +9,8 @@ interface ImportMetaEnv {
    * different origin than the API (e.g. `http://127.0.0.1:8000`).
    */
   readonly VITE_API_BASE_URL?: string;
+  /** Enables the static public product-tour mode on Vercel. */
+  readonly VITE_PUBLIC_DEMO?: string;
 }
 
 interface ImportMeta {
