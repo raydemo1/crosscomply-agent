@@ -12,6 +12,7 @@ x-backend-environment: &backend-environment
   CROSSCOMPLY_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
   CROSSCOMPLY_MINIO_BUCKET: ${MINIO_BUCKET:-crosscomply-materials}
   CROSSCOMPLY_MINIO_SECURE: "false"
+  CROSSCOMPLY_PUBLIC_BASE_URL: ${CROSSCOMPLY_PUBLIC_BASE_URL:-http://127.0.0.1:8080}
 
 services:
   postgres:

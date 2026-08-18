@@ -79,6 +79,7 @@ def _freeze_inputs(store: InMemoryEnterpriseStore, case_id: str, *, needs_info: 
         determination={
             "status": "needs_info" if needs_info else "determined",
             "needs_info": [{"key": "important_data"}] if needs_info else [],
+            "candidate_paths": [] if needs_info else ["标准合同"],
         },
     )
     return snapshot, rule
@@ -275,7 +276,11 @@ def test_admin_can_manage_users_without_preset_user_dependency(tmp_path: Path) -
 
 def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> None:
     class FakeFeishuClient:
-        def create_instance(self, **_kwargs):
+        def __init__(self) -> None:
+            self.created: dict = {}
+
+        def create_instance(self, **kwargs):
+            self.created = kwargs
             return ApprovalInstance(instance_id="instance-hero", request_id="request-hero")
 
     case_store = InMemoryCaseStore(seed_password="pw")
@@ -291,14 +296,16 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         verification_token="verify-token",
         encrypt_key="encrypt-key",
         initiator_open_id="ou_initiator",
+        public_base_url="https://crosscomply.example.com",
     )
+    fake_feishu = FakeFeishuClient()
     app = create_app(
         chunks_path=chunks,
         case_store=case_store,
         enterprise_store=enterprise,
         material_object_store=object_store,
         governance_store=governance,
-        feishu_client=FakeFeishuClient(),  # type: ignore[arg-type]
+        feishu_client=fake_feishu,  # type: ignore[arg-type]
         feishu_config=config,
     )
 
@@ -337,7 +344,14 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         enterprise.claim_next_task(worker_id="worker-1")
         enterprise.complete_task(
             task.id,
-            result={"review_result": {"missing_information": [], "risk_level": "medium"}},
+            result={
+                "review_result": {
+                    "missing_information": [],
+                    "risk_level": "medium",
+                    "conclusion": "建议采用标准合同路径，并在上线前完成备案。",
+                    "recommended_actions": ["完成个人信息保护影响评估"],
+                }
+            },
             final_node="completed",
         )
         case_store.update_case(case_id, status="pending_feishu_approval")
@@ -345,6 +359,11 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         created = client.post(f"/api/cases/{case_id}/feishu-approval")
         assert created.status_code == 200, created.text
         assert created.json()["instance_id"] == "instance-hero"
+        form = {item["id"]: item["value"] for item in fake_feishu.created["form"]}
+        assert form["decision_summary"].startswith("风险：中｜候选路径：标准合同｜AI审查：")
+        assert form["key_actions"] == "完成个人信息保护影响评估"
+        assert form["case_url"] == f"https://crosscomply.example.com/?case={case_id}"
+        assert form["task_id"] == task.id
 
         event_body = json.dumps(
             {
@@ -437,6 +456,7 @@ def test_feishu_network_failure_is_persisted_and_can_be_retried(tmp_path: Path) 
             verification_token="verify-token",
             encrypt_key="encrypt-key",
             initiator_open_id="ou_initiator",
+            public_base_url="https://crosscomply.example.com",
         ),
     )
 

@@ -51,6 +51,11 @@ function materialOriginal(material: string, file?: File | null): File {
   return new File([material], 'case-material.txt', { type: 'text/plain;charset=utf-8' });
 }
 
+function linkedCaseId(): string | null {
+  const value = new URLSearchParams(window.location.search).get('case')?.trim();
+  return value || null;
+}
+
 export default function App(): JSX.Element {
   const [user, setUser] = useState<WorkbenchUser | null>(null);
   const [booting, setBooting] = useState(true);
@@ -78,6 +83,18 @@ export default function App(): JSX.Element {
       if (current) {
         const [, summary] = await Promise.all([refreshCases(), getDashboardSummary()]);
         if (mounted) setDashboardSummary(summary);
+        const caseId = linkedCaseId();
+        if (caseId) {
+          try {
+            await openCase(caseId);
+            if (mounted) {
+              setActiveCaseId(caseId);
+              setPage('case-detail');
+            }
+          } catch (reason) {
+            if (mounted) setError(reason instanceof Error ? reason.message : '无法打开飞书关联案件');
+          }
+        }
       }
     }).catch((reason) => {
       if (mounted) setAuthError(reason instanceof Error ? reason.message : '无法连接到工作台');
@@ -93,6 +110,12 @@ export default function App(): JSX.Element {
     setUser(current);
     const [, summary] = await Promise.all([refreshCases(), getDashboardSummary()]);
     setDashboardSummary(summary);
+    const caseId = linkedCaseId();
+    if (caseId) {
+      await openCase(caseId);
+      setActiveCaseId(caseId);
+      setPage('case-detail');
+    }
   }, []);
 
   const handleLogout = useCallback(async (): Promise<void> => {

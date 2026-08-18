@@ -50,7 +50,7 @@ pip install -e ".[service]"
 - `MINIO_ROOT_PASSWORD`
 - `OPENAI_COMPATIBLE_API_KEY`
 - `EMBEDDING_API_KEY`
-- 飞书集成时填入 `CROSSCOMPLY_FEISHU_APP_ID`、`CROSSCOMPLY_FEISHU_APP_SECRET`、`CROSSCOMPLY_FEISHU_APPROVAL_CODE`、`CROSSCOMPLY_FEISHU_INITIATOR_OPEN_ID`、`CROSSCOMPLY_FEISHU_VERIFICATION_TOKEN`、`CROSSCOMPLY_FEISHU_ENCRYPT_KEY`
+- 飞书集成时填入 `CROSSCOMPLY_FEISHU_APP_ID`、`CROSSCOMPLY_FEISHU_APP_SECRET`、`CROSSCOMPLY_FEISHU_APPROVAL_CODE`、`CROSSCOMPLY_FEISHU_INITIATOR_OPEN_ID`、`CROSSCOMPLY_FEISHU_VERIFICATION_TOKEN`、`CROSSCOMPLY_FEISHU_ENCRYPT_KEY`，并将 `CROSSCOMPLY_PUBLIC_BASE_URL` 设为审批人可访问的工作台地址
 - 如不使用默认本地服务，再调整 `ES_URL`、`PG_DSN`、`ES_INDEX`、`PG_TABLE`
 
 ### 2. 启动服务栈
@@ -73,6 +73,8 @@ Remove-Item Env:CROSSCOMPLY_BOOTSTRAP_ADMIN_PASSWORD
 ```
 
 后续账号由管理员在系统内创建、停用、重置密码和分配角色。
+
+**飞书审批表单：** 审批定义中创建六个单行文本控件，并将控件 ID 依次设为 `case_number`、`title`、`decision_summary`、`key_actions`、`case_url`、`task_id`。审批人直接在飞书查看风险、候选路径和关键整改项并完成通过或拒绝；只有需要核验材料原文、法源与完整证据链时才打开 `case_url`。正式 PDF 在飞书终态回写后生成。
 
 **完整案例：** [`examples/hero_case/cross_border_saas/`](examples/hero_case/cross_border_saas/README.md) 提供一套脱敏的境外 CRM/AI SaaS 采购材料、人工确认事实、飞书演示事件和报告哈希校验脚本。
 

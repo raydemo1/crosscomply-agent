@@ -46,6 +46,7 @@ class FeishuApprovalConfig:
     verification_token: str
     encrypt_key: str
     initiator_open_id: str = ""
+    public_base_url: str = ""
     base_url: str = "https://open.feishu.cn/open-apis"
     timeout_seconds: float = 10.0
 

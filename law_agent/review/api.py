@@ -11,6 +11,7 @@ workflow transitions, and the HTTP contract used by the frontend.
 from __future__ import annotations
 
 import hashlib
+import html
 import os
 import re
 import tempfile
@@ -499,6 +500,89 @@ def _can_view(user: UserRecord, case: dict[str, Any]) -> bool:
     return user.role in {"reviewer", "admin"} or case["created_by"] == user.id
 
 
+def _compact_approval_text(value: Any, *, limit: int) -> str:
+    text = html.unescape(re.sub(r"<[^>]+>", "", str(value or "")))
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[: limit - 1].rstrip()}…"
+
+
+def _candidate_path_labels(determination: dict[str, Any]) -> list[str]:
+    labels: list[str] = []
+    for item in determination.get("candidate_paths") or []:
+        if isinstance(item, str):
+            label = item
+        elif isinstance(item, dict):
+            label = next(
+                (
+                    str(item[key])
+                    for key in ("label", "name", "path", "code")
+                    if item.get(key)
+                ),
+                "",
+            )
+        else:
+            label = ""
+        label = _compact_approval_text(label, limit=80)
+        if label and label not in labels:
+            labels.append(label)
+    return labels[:2]
+
+
+def _feishu_approval_form(
+    *,
+    case: dict[str, Any],
+    task: Any,
+    rule_determination: dict[str, Any],
+    actions: list[dict[str, Any]],
+    public_base_url: str,
+) -> list[dict[str, str]]:
+    result = dict(task.result or {})
+    review_result = dict(result.get("review_result") or {})
+    risk_labels = {
+        "high": "高",
+        "medium": "中",
+        "low": "低",
+        "insufficient_evidence": "待核验",
+    }
+    risk = risk_labels.get(str(review_result.get("risk_level", "")).lower(), "待核验")
+    paths = _candidate_path_labels(rule_determination)
+    conclusion = _compact_approval_text(review_result.get("conclusion"), limit=360)
+    summary_parts = [f"风险：{risk}"]
+    if paths:
+        summary_parts.append(f"候选路径：{'、'.join(paths)}")
+    if conclusion:
+        summary_parts.append(f"AI审查：{conclusion}")
+
+    action_titles = [
+        _compact_approval_text(item, limit=100)
+        for item in review_result.get("recommended_actions") or []
+    ]
+    action_titles.extend(
+        _compact_approval_text(action.get("title"), limit=100) for action in actions
+    )
+    unique_actions = list(dict.fromkeys(item for item in action_titles if item))[:3]
+    action_summary = "；".join(unique_actions) or "无待办整改项"
+    case_url = f"{public_base_url.rstrip('/')}/?case={quote(case['id'], safe='')}"
+    return [
+        {"id": "case_number", "type": "input", "value": case["case_number"]},
+        {"id": "title", "type": "input", "value": case["title"]},
+        {
+            "id": "decision_summary",
+            "type": "input",
+            "value": _compact_approval_text("｜".join(summary_parts), limit=500),
+        },
+        {
+            "id": "key_actions",
+            "type": "input",
+            "value": _compact_approval_text(action_summary, limit=300),
+        },
+        {"id": "case_url", "type": "input", "value": case_url},
+        {"id": "task_id", "type": "input", "value": task.id},
+    ]
+
+
 def _run_review(app: FastAPI, case: dict[str, Any]) -> ReviewResponse:
     material = case["material_text"] + _intake_context(case.get("intake") or {})
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -627,6 +711,7 @@ def create_app(
             initiator_open_id=os.getenv("CROSSCOMPLY_FEISHU_INITIATOR_OPEN_ID", ""),
             verification_token=os.getenv("CROSSCOMPLY_FEISHU_VERIFICATION_TOKEN", ""),
             encrypt_key=os.getenv("CROSSCOMPLY_FEISHU_ENCRYPT_KEY", ""),
+            public_base_url=os.getenv("CROSSCOMPLY_PUBLIC_BASE_URL", ""),
         )
         if not all(
             (
@@ -636,6 +721,7 @@ def create_app(
                 config.initiator_open_id,
                 config.verification_token,
                 config.encrypt_key,
+                config.public_base_url,
             )
         ):
             raise HTTPException(status_code=503, detail="飞书审批配置不完整")
@@ -653,14 +739,19 @@ def create_app(
         client, config = configured_feishu()
         running = governance().begin_approval_attempt(delivery.id)
         try:
+            rule = enterprise().get_rule_snapshot(task.rule_snapshot_id)
+            if rule is None:
+                raise RuntimeError("审批任务绑定的规则快照不存在")
             instance = client.create_instance(
                 open_id=config.initiator_open_id,
                 idempotency_key=running.idempotency_key,
-                form=[
-                    {"id": "case_number", "type": "input", "value": case["case_number"]},
-                    {"id": "title", "type": "input", "value": case["title"]},
-                    {"id": "task_id", "type": "input", "value": task.id},
-                ],
+                form=_feishu_approval_form(
+                    case=case,
+                    task=task,
+                    rule_determination=dict(rule.determination),
+                    actions=store().list_actions(case["id"]),
+                    public_base_url=config.public_base_url,
+                ),
             )
         except Exception as exc:
             failed = governance().fail_approval_delivery(
