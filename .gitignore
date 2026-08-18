@@ -44,6 +44,10 @@ indexes/
 # Generated documentation / local review reports
 docs/
 
+# Generated report and rendering artifacts
+/output/
+/tmp/
+
 # Logs
 *.log
 logs/
