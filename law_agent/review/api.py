@@ -743,6 +743,7 @@ def create_app(
             rule = enterprise().get_rule_snapshot(task.rule_snapshot_id)
             if rule is None:
                 raise RuntimeError("审批任务绑定的规则快照不存在")
+            actions = store().list_actions(case["id"])
             instance = client.create_instance(
                 open_id=config.initiator_open_id,
                 idempotency_key=running.idempotency_key,
@@ -750,7 +751,7 @@ def create_app(
                     case=case,
                     task=task,
                     rule_determination=dict(rule.determination),
-                    actions=store().list_actions(case["id"]),
+                    actions=actions,
                     public_base_url=config.public_base_url,
                 ),
             )
@@ -774,6 +775,7 @@ def create_app(
             payload={
                 "request_id": instance.request_id,
                 "idempotency_key": running.idempotency_key,
+                "report_actions_snapshot": actions,
             },
         )
         governance().succeed_approval_delivery(running.id, instance_id=instance.instance_id)
@@ -1502,46 +1504,11 @@ def create_app(
                 to_status=target,
                 payload={"approval_event_id": receipt.event.id},
             )
-        report = governance().get_latest_report(approval.case_id)
-        report_status = "ready" if report is not None else "failed"
-        if report is None:
-            prior_failure = any(
-                item["event_type"] == "decision_report_generation_failed"
-                and item.get("payload", {}).get("approval_event_id") == receipt.event.id
-                for item in store().list_events(approval.case_id)
-            )
-            try:
-                report = ensure_decision_report(
-                    case=case,
-                    case_store=store(),
-                    enterprise_store=enterprise(),
-                    governance_store=governance(),
-                    object_store=originals(),
-                )
-                report_status = "ready"
-                if not prior_failure:
-                    store().add_event(
-                        approval.case_id,
-                        case.get("owner_id") or case["created_by"],
-                        event_type="report_generated",
-                        payload={"report_id": report.id, "approval_event_id": receipt.event.id},
-                    )
-            except Exception as exc:  # noqa: BLE001 - decision write-back must remain authoritative
-                if not prior_failure:
-                    store().add_event(
-                        approval.case_id,
-                        case.get("owner_id") or case["created_by"],
-                        event_type="decision_report_generation_failed",
-                        payload={
-                            "approval_event_id": receipt.event.id,
-                            "message": str(exc)[:500] or exc.__class__.__name__,
-                        },
-                    )
         return {
             "ok": True,
             "duplicate": receipt.duplicate,
             "case_status": target,
-            "report_status": report_status,
+            "report_status": "available_on_download",
         }
 
     @app.post("/api/integrations/feishu/subscribe")
@@ -1580,6 +1547,64 @@ def create_app(
             raise HTTPException(status_code=503, detail="正式报告暂未生成，请稍后重试") from exc
         return asdict(report)
 
+    def report_response(report: Any) -> Response:
+        case = store().get_case(report.case_id)
+        if case is None:
+            raise HTTPException(status_code=404, detail="决策报告所属案件不存在")
+        content = originals().get_original(report.object_key)
+        if hashlib.sha256(content).hexdigest() != report.sha256:
+            raise HTTPException(status_code=409, detail="决策报告哈希校验失败")
+        return Response(
+            content=content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{case["case_number"]}.pdf"',
+            },
+        )
+
+    @app.get("/api/cases/{identifier}/reports/download")
+    async def download_case_decision_report(
+        identifier: str, user: UserRecord = Depends(current_user)
+    ) -> Response:
+        case = store().get_case(identifier)
+        if case is None or not _can_view(user, case):
+            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        report = governance().get_latest_report(identifier)
+        if report is None:
+            try:
+                report = ensure_decision_report(
+                    case=case,
+                    case_store=store(),
+                    enterprise_store=enterprise(),
+                    governance_store=governance(),
+                    object_store=originals(),
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            except HTTPException:
+                raise
+            except Exception as exc:  # noqa: BLE001 - the browser can retry the download
+                prior_failure = any(
+                    item["event_type"] == "decision_report_generation_failed"
+                    and item.get("payload", {}).get("trigger") == "download"
+                    for item in store().list_events(identifier)
+                )
+                if not prior_failure:
+                    store().add_event(
+                        identifier,
+                        user.id,
+                        event_type="decision_report_generation_failed",
+                        payload={"trigger": "download", "message": str(exc)[:500]},
+                    )
+                raise HTTPException(status_code=503, detail="正式报告暂未生成，请稍后重试") from exc
+            store().add_event(
+                identifier,
+                user.id,
+                event_type="report_generated",
+                payload={"report_id": report.id, "trigger": "download"},
+            )
+        return report_response(report)
+
     @app.get("/api/reports/{report_id}/download")
     async def download_decision_report(
         report_id: str, user: UserRecord = Depends(current_user)
@@ -1590,10 +1615,7 @@ def create_app(
         case = store().get_case(report.case_id)
         if case is None or not _can_view(user, case):
             raise HTTPException(status_code=404, detail="决策报告不存在或无权访问")
-        content = originals().get_original(report.object_key)
-        if hashlib.sha256(content).hexdigest() != report.sha256:
-            raise HTTPException(status_code=409, detail="决策报告哈希校验失败")
-        return Response(content=content, media_type="application/pdf")
+        return report_response(report)
 
     @app.post("/api/cases/{identifier}/actions")
     async def create_action(

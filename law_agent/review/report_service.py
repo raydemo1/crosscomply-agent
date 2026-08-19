@@ -59,7 +59,12 @@ def ensure_decision_report(
     versions = [
         enterprise_store.get_material_version(version_id) for version_id in snapshot.version_ids
     ]
-    actions = case_store.list_actions(case_id)
+    snapshot_actions = approval.payload.get("report_actions_snapshot")
+    actions = (
+        [dict(item) for item in snapshot_actions if isinstance(item, dict)]
+        if isinstance(snapshot_actions, list)
+        else case_store.list_actions(case_id)
+    )
     determination = dict(rule.determination)
     selected_path = selected_path_for_report(determination)
     report_data = DecisionReportData(

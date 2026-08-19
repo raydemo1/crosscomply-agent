@@ -355,15 +355,35 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
             final_node="completed",
         )
         case_store.update_case(case_id, status="pending_feishu_approval")
+        action = client.post(
+            f"/api/cases/{case_id}/actions",
+            json={
+                "title": "上线前完成跨境合同归档",
+                "description": "审批时提交的整改动作说明",
+            },
+        )
+        assert action.status_code == 200, action.text
 
         created = client.post(f"/api/cases/{case_id}/feishu-approval")
         assert created.status_code == 200, created.text
         assert created.json()["instance_id"] == "instance-hero"
         form = {item["id"]: item["value"] for item in fake_feishu.created["form"]}
         assert form["decision_summary"].startswith("风险：中｜候选路径：标准合同｜AI审查：")
-        assert form["key_actions"] == "完成个人信息保护影响评估"
+        assert form["key_actions"] == "完成个人信息保护影响评估；上线前完成跨境合同归档"
         assert form["case_url"] == f"https://crosscomply.example.com/?case={case_id}"
         assert form["task_id"] == task.id
+        updated_action = client.patch(
+            f"/api/actions/{action.json()['id']}",
+            json={"description": "审批后的整改跟进说明", "status": "completed"},
+        )
+        assert updated_action.status_code == 200, updated_action.text
+        assert updated_action.json()["status"] == "completed"
+        assert created.json()["payload"]["report_actions_snapshot"][0]["description"] == "审批时提交的整改动作说明"
+        assert any(
+            item["event_type"] == "action_updated"
+            and item["payload"]["action_id"] == action.json()["id"]
+            for item in client.get(f"/api/cases/{case_id}").json()["events"]
+        )
 
         event_body = json.dumps(
             {
@@ -394,12 +414,10 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         )
         assert callback.status_code == 200, callback.text
         assert callback.json()["case_status"] == "approved"
-        assert callback.json()["report_status"] == "ready"
-        auto_report = client.get(f"/api/cases/{case_id}")
-        assert auto_report.status_code == 200, auto_report.text
-        assert auto_report.json()["report"] is not None
-        assert auto_report.json()["report"]["metadata"]["material_snapshot_id"] == snapshot.id
-        assert auto_report.json()["report"]["metadata"]["rule_version"] == rule.ruleset_version
+        assert callback.json()["report_status"] == "available_on_download"
+        before_download = client.get(f"/api/cases/{case_id}")
+        assert before_download.status_code == 200, before_download.text
+        assert before_download.json()["report"] is None
 
         later_version = enterprise.create_material_version(
             case_id=case_id,
@@ -425,13 +443,21 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
             facts={},
             determination={},
         )
-        report = client.post(f"/api/cases/{case_id}/reports")
-        assert report.status_code == 200, report.text
-        assert report.json()["metadata"]["material_snapshot_id"] == snapshot.id
-        assert report.json()["metadata"]["rule_version"] == rule.ruleset_version
-        downloaded = client.get(f"/api/reports/{report.json()['id']}/download")
+        downloaded = client.get(f"/api/cases/{case_id}/reports/download")
         assert downloaded.status_code == 200
-        assert hashlib.sha256(downloaded.content).hexdigest() == report.json()["sha256"]
+        assert downloaded.headers["content-disposition"].endswith(f'"{case_store.get_case(case_id)["case_number"]}.pdf"')
+        detail = client.get(f"/api/cases/{case_id}")
+        report = detail.json()["report"]
+        assert report is not None
+        assert report["metadata"]["material_snapshot_id"] == snapshot.id
+        assert report["metadata"]["rule_version"] == rule.ruleset_version
+        assert hashlib.sha256(downloaded.content).hexdigest() == report["sha256"]
+        repeated_download = client.get(f"/api/reports/{report['id']}/download")
+        assert repeated_download.status_code == 200
+        assert repeated_download.content == downloaded.content
+        explicit = client.post(f"/api/cases/{case_id}/reports")
+        assert explicit.status_code == 200, explicit.text
+        assert explicit.json()["id"] == report["id"]
 
 
 def test_feishu_network_failure_is_persisted_and_can_be_retried(tmp_path: Path) -> None:
