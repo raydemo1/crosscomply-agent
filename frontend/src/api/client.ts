@@ -18,7 +18,6 @@ import type {
   FeishuApprovalApi,
   MaterialVersionApi,
   ManagedUserApi,
-  ReportRecordApi,
   ReviewTaskApi,
   WorkbenchUser,
 } from '../types/api';
@@ -331,14 +330,8 @@ export async function createFeishuApproval(caseId: string): Promise<FeishuApprov
   });
 }
 
-export async function createDecisionReport(caseId: string): Promise<ReportRecordApi> {
-  return request<ReportRecordApi>(`/api/cases/${encodeURIComponent(caseId)}/reports`, {
-    method: 'POST',
-  });
-}
-
-export function reportDownloadUrl(reportId: string): string {
-  return buildUrl(`/api/reports/${encodeURIComponent(reportId)}/download`);
+export function caseReportDownloadUrl(caseId: string): string {
+  return buildUrl(`/api/cases/${encodeURIComponent(caseId)}/reports/download`);
 }
 
 export async function waitForReviewTask(
