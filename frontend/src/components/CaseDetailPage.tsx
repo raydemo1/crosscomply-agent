@@ -280,7 +280,7 @@ function EnterpriseDecisionChain({ saved, demoMode = false }: { saved: SavedCase
           <div className="enterprise-record__heading"><div><span>04</span><h2>审批与正式归档</h2></div>{signedDecision ? <strong>{statusLabel(saved.status)}</strong> : <span>等待企业决定</span>}</div>
           {feishuApproval ? <div className="approval-ledger"><div><span>飞书审批实例</span><code>{feishuApproval.instance_id}</code></div><div><span>审批状态</span><strong>{approvalStatusLabel(feishuApproval.status)}</strong></div>{feishuApproval.approver_name ? <div><span>审批人</span><strong>{feishuApproval.approver_name}</strong></div> : null}{feishuApproval.decided_at ? <div><span>审批时间</span><strong>{formatTime(feishuApproval.decided_at)}</strong></div> : null}</div> : null}
           {signedDecision ? <div className="signed-decision"><span aria-hidden="true">✓</span><div><strong>最终决定已签署</strong><small>{signedDecision.approver_name || '飞书审批人'} · {signedDecision.decided_at ? formatTime(signedDecision.decided_at) : '审批时间已留痕'}</small></div></div> : null}
-          {report ? <div className="report-record"><div><span>正式决策报告</span></div>{demoMode ? <span className="report-record__demo">内置演示报告</span> : <a className="case-header__action-btn case-header__action-btn--accent" href={reportDownloadUrl(report.id)}>下载正式报告</a>}</div> : null}
+          {report ? <div className="report-record"><div><span>正式决策报告</span></div>{demoMode ? <a className="case-header__action-btn case-header__action-btn--accent" href={DEMO_REPORT_DOWNLOAD_URL} download>下载演示 PDF</a> : <a className="case-header__action-btn case-header__action-btn--accent" href={reportDownloadUrl(report.id)}>下载正式报告</a>}</div> : null}
         </article>
       ) : null}
     </section>
