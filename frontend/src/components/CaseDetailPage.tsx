@@ -552,7 +552,6 @@ function CaseHeader({ saved, demoMode, onBack, onRerun }: CaseHeaderProps): JSX.
           <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => downloadHtml(saved)}>
             导出 HTML 报告
           </button>
-          {demoMode ? <a className="case-header__action-btn case-header__action-btn--accent" href={DEMO_REPORT_DOWNLOAD_URL} download>下载 PDF</a> : null}
         </div>
       </div>
 
