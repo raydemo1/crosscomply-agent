@@ -151,13 +151,50 @@ class CaseStatusRequest(BaseModel):
     note: str = ""
 
 
-class CaseActionRequest(BaseModel):
+class RemediationEvidenceRequest(BaseModel):
+    kind: Literal["case_material", "file", "link"]
+    label: str = Field(..., min_length=1)
+    uri: str | None = None
+    object_key: str | None = None
+    content_type: str | None = None
+    sha256: str | None = None
+    byte_size: int | None = Field(default=None, ge=0)
+
+
+class RemediationTaskRequest(BaseModel):
     title: str = Field(..., min_length=1)
     description: str = ""
-    owner_role: str = "reviewer"
+    acceptance_criteria: str = ""
+    source_recommendation_index: int | None = Field(default=None, ge=0)
+    source_recommendation: str | None = None
+    assignee_id: str | None = None
     priority: Literal["high", "medium", "low"] = "medium"
-    status: Literal["open", "in_progress", "completed"] = "open"
     due_date: str | None = None
+
+
+class RemediationPlanRequest(BaseModel):
+    tasks: list[RemediationTaskRequest] = Field(default_factory=list, max_length=30)
+    no_remediation_reason: str | None = None
+
+
+class RemediationTaskUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1)
+    description: str | None = None
+    acceptance_criteria: str | None = None
+    assignee_id: str | None = None
+    priority: Literal["high", "medium", "low"] | None = None
+    due_date: str | None = None
+    expected_version: int | None = Field(default=None, ge=1)
+
+
+class RemediationSubmissionRequest(BaseModel):
+    note: str = Field(..., min_length=1)
+    evidence: list[RemediationEvidenceRequest] = Field(default_factory=list, max_length=5)
+
+
+class RemediationSubmissionReviewRequest(BaseModel):
+    decision: Literal["accepted", "rejected"]
+    review_note: str | None = None
 
 
 class MaterialSnapshotRequest(BaseModel):
@@ -182,15 +219,6 @@ class UserPasswordResetRequest(BaseModel):
 
 class UserRoleRequest(BaseModel):
     role: UserRole
-
-
-class CaseActionUpdateRequest(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    owner_role: str | None = None
-    priority: Literal["high", "medium", "low"] | None = None
-    status: Literal["open", "in_progress", "completed"] | None = None
-    due_date: str | None = None
 
 
 class FeedbackRequest(BaseModel):
@@ -389,7 +417,7 @@ def _case_payload(store: CaseStore, case: dict[str, Any]) -> dict[str, Any]:
         case_payload["response"] = _normalize_review_response_payload(case_payload["response"])
     return {
         "case": case_payload,
-        "actions": store.list_actions(case["id"]),
+        "remediation_plan": store.get_remediation_plan(case["id"]),
         "events": store.list_events(case["id"]),
         "feedback": store.get_feedback(case["id"]),
     }
@@ -536,7 +564,7 @@ def _feishu_approval_form(
     case: dict[str, Any],
     task: Any,
     rule_determination: dict[str, Any],
-    actions: list[dict[str, Any]],
+    remediation_plan: dict[str, Any] | None,
     public_base_url: str,
 ) -> list[dict[str, str]]:
     result = dict(task.result or {})
@@ -561,7 +589,8 @@ def _feishu_approval_form(
         for item in review_result.get("recommended_actions") or []
     ]
     action_titles.extend(
-        _compact_approval_text(action.get("title"), limit=100) for action in actions
+        _compact_approval_text(action.get("title"), limit=100)
+        for action in (remediation_plan or {}).get("tasks", [])
     )
     unique_actions = list(dict.fromkeys(item for item in action_titles if item))[:3]
     action_summary = "；".join(unique_actions) or "无待办整改项"
@@ -743,7 +772,7 @@ def create_app(
             rule = enterprise().get_rule_snapshot(task.rule_snapshot_id)
             if rule is None:
                 raise RuntimeError("审批任务绑定的规则快照不存在")
-            actions = store().list_actions(case["id"])
+            remediation_plan = store().get_remediation_plan(case["id"])
             instance = client.create_instance(
                 open_id=config.initiator_open_id,
                 idempotency_key=running.idempotency_key,
@@ -751,7 +780,7 @@ def create_app(
                     case=case,
                     task=task,
                     rule_determination=dict(rule.determination),
-                    actions=actions,
+                    remediation_plan=remediation_plan,
                     public_base_url=config.public_base_url,
                 ),
             )
@@ -775,7 +804,7 @@ def create_app(
             payload={
                 "request_id": instance.request_id,
                 "idempotency_key": running.idempotency_key,
-                "report_actions_snapshot": actions,
+                "remediation_plan_snapshot": remediation_plan,
             },
         )
         governance().succeed_approval_delivery(running.id, instance_id=instance.instance_id)
@@ -836,6 +865,25 @@ def create_app(
     def admin_only(user: UserRecord) -> None:
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="该操作需要管理员权限")
+
+    def remediation_plan_viewable(user: UserRecord, plan: dict[str, Any]) -> bool:
+        case = store().get_case(plan["case_id"])
+        return case is not None and _can_view(user, case)
+
+    def remediation_task_viewable(user: UserRecord, task: dict[str, Any]) -> bool:
+        if user.role in {"reviewer", "admin"} or task.get("assignee_id") == user.id:
+            return True
+        case = store().get_case(task["case_id"])
+        return case is not None and case.get("created_by") == user.id
+
+    def remediation_event(plan_id: str, actor_id: str, *, event_type: str, task_id: str | None = None, payload: dict[str, Any] | None = None) -> None:
+        store().add_remediation_event(
+            plan_id,
+            actor_id,
+            event_type=event_type,
+            task_id=task_id,
+            payload=payload or {},
+        )
 
     @app.get("/api/health", response_model=HealthResponse)
     async def health_check() -> HealthResponse:
@@ -1504,6 +1552,22 @@ def create_app(
                 to_status=target,
                 payload={"approval_event_id": receipt.event.id},
             )
+        if target in {"approved", "conditionally_approved"}:
+            remediation_plan = store().get_remediation_plan(approval.case_id)
+            if remediation_plan is not None and remediation_plan["status"] == "draft":
+                try:
+                    store().activate_remediation_plan(remediation_plan["id"])
+                    store().add_event(
+                        approval.case_id,
+                        case.get("owner_id") or case["created_by"],
+                        event_type="remediation_plan_activated",
+                        payload={"plan_id": remediation_plan["id"], "trigger": "feishu_decision"},
+                    )
+                    remediation_event(remediation_plan["id"], case.get("owner_id") or case["created_by"], event_type="plan_activated", payload={"trigger": "feishu_decision"})
+                except ValueError:
+                    # An empty draft is intentionally left for the reviewer to resolve;
+                    # the authoritative case decision must not be blocked by it.
+                    pass
         return {
             "ok": True,
             "duplicate": receipt.duplicate,
@@ -1617,40 +1681,211 @@ def create_app(
             raise HTTPException(status_code=404, detail="决策报告不存在或无权访问")
         return report_response(report)
 
-    @app.post("/api/cases/{identifier}/actions")
-    async def create_action(
-        identifier: str, payload: CaseActionRequest, user: UserRecord = Depends(current_user)
+    @app.post("/api/cases/{identifier}/remediation-plan")
+    async def create_remediation_plan(
+        identifier: str,
+        payload: RemediationPlanRequest,
+        user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
         reviewer_only(user)
         case = store().get_case(identifier)
         if case is None:
             raise HTTPException(status_code=404, detail="案件不存在")
-        action = store().create_action(identifier, **payload.model_dump(mode="json"))
-        store().add_event(
-            identifier, user.id, event_type="action_created", payload={"action_id": action["id"]}
-        )
-        return action
+        for task in payload.tasks:
+            if task.assignee_id is not None:
+                assignee = store().get_user(task.assignee_id)
+                if assignee is None:
+                    raise HTTPException(status_code=422, detail="整改负责人不存在或已停用")
+        try:
+            plan = store().create_remediation_plan(
+                identifier,
+                user.id,
+                tasks=[item.model_dump(mode="json") for item in payload.tasks],
+                no_remediation_reason=payload.no_remediation_reason,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        store().add_event(identifier, user.id, event_type="remediation_plan_created", payload={"plan_id": plan["id"]})
+        remediation_event(plan["id"], user.id, event_type="plan_created")
+        return plan
 
-    @app.patch("/api/actions/{identifier}")
-    async def update_action(
-        identifier: str, payload: CaseActionUpdateRequest, user: UserRecord = Depends(current_user)
+    @app.get("/api/cases/{identifier}/remediation-plan")
+    async def get_remediation_plan(
+        identifier: str, user: UserRecord = Depends(current_user)
+    ) -> dict[str, Any]:
+        plan = store().get_remediation_plan(identifier)
+        if plan is None or not remediation_plan_viewable(user, plan):
+            raise HTTPException(status_code=404, detail="整改计划不存在或无权访问")
+        return plan
+
+    @app.post("/api/remediation-plans/{plan_id}/activate")
+    async def activate_remediation_plan(
+        plan_id: str, user: UserRecord = Depends(current_user)
     ) -> dict[str, Any]:
         reviewer_only(user)
         try:
-            action = store().update_action(
-                identifier, **payload.model_dump(exclude_unset=True, mode="json")
-            )
+            plan = store().activate_remediation_plan(plan_id)
         except KeyError as exc:
-            raise HTTPException(status_code=404, detail="整改动作不存在") from exc
-        case = store().get_case(action["case_id"])
-        if case is not None:
-            store().add_event(
-                action["case_id"],
-                user.id,
-                event_type="action_updated",
-                payload={"action_id": action["id"], "status": action["status"]},
+            raise HTTPException(status_code=404, detail="整改计划不存在") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        store().add_event(plan["case_id"], user.id, event_type="remediation_plan_activated", payload={"plan_id": plan_id})
+        remediation_event(plan_id, user.id, event_type="plan_activated")
+        return plan
+
+    @app.post("/api/remediation-plans/{plan_id}/cancel")
+    async def cancel_remediation_plan(
+        plan_id: str, user: UserRecord = Depends(current_user)
+    ) -> dict[str, Any]:
+        reviewer_only(user)
+        try:
+            plan = store().cancel_remediation_plan(plan_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="整改计划不存在") from exc
+        store().add_event(plan["case_id"], user.id, event_type="remediation_plan_cancelled", payload={"plan_id": plan_id})
+        remediation_event(plan_id, user.id, event_type="plan_cancelled")
+        return plan
+
+    @app.get("/api/remediations")
+    async def list_remediations(
+        scope: Literal["mine", "review"] = "mine",
+        status: str | None = None,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        if scope == "review":
+            reviewer_only(user)
+            items = store().list_remediation_tasks(status=status)
+        else:
+            items = store().list_remediation_tasks(assignee_id=user.id, status=status)
+        return {"items": items, "total": len(items)}
+
+    @app.get("/api/users/assignable")
+    async def list_assignable_users(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        reviewer_only(user)
+        items = [item.to_dict() for item in store().list_assignable_users()]
+        return {"items": items, "total": len(items)}
+
+    @app.get("/api/remediation-tasks/{task_id}")
+    async def get_remediation_task(
+        task_id: str, user: UserRecord = Depends(current_user)
+    ) -> dict[str, Any]:
+        task = store().get_remediation_task(task_id)
+        if task is None or not remediation_task_viewable(user, task):
+            raise HTTPException(status_code=404, detail="整改任务不存在或无权访问")
+        case = store().get_case(task["case_id"])
+        return {"task": task, "case": _case_summary(case) if case else None}
+
+    @app.patch("/api/remediation-tasks/{task_id}")
+    async def update_remediation_task(
+        task_id: str,
+        payload: RemediationTaskUpdateRequest,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        reviewer_only(user)
+        changes = payload.model_dump(exclude_unset=True, mode="json")
+        if changes.get("assignee_id") is not None and store().get_user(changes["assignee_id"]) is None:
+            raise HTTPException(status_code=422, detail="整改负责人不存在或已停用")
+        try:
+            task = store().update_remediation_task(task_id, **changes)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="整改任务不存在") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        store().add_event(task["case_id"], user.id, event_type="remediation_task_updated", payload={"task_id": task_id})
+        remediation_event(task["plan_id"], user.id, event_type="task_updated", task_id=task_id)
+        return task
+
+    @app.post("/api/remediation-tasks/{task_id}/start")
+    async def start_remediation_task(
+        task_id: str, user: UserRecord = Depends(current_user)
+    ) -> dict[str, Any]:
+        task = store().get_remediation_task(task_id)
+        if task is None or task.get("assignee_id") != user.id:
+            raise HTTPException(status_code=404, detail="整改任务不存在或无权访问")
+        plan = store().get_remediation_plan(task["case_id"])
+        if plan is None or plan["status"] != "active":
+            raise HTTPException(status_code=409, detail="整改计划尚未激活")
+        try:
+            updated = store().start_remediation_task(task_id)
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        store().add_event(task["case_id"], user.id, event_type="remediation_task_started", payload={"task_id": task_id})
+        remediation_event(task["plan_id"], user.id, event_type="task_started", task_id=task_id)
+        return updated
+
+    @app.post("/api/remediation-tasks/{task_id}/submissions")
+    async def submit_remediation_task(
+        task_id: str,
+        payload: RemediationSubmissionRequest,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        task = store().get_remediation_task(task_id)
+        if task is None or task.get("assignee_id") != user.id:
+            raise HTTPException(status_code=404, detail="整改任务不存在或无权访问")
+        if not payload.evidence:
+            raise HTTPException(status_code=422, detail="提交整改必须附带至少一项证据")
+        for item in payload.evidence:
+            if item.kind == "link" and (not item.uri or not re.match(r"^https?://", item.uri)):
+                raise HTTPException(status_code=422, detail="外部链接必须使用 HTTP(S) 地址")
+            if item.kind == "file" and not item.object_key:
+                raise HTTPException(status_code=422, detail="文件证据缺少对象存储键")
+        try:
+            submission = store().create_remediation_submission(
+                task_id, submitted_by=user.id, note=payload.note.strip(), evidence=[item.model_dump(mode="json") for item in payload.evidence]
             )
-        return action
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        store().add_event(task["case_id"], user.id, event_type="remediation_submitted", payload={"task_id": task_id, "submission_id": submission["id"]})
+        remediation_event(task["plan_id"], user.id, event_type="submission_created", task_id=task_id, payload={"submission_id": submission["id"]})
+        return submission
+
+    @app.post("/api/remediation-submissions/{submission_id}/review")
+    async def review_remediation_submission(
+        submission_id: str,
+        payload: RemediationSubmissionReviewRequest,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        reviewer_only(user)
+        submission = store().get_remediation_submission(submission_id)
+        if submission is None:
+            raise HTTPException(status_code=404, detail="整改提交不存在")
+        task = store().get_remediation_task(submission["task_id"])
+        if task is None:
+            raise HTTPException(status_code=404, detail="整改任务不存在")
+        try:
+            reviewed = store().review_remediation_submission(
+                submission_id, decision=payload.decision, reviewed_by=user.id, review_note=payload.review_note
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        store().add_event(task["case_id"], user.id, event_type="remediation_submission_reviewed", payload={"task_id": task["id"], "submission_id": submission_id, "decision": payload.decision})
+        remediation_event(task["plan_id"], user.id, event_type="submission_reviewed", task_id=task["id"], payload={"submission_id": submission_id, "decision": payload.decision})
+        return reviewed
+
+    @app.get("/api/remediation-evidence/{evidence_id}/download")
+    async def download_remediation_evidence(
+        evidence_id: str, user: UserRecord = Depends(current_user)
+    ) -> Response:
+        evidence = None
+        for task in store().list_remediation_tasks():
+            full = store().get_remediation_task(task["id"])
+            for submission in (full or {}).get("submissions", []):
+                for item in submission.get("evidence", []):
+                    if item["id"] == evidence_id:
+                        evidence = item
+                        task_for_evidence = full
+                        break
+        if evidence is None or not remediation_task_viewable(user, task_for_evidence):
+            raise HTTPException(status_code=404, detail="整改证据不存在或无权访问")
+        if not evidence.get("object_key"):
+            raise HTTPException(status_code=409, detail="该证据不是可下载文件")
+        try:
+            content = originals().get_original(evidence["object_key"])
+        except Exception as exc:  # noqa: BLE001 - storage failure is retryable
+            raise HTTPException(status_code=503, detail="整改证据暂时无法下载") from exc
+        if evidence.get("sha256") and hashlib.sha256(content).hexdigest() != evidence["sha256"]:
+            raise HTTPException(status_code=409, detail="整改证据哈希校验失败")
+        return Response(content=content, media_type=evidence.get("content_type") or "application/octet-stream")
 
     @app.post("/api/cases/{identifier}/feedback")
     async def save_feedback(
