@@ -1403,6 +1403,16 @@ textarea {
   white-space: nowrap;
 }
 
+.history-item__risk {
+  font-weight: 700;
+}
+
+.history-item__risk--high { color: var(--color-risk-high); }
+.history-item__risk--medium { color: #92400e; }
+.history-item__risk--low { color: var(--color-risk-low); }
+.history-item__risk--insufficient,
+.history-item__risk--pending { color: #475569; }
+
 .history-item__badge {
   background: rgba(185, 28, 28, 0.1);
   color: var(--color-danger);
@@ -1521,7 +1531,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   gap: var(--space-lg);
-  align-items: stretch;
+  align-items: start;
   min-height: 0;
 }
 
@@ -1585,11 +1595,6 @@ textarea {
 }
 
 .evidence-sidebar {
-  position: sticky;
-  top: 138px;
-  height: calc(100vh - 158px);
-  min-height: 0;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(30, 58, 138, 0.18);
@@ -1650,15 +1655,10 @@ textarea {
 }
 
 .evidence-sidebar__list {
-  flex: 1 1 auto;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
   padding: var(--space-md);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
 }
 
 .evidence-card {
@@ -1865,6 +1865,9 @@ textarea {
     flex: 0 1 auto;
     min-height: 0;
     max-height: calc(min(78vh, 720px) - 74px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
 
   .evidence-card__full-article {

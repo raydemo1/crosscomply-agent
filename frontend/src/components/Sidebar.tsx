@@ -26,12 +26,22 @@ const SCENARIOS = [
   '个人信息出境应走哪条合规路径？',
 ];
 
-const RISK_DOT_CLASS: Record<string, string> = {
-  high: 'risk-dot risk-dot--high',
-  medium: 'risk-dot risk-dot--medium',
-  low: 'risk-dot risk-dot--low',
-  insufficient_evidence: 'risk-dot risk-dot--insufficient',
+const RISK_DISPLAY: Record<string, { label: string; className: string }> = {
+  high: { label: '高风险', className: 'history-item__risk history-item__risk--high' },
+  medium: { label: '中风险', className: 'history-item__risk history-item__risk--medium' },
+  low: { label: '低风险', className: 'history-item__risk history-item__risk--low' },
+  insufficient_evidence: { label: '证据不足', className: 'history-item__risk history-item__risk--insufficient' },
+  pending: { label: '待评估', className: 'history-item__risk history-item__risk--pending' },
 };
+
+function riskDisplay(item: SavedCase): { label: string; className: string } {
+  const level = item.riskLevel ?? (
+    item.response && 'review_result' in item.response
+      ? item.response.review_result.risk_level
+      : null
+  );
+  return level ? (RISK_DISPLAY[level] ?? RISK_DISPLAY.pending) : RISK_DISPLAY.pending;
+}
 
 export default function Sidebar({
   currentPage,
@@ -117,18 +127,21 @@ export default function Sidebar({
         <div className="sidebar-history__list">
           {filtered.length === 0 ? (
             <div className="sidebar-history__empty">暂无匹配案件。</div>
-          ) : filtered.map((item) => (
-            <button key={item.id} type="button" className={'history-item history-item--button' + (item.id === activeCaseId ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenCase(item.id); }}>
-              <div className="history-item__top">
-                <span className={RISK_DOT_CLASS[item.response && 'review_result' in item.response ? item.response.review_result.risk_level : 'insufficient_evidence']} aria-hidden="true" />
-                <span className="history-item__question">{truncate(item.question, 32)}</span>
-              </div>
-              <div className="history-item__meta">
-                <span>{CASE_STATUS_LABELS[item.status]}</span>
-                <span>{relativeTime(item.savedAt)}</span>
-              </div>
-            </button>
-          ))}
+          ) : filtered.map((item) => {
+            const risk = riskDisplay(item);
+            return (
+              <button key={item.id} type="button" className={'history-item history-item--button' + (item.id === activeCaseId ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenCase(item.id); }}>
+                <div className="history-item__top">
+                  <span className="history-item__question">{truncate(item.question, 32)}</span>
+                </div>
+                <div className="history-item__meta">
+                  <span className={risk.className}>{risk.label}</span>
+                  <span>{CASE_STATUS_LABELS[item.status]}</span>
+                  <span>{relativeTime(item.savedAt)}</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </aside>

@@ -418,6 +418,7 @@ export const DEMO_CASE: SavedCase = {
   materialText: '华辰智造拟采购托管于德国的 NimbusCRM AI，用于客户联系人管理、客服工单、服务质量分析和安全运维。材料显示年度向境外提供约 18.24 万名个人信息主体的数据，敏感个人信息主体约 2400 人。自由文本工单可能出现客户联系方式和个案描述，供应商声明会使用德国区域并保留分处理者和远程运维能力。',
   materialSource: 'cross-border-saas-demo-materials',
   response,
+  riskLevel: response.review_result.risk_level,
   status: 'conditionally_approved',
   intake,
   actions,

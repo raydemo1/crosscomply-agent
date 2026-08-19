@@ -71,6 +71,7 @@ function fromSummary(item: CaseSummaryApi): SavedCase {
     materialText: '',
     materialSource: null,
     response: null,
+    riskLevel: item.risk_level,
     status: item.status,
     intake: { ...EMPTY_INTAKE },
     actions: [],
@@ -95,6 +96,11 @@ export function fromDetail(detail: CaseDetailApi): SavedCase {
     materialText: item.material_text,
     materialSource: item.material_source,
     response: item.response,
+    riskLevel: item.risk_level ?? (
+      item.response && 'review_result' in item.response
+        ? item.response.review_result.risk_level
+        : null
+    ),
     status: item.status,
     intake: item.intake,
     actions: detail.actions,

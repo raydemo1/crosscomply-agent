@@ -2,7 +2,7 @@
  * Case-store domain types for the server-backed CrossComply workbench.
  */
 
-import type { ReviewApiResponse } from './api';
+import type { ReviewApiResponse, RiskLevel } from './api';
 import type {
   CaseAction,
   CaseEvent,
@@ -51,6 +51,8 @@ export interface SavedCase {
   materialSource: string | null;
   /** Full result when the case has been run; null for a draft. */
   response: ReviewApiResponse | null;
+  /** Persisted risk level, available from both list and detail responses. */
+  riskLevel: RiskLevel | null;
   status: CaseStatus;
   intake: CaseIntake;
   actions: CaseAction[];
