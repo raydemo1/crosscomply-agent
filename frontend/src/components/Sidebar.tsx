@@ -84,7 +84,7 @@ export default function Sidebar({
           <img src="/crosscomply-logo.svg" alt="" className="sidebar-brand-mark" />
           <div className="sidebar-brand-copy">
             <div className="sidebar-brand-title">CrossComply</div>
-            <div className="sidebar-brand-subtitle">案件管理</div>
+            <div className="sidebar-brand-subtitle">跨境数据合规系统</div>
           </div>
         </div>
         <button type="button" className="sidebar-mobile-close" onClick={onCloseMobile} aria-label="关闭案件导航"><X size={18} strokeWidth={1.8} /></button>
