@@ -104,6 +104,8 @@ services:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+    ports:
+      - "8000:8000"
     env_file:
       - path: ${CROSSCOMPLY_ENV_FILE:-.env}
         required: false
