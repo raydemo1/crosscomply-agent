@@ -87,20 +87,14 @@ export default function Sidebar({
             <span className="sidebar-nav-item-icon">⌂</span>
             <span>案件工作台</span>
           </button>
+          {user.role === 'admin' ? (
+            <button type="button" className={'sidebar-nav-item' + (currentPage === 'governance' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenGovernance(); }}>
+              <span className="sidebar-nav-item-icon" aria-hidden="true">◒</span>
+              <span>治理控制台</span>
+            </button>
+          ) : null}
         </div>
       </nav>
-
-      {user.role === 'admin' ? (
-        <section className="sidebar-governance-entry" aria-label="管理员入口">
-          <button type="button" className="sidebar-governance-entry__button" onClick={() => { onCloseMobile(); onOpenGovernance(); }}>
-            <span className="sidebar-governance-entry__icon" aria-hidden="true">◒</span>
-            <span>
-              <strong>治理控制台</strong>
-            </span>
-            <span className="sidebar-governance-entry__arrow" aria-hidden="true">↗</span>
-          </button>
-        </section>
-      ) : null}
 
       <div className="sidebar-section">
         <div className="sidebar-section-label">常用审查场景</div>
