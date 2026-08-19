@@ -5,7 +5,6 @@ import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
 import LoginPage from './components/LoginPage';
 import { ApiError, createCase, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
-import { DEMO_CASE, DEMO_SUMMARY, DEMO_USER } from './demo/demoCase';
 import { EMPTY_INTAKE, initializeDemoCase, openCase, refreshCases, useCaseStore } from './store/caseStore';
 
 const PUBLIC_DEMO_ENABLED = import.meta.env.VITE_PUBLIC_DEMO === 'true';
@@ -60,7 +59,7 @@ function linkedCaseId(): string | null {
 }
 
 export default function App(): JSX.Element {
-  const [user, setUser] = useState<WorkbenchUser | null>(PUBLIC_DEMO_ENABLED ? DEMO_USER : null);
+  const [user, setUser] = useState<WorkbenchUser | null>(null);
   const [booting, setBooting] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('workbench');
@@ -80,12 +79,17 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     if (PUBLIC_DEMO_ENABLED) {
-      initializeDemoCase();
-      setDashboardSummary(DEMO_SUMMARY);
-      setActiveCaseId(DEMO_CASE.id);
-      setPage('case-detail');
-      setBooting(false);
-      return;
+      let mounted = true;
+      void import('./demo/demoCase').then(({ DEMO_CASE, DEMO_SUMMARY, DEMO_USER }) => {
+        if (!mounted) return;
+        initializeDemoCase(DEMO_CASE);
+        setUser(DEMO_USER);
+        setDashboardSummary(DEMO_SUMMARY);
+        setActiveCaseId(DEMO_CASE.id);
+        setPage('case-detail');
+        setBooting(false);
+      });
+      return () => { mounted = false; };
     }
     let mounted = true;
     void getCurrentUser().then(async (current) => {

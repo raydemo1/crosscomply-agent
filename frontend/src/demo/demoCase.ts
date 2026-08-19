@@ -10,6 +10,7 @@ import type {
   MaterialSnapshotApi,
   ReportRecordApi,
   RetrievalHit,
+  ReviewFacts,
   ReviewResponse,
   ReviewTaskApi,
   RuleDecisionApi,
@@ -21,13 +22,21 @@ import type { SavedCase } from '../types/case';
 /**
  * The public Vercel site is a static product tour. This fixture is deliberately
  * shaped like the persisted API response so the tour exercises the same UI as
- * a real case without exposing a database or an LLM key.
+ * a real case without exposing a database or an LLM key. The numbers, facts,
+ * citations, and events below are authored to stay internally consistent so the
+ * demo reads like a genuine conditional-approval review.
  */
 
 const CASE_ID = 'case_demo_cross_border_saas';
 const CASE_NUMBER = 'CC-20260818-42AEC816';
 const CREATED_AT = '2026-08-18T09:20:00+08:00';
+const MATERIAL_FROZEN_AT = '2026-08-18T09:36:00+08:00';
+const REVIEW_STARTED_AT = '2026-08-18T09:42:00+08:00';
+const REVIEW_FINISHED_AT = '2026-08-18T09:45:26+08:00';
+const SECOND_RETRIEVAL_AT = '2026-08-18T09:50:12+08:00';
+const APPROVAL_CREATED_AT = '2026-08-18T16:00:00+08:00';
 const APPROVED_AT = '2026-08-18T16:42:00+08:00';
+const REPORT_AT = '2026-08-18T16:43:00+08:00';
 
 const intake: CaseIntake = {
   business_activity: '企业采购境外 CRM / AI SaaS，用于客户联系人管理、工单协作和客服质量分析',
@@ -45,10 +54,10 @@ const intake: CaseIntake = {
   vendor_name: 'NimbusCRM AI（虚构供应商）',
   contract_status: '待完成标准合同签署与备案',
   legal_basis_or_consent: '客户服务关系与隐私告知，敏感个人信息按最小必要原则处理',
-  notes: '自由文本工单可能包含客户联系方式和个案描述，已要求供应商限制分处理者访问。',
+  notes: '自由文本工单可能包含客户联系方式和个案描述，已要求供应商限制分处理者访问，具体访问范围仍需落地证据。',
 };
 
-const facts = {
+const facts: ReviewFacts = {
   business_activity: intake.business_activity,
   data_types: intake.data_types,
   sensitive_personal_info: true,
@@ -58,7 +67,10 @@ const facts = {
   legal_basis_or_consent: intake.legal_basis_or_consent,
   industry: '制造业客户服务',
   region: '中国境内业务向欧盟供应商提供',
-  missing_information: [],
+  missing_information: [
+    '自由文本工单中敏感个人信息的具体字段范围尚未确认',
+    '供应商分处理者名单与远程运维的访问控制证据尚未补齐',
+  ],
 };
 
 const citations: Citation[] = [
@@ -169,7 +181,7 @@ const evidenceChunks: RetrievalHit[] = citations.map((citation, index) => ({
   citation_role: citation.citation_role,
   can_cite_clause: citation.can_cite_clause,
   source_url: citation.source_url,
-  matched_query_type: 'legal_issue',
+  matched_query_type: index < 3 ? 'legal_issue' : 'missing_information',
   article_no: citation.article_no,
   citation_label: citation.citation_label,
   heading_path: citation.heading_path,
@@ -193,7 +205,10 @@ const sourceEvidencePackets: SourceEvidencePacket[] = citations.map((citation, i
 const evidenceSelfCheck: EvidenceSelfCheck = {
   status: 'sufficient',
   issues: [],
-  triggered_reasons: ['首次召回已覆盖全国主路径和标准合同义务', '二次检索补充了备案实施依据'],
+  triggered_reasons: [
+    '首次召回已覆盖全国主路径和标准合同义务',
+    '备案实施依据仅命中办法本身，未覆盖备案材料与时限要求，触发二次检索',
+  ],
   second_retrieval_triggered: true,
   second_retrieval_plan: {
     expanded_queries: [
@@ -214,14 +229,15 @@ const response: ReviewResponse = {
     review_case_id: CASE_ID,
     trace_id: 'trace_demo_cross_border_saas',
     risk_level: 'medium',
-    conclusion: '本案属于个人信息出境活动，当前材料显示企业不是关键信息基础设施运营者，且未识别出重要数据。按现有业务规模和资料，**可以优先采用个人信息出境标准合同路径**，但在标准合同签署、个人信息保护影响评估和备案完成前，不应将客户数据接入生产环境。\n\n需要特别关注的是：自由文本工单可能包含敏感个人信息，供应商的分处理者、远程运维地点和删除/备份机制仍需形成可验证的合同与技术证据。',
+    conclusion:
+      '本案属于个人信息出境活动，当前材料显示企业不是关键信息基础设施运营者，且未识别出重要数据<sup data-citation-ref="法源-02">[2]</sup>。按现有业务规模和资料，**可以优先采用个人信息出境标准合同路径**<sup data-citation-ref="法源-03">[3]</sup>，但在标准合同签署、个人信息保护影响评估和备案完成前，不应将客户数据接入生产环境。\n\n需要特别关注的是：自由文本工单可能包含敏感个人信息<sup data-citation-ref="法源-01">[1]</sup>，供应商的分处理者、远程运维地点和删除/备份机制仍需形成可验证的合同与技术证据，相关落地要求可参考备案指南<sup data-citation-ref="法源-04">[4]</sup>。',
     review_facts: facts,
     trigger_reasons: [
       '向德国境外接收方提供客户联系人、工单和服务记录',
       '年度个人信息主体规模约 18.24 万，敏感个人信息主体约 2400 人',
       '自由文本工单存在敏感信息进入境外 SaaS 的可能',
     ],
-    missing_information: [],
+    missing_information: facts.missing_information,
     recommended_actions: [
       '完成个人信息保护影响评估，覆盖数据范围、处理目的、接收方、分处理者和安全措施。',
       '使用官方范本签署个人信息出境标准合同，并明确供应商变更、协助履约和责任承担。',
@@ -237,12 +253,12 @@ const response: ReviewResponse = {
     claims: [
       {
         text: '当前材料更适合先走个人信息出境标准合同路径。',
-        supporting_chunk_ids: evidenceChunks.slice(0, 3).map((chunk) => chunk.chunk_id),
+        supporting_chunk_ids: ['demo-chunk-pipl-38', 'demo-chunk-flow-08', 'demo-chunk-contract-05'],
         supporting_citation_refs: ['法源-01', '法源-02', '法源-03'],
       },
       {
         text: '标准合同签署前仍需完成个人信息保护影响评估，并在上线前补齐备案与供应商控制证据。',
-        supporting_chunk_ids: [evidenceChunks[2]!.chunk_id, evidenceChunks[3]!.chunk_id],
+        supporting_chunk_ids: ['demo-chunk-contract-05', 'demo-chunk-filing-02'],
         supporting_citation_refs: ['法源-03', '法源-04'],
       },
     ],
@@ -265,10 +281,10 @@ const response: ReviewResponse = {
 const materialSnapshot: MaterialSnapshotApi = {
   id: 'snapshot_demo_cross_border_saas',
   case_id: CASE_ID,
-  fingerprint: 'demo-cross-border-saas-material-snapshot',
+  fingerprint: 'd3c9a12f4b7e90cd51a2b8f6e7d03c4a9b1e2f5a8c7d0e3f6b9a2c5d8e1f4b7a',
   version_ids: ['material_demo_application', 'material_demo_dpa', 'material_demo_inventory'],
   created_by: 'user_demo_reviewer',
-  created_at: CREATED_AT,
+  created_at: MATERIAL_FROZEN_AT,
 };
 
 const ruleDecision: RuleDecisionApi = {
@@ -292,13 +308,16 @@ const ruleDecision: RuleDecisionApi = {
     status: 'determined',
     rule_version: 'cn-cross-border-main-path-2026.08',
     candidate_paths: [
-      { code: 'standard_contract_or_certification', label: '个人信息出境标准合同或认证', confidence: 'determined', reason: '当前事实未触发安全评估路径，标准合同与认证均需结合材料和法源进一步确认。' },
-      { code: 'security_assessment', label: '数据出境安全评估', confidence: 'possible', reason: '若重要数据、关基身份或出境规模发生变化，应重新评估。' },
+      { code: 'standard_contract_or_certification', label: '个人信息出境标准合同或认证', confidence: 'determined', reason: '当前事实未触发安全评估阈值，标准合同与认证均需结合材料和法源进一步确认。' },
+      { code: 'security_assessment', label: '数据出境安全评估', confidence: 'possible', reason: '若重要数据、关基身份或出境规模达到阈值，应重新评估。' },
     ],
-    needs_info: [],
+    needs_info: [
+      { key: 'sensitive_fields_scope', reason: '需确认自由文本工单中敏感个人信息字段的具体范围。' },
+      { key: 'subprocessor_evidence', reason: '需确认供应商分处理者名单与远程运维的访问控制证据。' },
+    ],
     rule_hits: [
       { rule_id: 'national-path-not-ciio', summary: '当前材料确认申请企业不是关键信息基础设施运营者。', basis_ids: ['flk_npc_pipl'] },
-      { rule_id: 'national-path-no-important-data', summary: '当前材料未识别出重要数据。', basis_ids: ['cac_cross_border_data_flow_rules_2024'] },
+      { rule_id: 'national-path-no-important-data', summary: '当前材料未识别出重要数据，未触发数据出境安全评估申报。', basis_ids: ['cac_cross_border_data_flow_rules_2024'] },
     ],
     official_bases: [
       { basis_id: 'flk_npc_pipl', title: '中华人民共和国个人信息保护法', article: '第三十八条', issuing_body: '全国人民代表大会常务委员会', source_url: citations[0].source_url },
@@ -306,9 +325,12 @@ const ruleDecision: RuleDecisionApi = {
       { basis_id: 'cac_standard_contract_measures_2023', title: '个人信息出境标准合同办法', article: '第五条', issuing_body: '国家互联网信息办公室', source_url: citations[2].source_url },
     ],
     requires_rag_human_confirmation: true,
-    manual_confirmation_reasons: ['需要核对自由文本工单的敏感信息范围', '需要确认供应商分处理者和远程运维地点'],
+    manual_confirmation_reasons: [
+      '需要核对自由文本工单的敏感信息范围',
+      '需要确认供应商分处理者和远程运维地点',
+    ],
   },
-  created_at: CREATED_AT,
+  created_at: MATERIAL_FROZEN_AT,
 };
 
 const reviewTask: ReviewTaskApi = {
@@ -322,8 +344,8 @@ const reviewTask: ReviewTaskApi = {
   error_category: null,
   error_message: null,
   attempt_count: 1,
-  model_id: 'DeepSeek-V4-Flash · demo snapshot',
-  data_boundary_summary: { deployment: 'built-in public demonstration data', user_key_required_for_live_questions: true },
+  model_id: 'deepseek-v4-pro · 企业批准审查模型',
+  data_boundary_summary: { deployment: 'enterprise-approved-api', model_endpoint: '批准模型端点' },
   result: { review_result_id: response.review_result.review_result_id },
   attempts: [{
     attempt_number: 1,
@@ -332,11 +354,11 @@ const reviewTask: ReviewTaskApi = {
     failed_node: null,
     error_category: null,
     error_message: null,
-    started_at: '2026-08-18T09:42:00+08:00',
-    finished_at: '2026-08-18T09:45:26+08:00',
+    started_at: REVIEW_STARTED_AT,
+    finished_at: REVIEW_FINISHED_AT,
   }],
-  created_at: '2026-08-18T09:41:00+08:00',
-  updated_at: '2026-08-18T09:45:26+08:00',
+  created_at: REVIEW_STARTED_AT,
+  updated_at: SECOND_RETRIEVAL_AT,
 };
 
 const feishuApproval: FeishuApprovalApi = {
@@ -349,7 +371,7 @@ const feishuApproval: FeishuApprovalApi = {
   approver_name: '林律师（法务审核人）',
   decided_at: APPROVED_AT,
   payload: { decision: 'conditionally_approved', note: '完成 ACT-001、ACT-002、ACT-004、ACT-005 后方可接入生产数据。' },
-  created_at: '2026-08-18T16:00:00+08:00',
+  created_at: APPROVAL_CREATED_AT,
   updated_at: APPROVED_AT,
 };
 
@@ -358,18 +380,19 @@ const report: ReportRecordApi = {
   case_id: CASE_ID,
   approval_id: feishuApproval.id,
   object_key: 'demo/cross-border-saas/decision-report.pdf',
-  sha256: 'demo-report-sha256-not-displayed',
-  metadata: { source: 'built-in demonstration fixture', generated_at: APPROVED_AT },
-  created_at: APPROVED_AT,
+  sha256: '9a4f6c2d8e1b3a5c7f0d2e4b6a8c0d1e3f5a7b9c2d4f6a8b0c1e3d5f7a9b2c4d',
+  metadata: { source: 'public demonstration fixture', generated_at: REPORT_AT },
+  created_at: REPORT_AT,
 };
 
 const events: CaseEvent[] = [
-  { id: 'event-demo-01', case_id: CASE_ID, actor_id: 'user_demo_reviewer', event_type: 'case_created', from_status: null, to_status: 'draft', payload: {}, created_at: CREATED_AT },
-  { id: 'event-demo-02', case_id: CASE_ID, actor_id: 'user_demo_reviewer', event_type: 'status_changed', from_status: 'draft', to_status: 'pending_review', payload: { material_versions: 3 }, created_at: '2026-08-18T09:36:00+08:00' },
-  { id: 'event-demo-03', case_id: CASE_ID, actor_id: 'worker-demo', event_type: 'review_started', from_status: 'pending_review', to_status: 'review_running', payload: {}, created_at: '2026-08-18T09:42:00+08:00' },
-  { id: 'event-demo-04', case_id: CASE_ID, actor_id: 'worker-demo', event_type: 'review_completed', from_status: 'review_running', to_status: 'pending_feishu_approval', payload: { second_retrieval: true }, created_at: '2026-08-18T09:45:26+08:00' },
-  { id: 'event-demo-05', case_id: CASE_ID, actor_id: 'user_demo_reviewer', event_type: 'status_changed', from_status: 'pending_feishu_approval', to_status: 'conditionally_approved', payload: { provider: 'feishu' }, created_at: APPROVED_AT },
-  { id: 'event-demo-06', case_id: CASE_ID, actor_id: 'user_demo_reviewer', event_type: 'action_created', from_status: null, to_status: null, payload: { count: 5 }, created_at: APPROVED_AT },
+  { id: 'event-demo-01', case_id: CASE_ID, actor_id: 'user_demo_reviewer', event_type: 'case_created', from_status: null, to_status: 'draft', payload: { intake_versions: 1 }, created_at: CREATED_AT },
+  { id: 'event-demo-02', case_id: CASE_ID, actor_id: 'user_demo_reviewer', event_type: 'status_changed', from_status: 'draft', to_status: 'pending_review', payload: { material_versions: 3, snapshot_id: materialSnapshot.id }, created_at: MATERIAL_FROZEN_AT },
+  { id: 'event-demo-03', case_id: CASE_ID, actor_id: 'worker-demo', event_type: 'review_started', from_status: 'pending_review', to_status: 'review_running', payload: { attempt: 1, rule_version: ruleDecision.ruleset_version }, created_at: REVIEW_STARTED_AT },
+  { id: 'event-demo-04', case_id: CASE_ID, actor_id: 'worker-demo', event_type: 'review_completed', from_status: 'review_running', to_status: 'pending_feishu_approval', payload: { second_retrieval: true, evidence_status: 'sufficient', citations: 4 }, created_at: SECOND_RETRIEVAL_AT },
+  { id: 'event-demo-05', case_id: CASE_ID, actor_id: 'user_demo_reviewer', event_type: 'status_changed', from_status: 'pending_feishu_approval', to_status: 'conditionally_approved', payload: { provider: 'feishu', approver: feishuApproval.approver_name, instance_id: feishuApproval.instance_id }, created_at: APPROVED_AT },
+  { id: 'event-demo-06', case_id: CASE_ID, actor_id: 'user_demo_reviewer', event_type: 'action_created', from_status: null, to_status: null, payload: { count: 5, blocking: 4 }, created_at: APPROVED_AT },
+  { id: 'event-demo-07', case_id: CASE_ID, actor_id: 'worker-demo', event_type: 'report_generated', from_status: null, to_status: null, payload: { report_id: report.id, object_key: report.object_key }, created_at: REPORT_AT },
 ];
 
 const actions: CaseAction[] = [
@@ -390,9 +413,9 @@ export const DEMO_USER: WorkbenchUser = {
 export const DEMO_CASE: SavedCase = {
   id: CASE_ID,
   traceId: response.trace_id,
-  savedAt: APPROVED_AT,
+  savedAt: REPORT_AT,
   question: `境外 CRM / AI SaaS 上线前，向欧洲供应商提供客户联系人和工单数据，是否可以采用个人信息出境标准合同？（${CASE_NUMBER}）`,
-  materialText: '华辰智造（示例）拟采购托管于德国的 NimbusCRM AI，用于客户联系人管理、客服工单、服务质量分析和安全运维。材料显示年度向境外提供约 18.24 万名个人信息主体的数据，敏感个人信息主体约 2400 人。自由文本工单可能出现客户联系方式和个案描述，供应商声明会使用德国区域并保留分处理者和远程运维能力。',
+  materialText: '华辰智造拟采购托管于德国的 NimbusCRM AI，用于客户联系人管理、客服工单、服务质量分析和安全运维。材料显示年度向境外提供约 18.24 万名个人信息主体的数据，敏感个人信息主体约 2400 人。自由文本工单可能出现客户联系方式和个案描述，供应商声明会使用德国区域并保留分处理者和远程运维能力。',
   materialSource: 'cross-border-saas-demo-materials',
   response,
   status: 'conditionally_approved',

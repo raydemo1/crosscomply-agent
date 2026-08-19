@@ -275,18 +275,6 @@ def _build_styles(ParagraphStyle, get_sample_styles, *, body_font, bold_font, mo
         "callout": ParagraphStyle("callout", parent=sample["BodyText"], fontName=body_font, fontSize=9.2, leading=14, textColor=colors.HexColor(INK)),
         "opinion_label": ParagraphStyle("opinion_label", parent=sample["BodyText"], fontName=bold_font, fontSize=10.2, leading=14, textColor=colors.white),
         "opinion": ParagraphStyle("opinion", parent=sample["BodyText"], fontName=body_font, fontSize=10.8, leading=17, textColor=colors.HexColor(INK)),
-        "opinion_body": ParagraphStyle(
-            "opinion_body",
-            parent=sample["BodyText"],
-            fontName=body_font,
-            fontSize=10.8,
-            leading=17,
-            textColor=colors.HexColor(INK),
-            backColor=colors.HexColor(SOFT_BLUE),
-            borderColor=colors.HexColor("#BFDBFE"),
-            borderWidth=0.7,
-            borderPadding=12,
-        ),
     }
 
 
@@ -303,17 +291,17 @@ def _section_heading(title: str, index: str, styles):
     return _p(f'<font color="{GOLD}">{index}</font>  {html.escape(title)}', styles["section"], escape=False)
 
 
-def _clean_ai_text(value: object, *, limit: int | None = 360) -> str:
+def _clean_ai_text(value: object, *, limit: int = 360) -> str:
     text = html.unescape(str(value or ""))
     text = re.sub(r"<[^>]+>", "", text)
     text = text.replace("**", "").replace("__", "")
     text = re.sub(r"\s+", " ", text).strip()
-    if limit is None or len(text) <= limit:
+    if len(text) <= limit:
         return text
     return f"{text[: limit - 1].rstrip()}…"
 
 
-def _narrative_text(value: object, *, limit: int | None = 1200) -> str:
+def _narrative_text(value: object, *, limit: int = 1200) -> str:
     text = html.unescape(str(value or ""))
     text = re.sub(r"<[^>]+>", "", text)
     text = text.replace("**", "").replace("__", "")
@@ -324,25 +312,19 @@ def _narrative_text(value: object, *, limit: int | None = 1200) -> str:
     text = re.sub(r"\n\s*\n+", "\n", text)
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r" *\n *", "\n", text).strip()
-    if limit is None or len(text) <= limit:
+    if len(text) <= limit:
         return text
     return f"{text[: limit - 1].rstrip()}…"
 
 
-def _narrative_html(value: object, *, limit: int | None = 1200) -> str:
+def _narrative_html(value: object, *, limit: int = 1200) -> str:
     return html.escape(_narrative_text(value, limit=limit)).replace("\n", "<br/>")
 
 
 def _review_conclusion_parts(value: object) -> tuple[str, tuple[str, ...]]:
-    """Split the AI conclusion into a full lead paragraph and verification items.
+    """Separate the readable conclusion from embedded confirmation bullets."""
 
-    Lines are classified but never truncated: every conclusion line is either
-    kept in the lead or collected as a verification item, so the approver sees
-    the complete conclusion.  Generic "本结论基于…" boundary lines are dropped
-    because the report already states its material basis elsewhere.
-    """
-
-    text = _narrative_text(value)
+    text = _narrative_text(value, limit=2200)
     lead: list[str] = []
     attention: list[str] = []
     for raw_line in text.splitlines():
@@ -352,8 +334,10 @@ def _review_conclusion_parts(value: object) -> tuple[str, tuple[str, ...]]:
         if re.match(r"^(需确认|需取得|需开展|需与|材料中)", line):
             attention.append(line)
             continue
+        if re.match(r"^\d+[.、]", line):
+            continue
         lead.append(line)
-    return "\n".join(lead), tuple(dict.fromkeys(attention))
+    return "\n".join(lead[:2]), tuple(dict.fromkeys(attention))
 
 
 def _strip_article_prefix(value: object, article: str) -> str:
@@ -517,21 +501,23 @@ def _rich_decision_packet(data, styles, colors):
             story.extend([
                 Spacer(1, 9 * mm),
             ])
-            opinion_header = Table(
-                [[_p("审查意见", styles["opinion_label"])]],
-                colWidths=[155 * mm],
-            )
-            opinion_header.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(NAVY)),
+            opinion_card = Table([
+                [_p("审查意见", styles["opinion_label"])],
+                [_p(_narrative_html(conclusion_text, limit=900), styles["opinion"], escape=False)],
+            ], colWidths=[155 * mm])
+            opinion_card.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(NAVY)),
+                ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor(SOFT_BLUE)),
+                ("LINEBEFORE", (0, 1), (0, 1), 4, colors.HexColor(GOLD)),
+                ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#BFDBFE")),
                 ("LEFTPADDING", (0, 0), (-1, -1), 12),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-                ("TOPPADDING", (0, 0), (-1, -1), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, 0), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+                ("TOPPADDING", (0, 1), (-1, 1), 11),
+                ("BOTTOMPADDING", (0, 1), (-1, 1), 11),
             ]))
-            story.append(opinion_header)
-            # A standalone paragraph (not a table cell) so a long conclusion
-            # flows across pages instead of being truncated.
-            story.append(_p(_narrative_html(conclusion_text), styles["opinion_body"], escape=False))
+            story.append(opinion_card)
 
         context_rows = []
         for label, value in (
@@ -561,9 +547,9 @@ def _rich_decision_packet(data, styles, colors):
 
         attention = list(conclusion_attention)
         attention.extend(
-            f"材料缺口：{_clean_ai_text(item, limit=600)}" for item in ai.missing_information
+            f"材料缺口：{_clean_ai_text(item, limit=180)}" for item in ai.missing_information
         )
-        attention.extend(f"边界：{_clean_ai_text(item, limit=600)}" for item in ai.risk_boundaries)
+        attention.extend(f"边界：{_clean_ai_text(item, limit=180)}" for item in ai.risk_boundaries)
         attention = list(dict.fromkeys(attention))
         if attention:
             story.extend([Spacer(1, 9 * mm), _p("待核实事项", styles["section"])])
