@@ -18,10 +18,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CaseAction, CaseStatus, Citation, CitationGroup, RetrievalHit, ReviewApiResponse, ReviewFacts, UserRole } from '../types/api';
+import type { CaseStatus, Citation, CitationGroup, RetrievalHit, ReviewApiResponse, ReviewFacts, UserRole } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
-import { createCaseAction, setActionStatus, setCitationVerdict, updateCaseAction } from '../store/caseStore';
+import { setCitationVerdict } from '../store/caseStore';
 import { openCase } from '../store/caseStore';
 import { caseReportDownloadUrl, createFeishuApproval, retryReviewTask, runCase, waitForReviewTask } from '../api/client';
 import RiskBadge from './RiskBadge';
@@ -30,7 +30,8 @@ import FeedbackPanel from './FeedbackPanel';
 import GroundedClaims, { cssId } from './GroundedClaims';
 import MarkdownText from './MarkdownText';
 import { downloadHtml, downloadMarkdown } from '../utils/report';
-import { CASE_STATUS_LABELS, REVIEW_TASK_STATUS_LABELS, TERMINAL_CASE_STATUSES } from '../utils/workflow';
+import { CASE_STATUS_LABELS, REVIEW_TASK_STATUS_LABELS } from '../utils/workflow';
+import './RemediationPlanPage.css';
 import {
   EVIDENCE_ISSUE_LABELS,
   EVIDENCE_STATUS_BADGE_CLASS,
@@ -64,6 +65,8 @@ interface CaseDetailPageProps {
   /** Reviewers and admins can maintain persisted remediation actions. */
   canManageActions: boolean;
   viewerRole: UserRole;
+  /** Navigation host opens the independent remediation-plan page. */
+  onOpenRemediationPlan?: () => void;
 }
 
 type SavedCaseWithResponse = SavedCase & { response: ReviewApiResponse };
@@ -91,6 +94,7 @@ export default function CaseDetailPage({
   onBack,
   canManageActions,
   viewerRole,
+  onOpenRemediationPlan,
 }: CaseDetailPageProps): JSX.Element {
   const [workflowOperation, setWorkflowOperation] = useState<string | null>(null);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
@@ -129,9 +133,10 @@ export default function CaseDetailPage({
           onVerdictChange={handleVerdict}
           viewerRole={viewerRole}
           canManageActions={canManageActions}
+          onOpenRemediationPlan={onOpenRemediationPlan}
         />
       )}
-      {failed ? <CaseOperations saved={saved} canManageActions={canManageActions} /> : null}
+      {failed ? <RemediationSummary saved={saved} onOpen={onOpenRemediationPlan} /> : null}
       {failed ? <AuditDisclosure saved={saved} /> : null}
     </div>
   );
@@ -411,102 +416,28 @@ function approvalStatusLabel(status: NonNullable<SavedCase['feishuApproval']>['s
   }[status];
 }
 
-type ActionFormState = {
-  title: string;
-  description: string;
-  owner_role: string;
-  priority: CaseAction['priority'];
-  due_date: string;
-};
-
-const EMPTY_ACTION_FORM: ActionFormState = {
-  title: '',
-  description: '',
-  owner_role: 'reviewer',
-  priority: 'medium',
-  due_date: '',
-};
-
-function CaseOperations({
-  saved,
-  canManageActions,
-}: {
-  saved: SavedCase;
-  canManageActions: boolean;
-}): JSX.Element {
-  const openActions = saved.actions.filter((action) => action.status !== 'completed').length;
-  const [actionFormOpen, setActionFormOpen] = useState(false);
-  const [editingActionId, setEditingActionId] = useState<string | null>(null);
-  const [actionForm, setActionForm] = useState<ActionFormState>(EMPTY_ACTION_FORM);
-
-  const beginCreateAction = (): void => {
-    setEditingActionId(null);
-    setActionForm({ ...EMPTY_ACTION_FORM });
-    setActionFormOpen(true);
-  };
-
-  const beginEditAction = (action: CaseAction): void => {
-    setEditingActionId(action.id);
-    setActionForm({
-      title: action.title,
-      description: action.description,
-      owner_role: action.owner_role,
-      priority: action.priority,
-      due_date: action.due_date ?? '',
-    });
-    setActionFormOpen(true);
-  };
-
-  const saveAction = (): void => {
-    if (!actionForm.title.trim()) return;
-    const payload = {
-      title: actionForm.title.trim(),
-      description: actionForm.description.trim(),
-      owner_role: actionForm.owner_role.trim() || 'reviewer',
-      priority: actionForm.priority,
-      status: editingActionId ? saved.actions.find((action) => action.id === editingActionId)?.status ?? 'open' : 'open',
-      due_date: actionForm.due_date || null,
-    };
-    if (editingActionId) updateCaseAction(editingActionId, payload);
-    else createCaseAction(saved.id, payload);
-    setActionFormOpen(false);
-    setEditingActionId(null);
-  };
-
+function RemediationSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: () => void }): JSX.Element {
+  const planTasks = saved.remediationPlan?.tasks ?? [];
+  const legacyTasks = saved.remediationPlan ? [] : saved.actions;
+  const total = planTasks.length || legacyTasks.length;
+  const completed = planTasks.length
+    ? planTasks.filter((task) => task.status === 'completed').length
+    : legacyTasks.filter((action) => action.status === 'completed').length;
+  const pendingReview = planTasks.filter((task) => task.status === 'pending_review').length;
+  const today = new Date().toISOString().slice(0, 10);
+  const overdue = planTasks.length
+    ? planTasks.filter((task) => task.status !== 'completed' && task.due_date && task.due_date < today).length
+    : legacyTasks.filter((action) => action.status !== 'completed' && action.due_date && action.due_date < today).length;
+  const href = `?case=${encodeURIComponent(saved.id)}&remediation=plan`;
   return (
-    <section className="card case-operations">
-      <div className="case-operations__heading"><div><h2>整改跟踪</h2><p>这里仅展示审核人创建并持续维护的整改任务。</p></div></div>
-      <div className="case-operations__stats"><span><strong>{saved.actions.length}</strong> 项整改任务</span><span><strong>{openActions}</strong> 项未完成</span></div>
-      {saved.actions.length > 0 ? (
-        <div className="case-operations__list">
-          {saved.actions.map((action) => (
-            <div className="case-action-row" key={action.id}>
-              <div className="case-action-row__content"><strong>{action.title}</strong><span>{action.description || '暂无说明'}</span><small>负责人：{action.owner_role} · 优先级：{action.priority}{action.due_date ? ` · 截止：${action.due_date}` : ''}</small></div>
-              <div className="case-action-row__controls">
-                {canManageActions ? <select aria-label={`动作状态：${action.title}`} className={`action-status action-status--${action.status}`} value={action.status} onChange={(event) => setActionStatus(action.id, event.target.value as CaseAction['status'])}><option value="open">待处理</option><option value="in_progress">进行中</option><option value="completed">已完成</option></select> : <span className={`action-status action-status--${action.status}`}>{action.status === 'completed' ? '已完成' : action.status === 'in_progress' ? '进行中' : '待处理'}</span>}
-                {canManageActions ? <button type="button" className="case-action-edit" onClick={() => beginEditAction(action)}>编辑</button> : null}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : <div className="case-operations__empty">尚未创建整改任务。审核人可根据审查建议建立负责人、截止日期和完成状态。</div>}
-      {canManageActions && actionFormOpen ? (
-        <div className="case-action-form">
-          <div className="section-title">{editingActionId ? '编辑整改任务' : '新增整改任务'}</div>
-          <div className="case-action-form__grid">
-            <label className="form-field"><span>任务名称</span><input value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} placeholder="例如：完成个人信息保护影响评估" /></label>
-            <label className="form-field"><span>负责人</span><input value={actionForm.owner_role} onChange={(event) => setActionForm({ ...actionForm, owner_role: event.target.value })} placeholder="例如：法务、隐私或业务负责人" /></label>
-            <label className="form-field"><span>优先级</span><select value={actionForm.priority} onChange={(event) => setActionForm({ ...actionForm, priority: event.target.value as ActionFormState['priority'] })}><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></label>
-            <label className="form-field"><span>截止日期</span><input type="date" value={actionForm.due_date} onChange={(event) => setActionForm({ ...actionForm, due_date: event.target.value })} /></label>
-            <label className="form-field form-field--wide"><span>任务说明</span><textarea value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} placeholder="说明完成标准、交付物或风险背景" /></label>
-          </div>
-          <div className="case-action-form__actions"><button type="button" className="case-header__action-btn" onClick={() => setActionFormOpen(false)}>取消</button><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={!actionForm.title.trim()} onClick={saveAction}>保存任务</button></div>
-        </div>
-      ) : null}
-      <div className="case-operations__actions">
-        {canManageActions ? <button type="button" className="case-header__action-btn" onClick={beginCreateAction}>+ 新增整改任务</button> : null}
-        {TERMINAL_CASE_STATUSES.has(saved.status) ? <span className="case-operations__complete">✓ 飞书审批结果已归档</span> : null}
+    <section className="card remediation-summary" aria-label="整改计划摘要">
+      <div className="remediation-summary__copy">
+        <span className="remediation-kicker">执行闭环</span>
+        <h2>整改计划</h2>
+        <p>{saved.remediationPlan ? '独立管理负责人、处理说明和审核验收。' : '尚未建立整改计划，审查建议不会自动变成任务。'}</p>
       </div>
+      <div className="remediation-summary__stats"><strong>{completed}/{total}</strong><span>已完成</span><span>{pendingReview} 待复核</span>{overdue ? <span className="is-danger">{overdue} 已逾期</span> : null}</div>
+      {onOpen ? <button type="button" className="remediation-button remediation-button--primary" onClick={onOpen}>打开整改计划</button> : <a className="remediation-button remediation-button--primary" href={href}>打开整改计划</a>}
     </section>
   );
 }
@@ -672,9 +603,10 @@ interface ReviewChainProps {
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
   viewerRole: UserRole;
   canManageActions: boolean;
+  onOpenRemediationPlan?: () => void;
 }
 
-function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageActions }: ReviewChainProps): JSX.Element {
+function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageActions, onOpenRemediationPlan }: ReviewChainProps): JSX.Element {
   const response = saved.response as Extract<ReviewApiResponse, { review_case_id: string }>;
   const result = response.review_result;
   const facts = response.review_facts;
@@ -806,7 +738,7 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
             manualConfirmations={saved.ruleDecision?.determination.manual_confirmation_reasons ?? []}
           />
 
-          <CaseOperations saved={saved} canManageActions={canManageActions} />
+          <RemediationSummary saved={saved} onOpen={onOpenRemediationPlan} />
 
           <details className="card report-disclosure">
             <summary>案件输入与材料版本</summary>

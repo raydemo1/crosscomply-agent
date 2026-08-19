@@ -6,6 +6,7 @@ import type {
   CaseFeedbackApi,
   CaseIntake,
   CaseListApi,
+  CaseSummaryApi,
   CaseStatus,
   ComplianceFactsApi,
   DashboardSummaryApi,
@@ -19,6 +20,15 @@ import type {
   MaterialVersionApi,
   ManagedUserApi,
   ReviewTaskApi,
+  RemediationAssigneeApi,
+  RemediationInboxItemApi,
+  RemediationPlanApi,
+  RemediationPlanCreatePayload,
+  RemediationReviewPayload,
+  RemediationSubmissionApi,
+  RemediationSubmissionPayload,
+  RemediationTaskApi,
+  RemediationTaskUpdatePayload,
   WorkbenchUser,
 } from '../types/api';
 
@@ -358,6 +368,72 @@ export async function updateAction(actionId: string, payload: Partial<Pick<CaseA
     method: 'PATCH',
     body: JSON.stringify(payload),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Independent remediation plan
+// ---------------------------------------------------------------------------
+
+export async function getRemediationPlan(caseId: string): Promise<RemediationPlanApi> {
+  return request<RemediationPlanApi>(`/api/cases/${encodeURIComponent(caseId)}/remediation-plan`);
+}
+
+export async function createRemediationPlan(caseId: string, payload: RemediationPlanCreatePayload): Promise<RemediationPlanApi> {
+  return request<RemediationPlanApi>(`/api/cases/${encodeURIComponent(caseId)}/remediation-plan`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function activateRemediationPlan(planId: string): Promise<RemediationPlanApi> {
+  return request<RemediationPlanApi>(`/api/remediation-plans/${encodeURIComponent(planId)}/activate`, { method: 'POST' });
+}
+
+export async function cancelRemediationPlan(planId: string): Promise<RemediationPlanApi> {
+  return request<RemediationPlanApi>(`/api/remediation-plans/${encodeURIComponent(planId)}/cancel`, { method: 'POST' });
+}
+
+export async function listMyRemediations(params: { scope?: 'mine' | 'review'; status?: string; overdue?: boolean } = {}): Promise<{ items: RemediationInboxItemApi[]; total: number }> {
+  const query = new URLSearchParams();
+  query.set('scope', params.scope ?? 'mine');
+  if (params.status) query.set('status', params.status);
+  if (params.overdue) query.set('overdue', 'true');
+  return request<{ items: RemediationInboxItemApi[]; total: number }>(`/api/remediations?${query.toString()}`);
+}
+
+export async function getRemediationTask(taskId: string): Promise<{ task: RemediationTaskApi; case: CaseSummaryApi | null }> {
+  return request<{ task: RemediationTaskApi; case: CaseSummaryApi | null }>(`/api/remediation-tasks/${encodeURIComponent(taskId)}`);
+}
+
+export async function updateRemediationTask(taskId: string, payload: RemediationTaskUpdatePayload): Promise<RemediationTaskApi> {
+  return request<RemediationTaskApi>(`/api/remediation-tasks/${encodeURIComponent(taskId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function startRemediationTask(taskId: string): Promise<RemediationTaskApi> {
+  return request<RemediationTaskApi>(`/api/remediation-tasks/${encodeURIComponent(taskId)}/start`, {
+    method: 'POST',
+  });
+}
+
+export async function submitRemediationTask(taskId: string, payload: RemediationSubmissionPayload): Promise<RemediationSubmissionApi> {
+  return request<RemediationSubmissionApi>(`/api/remediation-tasks/${encodeURIComponent(taskId)}/submissions`, {
+    method: 'POST',
+    body: JSON.stringify({ note: payload.note, evidence: payload.evidence ?? [] }),
+  });
+}
+
+export async function reviewRemediationSubmission(submissionId: string, payload: RemediationReviewPayload): Promise<RemediationSubmissionApi> {
+  return request<RemediationSubmissionApi>(`/api/remediation-submissions/${encodeURIComponent(submissionId)}/review`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listAssignableUsers(): Promise<{ items: RemediationAssigneeApi[]; total: number }> {
+  return request<{ items: RemediationAssigneeApi[]; total: number }>('/api/users/assignable');
 }
 
 export async function saveFeedback(caseId: string, payload: {

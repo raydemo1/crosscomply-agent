@@ -350,6 +350,134 @@ export type CaseStatus =
 export type ActionStatus = 'open' | 'in_progress' | 'completed';
 export type ReviewTaskStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
+/**
+ * Independent remediation-plan workflow. These models deliberately stay
+ * separate from the legacy CaseAction record used by old case snapshots.
+ */
+export type RemediationPlanStatus = 'draft' | 'active' | 'completed' | 'cancelled';
+export type RemediationTaskStatus = 'open' | 'in_progress' | 'pending_review' | 'completed';
+export type RemediationPriority = 'high' | 'medium' | 'low';
+export type RemediationEvidenceKind = 'file' | 'case_material' | 'link';
+export type RemediationSubmissionStatus = 'pending_review' | 'accepted' | 'rejected';
+
+export interface RemediationAssigneeApi extends WorkbenchUser {
+  active?: boolean;
+}
+
+export interface RemediationEvidenceApi {
+  id: string;
+  submission_id?: string;
+  kind: RemediationEvidenceKind;
+  label: string;
+  uri: string | null;
+  object_key: string | null;
+  content_type?: string | null;
+  byte_size: number | null;
+  sha256: string | null;
+  created_at: string;
+}
+
+export interface RemediationSubmissionApi {
+  id: string;
+  task_id: string;
+  submitted_by: string;
+  note: string;
+  evidence: RemediationEvidenceApi[];
+  status: RemediationSubmissionStatus;
+  reviewed_by?: string | null;
+  review_note: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+export interface RemediationTaskApi {
+  id: string;
+  plan_id: string;
+  case_id: string;
+  title: string;
+  description: string;
+  acceptance_criteria?: string;
+  source_recommendation: string | null;
+  source_recommendation_index: number | null;
+  assignee_id: string | null;
+  assignee?: RemediationAssigneeApi | null;
+  priority: RemediationPriority;
+  status: RemediationTaskStatus;
+  due_date: string | null;
+  version?: number;
+  submissions?: RemediationSubmissionApi[];
+  latest_submission?: RemediationSubmissionApi | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RemediationPlanCountsApi {
+  total: number;
+  open: number;
+  in_progress: number;
+  pending_review: number;
+  completed: number;
+  overdue: number;
+}
+
+export interface RemediationPlanApi {
+  id: string;
+  case_id: string;
+  case_title?: string;
+  case_status?: CaseStatus;
+  status: RemediationPlanStatus;
+  created_by: string;
+  no_remediation_reason?: string | null;
+  version?: number;
+  counts?: RemediationPlanCountsApi;
+  tasks: RemediationTaskApi[];
+  events?: CaseEvent[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RemediationInboxItemApi extends RemediationTaskApi {
+  case_title?: string;
+  case_question?: string;
+  plan_status?: RemediationPlanStatus;
+}
+
+export interface RemediationPlanCreatePayload {
+  tasks: Array<{
+    title: string;
+    description: string;
+    source_recommendation?: string | null;
+    source_recommendation_index?: number | null;
+    assignee_id: string;
+    priority: RemediationPriority;
+    due_date: string;
+  }>;
+}
+
+export interface RemediationTaskUpdatePayload {
+  assignee_id?: string;
+  priority?: RemediationPriority;
+  due_date?: string | null;
+}
+
+export interface RemediationSubmissionPayload {
+  note: string;
+  evidence?: Array<{
+    kind: RemediationEvidenceKind;
+    label: string;
+    uri?: string | null;
+    object_key?: string | null;
+    content_type?: string | null;
+    sha256?: string | null;
+    byte_size?: number | null;
+  }>;
+}
+
+export interface RemediationReviewPayload {
+  decision: 'accepted' | 'rejected';
+  review_note?: string;
+}
+
 export interface MaterialVersionApi {
   id: string;
   material_id: string;
@@ -600,6 +728,7 @@ export interface CaseDetailApi {
   feishu_approval: FeishuApprovalApi | null;
   signed_decision: SignedDecisionApi | null;
   report: ReportRecordApi | null;
+  remediation_plan?: RemediationPlanApi | null;
 }
 
 export interface CaseListApi {

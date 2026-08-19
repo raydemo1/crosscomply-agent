@@ -4,11 +4,13 @@ import { useSyncExternalStore } from 'react';
 import {
   createAction,
   getCaseDetail,
+  getRemediationPlan,
   listCases,
+  listMyRemediations,
   saveFeedback,
   updateAction,
 } from '../api/client';
-import type { CaseAction, CaseDetailApi, CaseIntake, CaseSummaryApi } from '../types/api';
+import type { CaseAction, CaseDetailApi, CaseIntake, CaseSummaryApi, RemediationInboxItemApi, RemediationPlanApi } from '../types/api';
 import type { CaseFeedback, CitationVerdict, SavedCase } from '../types/case';
 
 const listeners = new Set<() => void>();
@@ -83,6 +85,7 @@ function fromSummary(item: CaseSummaryApi): SavedCase {
     feishuApproval: null,
     signedDecision: null,
     report: null,
+    remediationPlan: null,
   };
 }
 
@@ -112,6 +115,7 @@ export function fromDetail(detail: CaseDetailApi): SavedCase {
     feishuApproval: detail.feishu_approval,
     signedDecision: detail.signed_decision,
     report: detail.report,
+    remediationPlan: detail.remediation_plan ?? null,
   };
 }
 
@@ -206,6 +210,16 @@ export function updateCaseAction(actionId: string, payload: Partial<Pick<CaseAct
   const action = findAction(actionId);
   if (!action) return;
   void updateAction(actionId, payload).then(() => openCase(action.case_id));
+}
+
+/** Read-only loaders used by the independent remediation pages. */
+export async function openRemediationPlan(caseId: string): Promise<RemediationPlanApi> {
+  return getRemediationPlan(caseId);
+}
+
+export async function loadMyRemediations(params: { status?: string; overdue?: boolean } = {}): Promise<RemediationInboxItemApi[]> {
+  const result = await listMyRemediations(params);
+  return result.items;
 }
 
 function findAction(actionId: string): CaseAction | null {

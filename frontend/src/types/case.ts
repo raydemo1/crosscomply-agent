@@ -13,6 +13,7 @@ import type {
   ReportRecordApi,
   ReviewTaskApi,
   RuleDecisionApi,
+  RemediationPlanApi,
   SignedDecisionApi,
 } from './api';
 
@@ -64,6 +65,8 @@ export interface SavedCase {
   feishuApproval: FeishuApprovalApi | null;
   signedDecision: SignedDecisionApi | null;
   report: ReportRecordApi | null;
+  /** Independent remediation plan summary, when one has been established. */
+  remediationPlan?: RemediationPlanApi | null;
 }
 
 /** A lightweight summary used to render the sidebar history list. */
