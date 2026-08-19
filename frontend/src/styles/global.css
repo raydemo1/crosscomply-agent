@@ -5106,6 +5106,7 @@ textarea {
 .report-record > div { min-width: 0; }
 .report-record span { display: block; }
 .report-record span { color: var(--color-muted-foreground); font-size: 0.68rem; }
+.report-record--pending small { display: block; margin-top: 3px; color: var(--color-muted-foreground); font-size: 0.68rem; }
 .report-record__demo {
   padding: 5px 8px;
   border: 1px solid rgba(59, 130, 246, 0.18);

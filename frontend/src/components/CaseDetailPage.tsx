@@ -231,6 +231,7 @@ function HeroCaseProgress({ saved }: { saved: SavedCase }): JSX.Element {
 
 function EnterpriseDecisionChain({ saved, demoMode = false }: { saved: SavedCase; demoMode?: boolean }): JSX.Element | null {
   const { materialSnapshot, ruleDecision, reviewTask, feishuApproval, signedDecision, report } = saved;
+  const reportGenerationFailed = saved.events.some((event) => event.event_type === 'decision_report_generation_failed');
   if (!materialSnapshot && !ruleDecision && !reviewTask && !feishuApproval && !signedDecision && !report) return null;
 
   return (
@@ -280,7 +281,7 @@ function EnterpriseDecisionChain({ saved, demoMode = false }: { saved: SavedCase
           <div className="enterprise-record__heading"><div><span>04</span><h2>审批与正式归档</h2></div>{signedDecision ? <strong>{statusLabel(saved.status)}</strong> : <span>等待企业决定</span>}</div>
           {feishuApproval ? <div className="approval-ledger"><div><span>飞书审批实例</span><code>{feishuApproval.instance_id}</code></div><div><span>审批状态</span><strong>{approvalStatusLabel(feishuApproval.status)}</strong></div>{feishuApproval.approver_name ? <div><span>审批人</span><strong>{feishuApproval.approver_name}</strong></div> : null}{feishuApproval.decided_at ? <div><span>审批时间</span><strong>{formatTime(feishuApproval.decided_at)}</strong></div> : null}</div> : null}
           {signedDecision ? <div className="signed-decision"><span aria-hidden="true">✓</span><div><strong>最终决定已签署</strong><small>{signedDecision.approver_name || '飞书审批人'} · {signedDecision.decided_at ? formatTime(signedDecision.decided_at) : '审批时间已留痕'}</small></div></div> : null}
-          {report ? <div className="report-record"><div><span>正式决策报告</span></div>{demoMode ? <a className="case-header__action-btn case-header__action-btn--accent" href={DEMO_REPORT_DOWNLOAD_URL} download>下载演示 PDF</a> : <a className="case-header__action-btn case-header__action-btn--accent" href={reportDownloadUrl(report.id)}>下载正式报告</a>}</div> : null}
+          {report ? <div className="report-record"><div><span>正式决策报告</span></div>{demoMode ? <a className="case-header__action-btn case-header__action-btn--accent" href={DEMO_REPORT_DOWNLOAD_URL} download>下载演示 PDF</a> : <a className="case-header__action-btn case-header__action-btn--accent" href={reportDownloadUrl(report.id)}>下载正式报告</a>}</div> : signedDecision ? <div className="report-record report-record--pending"><div><span>正式决策报告</span><small>{reportGenerationFailed ? '生成失败，审核人可重试；审批决定已安全归档。' : '正在生成，完成后将在这里提供下载。'}</small></div></div> : null}
         </article>
       ) : null}
     </section>
@@ -373,7 +374,7 @@ function CaseWorkflowActions({
         {saved.status === 'pending_review' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '审查运行中…' : '启动证据化审查'}</button> : null}
         {saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? '重新运行中…' : '重试失败任务'}</button> : null}
         {saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
-        {TERMINAL_CASE_STATUSES.has(saved.status) && !saved.report ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createReport}>{operation === 'report' ? '正在生成报告…' : '生成正式 PDF 报告'}</button> : null}
+        {TERMINAL_CASE_STATUSES.has(saved.status) && !saved.report ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createReport}>{operation === 'report' ? '正在重试报告…' : '重试生成正式报告'}</button> : null}
         {saved.report ? <a className="case-header__action-btn case-header__action-btn--accent" href={reportDownloadUrl(saved.report.id)}>下载正式报告</a> : null}
       </div>
       {error ? <div className="workflow-actions__error" role="alert">{error}</div> : null}
@@ -385,7 +386,7 @@ function workflowActionTitle(saved: SavedCase): string {
   if (saved.status === 'pending_review') return '材料与规则已冻结，可以启动审查';
   if (saved.status === 'run_failed') return '失败记录已保留，可以人工重试';
   if (saved.status === 'pending_feishu_approval') return saved.feishuApproval ? '飞书审批已发起，等待权威回写' : '审查已完成，可以发起飞书审批';
-  if (TERMINAL_CASE_STATUSES.has(saved.status)) return saved.report ? '正式决定与报告已经归档' : '飞书已回写最终决定，可以生成报告';
+  if (TERMINAL_CASE_STATUSES.has(saved.status)) return saved.report ? '正式决定与报告已经归档' : '正式决定已归档，报告待生成';
   return '流程状态已更新';
 }
 
@@ -393,7 +394,7 @@ function workflowActionHint(saved: SavedCase): string {
   if (saved.status === 'pending_review') return '任务将进入 PostgreSQL 队列，由独立 Worker 执行。';
   if (saved.status === 'run_failed') return `失败节点：${saved.reviewTask?.current_node || '未记录'}；重试不会覆盖历史尝试。`;
   if (saved.status === 'pending_feishu_approval') return '最终通过、退回或撤回状态仅接受飞书验签事件。';
-  return '报告将绑定本次材料快照、规则版本、审批人和审批时间。';
+  return '飞书终态回写后自动生成正式报告；若渲染或存储失败，审核人可在这里重试。';
 }
 
 function approvalStatusLabel(status: NonNullable<SavedCase['feishuApproval']>['status']): string {
@@ -514,7 +515,7 @@ function Timeline({ events }: { events: SavedCase['events'] }): JSX.Element {
 }
 
 function eventLabel(event: string): string {
-  const labels: Record<string, string> = { case_created: '创建案件', case_updated: '更新案件材料', status_changed: '变更案件状态', review_started: '开始证据化审查', review_completed: '生成审查结果', review_failed: '审查运行失败', action_created: '生成整改动作', action_updated: '更新整改动作', feedback_saved: '保存人工反馈' };
+  const labels: Record<string, string> = { case_created: '创建案件', case_updated: '更新案件材料', status_changed: '变更案件状态', review_started: '开始证据化审查', review_completed: '生成审查结果', review_failed: '审查运行失败', action_created: '生成整改动作', action_updated: '更新整改动作', feedback_saved: '保存人工反馈', feishu_approval_created: '发起飞书审批', feishu_decision_written_back: '归档飞书最终决定', report_generated: '生成正式报告', decision_report_generation_failed: '正式报告生成失败' };
   return labels[event] ?? event;
 }
 
