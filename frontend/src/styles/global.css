@@ -359,8 +359,7 @@ textarea {
 }
 
 /* ============================================================
- * App shell — three-column layout
- *   [ Sidebar 240px ] [ Center (flex) ] [ EvidenceDossier 360px ]
+ * App shell — navigation + task surface
  * ============================================================ */
 .app-shell {
   display: flex;
@@ -392,25 +391,6 @@ textarea {
   height: auto;
   padding: var(--space-xl);
   overflow: visible;
-}
-
-.app-dossier {
-  width: 360px;
-  flex-shrink: 0;
-  background: var(--color-surface);
-  border-left: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* Tablet (<1200px): hide the right dossier panel. */
-@media (max-width: 1199px) {
-  .app-dossier {
-    display: none;
-  }
 }
 
 /* Mobile (<768px): single column with a compact top nav. */
@@ -625,62 +605,6 @@ textarea {
   border-top: 1px solid var(--color-border);
 }
 
-/* ============================================================
- * Evidence Dossier (right panel)
- * ============================================================ */
-.dossier {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.dossier-header {
-  padding: var(--space-lg) var(--space-lg) var(--space-md);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.dossier-title {
-  font-family: var(--font-heading);
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--color-foreground);
-  line-height: 1.2;
-}
-
-.dossier-body {
-  padding: var(--space-lg);
-  overflow-y: auto;
-  flex: 1;
-}
-
-.dossier-status {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-  background: var(--color-muted);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-lg);
-}
-
-.dossier-status-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  font-size: 0.8125rem;
-}
-
-.dossier-status-label {
-  color: #475569;
-  font-weight: 600;
-}
-
-.dossier-status-value {
-  color: var(--color-foreground);
-  font-weight: 700;
-}
-
 /* Evidence status badge variants (tone-on-tint, no gradients) */
 .badge-evidence-sufficient {
   color: var(--color-success);
@@ -704,84 +628,6 @@ textarea {
   color: #64748b;
   background: rgba(100, 116, 139, 0.1);
   border-color: rgba(100, 116, 139, 0.35);
-}
-
-.dossier-group {
-  margin-bottom: var(--space-lg);
-}
-
-.dossier-group-scope {
-  font-size: 0.75rem;
-  color: #64748b;
-  line-height: 1.5;
-  margin-bottom: var(--space-sm);
-}
-
-.dossier-citation {
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--color-border);
-  scroll-margin-top: var(--space-lg);
-}
-
-.dossier-citation:target,
-.dossier-citation:focus-visible {
-  border-radius: var(--radius-md);
-  outline: 3px solid rgba(180, 83, 9, 0.18);
-  outline-offset: 4px;
-}
-
-.dossier-citation:last-child {
-  border-bottom: none;
-}
-
-.dossier-citation-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-foreground);
-  line-height: 1.4;
-  margin-bottom: 0.25rem;
-}
-
-.dossier-citation-link {
-  font-size: 0.75rem;
-  color: var(--color-secondary);
-  word-break: break-all;
-  display: inline-block;
-}
-
-.dossier-citation-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin-top: var(--space-sm);
-}
-
-.dossier-citation-role {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: #475569;
-  background: var(--color-muted);
-  border-radius: var(--radius-pill);
-  padding: 0.125rem 0.5rem;
-}
-
-.dossier-citation-cite {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: var(--color-success);
-  background: rgba(4, 120, 87, 0.1);
-  border: 1px solid rgba(4, 120, 87, 0.3);
-  border-radius: var(--radius-pill);
-  padding: 0.125rem 0.5rem;
-}
-
-.dossier-citation-ref {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: #64748b;
-  background: var(--color-muted);
-  border-radius: var(--radius-pill);
-  padding: 0.125rem 0.5rem;
 }
 
 /* Workbench and eval pages reuse the shared component classes defined
@@ -1721,12 +1567,6 @@ textarea {
   white-space: nowrap;
 }
 
-.evidence-card__usage {
-  color: #64748b;
-  font-size: 0.6875rem;
-  font-weight: 700;
-}
-
 .evidence-card__detail {
   display: flex;
   flex-direction: column;
@@ -1771,8 +1611,7 @@ textarea {
   white-space: nowrap;
 }
 
-.evidence-card__meta-grid strong.is-current { color: var(--color-success); }
-.evidence-card__meta-grid strong.is-warning { color: #b45309; }
+.evidence-card__meta-wide { grid-column: 1 / -1; }
 
 .evidence-card__article-label {
   color: var(--color-primary);
@@ -5896,4 +5735,205 @@ body {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+/* ============================================================
+ * Information hierarchy refinement
+ * ============================================================ */
+
+@media (min-width: 768px) {
+  .case-header {
+    position: sticky;
+    top: var(--space-md);
+    z-index: 8;
+    padding: var(--space-md) var(--space-lg);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.case-header__title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.case-header__actions,
+.case-header__workflow,
+.case-header__workflow .workflow-actions__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.case-header__workflow-error {
+  max-width: 280px;
+  color: var(--color-danger);
+  font-size: 0.75rem;
+}
+
+.case-header__more {
+  position: relative;
+}
+
+.case-header__more > summary {
+  list-style: none;
+}
+
+.case-header__more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.case-header__more > summary::after {
+  margin-left: var(--space-xs);
+  content: '▾';
+}
+
+.case-header__menu {
+  position: absolute;
+  top: calc(100% + var(--space-sm));
+  right: 0;
+  z-index: 12;
+  display: grid;
+  min-width: 180px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.case-header__menu button {
+  min-height: 40px;
+  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  border-bottom: 1px solid var(--color-muted);
+  background: transparent;
+  color: var(--color-foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.case-header__menu button:last-child { border-bottom: 0; }
+.case-header__menu button:hover { background: var(--color-muted); }
+
+.hero-case-progress {
+  padding: 0;
+}
+
+.hero-case-progress__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 14px var(--space-lg);
+  color: var(--color-primary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.hero-case-progress__summary::-webkit-details-marker { display: none; }
+.hero-case-progress__summary > span:first-child { display: flex; align-items: baseline; gap: var(--space-sm); }
+.hero-case-progress__summary small { color: var(--color-muted-foreground); font-size: 0.72rem; font-weight: 700; }
+.hero-case-progress__summary strong { font-family: var(--font-heading); font-size: 0.95rem; }
+.hero-case-progress__summary > span:last-child { color: var(--color-muted-foreground); font-family: var(--font-mono); font-size: 0.75rem; }
+.hero-case-progress__summary::after { color: var(--color-accent); content: '展开流程 ▾'; font-size: 0.75rem; font-weight: 700; }
+.hero-case-progress[open] .hero-case-progress__summary { border-bottom: 1px solid var(--color-border); }
+.hero-case-progress[open] .hero-case-progress__summary::after { content: '收起流程 ▴'; }
+.hero-case-progress__steps { margin: 0; padding: var(--space-lg); }
+
+.case-conclusion__boundaries {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.review-report > .case-operations { margin-top: 0; }
+.case-operations__heading p { margin-top: var(--space-xs); color: var(--color-muted-foreground); font-size: 0.78rem; }
+
+.case-operations__blockers,
+.case-operations__confirmation {
+  margin-bottom: var(--space-md);
+  padding: 12px 14px;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-md);
+  background: #fff7ed;
+  color: #7c2d12;
+  font-size: 0.8rem;
+}
+
+.case-operations__blockers ul { margin: var(--space-sm) 0 0 18px; }
+.case-operations__blockers li + li { margin-top: var(--space-xs); }
+.case-operations__confirmation { display: flex; flex-direction: column; gap: var(--space-xs); border-color: #bae6fd; background: #f0f9ff; color: #0c4a6e; }
+
+.case-operations__recommendations {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.case-operations__recommendations summary { color: var(--color-primary); cursor: pointer; font-size: 0.78rem; font-weight: 700; }
+.case-operations__recommendations ol { margin: var(--space-md) 0 0 20px; color: #334155; }
+.case-operations__recommendations li + li { margin-top: var(--space-sm); }
+
+.enterprise-chain--embedded { grid-template-columns: minmax(0, 1fr); }
+.enterprise-chain--embedded .enterprise-record { padding: var(--space-lg) 0; border-top-width: 1px; }
+.enterprise-chain--embedded .enterprise-record:first-child { padding-top: 0; border-top: 0; }
+.case-audit-disclosure .case-timeline { margin-top: 0; padding: var(--space-lg) 0 0; border-top: 1px solid var(--color-border); }
+
+.intake-groups { display: flex; flex-direction: column; gap: var(--space-lg); }
+.intake-group { min-width: 0; padding: var(--space-lg); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.intake-group legend { padding: 0 var(--space-sm); color: var(--color-primary); font-family: var(--font-heading); font-weight: 700; }
+.intake-group__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 20px; }
+.intake-group--optional { padding: 0; }
+.intake-group--optional > summary { padding: var(--space-md) var(--space-lg); color: var(--color-primary); cursor: pointer; font-weight: 700; list-style: none; }
+.intake-group--optional > summary::-webkit-details-marker { display: none; }
+.intake-group--optional > summary::before { margin-right: var(--space-sm); color: var(--color-accent); content: '▸'; }
+.intake-group--optional[open] > summary { border-bottom: 1px solid var(--color-border); }
+.intake-group--optional[open] > summary::before { content: '▾'; }
+.intake-group--optional .intake-group__grid { padding: var(--space-lg); }
+
+.sidebar-scenarios-disclosure > summary { cursor: pointer; list-style: none; }
+.sidebar-scenarios-disclosure > summary::-webkit-details-marker { display: none; }
+.sidebar-scenarios-disclosure > summary::after { float: right; color: var(--color-accent); content: '▾'; }
+.sidebar-scenarios-disclosure[open] > summary::after { content: '▴'; }
+.sidebar-scenarios-disclosure .sidebar-scenarios { padding-top: var(--space-xs); }
+
+.workspace-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.workspace-hero h1 { margin: 0; font-size: 1.8rem; line-height: 1.2; letter-spacing: -0.02em; }
+.workspace-hero__metric { min-width: 96px; padding: 10px 14px; border: 1px solid var(--color-border); box-shadow: none; }
+.workspace-hero__metric strong { font-size: 1.35rem; }
+.workspace-hero__risk-strip { min-height: 44px; padding: 10px 14px; }
+
+@media (max-width: 767px) {
+  .case-header { padding: var(--space-lg); }
+  .case-header__title { -webkit-line-clamp: 4; }
+  .case-header__actions { flex-wrap: nowrap; }
+  .case-header__more { flex: 1 1 140px; }
+  .case-header__more > summary { width: 100%; }
+  .case-header__menu { right: auto; left: 0; width: min(260px, calc(100vw - 64px)); }
+  .hero-case-progress { overflow: visible; padding: 0; }
+  .hero-case-progress__summary { align-items: flex-start; padding: var(--space-md); }
+  .hero-case-progress__summary > span:first-child { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .hero-case-progress__summary::after { content: '展开 ▾'; }
+  .hero-case-progress[open] .hero-case-progress__summary::after { content: '收起 ▴'; }
+  .hero-case-progress__steps { display: flex; min-width: 0; padding: var(--space-md); flex-direction: column; gap: var(--space-md); }
+  .hero-case-progress__steps li { min-height: 34px; padding: 0; }
+  .hero-case-progress__steps li::before { top: 27px; right: auto; bottom: calc(-1 * var(--space-md)); left: 13px; width: 1px; height: auto; }
+  .hero-case-progress__steps li > div { padding-right: 0; }
+  .hero-case-progress__steps strong,
+  .hero-case-progress__steps small { white-space: normal; }
+  .intake-group { padding: var(--space-md); }
+  .intake-group__grid { grid-template-columns: minmax(0, 1fr); }
+  .intake-group__grid .form-field--wide { grid-column: auto; }
+  .intake-group--optional { padding: 0; }
+  .intake-group--optional .intake-group__grid { padding: var(--space-md); }
+  .workspace-hero { display: flex; align-items: stretch; }
 }

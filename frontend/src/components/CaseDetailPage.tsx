@@ -40,7 +40,6 @@ import {
   citationDisplayLabel,
   DOC_TYPE_LABELS,
   legalBasisLabel,
-  LAW_STATUS_LABELS,
   QUERY_TYPE_LABELS,
   USAGE_LABELS,
   formatTime,
@@ -113,6 +112,11 @@ export default function CaseDetailPage({
         demoMode={demoMode}
         onBack={onBack}
         onRerun={() => onRerun(completedSaved.question, completedSaved.materialText)}
+        canManageActions={canManageActions}
+        workflowOperation={workflowOperation}
+        workflowError={workflowError}
+        setWorkflowOperation={setWorkflowOperation}
+        setWorkflowError={setWorkflowError}
       />
 
       <HeroCaseProgress saved={saved} />
@@ -124,11 +128,11 @@ export default function CaseDetailPage({
           demoMode={demoMode}
           onVerdictChange={handleVerdict}
           viewerRole={viewerRole}
+          canManageActions={canManageActions}
         />
       )}
-      <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} />
-      <CaseOperations saved={saved} canManageActions={canManageActions} />
-      <EnterpriseDecisionChain saved={saved} demoMode={demoMode} />
+      {failed ? <CaseOperations saved={saved} canManageActions={canManageActions} /> : null}
+      {failed ? <AuditDisclosure saved={saved} /> : null}
     </div>
   );
 }
@@ -164,7 +168,6 @@ function DraftCaseView({
       </header>
       <HeroCaseProgress saved={saved} />
       <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} />
-      <EnterpriseDecisionChain saved={saved} />
       <section className="card draft-case-card">
         <div className="section-title">提交前检查</div>
         <div className="draft-case-card__grid">
@@ -173,10 +176,13 @@ function DraftCaseView({
           <div><span>境外接收方</span><strong>{saved.intake.overseas_recipient || '待补充'}</strong></div>
           <div><span>材料长度</span><strong>{saved.materialText.length.toLocaleString()} 字符</strong></div>
         </div>
+        {saved.ruleDecision?.determination.needs_info.length ? (
+          <div className="case-operations__blockers"><strong>送审前必须确认</strong><ul>{saved.ruleDecision.determination.needs_info.map((item) => <li key={item.key}>{item.reason}</li>)}</ul></div>
+        ) : null}
         <p className="draft-case-card__hint">确认材料和关键事实后提交。</p>
         {canEdit && saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onEdit(saved)}>编辑并补充</button> : null}
       </section>
-      <Timeline events={saved.events} />
+      <AuditDisclosure saved={saved} includeMaterial />
     </div>
   );
 }
@@ -208,12 +214,13 @@ function currentHeroStep(saved: SavedCase): number {
 
 function HeroCaseProgress({ saved }: { saved: SavedCase }): JSX.Element {
   const activeStep = currentHeroStep(saved);
+  const currentStep = HERO_STEPS[Math.min(activeStep, HERO_STEPS.length - 1)];
   return (
-    <section className="card hero-case-progress" aria-label="企业采购境外 SaaS 合规流程">
-      <div className="hero-case-progress__heading">
-        <div><span>企业案例</span><strong>境外 SaaS 上线前合规闸门</strong></div>
-        <span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span>
-      </div>
+    <details className="card hero-case-progress" aria-label="企业采购境外 SaaS 合规流程">
+      <summary className="hero-case-progress__summary">
+        <span><small>案件进度</small><strong>{currentStep[0]}</strong></span>
+        <span>{Math.min(activeStep + 1, HERO_STEPS.length)} / {HERO_STEPS.length}</span>
+      </summary>
       <ol className="hero-case-progress__steps">
         {HERO_STEPS.map(([title, caption], index) => {
           const state = index < activeStep ? 'is-done' : index === activeStep ? 'is-current' : '';
@@ -225,18 +232,18 @@ function HeroCaseProgress({ saved }: { saved: SavedCase }): JSX.Element {
           );
         })}
       </ol>
-    </section>
+    </details>
   );
 }
 
-function EnterpriseDecisionChain({ saved, demoMode = false }: { saved: SavedCase; demoMode?: boolean }): JSX.Element | null {
+function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = false }: { saved: SavedCase; includeMaterial?: boolean; embedded?: boolean }): JSX.Element | null {
   const { materialSnapshot, ruleDecision, reviewTask, feishuApproval, signedDecision, report } = saved;
-  if (!materialSnapshot && !ruleDecision && !reviewTask && !feishuApproval && !signedDecision && !report) return null;
+  if (!(includeMaterial && materialSnapshot) && !ruleDecision && !reviewTask && !feishuApproval && !signedDecision && !report) return null;
 
   return (
-    <section className="enterprise-chain" aria-label="企业决策证据链">
-      {materialSnapshot ? (
-        <article className="card enterprise-record">
+    <section className={'enterprise-chain' + (embedded ? ' enterprise-chain--embedded' : '')} aria-label="企业决策证据链">
+      {includeMaterial && materialSnapshot ? (
+        <article className={(embedded ? '' : 'card ') + 'enterprise-record'}>
           <div className="enterprise-record__heading"><div><span>01</span><h2>材料快照</h2></div><code title={materialSnapshot.fingerprint}>{materialSnapshot.fingerprint.slice(0, 12)}</code></div>
           <p>本次审查绑定不可变材料快照，共 {materialSnapshot.version_ids.length} 个原件版本。</p>
           <div className="enterprise-materials">
@@ -251,7 +258,7 @@ function EnterpriseDecisionChain({ saved, demoMode = false }: { saved: SavedCase
       ) : null}
 
       {ruleDecision ? (
-        <article className="card enterprise-record enterprise-record--rules">
+        <article className={(embedded ? '' : 'card ') + 'enterprise-record enterprise-record--rules'}>
           <div className="enterprise-record__heading"><div><span>02</span><h2>全国主路径判定</h2></div><code>{ruleDecision.ruleset_version}</code></div>
           <div className="enterprise-paths">
             {ruleDecision.determination.candidate_paths.map((path) => <div key={path.code} className={path.confidence === 'determined' ? 'is-determined' : 'is-possible'}><strong>{path.label}</strong><span>{path.reason}</span></div>)}
@@ -263,7 +270,7 @@ function EnterpriseDecisionChain({ saved, demoMode = false }: { saved: SavedCase
       ) : null}
 
       {reviewTask ? (
-        <article className="card enterprise-record">
+        <article className={(embedded ? '' : 'card ') + 'enterprise-record'}>
           <div className="enterprise-record__heading"><div><span>03</span><h2>证据化审查任务</h2></div><span className={`task-state task-state--${reviewTask.status}`}>{REVIEW_TASK_STATUS_LABELS[reviewTask.status]}</span></div>
           <div className="enterprise-record__facts">
             <div><span>任务编号</span><code>{reviewTask.id.slice(0, 18)}</code></div>
@@ -276,7 +283,7 @@ function EnterpriseDecisionChain({ saved, demoMode = false }: { saved: SavedCase
       ) : null}
 
       {(feishuApproval || signedDecision || report) ? (
-        <article className="card enterprise-record enterprise-record--approval">
+        <article className={(embedded ? '' : 'card ') + 'enterprise-record enterprise-record--approval'}>
           <div className="enterprise-record__heading"><div><span>04</span><h2>审批与正式归档</h2></div>{signedDecision ? <strong>{statusLabel(saved.status)}</strong> : <span>等待企业决定</span>}</div>
           {feishuApproval ? <div className="approval-ledger"><div><span>飞书审批实例</span><code>{feishuApproval.instance_id}</code></div><div><span>审批状态</span><strong>{approvalStatusLabel(feishuApproval.status)}</strong></div>{feishuApproval.approver_name ? <div><span>审批人</span><strong>{feishuApproval.approver_name}</strong></div> : null}{feishuApproval.decided_at ? <div><span>审批时间</span><strong>{formatTime(feishuApproval.decided_at)}</strong></div> : null}</div> : null}
           {signedDecision ? <div className="signed-decision"><span aria-hidden="true">✓</span><div><strong>最终决定已签署</strong><small>{signedDecision.approver_name || '飞书审批人'} · {signedDecision.decided_at ? formatTime(signedDecision.decided_at) : '审批时间已留痕'}</small></div></div> : null}
@@ -293,6 +300,7 @@ interface CaseWorkflowActionsProps {
   error: string | null;
   setOperation: (value: string | null) => void;
   setError: (value: string | null) => void;
+  compact?: boolean;
 }
 
 function CaseWorkflowActions({
@@ -302,6 +310,7 @@ function CaseWorkflowActions({
   error,
   setOperation,
   setError,
+  compact = false,
 }: CaseWorkflowActionsProps): JSX.Element | null {
   if (!canManage) return null;
 
@@ -353,6 +362,18 @@ function CaseWorkflowActions({
     || saved.status === 'pending_feishu_approval';
   if (!hasAction && !error) return null;
 
+  const controls = (
+    <div className="workflow-actions__controls">
+      {saved.status === 'pending_review' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '审查运行中…' : '启动证据化审查'}</button> : null}
+      {saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? '重新运行中…' : '重试失败任务'}</button> : null}
+      {saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
+    </div>
+  );
+
+  if (compact) {
+    return <div className="case-header__workflow">{controls}{error ? <div className="case-header__workflow-error" role="alert">{error}</div> : null}</div>;
+  }
+
   return (
     <section className="card workflow-actions" aria-label="审核流程操作">
       <div className="workflow-actions__copy">
@@ -360,11 +381,7 @@ function CaseWorkflowActions({
         <strong>{workflowActionTitle(saved)}</strong>
         <small>{workflowActionHint(saved)}</small>
       </div>
-      <div className="workflow-actions__controls">
-        {saved.status === 'pending_review' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '审查运行中…' : '启动证据化审查'}</button> : null}
-        {saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? '重新运行中…' : '重试失败任务'}</button> : null}
-        {saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
-      </div>
+      {controls}
       {error ? <div className="workflow-actions__error" role="alert">{error}</div> : null}
     </section>
   );
@@ -410,8 +427,22 @@ const EMPTY_ACTION_FORM: ActionFormState = {
   due_date: '',
 };
 
-function CaseOperations({ saved, canManageActions }: { saved: SavedCase; canManageActions: boolean }): JSX.Element {
+function CaseOperations({
+  saved,
+  canManageActions,
+  blockers = [],
+  manualConfirmations = [],
+  recommendations = [],
+}: {
+  saved: SavedCase;
+  canManageActions: boolean;
+  blockers?: string[];
+  manualConfirmations?: string[];
+  recommendations?: string[];
+}): JSX.Element {
   const openActions = saved.actions.filter((action) => action.status !== 'completed').length;
+  const blockingItems = Array.from(new Set(blockers.filter(Boolean)));
+  const confirmationItems = Array.from(new Set(manualConfirmations.filter(Boolean)));
   const [actionFormOpen, setActionFormOpen] = useState(false);
   const [editingActionId, setEditingActionId] = useState<string | null>(null);
   const [actionForm, setActionForm] = useState<ActionFormState>(EMPTY_ACTION_FORM);
@@ -452,8 +483,15 @@ function CaseOperations({ saved, canManageActions }: { saved: SavedCase; canMana
 
   return (
     <section className="card case-operations">
-      <div className="case-operations__heading"><div><h2>整改动作</h2></div><span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span></div>
-      <div className="case-operations__stats"><span><strong>{saved.actions.length}</strong> 项整改动作</span><span><strong>{openActions}</strong> 项待处理</span><span><strong>{saved.events.length}</strong> 条审计记录</span></div>
+      <div className="case-operations__heading"><div><h2>待处理事项</h2><p>优先处理事实缺口，再完成可追踪的整改动作。</p></div></div>
+      <div className="case-operations__stats"><span><strong>{blockingItems.length}</strong> 项待补充</span><span><strong>{saved.actions.length}</strong> 项整改动作</span><span><strong>{openActions}</strong> 项未完成</span></div>
+      {blockingItems.length > 0 ? (
+        <div className="case-operations__blockers">
+          <strong>送审前必须确认</strong>
+          <ul>{blockingItems.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      ) : null}
+      {confirmationItems.length > 0 ? <div className="case-operations__confirmation"><strong>需要人工确认</strong><span>{confirmationItems.join('；')}</span></div> : null}
       {saved.actions.length > 0 ? (
         <div className="case-operations__list">
           {saved.actions.map((action) => (
@@ -484,13 +522,19 @@ function CaseOperations({ saved, canManageActions }: { saved: SavedCase; canMana
         {canManageActions ? <button type="button" className="case-header__action-btn" onClick={beginCreateAction}>+ 新增整改动作</button> : null}
         {TERMINAL_CASE_STATUSES.has(saved.status) ? <span className="case-operations__complete">✓ 飞书审批结果已归档</span> : null}
       </div>
+      {recommendations.length > 0 ? (
+        <details className="case-operations__recommendations">
+          <summary>查看审查建议（{recommendations.length}）</summary>
+          <ol>{recommendations.map((item, index) => <li key={index}><MarkdownText variant="note">{item}</MarkdownText></li>)}</ol>
+        </details>
+      ) : null}
     </section>
   );
 }
 
-function Timeline({ events }: { events: SavedCase['events'] }): JSX.Element {
+function Timeline({ events, embedded = false }: { events: SavedCase['events']; embedded?: boolean }): JSX.Element {
   return (
-    <section className="card case-timeline">
+    <section className={(embedded ? '' : 'card ') + 'case-timeline'}>
       <div className="section-title">审计时间线</div>
       <div className="case-timeline__list">
         {events.length === 0 ? <span className="state-block__hint">暂无流程记录。</span> : events.map((event) => (
@@ -498,6 +542,18 @@ function Timeline({ events }: { events: SavedCase['events'] }): JSX.Element {
         ))}
       </div>
     </section>
+  );
+}
+
+function AuditDisclosure({ saved, includeMaterial = false }: { saved: SavedCase; includeMaterial?: boolean }): JSX.Element {
+  return (
+    <details className="card report-disclosure case-audit-disclosure">
+      <summary>决策证据链与审计记录</summary>
+      <div className="report-disclosure__body">
+        <EnterpriseDecisionChain saved={saved} includeMaterial={includeMaterial} embedded />
+        <Timeline events={saved.events} embedded />
+      </div>
+    </details>
   );
 }
 
@@ -519,12 +575,27 @@ interface CaseHeaderProps {
   demoMode: boolean;
   onBack: () => void;
   onRerun: () => void;
+  canManageActions: boolean;
+  workflowOperation: string | null;
+  workflowError: string | null;
+  setWorkflowOperation: (value: string | null) => void;
+  setWorkflowError: (value: string | null) => void;
 }
 
-function CaseHeader({ saved, demoMode, onBack, onRerun }: CaseHeaderProps): JSX.Element {
-  const response = saved.response;
-  const failed = isReviewFailedResponse(response);
-  const risk = failed ? null : response.review_result.risk_level;
+function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workflowOperation, workflowError, setWorkflowOperation, setWorkflowError }: CaseHeaderProps): JSX.Element {
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent): void => {
+      if (moreRef.current?.open && !moreRef.current.contains(event.target as Node)) moreRef.current.open = false;
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    return () => document.removeEventListener('pointerdown', closeOnOutsideClick);
+  }, []);
+
+  const closeMore = (): void => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
 
   return (
     <header className="case-header card">
@@ -533,34 +604,30 @@ function CaseHeader({ saved, demoMode, onBack, onRerun }: CaseHeaderProps): JSX.
           ← 返回工作台
         </button>
         <div className="case-header__actions">
-          {demoMode ? null : <button type="button" className="case-header__action-btn" onClick={onRerun}>以此为模板重审</button>}
-          <button type="button" className="case-header__action-btn" onClick={() => downloadMarkdown(saved)}>
-            导出 Markdown
-          </button>
-          <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => downloadHtml(saved)}>
-            导出 HTML 报告
-          </button>
+          <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} compact />
+          <details className="case-header__more" ref={moreRef}>
+            <summary className="case-header__action-btn">更多</summary>
+            <div className="case-header__menu">
+              {demoMode ? null : <button type="button" onClick={() => { closeMore(); onRerun(); }}>以此为模板重审</button>}
+              <button type="button" onClick={() => { closeMore(); downloadMarkdown(saved); }}>导出 Markdown</button>
+              <button type="button" onClick={() => { closeMore(); downloadHtml(saved); }}>导出 HTML 报告</button>
+            </div>
+          </details>
         </div>
       </div>
 
       <h1 className="case-header__title">{saved.question}</h1>
 
       <div className="case-header__meta">
-        {risk ? (
-          <span className="case-header__risk">
-            <RiskBadge level={risk} />
-          </span>
-        ) : (
-          <span className="badge badge-insufficient">审查失败</span>
-        )}
+        <span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span>
         <span className="case-header__meta-item">
           <span className="case-header__meta-label">案卷</span>
           <code>{shortId(saved.id)}</code>
         </span>
-        {!failed ? (
+        {!isReviewFailedResponse(saved.response) ? (
           <span className="case-header__meta-item">
             <span className="case-header__meta-label">追踪</span>
-            <code>{shortId(response.trace_id)}</code>
+            <code>{shortId(saved.response.trace_id)}</code>
           </span>
         ) : null}
         <span className="case-header__meta-item">
@@ -611,9 +678,10 @@ interface ReviewChainProps {
   demoMode: boolean;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
   viewerRole: UserRole;
+  canManageActions: boolean;
 }
 
-function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole }: ReviewChainProps): JSX.Element {
+function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageActions }: ReviewChainProps): JSX.Element {
   const response = saved.response as Extract<ReviewApiResponse, { review_case_id: string }>;
   const result = response.review_result;
   const facts = response.review_facts;
@@ -726,40 +794,61 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole }: ReviewCha
                 handleEvidenceSelect(citationRef, citation?.citation_label ?? citationRef);
               }}
             />
+            {result.risk_boundaries.length > 0 ? (
+              <div className="case-conclusion__boundaries">
+                <div className="section-title">风险边界</div>
+                <div className="warning-list">
+                  {result.risk_boundaries.map((item, index) => <div className="warning-note" key={index}><MarkdownText variant="note">{item}</MarkdownText></div>)}
+                </div>
+              </div>
+            ) : null}
           </section>
 
-          <section className="card report-card">
-            <div className="section-title">审查问题与材料</div>
-            <div className="case-field">
-              <div className="case-field__label">审查问题</div>
-              <div className="case-field__value">{saved.question}</div>
-            </div>
-            <div className="case-field">
-              <div className="case-field__label">
-                待审查材料
-              </div>
-              <pre className="case-field__material">{saved.materialText}</pre>
-            </div>
-          </section>
+          <CaseOperations
+            saved={saved}
+            canManageActions={canManageActions}
+            blockers={saved.ruleDecision?.determination.needs_info.length
+              ? saved.ruleDecision.determination.needs_info.map((item) => item.reason)
+              : result.missing_information}
+            manualConfirmations={saved.ruleDecision?.determination.manual_confirmation_reasons ?? []}
+            recommendations={result.recommended_actions}
+          />
 
-          <ReportSection title="建议动作" items={result.recommended_actions} ordered />
-          <ReportSection title="风险边界" items={result.risk_boundaries} tone="warning" />
-          <ReportSection title="缺失信息" items={result.missing_information} tone="missing" />
-
-          {result.trigger_reasons.length > 0 ? (
-            <section className="card report-card">
-              <div className="section-title">触发原因</div>
-              <div className="tag-list">
-                {result.trigger_reasons.map((reason, i) => (
-                  <span className="tag" key={i}>{reason}</span>
-                ))}
-              </div>
-            </section>
-          ) : null}
+          <details className="card report-disclosure">
+            <summary>案件输入与材料版本</summary>
+            <div className="report-disclosure__body">
+              <section>
+                <div className="case-field">
+                  <div className="case-field__label">审查问题</div>
+                  <div className="case-field__value">{saved.question}</div>
+                </div>
+                <div className="case-field">
+                  <div className="case-field__label">待审查材料</div>
+                  <pre className="case-field__material">{saved.materialText}</pre>
+                </div>
+              </section>
+              {saved.materialSnapshot ? (
+                <section>
+                  <div className="section-title">冻结材料版本</div>
+                  <div className="enterprise-materials">
+                    {saved.materialSnapshot.version_ids.map((versionId, index) => (
+                      <div key={versionId}><span><strong>材料版本 {index + 1}</strong><small>已冻结到本次审查</small></span><span><code title={versionId}>{versionId}</code></span></div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </details>
 
           <details className="card report-disclosure">
             <summary>查看审查流程</summary>
             <div className="report-disclosure__body">
+              {result.trigger_reasons.length > 0 ? (
+                <section>
+                  <div className="section-title">触发原因</div>
+                  <div className="tag-list">{result.trigger_reasons.map((reason, index) => <span className="tag" key={index}>{reason}</span>)}</div>
+                </section>
+              ) : null}
               <PipelineStepper
                 factsCount={facts.data_types.length + (facts.cross_border_transfer ? 1 : 0)}
                 queryCount={queries.length}
@@ -789,9 +878,20 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole }: ReviewCha
                 onVerdictChange={onVerdictChange}
                 viewerRole={viewerRole}
               />
-              {demoMode ? <div className="demo-readonly-note">公开演示仅供浏览，人工评价与整改动作需要接入自己的服务端后保存。</div> : <FeedbackPanel saved={saved} />}
+              {demoMode
+                ? <div className="demo-readonly-note">公开演示仅供浏览，人工评价与整改动作需要接入自己的服务端后保存。</div>
+                : viewerRole === 'requester' ? <FeedbackPanel saved={saved} /> : null}
             </div>
           </details>
+
+          {viewerRole !== 'requester' && !demoMode ? (
+            <section className="card report-card reviewer-feedback">
+              <div className="section-title">人工复核记录</div>
+              <FeedbackPanel saved={saved} />
+            </section>
+          ) : null}
+
+          <AuditDisclosure saved={saved} />
         </main>
 
         <EvidenceSidebar
@@ -807,43 +907,6 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole }: ReviewCha
         />
       </div>
     </>
-  );
-}
-
-function ReportSection({
-  title,
-  items,
-  ordered = false,
-  tone,
-}: {
-  title: string;
-  items: string[];
-  ordered?: boolean;
-  tone?: 'warning' | 'missing';
-}): JSX.Element | null {
-  if (items.length === 0) return null;
-  const className = tone === 'warning' ? 'warning-list' : tone === 'missing' ? 'missing-list' : 'action-list';
-  return (
-    <section className="card report-card">
-      <div className="section-title">{title}</div>
-      {ordered ? (
-        <ol className={className}>
-          {items.map((item, i) => (
-            <li className="action-list__item" key={i}>
-              <MarkdownText variant="note">{item}</MarkdownText>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <div className={className}>
-          {items.map((item, i) => (
-            <div className={tone === 'warning' ? 'warning-note' : undefined} key={i}>
-              <MarkdownText variant="note">{item}</MarkdownText>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -1073,7 +1136,6 @@ function EvidenceCard({
   viewerRole: UserRole;
 }): JSX.Element {
   const label = citationDisplayLabel(item);
-  const lawStatus = LAW_STATUS_LABELS[item.law_status] ?? '状态未知';
   const articleText = item.full_article_text?.trim();
   return (
     <article
@@ -1094,7 +1156,6 @@ function EvidenceCard({
       >
         <span className="evidence-card__top">
           <span className="evidence-card__index">{label}</span>
-          <span className="evidence-card__usage">{lawStatus}</span>
         </span>
       </button>
       {selected ? (
@@ -1107,8 +1168,7 @@ function EvidenceCard({
           <div className="evidence-card__meta-grid">
             <div><span>法源类型</span><strong>{DOC_TYPE_LABELS[item.doc_type] ?? item.doc_type}</strong></div>
             <div><span>权威等级</span><strong>{AUTHORITY_LABELS[item.authority] ?? item.authority}</strong></div>
-            <div><span>发布机关</span><strong>{item.issuing_body || '未提供'}</strong></div>
-            <div><span>法律状态</span><strong className={item.law_status === 'effective' ? 'is-current' : 'is-warning'}>{lawStatus}</strong></div>
+            <div className="evidence-card__meta-wide"><span>发布机关</span><strong>{item.issuing_body || '未提供'}</strong></div>
             <div><span>发布日期</span><strong>{item.publish_date || '未提供'}</strong></div>
             <div><span>生效日期</span><strong>{item.effective_date || '未提供'}</strong></div>
           </div>

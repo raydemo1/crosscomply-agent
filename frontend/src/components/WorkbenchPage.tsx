@@ -117,19 +117,34 @@ export default function WorkbenchPage({
       ) : (
         <section className="card intake-card">
           <div className="section-heading-row"><div><h2>确认案件要素</h2></div><button type="button" className="btn-link" onClick={() => setStep(1)}>← 返回材料</button></div>
-          <div className="intake-grid">
-            <label className="form-field form-field--wide"><span>业务活动</span><input value={intake.business_activity} onChange={(event) => updateIntake(intake, onIntakeChange, 'business_activity', event.target.value)} placeholder="例如：推荐系统、客服平台、人力资源管理" /></label>
-            <label className="form-field"><span>数据类型</span><input value={intake.data_types.join('、')} onChange={(event) => updateIntake(intake, onIntakeChange, 'data_types', event.target.value.split(/[、,，]/).map((item) => item.trim()).filter(Boolean))} placeholder="手机号、定位信息" /></label>
-            <label className="form-field"><span>敏感个人信息是否涉及</span><select value={intake.sensitive_personal_info === null ? '' : intake.sensitive_personal_info ? 'yes' : 'no'} onChange={(event) => updateIntake(intake, onIntakeChange, 'sensitive_personal_info', event.target.value === '' ? null : event.target.value === 'yes')}><option value="">尚未确认</option><option value="yes">涉及</option><option value="no">不涉及</option></select></label>
-            <label className="form-field"><span>境外接收方</span><input value={intake.overseas_recipient} onChange={(event) => updateIntake(intake, onIntakeChange, 'overseas_recipient', event.target.value)} placeholder="公司/供应商名称" /></label>
-            <label className="form-field"><span>目的地</span><input value={intake.destination_region} onChange={(event) => updateIntake(intake, onIntakeChange, 'destination_region', event.target.value)} placeholder="国家或地区" /></label>
-            <label className="form-field"><span>非敏感个人信息数量</span><input value={intake.annual_non_sensitive_count} onChange={(event) => updateIntake(intake, onIntakeChange, 'annual_non_sensitive_count', event.target.value)} placeholder="年度估算区间" /></label>
-            <label className="form-field"><span>敏感个人信息数量</span><input value={intake.annual_sensitive_count} onChange={(event) => updateIntake(intake, onIntakeChange, 'annual_sensitive_count', event.target.value)} placeholder="年度估算区间" /></label>
-            <label className="form-field"><span>重要数据识别状态</span><select value={intake.important_data_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'important_data_status', event.target.value as CaseIntake['important_data_status'])}><option value="unknown">尚未判断</option><option value="not_important">已确认不涉及</option><option value="important">已确认涉及</option><option value="under_review">正在评估</option></select></label>
-            <label className="form-field"><span>关基运营者状态</span><select value={intake.ciio_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'ciio_status', event.target.value as CaseIntake['ciio_status'])}><option value="unknown">尚未判断</option><option value="not_ciio">已确认不是</option><option value="ciio">已确认是</option><option value="under_review">正在评估</option></select></label>
-            <label className="form-field"><span>合同/标准合同状态</span><input value={intake.contract_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'contract_status', event.target.value)} placeholder="未签署、已签署、待法务确认" /></label>
-            <label className="form-field"><span>拟采用的出境路径</span><input value={intake.transfer_mechanism} onChange={(event) => updateIntake(intake, onIntakeChange, 'transfer_mechanism', event.target.value)} placeholder="评估、标准合同、认证或待判断" /></label>
-            <label className="form-field form-field--wide"><span>处理目的与补充说明</span><textarea value={`${intake.processing_purpose}${intake.notes ? `\n${intake.notes}` : ''}`} onChange={(event) => updateIntake(intake, onIntakeChange, 'processing_purpose', event.target.value)} placeholder="补充业务目的、例外情况和当前已知限制" rows={3} /></label>
+          <div className="intake-groups">
+            <fieldset className="intake-group">
+              <legend>业务与数据</legend>
+              <div className="intake-group__grid">
+                <label className="form-field form-field--wide"><span>业务活动</span><input value={intake.business_activity} onChange={(event) => updateIntake(intake, onIntakeChange, 'business_activity', event.target.value)} placeholder="例如：推荐系统、客服平台、人力资源管理" /></label>
+                <label className="form-field"><span>数据类型</span><input value={intake.data_types.join('、')} onChange={(event) => updateIntake(intake, onIntakeChange, 'data_types', event.target.value.split(/[、,，]/).map((item) => item.trim()).filter(Boolean))} placeholder="手机号、定位信息" /></label>
+                <label className="form-field"><span>敏感个人信息是否涉及</span><select value={intake.sensitive_personal_info === null ? '' : intake.sensitive_personal_info ? 'yes' : 'no'} onChange={(event) => updateIntake(intake, onIntakeChange, 'sensitive_personal_info', event.target.value === '' ? null : event.target.value === 'yes')}><option value="">尚未确认</option><option value="yes">涉及</option><option value="no">不涉及</option></select></label>
+                <label className="form-field"><span>境外接收方</span><input value={intake.overseas_recipient} onChange={(event) => updateIntake(intake, onIntakeChange, 'overseas_recipient', event.target.value)} placeholder="公司/供应商名称" /></label>
+                <label className="form-field"><span>目的地</span><input value={intake.destination_region} onChange={(event) => updateIntake(intake, onIntakeChange, 'destination_region', event.target.value)} placeholder="国家或地区" /></label>
+              </div>
+            </fieldset>
+            <fieldset className="intake-group">
+              <legend>数量与主体</legend>
+              <div className="intake-group__grid">
+                <label className="form-field"><span>非敏感个人信息数量</span><input value={intake.annual_non_sensitive_count} onChange={(event) => updateIntake(intake, onIntakeChange, 'annual_non_sensitive_count', event.target.value)} placeholder="年度估算区间" /></label>
+                <label className="form-field"><span>敏感个人信息数量</span><input value={intake.annual_sensitive_count} onChange={(event) => updateIntake(intake, onIntakeChange, 'annual_sensitive_count', event.target.value)} placeholder="年度估算区间" /></label>
+                <label className="form-field"><span>重要数据识别状态</span><select value={intake.important_data_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'important_data_status', event.target.value as CaseIntake['important_data_status'])}><option value="unknown">尚未判断</option><option value="not_important">已确认不涉及</option><option value="important">已确认涉及</option><option value="under_review">正在评估</option></select></label>
+                <label className="form-field"><span>关基运营者状态</span><select value={intake.ciio_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'ciio_status', event.target.value as CaseIntake['ciio_status'])}><option value="unknown">尚未判断</option><option value="not_ciio">已确认不是</option><option value="ciio">已确认是</option><option value="under_review">正在评估</option></select></label>
+              </div>
+            </fieldset>
+            <details className="intake-group intake-group--optional">
+              <summary>合规路径与说明</summary>
+              <div className="intake-group__grid">
+                <label className="form-field"><span>合同/标准合同状态</span><input value={intake.contract_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'contract_status', event.target.value)} placeholder="未签署、已签署、待法务确认" /></label>
+                <label className="form-field"><span>拟采用的出境路径</span><input value={intake.transfer_mechanism} onChange={(event) => updateIntake(intake, onIntakeChange, 'transfer_mechanism', event.target.value)} placeholder="评估、标准合同、认证或待判断" /></label>
+                <label className="form-field form-field--wide"><span>处理目的与补充说明</span><textarea value={`${intake.processing_purpose}${intake.notes ? `\n${intake.notes}` : ''}`} onChange={(event) => updateIntake(intake, onIntakeChange, 'processing_purpose', event.target.value)} placeholder="补充业务目的、例外情况和当前已知限制" rows={3} /></label>
+              </div>
+            </details>
           </div>
           <div className="intake-confirmation"><label><input type="checkbox" checked={intake.cross_border_transfer === true} onChange={(event) => updateIntake(intake, onIntakeChange, 'cross_border_transfer', event.target.checked)} /> <strong>我确认材料涉及向境外提供数据</strong></label><span>未确认事实会标为待补充。</span></div>
           <details className="workbench-advanced"><summary>审查运行设置</summary><div className="workbench-advanced__body"><label className="form-field"><span>审查深度</span><select value={reviewMode} onChange={(event) => onReviewModeChange(event.target.value as 'llm' | 'multi_agent')}><option value="llm">标准审查</option><option value="multi_agent">深入审查</option></select></label><label className="intake-confirmation"><input type="checkbox" checked={rerankMode === 'embedding'} onChange={(event) => onRerankModeChange(event.target.checked ? 'embedding' : 'off')} /> 启用增强依据排序</label></div></details>

@@ -106,8 +106,8 @@ export default function Sidebar({
         </div>
       </nav>
 
-      <div className="sidebar-section">
-        <div className="sidebar-section-label">常用审查场景</div>
+      <details className="sidebar-section sidebar-scenarios-disclosure">
+        <summary className="sidebar-section-label">更多审查场景</summary>
         <div className="sidebar-scenarios">
           {SCENARIOS.map((scenario) => (
             <button key={scenario} type="button" className="sidebar-scenario" onClick={() => { onCloseMobile(); onScenarioClick(scenario); }}>
@@ -115,7 +115,7 @@ export default function Sidebar({
             </button>
           ))}
         </div>
-      </div>
+      </details>
 
       <div className="sidebar-section sidebar-history">
         <div className="sidebar-section-label">
