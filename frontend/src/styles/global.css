@@ -5595,6 +5595,12 @@ textarea {
   margin-top: 4px;
 }
 
+.login-form__hint {
+  margin-top: -4px;
+  color: var(--color-muted-foreground);
+  font-size: 0.72rem;
+}
+
 .form-error {
   padding: 9px 11px;
   border-left: 3px solid var(--color-danger);

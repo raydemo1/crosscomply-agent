@@ -121,7 +121,19 @@ export default function App(): JSX.Element {
 
   const handleLogin = useCallback(async (username: string, password: string): Promise<void> => {
     setAuthError(null);
-    const current = await login(username, password);
+    let current: WorkbenchUser;
+    try {
+      current = await login(username, password);
+    } catch (reason) {
+      setAuthError(
+        reason instanceof ApiError && reason.status === 401
+          ? '用户名或密码错误，请检查后重试。'
+          : reason instanceof Error
+            ? reason.message
+            : '登录失败，请稍后重试。',
+      );
+      return;
+    }
     setUser(current);
     const [, summary] = await Promise.all([refreshCases(), getDashboardSummary()]);
     setDashboardSummary(summary);
