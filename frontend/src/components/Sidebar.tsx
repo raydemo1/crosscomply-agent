@@ -4,7 +4,19 @@ import type { SavedCase } from '../types/case';
 import { relativeTime, truncate } from '../utils/display';
 import { CASE_STATUS_LABELS } from '../utils/workflow';
 
-export type Page = 'workbench' | 'governance' | 'case-detail';
+/**
+ * Top-level shell destinations. The library destinations are intentionally
+ * part of the shell contract before their full pages ship, so the navigation
+ * can grow without changing the sidebar API again.
+ */
+export type Page =
+  | 'workbench'
+  | 'governance'
+  | 'case-detail'
+  | 'my-remediations'
+  | 'remediation-plan'
+  | 'legal-library'
+  | 'policy-management';
 
 interface SidebarProps {
   currentPage: Page;
@@ -77,25 +89,25 @@ export default function Sidebar({
         <button type="button" className="sidebar-mobile-close" onClick={onCloseMobile} aria-label="关闭案件导航">×</button>
       </div>
 
-      <div className="sidebar-user-card">
-        <div className="sidebar-user-card__avatar" aria-hidden="true">
-          <svg viewBox="0 0 24 24" role="presentation">
-            <circle cx="12" cy="8" r="3.25" />
-            <path d="M5.5 19.25c.55-3.35 2.82-5.25 6.5-5.25s5.95 1.9 6.5 5.25" />
-          </svg>
-        </div>
-        <div className="sidebar-user-card__identity">
-          <strong>{user.display_name}</strong>
-          <span>{user.role === 'admin' ? '管理员' : user.role === 'reviewer' ? '合规审核人' : '业务申请人'}</span>
-        </div>
-        {demoMode ? <span className="sidebar-user-card__demo">演示</span> : <button type="button" className="sidebar-user-card__logout" onClick={() => { onCloseMobile(); onLogout(); }} title="退出登录">↗</button>}
-      </div>
-
       <nav className="sidebar-section" aria-label="主导航">
         <div className="sidebar-nav">
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('workbench'); }}>
             <span className="sidebar-nav-item-icon">⌂</span>
             <span>案件工作台</span>
+          </button>
+          <button type="button" className={'sidebar-nav-item' + (currentPage === 'my-remediations' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('my-remediations'); }}>
+            <span className="sidebar-nav-item-icon" aria-hidden="true">✓</span>
+            <span>我的整改</span>
+          </button>
+          <button type="button" className="sidebar-nav-item sidebar-nav-item--coming-soon" disabled aria-disabled="true">
+            <span className="sidebar-nav-item-icon" aria-hidden="true">§</span>
+            <span>法律法规库</span>
+            <span className="sidebar-nav-item-status">即将开放</span>
+          </button>
+          <button type="button" className="sidebar-nav-item sidebar-nav-item--coming-soon" disabled aria-disabled="true">
+            <span className="sidebar-nav-item-icon" aria-hidden="true">▤</span>
+            <span>政策制度</span>
+            <span className="sidebar-nav-item-status">即将开放</span>
           </button>
           {user.role === 'admin' ? (
             <button type="button" className={'sidebar-nav-item' + (currentPage === 'governance' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenGovernance(); }}>
@@ -143,6 +155,20 @@ export default function Sidebar({
             );
           })}
         </div>
+      </div>
+
+      <div className="sidebar-user-card sidebar-user-card--bottom">
+        <div className="sidebar-user-card__avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="presentation">
+            <circle cx="12" cy="8" r="3.25" />
+            <path d="M5.5 19.25c.55-3.35 2.82-5.25 6.5-5.25s5.95 1.9 6.5 5.25" />
+          </svg>
+        </div>
+        <div className="sidebar-user-card__identity">
+          <strong>{user.display_name}</strong>
+          <span>{user.role === 'admin' ? '管理员' : user.role === 'reviewer' ? '合规审核人' : '业务申请人'}</span>
+        </div>
+        {demoMode ? <span className="sidebar-user-card__demo">演示</span> : <button type="button" className="sidebar-user-card__logout" onClick={() => { onCloseMobile(); onLogout(); }} title="退出登录">↗</button>}
       </div>
     </aside>
   );
