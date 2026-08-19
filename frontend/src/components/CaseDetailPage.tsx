@@ -430,19 +430,11 @@ const EMPTY_ACTION_FORM: ActionFormState = {
 function CaseOperations({
   saved,
   canManageActions,
-  blockers = [],
-  manualConfirmations = [],
-  recommendations = [],
 }: {
   saved: SavedCase;
   canManageActions: boolean;
-  blockers?: string[];
-  manualConfirmations?: string[];
-  recommendations?: string[];
 }): JSX.Element {
   const openActions = saved.actions.filter((action) => action.status !== 'completed').length;
-  const blockingItems = Array.from(new Set(blockers.filter(Boolean)));
-  const confirmationItems = Array.from(new Set(manualConfirmations.filter(Boolean)));
   const [actionFormOpen, setActionFormOpen] = useState(false);
   const [editingActionId, setEditingActionId] = useState<string | null>(null);
   const [actionForm, setActionForm] = useState<ActionFormState>(EMPTY_ACTION_FORM);
@@ -483,15 +475,8 @@ function CaseOperations({
 
   return (
     <section className="card case-operations">
-      <div className="case-operations__heading"><div><h2>待处理事项</h2><p>优先处理事实缺口，再完成可追踪的整改动作。</p></div></div>
-      <div className="case-operations__stats"><span><strong>{blockingItems.length}</strong> 项待补充</span><span><strong>{saved.actions.length}</strong> 项整改动作</span><span><strong>{openActions}</strong> 项未完成</span></div>
-      {blockingItems.length > 0 ? (
-        <div className="case-operations__blockers">
-          <strong>送审前必须确认</strong>
-          <ul>{blockingItems.map((item) => <li key={item}>{item}</li>)}</ul>
-        </div>
-      ) : null}
-      {confirmationItems.length > 0 ? <div className="case-operations__confirmation"><strong>需要人工确认</strong><span>{confirmationItems.join('；')}</span></div> : null}
+      <div className="case-operations__heading"><div><h2>整改跟踪</h2><p>这里仅展示审核人创建并持续维护的整改任务。</p></div></div>
+      <div className="case-operations__stats"><span><strong>{saved.actions.length}</strong> 项整改任务</span><span><strong>{openActions}</strong> 项未完成</span></div>
       {saved.actions.length > 0 ? (
         <div className="case-operations__list">
           {saved.actions.map((action) => (
@@ -504,30 +489,57 @@ function CaseOperations({
             </div>
           ))}
         </div>
-      ) : null}
+      ) : <div className="case-operations__empty">尚未创建整改任务。审核人可根据审查建议建立负责人、截止日期和完成状态。</div>}
       {canManageActions && actionFormOpen ? (
         <div className="case-action-form">
-          <div className="section-title">{editingActionId ? '编辑整改动作' : '新增整改动作'}</div>
+          <div className="section-title">{editingActionId ? '编辑整改任务' : '新增整改任务'}</div>
           <div className="case-action-form__grid">
-            <label className="form-field"><span>动作名称</span><input value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} placeholder="例如：完成个人信息保护影响评估" /></label>
+            <label className="form-field"><span>任务名称</span><input value={actionForm.title} onChange={(event) => setActionForm({ ...actionForm, title: event.target.value })} placeholder="例如：完成个人信息保护影响评估" /></label>
             <label className="form-field"><span>负责人</span><input value={actionForm.owner_role} onChange={(event) => setActionForm({ ...actionForm, owner_role: event.target.value })} placeholder="例如：法务、隐私或业务负责人" /></label>
             <label className="form-field"><span>优先级</span><select value={actionForm.priority} onChange={(event) => setActionForm({ ...actionForm, priority: event.target.value as ActionFormState['priority'] })}><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></label>
             <label className="form-field"><span>截止日期</span><input type="date" value={actionForm.due_date} onChange={(event) => setActionForm({ ...actionForm, due_date: event.target.value })} /></label>
-            <label className="form-field form-field--wide"><span>动作说明</span><textarea value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} placeholder="说明完成标准、交付物或风险背景" /></label>
+            <label className="form-field form-field--wide"><span>任务说明</span><textarea value={actionForm.description} onChange={(event) => setActionForm({ ...actionForm, description: event.target.value })} placeholder="说明完成标准、交付物或风险背景" /></label>
           </div>
-          <div className="case-action-form__actions"><button type="button" className="case-header__action-btn" onClick={() => setActionFormOpen(false)}>取消</button><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={!actionForm.title.trim()} onClick={saveAction}>保存动作</button></div>
+          <div className="case-action-form__actions"><button type="button" className="case-header__action-btn" onClick={() => setActionFormOpen(false)}>取消</button><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={!actionForm.title.trim()} onClick={saveAction}>保存任务</button></div>
         </div>
       ) : null}
       <div className="case-operations__actions">
-        {canManageActions ? <button type="button" className="case-header__action-btn" onClick={beginCreateAction}>+ 新增整改动作</button> : null}
+        {canManageActions ? <button type="button" className="case-header__action-btn" onClick={beginCreateAction}>+ 新增整改任务</button> : null}
         {TERMINAL_CASE_STATUSES.has(saved.status) ? <span className="case-operations__complete">✓ 飞书审批结果已归档</span> : null}
       </div>
-      {recommendations.length > 0 ? (
-        <details className="case-operations__recommendations">
-          <summary>查看审查建议（{recommendations.length}）</summary>
-          <ol>{recommendations.map((item, index) => <li key={index}><MarkdownText variant="note">{item}</MarkdownText></li>)}</ol>
-        </details>
+    </section>
+  );
+}
+
+function ReviewRecommendations({ items }: { items: string[] }): JSX.Element | null {
+  if (items.length === 0) return null;
+  return (
+    <section className="card report-card review-recommendations">
+      <div className="review-recommendations__heading">
+        <h2>审查建议</h2>
+        <span>{items.length} 项</span>
+      </div>
+      <ol className="review-recommendations__list">
+        {items.map((item, index) => <li key={index}><MarkdownText variant="note">{item}</MarkdownText></li>)}
+      </ol>
+    </section>
+  );
+}
+
+function ReviewGaps({ blockers = [], manualConfirmations = [] }: { blockers?: string[]; manualConfirmations?: string[] }): JSX.Element | null {
+  const blockingItems = Array.from(new Set(blockers.filter(Boolean)));
+  const confirmationItems = Array.from(new Set(manualConfirmations.filter(Boolean)));
+  if (blockingItems.length === 0 && confirmationItems.length === 0) return null;
+  return (
+    <section className="card report-card review-gaps">
+      <div className="review-gaps__heading"><div><h2>待补充事实</h2><p>由规则判断和审查结果识别，不是人工创建的整改任务。</p></div></div>
+      {blockingItems.length > 0 ? (
+        <div className="case-operations__blockers">
+          <strong>送审前必须确认</strong>
+          <ul>{blockingItems.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
       ) : null}
+      {confirmationItems.length > 0 ? <div className="case-operations__confirmation"><strong>需要人工确认</strong><span>{confirmationItems.join('；')}</span></div> : null}
     </section>
   );
 }
@@ -558,7 +570,7 @@ function AuditDisclosure({ saved, includeMaterial = false }: { saved: SavedCase;
 }
 
 function eventLabel(event: string): string {
-  const labels: Record<string, string> = { case_created: '创建案件', case_updated: '更新案件材料', status_changed: '变更案件状态', review_started: '开始证据化审查', review_completed: '生成审查结果', review_failed: '审查运行失败', action_created: '生成整改动作', action_updated: '更新整改动作', feedback_saved: '保存人工反馈', feishu_approval_created: '发起飞书审批', feishu_decision_written_back: '归档飞书最终决定', report_generated: '生成正式报告', decision_report_generation_failed: '正式报告生成失败' };
+  const labels: Record<string, string> = { case_created: '创建案件', case_updated: '更新案件材料', status_changed: '变更案件状态', review_started: '开始证据化审查', review_completed: '生成审查结果', review_failed: '审查运行失败', action_created: '创建整改任务', action_updated: '更新整改任务', feedback_saved: '保存人工反馈', feishu_approval_created: '发起飞书审批', feishu_decision_written_back: '归档飞书最终决定', report_generated: '生成正式报告', decision_report_generation_failed: '正式报告生成失败' };
   return labels[event] ?? event;
 }
 
@@ -583,20 +595,6 @@ interface CaseHeaderProps {
 }
 
 function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workflowOperation, workflowError, setWorkflowOperation, setWorkflowError }: CaseHeaderProps): JSX.Element {
-  const moreRef = useRef<HTMLDetailsElement>(null);
-
-  useEffect(() => {
-    const closeOnOutsideClick = (event: PointerEvent): void => {
-      if (moreRef.current?.open && !moreRef.current.contains(event.target as Node)) moreRef.current.open = false;
-    };
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick);
-  }, []);
-
-  const closeMore = (): void => {
-    if (moreRef.current) moreRef.current.open = false;
-  };
-
   return (
     <header className="case-header card">
       <div className="case-header__top">
@@ -605,14 +603,9 @@ function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workfl
         </button>
         <div className="case-header__actions">
           <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} compact />
-          <details className="case-header__more" ref={moreRef}>
-            <summary className="case-header__action-btn">更多</summary>
-            <div className="case-header__menu">
-              {demoMode ? null : <button type="button" onClick={() => { closeMore(); onRerun(); }}>以此为模板重审</button>}
-              <button type="button" onClick={() => { closeMore(); downloadMarkdown(saved); }}>导出 Markdown</button>
-              <button type="button" onClick={() => { closeMore(); downloadHtml(saved); }}>导出 HTML 报告</button>
-            </div>
-          </details>
+          {demoMode ? null : <button type="button" className="case-header__action-btn" onClick={onRerun}>以此为模板重审</button>}
+          <button type="button" className="case-header__action-btn" onClick={() => downloadMarkdown(saved)}>导出 Markdown</button>
+          <button type="button" className="case-header__action-btn" onClick={() => downloadHtml(saved)}>导出 HTML 报告</button>
         </div>
       </div>
 
@@ -804,15 +797,16 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
             ) : null}
           </section>
 
-          <CaseOperations
-            saved={saved}
-            canManageActions={canManageActions}
+          <ReviewRecommendations items={result.recommended_actions} />
+
+          <ReviewGaps
             blockers={saved.ruleDecision?.determination.needs_info.length
               ? saved.ruleDecision.determination.needs_info.map((item) => item.reason)
               : result.missing_information}
             manualConfirmations={saved.ruleDecision?.determination.manual_confirmation_reasons ?? []}
-            recommendations={result.recommended_actions}
           />
+
+          <CaseOperations saved={saved} canManageActions={canManageActions} />
 
           <details className="card report-disclosure">
             <summary>案件输入与材料版本</summary>
@@ -868,7 +862,7 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
           </details>
 
           <details className="card report-disclosure">
-            <summary>查看引用评价</summary>
+            <summary>引用依据复核</summary>
             <div className="report-disclosure__body">
               <CitationList
                 groups={response.citation_groups}
@@ -879,7 +873,7 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
                 viewerRole={viewerRole}
               />
               {demoMode
-                ? <div className="demo-readonly-note">公开演示仅供浏览，人工评价与整改动作需要接入自己的服务端后保存。</div>
+                ? <div className="demo-readonly-note">公开演示仅供浏览，人工评价与整改任务需要接入自己的服务端后保存。</div>
                 : viewerRole === 'requester' ? <FeedbackPanel saved={saved} /> : null}
             </div>
           </details>
@@ -1095,7 +1089,6 @@ function EvidenceSidebar({
                   <span>{USAGE_LABELS[group.usage]}</span>
                   <span>{group.citations.length} 条</span>
                 </div>
-                {group.scope_note ? <div className="evidence-sidebar__group-note">{group.scope_note}</div> : null}
                 {group.citations.map((citation) => (
                   <EvidenceCard
                     key={citation.citation_ref || citation.chunk_id}
