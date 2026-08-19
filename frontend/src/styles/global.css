@@ -1708,33 +1708,20 @@ textarea {
 
 .evidence-card__index {
   color: var(--color-accent);
-  font-family: var(--font-mono);
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-heading);
   font-size: 0.75rem;
   font-weight: 800;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .evidence-card__usage {
   color: #64748b;
   font-size: 0.6875rem;
   font-weight: 700;
-}
-
-.evidence-card__title {
-  color: var(--color-foreground);
-  font-size: 0.8125rem;
-  font-weight: 800;
-  line-height: 1.45;
-}
-
-.evidence-card__source {
-  display: block;
-  margin-top: 3px;
-  overflow: hidden;
-  color: #64748b;
-  font-size: 0.6875rem;
-  line-height: 1.45;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .evidence-card__detail {
@@ -2035,11 +2022,6 @@ textarea {
   font-weight: 700;
   color: var(--color-primary);
   letter-spacing: 0.02em;
-}
-.case-field__source {
-  color: #94a3b8;
-  font-weight: 500;
-  margin-left: 4px;
 }
 .case-field__value {
   font-size: 0.9375rem;
@@ -2516,10 +2498,6 @@ textarea {
   background: #f8fafc;
 }
 
-.evidence-card--aux .evidence-card__title {
-  color: #475569;
-}
-
 .evidence-card--aux .evidence-card__text {
   color: #64748b;
 }
@@ -2920,19 +2898,6 @@ textarea {
   font-size: 0.75rem;
   flex-shrink: 0;
   width: 14px;
-}
-.cite-row__index {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--color-muted);
-  color: var(--color-primary);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 .cite-row__label {
   flex: 1 1 auto;

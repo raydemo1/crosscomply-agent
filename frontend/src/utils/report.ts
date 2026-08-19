@@ -19,6 +19,7 @@ import { CASE_STATUS_LABELS } from './workflow';
 import {
   CITATION_ROLE_LABELS,
   AUTHORITY_LABELS,
+  citationDisplayLabel,
   DOC_TYPE_LABELS,
   EVIDENCE_ISSUE_LABELS,
   EVIDENCE_STATUS_LABELS,
@@ -80,6 +81,9 @@ function citationsToMarkdown(
   chunks: Map<string, RetrievalHit>,
 ): string {
   if (groups.length === 0) return '_无可引用证据_';
+  const labels = new Map(
+    groups.flatMap((group) => group.citations).map((citation) => [citation.citation_ref, citationDisplayLabel(citation)]),
+  );
   const ordered = [...groups].sort(
     (a, b) => USAGE_ORDER.indexOf(a.usage) - USAGE_ORDER.indexOf(b.usage),
   );
@@ -90,8 +94,8 @@ function citationsToMarkdown(
       const items = group.citations
         .map((c) => {
           const lines: string[] = [
-            `- **${mdEscape(c.citation_ref || '未编号')} · ${mdEscape(c.citation_label ?? c.title)}**`,
-            `   - 支持关系：见结论逐句依据中的 ${mdEscape(c.citation_ref || '未编号')}`,
+            `- **${mdEscape(citationDisplayLabel(c))}**`,
+            `   - 支持关系：见结论逐句依据中的 ${mdEscape(labels.get(c.citation_ref) ?? citationDisplayLabel(c))}`,
             `   - 法源类型：${mdEscape(DOC_TYPE_LABELS[c.doc_type] ?? c.doc_type)} · 权威等级：${mdEscape(AUTHORITY_LABELS[c.authority] ?? c.authority)}`,
             `   - 引用角色：${CITATION_ROLE_LABELS[c.citation_role] ?? '引用角色未提供'}`,
             `   - 法律状态：${mdEscape(LAW_STATUS_LABELS[c.law_status] ?? '状态未知')} · 发布机关：${mdEscape(c.issuing_body || '未提供')}`,
@@ -115,13 +119,17 @@ function citationsToMarkdown(
 
 function claimsToMarkdown(
   claims: { text: string; supporting_citation_refs: string[] }[],
+  groups: CitationGroup[],
 ): string {
   if (claims.length === 0) return '';
+  const labels = new Map(
+    groups.flatMap((group) => group.citations).map((citation) => [citation.citation_ref, citationDisplayLabel(citation)]),
+  );
   const lines = ['**结论逐句依据：**'];
   claims.forEach((claim, index) => {
     lines.push(`${index + 1}. ${mdEscape(claim.text)}`);
     const refs = claim.supporting_citation_refs ?? [];
-    lines.push(`   - 支持法源：${refs.length > 0 ? refs.map(mdEscape).join('、') : '—'}`);
+    lines.push(`   - 支持法条：${refs.length > 0 ? refs.map((ref) => mdEscape(labels.get(ref) ?? '引用依据未找到')).join('、') : '—'}`);
   });
   return lines.join('\n');
 }
@@ -266,7 +274,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
   lines.push('');
   lines.push(result.conclusion);
   lines.push('');
-  const groundedClaims = claimsToMarkdown(result.claims);
+  const groundedClaims = claimsToMarkdown(result.claims, response.citation_groups);
   if (groundedClaims) {
     lines.push(groundedClaims);
     lines.push('');
@@ -449,7 +457,7 @@ function citationsToHtml(
             ? `<a href="${escHtml(c.source_url)}" target="_blank" rel="noopener">${escHtml(c.source_url)}</a>`
             : '<span class="muted">—</span>';
           return `<div class="cite">
-            <div class="cite-title"><a id="${escHtml(c.citation_ref)}"></a>${escHtml(c.citation_ref || '未编号')} · ${escHtml(c.citation_label ?? c.title)}</div>
+            <div class="cite-title"><a id="${escHtml(c.citation_ref)}"></a>${escHtml(citationDisplayLabel(c))}</div>
             <div class="cite-meta">法源类型：${escHtml(DOC_TYPE_LABELS[c.doc_type] ?? c.doc_type)} · 权威等级：${escHtml(AUTHORITY_LABELS[c.authority] ?? c.authority)} · 法律状态：${escHtml(LAW_STATUS_LABELS[c.law_status] ?? '状态未知')}</div>
             <div class="cite-meta">引用角色：${escHtml(CITATION_ROLE_LABELS[c.citation_role] ?? '引用角色未提供')} · 发布机关：${escHtml(c.issuing_body || '未提供')} · 官方原文：${link}</div>
             ${chunkHtml}
@@ -466,13 +474,17 @@ function citationsToHtml(
 
 function claimsToHtml(
   claims: { text: string; supporting_citation_refs: string[] }[],
+  groups: CitationGroup[],
 ): string {
   if (claims.length === 0) return '';
+  const labels = new Map(
+    groups.flatMap((group) => group.citations).map((citation) => [citation.citation_ref, citationDisplayLabel(citation)]),
+  );
   const items = claims
     .map((claim, index) => {
       return `<div class="claim">
         <div class="claim-text">${index + 1}. ${escHtml(claim.text)}</div>
-        <div class="claim-refs">支持法源：${(claim.supporting_citation_refs ?? []).length > 0 ? escHtml((claim.supporting_citation_refs ?? []).join('、')) : '—'}</div>
+        <div class="claim-refs">支持法条：${(claim.supporting_citation_refs ?? []).length > 0 ? escHtml((claim.supporting_citation_refs ?? []).map((ref) => labels.get(ref) ?? '引用依据未找到').join('、')) : '—'}</div>
       </div>`;
     })
     .join('');
@@ -555,7 +567,7 @@ export function buildHtmlReport(saved: SavedCase): string {
   parts.push('<h2>七、审查结论</h2>');
   parts.push(`<p><span class="risk risk-${escHtml(result.risk_level)}">${escHtml(RISK_LABELS[result.risk_level])}</span></p>`);
   parts.push(`<p>${escHtml(result.conclusion)}</p>`);
-  parts.push(claimsToHtml(result.claims));
+  parts.push(claimsToHtml(result.claims, response.citation_groups));
 
   let idx = 8;
   if (result.trigger_reasons.length > 0) {

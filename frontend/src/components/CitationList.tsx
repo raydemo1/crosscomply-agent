@@ -13,6 +13,7 @@ import type { CitationVerdict } from '../types/case';
 import {
   AUTHORITY_LABELS,
   CITATION_ROLE_LABELS,
+  citationDisplayLabel,
   LAW_STATUS_LABELS,
   USAGE_LABELS,
   USAGE_ORDER,
@@ -94,12 +95,11 @@ function GovernanceRow({
   viewerRole: UserRole;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
-  const label = citation.citation_label ?? citation.title;
+  const label = citationDisplayLabel(citation);
   return (
     <div className={'cite-row cite-row--governance' + (open ? ' is-open' : '')}>
       <button type="button" className="cite-row__head" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <span className="cite-row__chevron" aria-hidden="true">{open ? '▾' : '▸'}</span>
-        <span className="cite-row__index">{citation.citation_ref || '—'}</span>
         <span className="cite-row__label">{label}</span>
         <span className="cite-chip cite-chip--role">{LAW_STATUS_LABELS[citation.law_status] ?? '状态未知'}</span>
       </button>

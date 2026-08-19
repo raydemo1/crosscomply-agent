@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Citation, GroundedClaim, RetrievalHit } from '../types/api';
 import MarkdownText from './MarkdownText';
+import { citationDisplayLabel } from '../utils/display';
 
 interface GroundedClaimsProps {
   claims: GroundedClaim[] | undefined;
@@ -55,7 +56,7 @@ export default function GroundedClaims({
               {citationRefs.map((citationRef) => {
                 const citation = citations.find((item) => item.citation_ref === citationRef);
                 const chunk = citation ? chunkMap.get(citation.chunk_id) : undefined;
-                const label = citation?.citation_label || citation?.title || citationRef;
+                const label = citation ? citationDisplayLabel(citation) : '引用依据未找到';
 
                 return onEvidenceSelect ? (
                   <button
@@ -63,20 +64,18 @@ export default function GroundedClaims({
                     className="grounded-claim__ref"
                     key={citationRef}
                     onClick={() => onEvidenceSelect(citationRef, label)}
-                    aria-label={`在引用依据栏查看 ${citationRef}：${label}`}
+                    aria-label={`在引用依据栏查看：${label}`}
                   >
-                    <span className="grounded-claim__ref-id">{citationRef}</span>
-                    <span>{label}</span>
+                    <span className="grounded-claim__ref-id">{label}</span>
                   </button>
                 ) : (
                   <a
                     className="grounded-claim__ref"
                     key={citationRef}
                     href={`#evidence-${cssId(citationRef)}`}
-                    aria-label={`在引用依据栏查看 ${citationRef}：${label}`}
+                    aria-label={`在引用依据栏查看：${label}`}
                   >
-                    <span className="grounded-claim__ref-id">{citationRef}</span>
-                    <span>{label}</span>
+                    <span className="grounded-claim__ref-id">{label}</span>
                   </a>
                 );
               })}

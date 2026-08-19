@@ -178,3 +178,26 @@ export function shortId(id: string): string {
   if (!id) return '—';
   return id.length <= 8 ? id : `…${id.slice(-8)}`;
 }
+
+/** Remove the case-local citation number from user-facing legal references. */
+function stripCitationRef(value: string): string {
+  return value.replace(/^\s*法源[-－]\d+\s*/, '').trim();
+}
+
+/** Render a legal basis as the law name and, when available, its article. */
+export function legalBasisLabel(title: string | null | undefined, article?: string | null): string {
+  const cleanTitle = stripCitationRef(title || '').replace(/^《|》$/g, '').trim();
+  if (!cleanTitle) return article?.trim() || '未提供法律依据';
+  return `《${cleanTitle}》${article?.trim() || ''}`;
+}
+
+/** Prefer the backend's complete citation label while hiding internal refs. */
+export function citationDisplayLabel(citation: {
+  citation_label?: string | null;
+  title: string;
+  article_no?: string | null;
+}): string {
+  const label = citation.citation_label?.trim();
+  if (label) return stripCitationRef(label);
+  return legalBasisLabel(citation.title, citation.article_no);
+}

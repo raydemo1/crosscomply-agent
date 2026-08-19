@@ -37,7 +37,9 @@ import {
   EVIDENCE_STATUS_LABELS,
   AUTHORITY_LABELS,
   CITATION_ROLE_LABELS,
+  citationDisplayLabel,
   DOC_TYPE_LABELS,
+  legalBasisLabel,
   LAW_STATUS_LABELS,
   QUERY_TYPE_LABELS,
   USAGE_LABELS,
@@ -114,11 +116,6 @@ export default function CaseDetailPage({
       />
 
       <HeroCaseProgress saved={saved} />
-      <EnterpriseDecisionChain saved={saved} demoMode={demoMode} />
-      <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} />
-
-      <CaseOperations saved={saved} canManageActions={canManageActions} />
-
       {failed ? (
         <FailedChain response={response} />
       ) : (
@@ -129,6 +126,9 @@ export default function CaseDetailPage({
           viewerRole={viewerRole}
         />
       )}
+      <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} />
+      <CaseOperations saved={saved} canManageActions={canManageActions} />
+      <EnterpriseDecisionChain saved={saved} demoMode={demoMode} />
     </div>
   );
 }
@@ -163,8 +163,8 @@ function DraftCaseView({
         <div className="case-header__meta"><span className={'status-chip status-chip--' + saved.status}>{statusLabel(saved.status)}</span><span>{saved.savedAt.replace('T', ' ').slice(0, 16)}</span></div>
       </header>
       <HeroCaseProgress saved={saved} />
-      <EnterpriseDecisionChain saved={saved} />
       <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} />
+      <EnterpriseDecisionChain saved={saved} />
       <section className="card draft-case-card">
         <div className="section-title">提交前检查</div>
         <div className="draft-case-card__grid">
@@ -258,7 +258,7 @@ function EnterpriseDecisionChain({ saved, demoMode = false }: { saved: SavedCase
           </div>
           {ruleDecision.determination.needs_info.length > 0 ? <div className="enterprise-callout enterprise-callout--warning"><strong>送审前必须确认</strong><ul>{ruleDecision.determination.needs_info.map((fact) => <li key={fact.key}>{fact.reason}</li>)}</ul></div> : null}
           {ruleDecision.determination.requires_rag_human_confirmation ? <div className="enterprise-callout"><strong>需要检索与人工确认</strong><span>{ruleDecision.determination.manual_confirmation_reasons.join('；')}</span></div> : null}
-          {ruleDecision.determination.official_bases.length > 0 ? <div className="enterprise-bases">{ruleDecision.determination.official_bases.map((basis) => <a key={basis.basis_id} href={basis.source_url} target="_blank" rel="noreferrer"><strong>{basis.title} {basis.article}</strong><span>{basis.issuing_body} ↗</span></a>)}</div> : null}
+          {ruleDecision.determination.official_bases.length > 0 ? <div className="enterprise-bases">{ruleDecision.determination.official_bases.map((basis) => <a key={basis.basis_id} href={basis.source_url} target="_blank" rel="noreferrer"><strong>{legalBasisLabel(basis.title, basis.article)}</strong><span>{basis.issuing_body} ↗</span></a>)}</div> : null}
         </article>
       ) : null}
 
@@ -725,9 +725,6 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole }: ReviewCha
             <div className="case-field">
               <div className="case-field__label">
                 待审查材料
-                {saved.materialSource ? (
-                  <span className="case-field__source">（来源：{saved.materialSource}）</span>
-                ) : null}
               </div>
               <pre className="case-field__material">{saved.materialText}</pre>
             </div>
@@ -1063,7 +1060,7 @@ function EvidenceCard({
   onSelect: (citationRef: string, label: string) => void;
   viewerRole: UserRole;
 }): JSX.Element {
-  const label = item.citation_label ?? item.title;
+  const label = citationDisplayLabel(item);
   const lawStatus = LAW_STATUS_LABELS[item.law_status] ?? '状态未知';
   const articleText = item.full_article_text?.trim();
   return (
@@ -1075,7 +1072,7 @@ function EvidenceCard({
       }
       id={`evidence-${cssId(item.citation_ref)}`}
       tabIndex={-1}
-      aria-label={`${item.citation_ref} ${label}`}
+      aria-label={label}
     >
       <button
         type="button"
@@ -1084,11 +1081,9 @@ function EvidenceCard({
         aria-expanded={selected}
       >
         <span className="evidence-card__top">
-          <span className="evidence-card__index">{item.citation_ref}</span>
+          <span className="evidence-card__index">{label}</span>
           <span className="evidence-card__usage">{lawStatus}</span>
         </span>
-        <span className="evidence-card__title">{label}</span>
-        <span className="evidence-card__source">{item.title}</span>
       </button>
       {selected ? (
         <div className="evidence-card__detail">
