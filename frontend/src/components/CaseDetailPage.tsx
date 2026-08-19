@@ -166,7 +166,7 @@ function DraftCaseView({
   return (
     <div className="case-detail">
       <header className="case-header card">
-        <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回案件工作台</button>
+        <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回案件管理</button>
         <div className="case-header__eyebrow">案件 {saved.id.slice(0, 18)}</div>
         <h1 className="case-header__title">{saved.question}</h1>
         <div className="case-header__meta"><span className={'status-chip status-chip--' + saved.status}>{statusLabel(saved.status)}</span><span>{saved.savedAt.replace('T', ' ').slice(0, 16)}</span></div>
@@ -501,7 +501,28 @@ function AuditDisclosure({ saved, includeMaterial = false }: { saved: SavedCase;
 }
 
 function eventLabel(event: string): string {
-  const labels: Record<string, string> = { case_created: '创建案件', case_updated: '更新案件材料', status_changed: '变更案件状态', review_started: '开始证据化审查', review_completed: '生成审查结果', review_failed: '审查运行失败', action_created: '创建整改任务', action_updated: '更新整改任务', feedback_saved: '保存人工反馈', feishu_approval_created: '发起飞书审批', feishu_decision_written_back: '归档飞书最终决定', report_generated: '生成正式报告', decision_report_generation_failed: '正式报告生成失败' };
+  const labels: Record<string, string> = {
+    case_created: '创建案件',
+    case_updated: '更新案件材料',
+    status_changed: '变更案件状态',
+    review_started: '开始证据化审查',
+    review_completed: '生成审查结果',
+    review_failed: '审查运行失败',
+    action_created: '创建整改任务',
+    action_updated: '更新整改任务',
+    remediation_plan_created: '建立整改计划',
+    remediation_plan_activated: '激活整改计划',
+    remediation_plan_cancelled: '取消整改计划',
+    remediation_task_updated: '调整整改任务',
+    remediation_task_started: '开始处理整改任务',
+    remediation_submitted: '提交整改结果',
+    remediation_submission_reviewed: '复核整改结果',
+    feedback_saved: '保存人工反馈',
+    feishu_approval_created: '发起飞书审批',
+    feishu_decision_written_back: '归档飞书最终决定',
+    report_generated: '生成正式报告',
+    decision_report_generation_failed: '正式报告生成失败',
+  };
   return labels[event] ?? event;
 }
 
@@ -530,7 +551,7 @@ function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workfl
     <header className="case-header card">
       <div className="case-header__top">
         <button type="button" className="btn-link case-header__back" onClick={onBack}>
-          ← 返回工作台
+          ← 返回案件管理
         </button>
         <div className="case-header__actions">
           <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} compact />

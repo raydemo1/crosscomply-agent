@@ -381,6 +381,7 @@ export interface RemediationSubmissionApi {
   id: string;
   task_id: string;
   submitted_by: string;
+  submitted_by_user?: RemediationAssigneeApi | null;
   note: string;
   evidence: RemediationEvidenceApi[];
   status: RemediationSubmissionStatus;
@@ -394,6 +395,8 @@ export interface RemediationTaskApi {
   id: string;
   plan_id: string;
   case_id: string;
+  case_title?: string | null;
+  case_question?: string | null;
   title: string;
   description: string;
   acceptance_criteria?: string;
@@ -472,6 +475,8 @@ export interface RemediationSubmissionPayload {
     byte_size?: number | null;
   }>;
 }
+
+export type RemediationEvidenceUploadApi = NonNullable<RemediationSubmissionPayload['evidence']>[number];
 
 export interface RemediationReviewPayload {
   decision: 'accepted' | 'rejected';
@@ -719,7 +724,8 @@ export interface CaseRecordApi extends CaseSummaryApi {
 
 export interface CaseDetailApi {
   case: CaseRecordApi;
-  actions: CaseAction[];
+  /** Legacy field may be absent; current remediation data lives in remediation_plan. */
+  actions?: CaseAction[];
   events: CaseEvent[];
   feedback: CaseFeedbackApi | null;
   material_snapshot: MaterialSnapshotApi | null;

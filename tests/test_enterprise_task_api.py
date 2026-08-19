@@ -355,14 +355,27 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
             final_node="completed",
         )
         case_store.update_case(case_id, status="pending_feishu_approval")
-        action = client.post(
-            f"/api/cases/{case_id}/actions",
+        reviewer_id = client.get("/api/auth/me").json()["user"]["id"]
+        plan = client.post(
+            f"/api/cases/{case_id}/remediation-plan",
             json={
-                "title": "上线前完成跨境合同归档",
-                "description": "审批时提交的整改动作说明",
+                "tasks": [{
+                    "title": "上线前完成跨境合同归档",
+                    "description": "审批时提交的整改动作说明",
+                    "assignee_id": reviewer_id,
+                    "due_date": "2026-08-30",
+                }],
             },
         )
-        assert action.status_code == 200, action.text
+        assert plan.status_code == 200, plan.text
+        remediation = plan.json()["tasks"][0]
+        uploaded = client.post(
+            f"/api/remediation-tasks/{remediation['id']}/evidence",
+            files={"file": ("contract.txt", b"signed contract", "text/plain")},
+        )
+        assert uploaded.status_code == 200, uploaded.text
+        assert uploaded.json()["kind"] == "file"
+        assert uploaded.json()["object_key"]
 
         created = client.post(f"/api/cases/{case_id}/feishu-approval")
         assert created.status_code == 200, created.text
@@ -372,16 +385,16 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         assert form["key_actions"] == "完成个人信息保护影响评估；上线前完成跨境合同归档"
         assert form["case_url"] == f"https://crosscomply.example.com/?case={case_id}"
         assert form["task_id"] == task.id
-        updated_action = client.patch(
-            f"/api/actions/{action.json()['id']}",
-            json={"description": "审批后的整改跟进说明", "status": "completed"},
+        updated_remediation = client.patch(
+            f"/api/remediation-tasks/{remediation['id']}",
+            json={"description": "审批后的整改跟进说明"},
         )
-        assert updated_action.status_code == 200, updated_action.text
-        assert updated_action.json()["status"] == "completed"
-        assert created.json()["payload"]["report_actions_snapshot"][0]["description"] == "审批时提交的整改动作说明"
+        assert updated_remediation.status_code == 200, updated_remediation.text
+        assert updated_remediation.json()["description"] == "审批后的整改跟进说明"
+        assert created.json()["payload"]["remediation_plan_snapshot"]["tasks"][0]["description"] == "审批时提交的整改动作说明"
         assert any(
-            item["event_type"] == "action_updated"
-            and item["payload"]["action_id"] == action.json()["id"]
+            item["event_type"] == "remediation_task_updated"
+            and item["payload"]["task_id"] == remediation["id"]
             for item in client.get(f"/api/cases/{case_id}").json()["events"]
         )
 

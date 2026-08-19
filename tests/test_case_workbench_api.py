@@ -202,22 +202,55 @@ def test_evidence_gap_stays_in_needs_info(app) -> None:
         assert complete.status_code == 403
 
 
-def test_actions_feedback_and_dashboard_are_persisted(app) -> None:
+def test_remediation_feedback_and_dashboard_are_persisted(app) -> None:
     with TestClient(app) as client:
         _login(client, "reviewer@crosscomply.local")
         case_id = _create_case(client)
-        action = client.post(
-            f"/api/cases/{case_id}/actions",
-            json={"title": "补充供应商合同", "priority": "high"},
+        reviewer_id = client.get("/api/auth/me").json()["user"]["id"]
+        plan = client.post(
+            f"/api/cases/{case_id}/remediation-plan",
+            json={
+                "tasks": [{
+                    "title": "补充供应商合同",
+                    "priority": "high",
+                    "assignee_id": reviewer_id,
+                    "due_date": "2026-08-30",
+                }],
+            },
         )
-        assert action.status_code == 200
-        action_id = action.json()["id"]
-        updated = client.patch(f"/api/actions/{action_id}", json={"status": "completed"})
+        assert plan.status_code == 200, plan.text
+        task_id = plan.json()["tasks"][0]["id"]
+        activated = client.post(f"/api/remediation-plans/{plan.json()['id']}/activate")
+        assert activated.status_code == 200, activated.text
+        updated = client.patch(
+            f"/api/remediation-tasks/{task_id}",
+            json={"description": "补充并归档已签署的供应商合同"},
+        )
         assert updated.status_code == 200
-        assert updated.json()["status"] == "completed"
+        assert updated.json()["description"] == "补充并归档已签署的供应商合同"
+        started = client.post(f"/api/remediation-tasks/{task_id}/start")
+        assert started.status_code == 200, started.text
+        submission = client.post(
+            f"/api/remediation-tasks/{task_id}/submissions",
+            json={
+                "note": "已补充并归档供应商合同。",
+                "evidence": [{
+                    "kind": "link",
+                    "label": "合同归档记录",
+                    "uri": "https://example.com/contracts/vendor-dpa",
+                }],
+            },
+        )
+        assert submission.status_code == 200, submission.text
+        reviewed = client.post(
+            f"/api/remediation-submissions/{submission.json()['id']}/review",
+            json={"decision": "accepted"},
+        )
+        assert reviewed.status_code == 200, reviewed.text
+        assert reviewed.json()["status"] == "accepted"
         events = client.get(f"/api/cases/{case_id}/events")
         assert events.status_code == 200
-        assert any(item["event_type"] == "action_updated" for item in events.json()["items"])
+        assert any(item["event_type"] == "remediation_task_updated" for item in events.json()["items"])
 
         feedback = client.post(
             f"/api/cases/{case_id}/feedback",

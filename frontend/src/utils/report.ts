@@ -167,7 +167,18 @@ function intakeToMarkdown(intake: CaseIntake): string {
 }
 
 function actionsToMarkdown(saved: SavedCase): string {
-  if (saved.actions.length === 0) return '_暂无服务端整改动作_';
+  const plan = saved.remediationPlan;
+  if (plan) {
+    if (plan.tasks.length === 0) return plan.no_remediation_reason ? `无需整改：${mdEscape(plan.no_remediation_reason)}` : '_暂无整改任务_';
+    return plan.tasks.map((task, index) => {
+      const due = task.due_date ? '，截止 ' + task.due_date : '';
+      const state = task.status === 'completed' ? '已完成' : task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理';
+      const assignee = task.assignee?.display_name ?? task.assignee_id ?? '未分派';
+      const description = task.description ? '：' + mdEscape(task.description) : '';
+      return (index + 1) + '. **' + mdEscape(task.title) + '**（' + state + '，负责人：' + mdEscape(assignee) + due + '）' + description;
+    }).join('\n');
+  }
+  if (saved.actions.length === 0) return '_暂无整改任务_';
   return saved.actions.map((action, index) => {
     const due = action.due_date ? '，截止 ' + action.due_date : '';
     const state = action.status === 'completed' ? '已完成' : action.status === 'in_progress' ? '处理中' : '待处理';
@@ -308,7 +319,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
     lines.push('');
   }
 
-  lines.push('## 十二、服务端整改动作');
+  lines.push('## 十二、整改计划');
   lines.push('');
   lines.push(actionsToMarkdown(saved));
   lines.push('');
@@ -591,10 +602,22 @@ export function buildHtmlReport(saved: SavedCase): string {
     parts.push('</ul>');
   }
 
-  parts.push('<h2>十二、服务端整改动作</h2>');
+  parts.push('<h2>十二、整改计划</h2>');
   parts.push('<ol>');
-  if (saved.actions.length === 0) {
-    parts.push('<li class="muted">暂无服务端整改动作</li>');
+  if (saved.remediationPlan) {
+    if (saved.remediationPlan.tasks.length === 0) {
+      parts.push(`<li class="muted">${saved.remediationPlan.no_remediation_reason ? '无需整改：' + escHtml(saved.remediationPlan.no_remediation_reason) : '暂无整改任务'}</li>`);
+    } else {
+      saved.remediationPlan.tasks.forEach((task) => {
+        const due = task.due_date ? '，截止 ' + escHtml(task.due_date) : '';
+        const state = task.status === 'completed' ? '已完成' : task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理';
+        const assignee = task.assignee?.display_name ?? task.assignee_id ?? '未分派';
+        const description = task.description ? '：' + escHtml(task.description) : '';
+        parts.push('<li><strong>' + escHtml(task.title) + '</strong>（' + state + '，负责人：' + escHtml(assignee) + due + '）' + description + '</li>');
+      });
+    }
+  } else if (saved.actions.length === 0) {
+    parts.push('<li class="muted">暂无整改任务</li>');
   } else {
     saved.actions.forEach((action) => {
       const due = action.due_date ? '，截止 ' + escHtml(action.due_date) : '';

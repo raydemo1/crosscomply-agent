@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { BookOpen, ClipboardCheck, Files, LogOut, Scale, ShieldCheck, X } from 'lucide-react';
 import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { relativeTime, truncate } from '../utils/display';
@@ -86,32 +87,32 @@ export default function Sidebar({
             <div className="sidebar-brand-subtitle">案件管理</div>
           </div>
         </div>
-        <button type="button" className="sidebar-mobile-close" onClick={onCloseMobile} aria-label="关闭案件导航">×</button>
+        <button type="button" className="sidebar-mobile-close" onClick={onCloseMobile} aria-label="关闭案件导航"><X size={18} strokeWidth={1.8} /></button>
       </div>
 
       <nav className="sidebar-section" aria-label="主导航">
         <div className="sidebar-nav">
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('workbench'); }}>
-            <span className="sidebar-nav-item-icon">⌂</span>
+            <span className="sidebar-nav-item-icon" aria-hidden="true"><Files size={18} strokeWidth={1.8} /></span>
             <span>案件管理</span>
           </button>
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'my-remediations' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('my-remediations'); }}>
-            <span className="sidebar-nav-item-icon" aria-hidden="true">✓</span>
+            <span className="sidebar-nav-item-icon" aria-hidden="true"><ClipboardCheck size={18} strokeWidth={1.8} /></span>
             <span>我的整改</span>
           </button>
           <button type="button" className="sidebar-nav-item sidebar-nav-item--coming-soon" disabled aria-disabled="true">
-            <span className="sidebar-nav-item-icon" aria-hidden="true">§</span>
+            <span className="sidebar-nav-item-icon" aria-hidden="true"><Scale size={18} strokeWidth={1.8} /></span>
             <span>法律法规库</span>
             <span className="sidebar-nav-item-status">即将开放</span>
           </button>
           <button type="button" className="sidebar-nav-item sidebar-nav-item--coming-soon" disabled aria-disabled="true">
-            <span className="sidebar-nav-item-icon" aria-hidden="true">▤</span>
+            <span className="sidebar-nav-item-icon" aria-hidden="true"><BookOpen size={18} strokeWidth={1.8} /></span>
             <span>政策制度</span>
             <span className="sidebar-nav-item-status">即将开放</span>
           </button>
           {user.role === 'admin' ? (
             <button type="button" className={'sidebar-nav-item' + (currentPage === 'governance' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenGovernance(); }}>
-              <span className="sidebar-nav-item-icon" aria-hidden="true">◒</span>
+              <span className="sidebar-nav-item-icon" aria-hidden="true"><ShieldCheck size={18} strokeWidth={1.8} /></span>
               <span>用户治理</span>
             </button>
           ) : null}
@@ -168,7 +169,7 @@ export default function Sidebar({
           <strong>{user.display_name}</strong>
           <span>{user.role === 'admin' ? '管理员' : user.role === 'reviewer' ? '合规审核人' : '业务申请人'}</span>
         </div>
-        {demoMode ? <span className="sidebar-user-card__demo">演示</span> : <button type="button" className="sidebar-user-card__logout" onClick={() => { onCloseMobile(); onLogout(); }} title="退出登录">↗</button>}
+        {demoMode ? <span className="sidebar-user-card__demo">演示</span> : <button type="button" className="sidebar-user-card__logout" onClick={() => { onCloseMobile(); onLogout(); }} title="退出登录" aria-label="退出登录"><LogOut size={16} strokeWidth={1.8} /></button>}
       </div>
     </aside>
   );

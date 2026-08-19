@@ -3,7 +3,7 @@
  *
  * The business-facing citation surface is the right-hand law-source panel.
  * This list intentionally contains only the stable reference, relationship,
- * source status and human feedback controls so it does not duplicate the
+ * source relationship and human feedback controls so it does not duplicate the
  * complete-article detail shown there.
  */
 
@@ -14,7 +14,6 @@ import {
   AUTHORITY_LABELS,
   CITATION_ROLE_LABELS,
   citationDisplayLabel,
-  LAW_STATUS_LABELS,
   USAGE_LABELS,
   USAGE_ORDER,
 } from '../utils/display';
@@ -101,7 +100,6 @@ function GovernanceRow({
       <button type="button" className="cite-row__head" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <span className="cite-row__chevron" aria-hidden="true">{open ? '▾' : '▸'}</span>
         <span className="cite-row__label">{label}</span>
-        <span className="cite-chip cite-chip--role">{LAW_STATUS_LABELS[citation.law_status] ?? '状态未知'}</span>
       </button>
       {open ? (
         <div className="cite-row__body">

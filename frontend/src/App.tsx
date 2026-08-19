@@ -1,4 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Menu } from 'lucide-react';
+import { isReviewFailedResponse } from './types/api';
 import type { CaseIntake, ComplianceFactsApi, DashboardSummaryApi, WorkbenchUser } from './types/api';
 import type { Page } from './components/Sidebar';
 import Sidebar from './components/Sidebar';
@@ -11,6 +13,11 @@ const PUBLIC_DEMO_ENABLED = import.meta.env.VITE_PUBLIC_DEMO === 'true';
 
 const GovernanceConsolePage = lazy(() => import('./components/GovernanceConsolePage'));
 const CaseDetailPage = lazy(() => import('./components/CaseDetailPage'));
+const RemediationPlanPage = lazy(() => import('./components/RemediationPlanPage'));
+const MyRemediationsPage = lazy(async () => {
+  const module = await import('./components/RemediationPlanPage');
+  return { default: module.MyRemediationsPage };
+});
 
 function confirmedBoolean<T extends string>(
   value: T,
@@ -58,12 +65,17 @@ function linkedCaseId(): string | null {
   return value || null;
 }
 
+function linkedRemediationPlan(): boolean {
+  return new URLSearchParams(window.location.search).get('remediation') === 'plan';
+}
+
 export default function App(): JSX.Element {
   const [user, setUser] = useState<WorkbenchUser | null>(null);
   const [booting, setBooting] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('workbench');
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
+  const [remediationCaseId, setRemediationCaseId] = useState<string | null>(null);
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [question, setQuestion] = useState('');
   const [material, setMaterial] = useState('');
@@ -104,7 +116,12 @@ export default function App(): JSX.Element {
             await openCase(caseId);
             if (mounted) {
               setActiveCaseId(caseId);
-              setPage('case-detail');
+              if (linkedRemediationPlan()) {
+                setRemediationCaseId(caseId);
+                setPage('remediation-plan');
+              } else {
+                setPage('case-detail');
+              }
             }
           } catch (reason) {
             if (mounted) setError(reason instanceof Error ? reason.message : '无法打开飞书关联案件');
@@ -112,7 +129,7 @@ export default function App(): JSX.Element {
         }
       }
     }).catch((reason) => {
-      if (mounted) setAuthError(reason instanceof Error ? reason.message : '无法连接到工作台');
+      if (mounted) setAuthError(reason instanceof Error ? reason.message : '无法连接到案件管理');
     }).finally(() => {
       if (mounted) setBooting(false);
     });
@@ -141,7 +158,12 @@ export default function App(): JSX.Element {
     if (caseId) {
       await openCase(caseId);
       setActiveCaseId(caseId);
-      setPage('case-detail');
+      if (linkedRemediationPlan()) {
+        setRemediationCaseId(caseId);
+        setPage('remediation-plan');
+      } else {
+        setPage('case-detail');
+      }
     }
   }, []);
 
@@ -216,6 +238,16 @@ export default function App(): JSX.Element {
     }
   }, []);
 
+  const handleOpenRemediationPlan = useCallback((caseId: string): void => {
+    setRemediationCaseId(caseId);
+    setActiveCaseId(caseId);
+    setPage('remediation-plan');
+  }, []);
+
+  const remediationRecommendations = activeCase?.response && !isReviewFailedResponse(activeCase.response)
+    ? activeCase.response.review_result.recommended_actions
+    : [];
+
   const handleScenarioClick = useCallback((scenario: string): void => {
     setQuestion(scenario);
     setPage('workbench');
@@ -240,7 +272,7 @@ export default function App(): JSX.Element {
   }, []);
 
   if (booting) {
-    return <div className="app-loading"><img src="/crosscomply-logo.svg" alt="" className="app-loading__mark" /><span>正在连接 CrossComply 工作台…</span></div>;
+    return <div className="app-loading"><img src="/crosscomply-logo.svg" alt="" className="app-loading__mark" /><span>正在连接 CrossComply 案件管理…</span></div>;
   }
   if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
 
@@ -251,7 +283,7 @@ export default function App(): JSX.Element {
       <main className="app-center">
         <div className="app-mobile-nav">
           <button type="button" className="app-mobile-menu" onClick={() => setMobileSidebarOpen(true)} aria-expanded={mobileSidebarOpen} aria-controls="primary-sidebar" aria-label="打开案件导航">
-            <span aria-hidden="true">☰</span>
+            <Menu size={20} strokeWidth={1.8} aria-hidden="true" />
           </button>
           <div className="app-mobile-brand">
             <img src="/crosscomply-logo.svg" alt="" className="app-mobile-brand__mark" />
@@ -263,7 +295,9 @@ export default function App(): JSX.Element {
         </div>
         {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
         {page === 'governance' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载用户治理…</div></div>}><GovernanceConsolePage user={user} /></Suspense> : null}
-        {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} demoMode={PUBLIC_DEMO_ENABLED} canEdit={user.role === 'requester' && !PUBLIC_DEMO_ENABLED} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} /></Suspense> : null}
+        {page === 'my-remediations' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载我的整改…</div></div>}><MyRemediationsPage user={user} onBack={() => setPage('workbench')} /></Suspense> : null}
+        {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} onBack={() => setPage('case-detail')} /></Suspense> : null}
+        {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} demoMode={PUBLIC_DEMO_ENABLED} canEdit={user.role === 'requester' && !PUBLIC_DEMO_ENABLED} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} /></Suspense> : null}
         {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} reviewMode={reviewMode} rerankMode={rerankMode} editingCaseId={editingCaseId} demoMode={PUBLIC_DEMO_ENABLED} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onReviewModeChange={setReviewMode} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
         {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从案件记录中选择一个案件。</p></div> : null}
       </main>

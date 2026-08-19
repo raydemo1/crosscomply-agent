@@ -1,7 +1,6 @@
 /** Client for the CrossComply persisted case workbench API. */
 
 import type {
-  CaseAction,
   CaseDetailApi,
   CaseFeedbackApi,
   CaseIntake,
@@ -21,6 +20,7 @@ import type {
   ManagedUserApi,
   ReviewTaskApi,
   RemediationAssigneeApi,
+  RemediationEvidenceUploadApi,
   RemediationInboxItemApi,
   RemediationPlanApi,
   RemediationPlanCreatePayload,
@@ -356,20 +356,6 @@ export async function waitForReviewTask(
   }
 }
 
-export async function createAction(caseId: string, payload: Omit<CaseAction, 'id' | 'case_id' | 'created_at' | 'updated_at'>): Promise<CaseAction> {
-  return request<CaseAction>(`/api/cases/${encodeURIComponent(caseId)}/actions`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateAction(actionId: string, payload: Partial<Pick<CaseAction, 'title' | 'description' | 'owner_role' | 'priority' | 'status' | 'due_date'>>): Promise<CaseAction> {
-  return request<CaseAction>(`/api/actions/${encodeURIComponent(actionId)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Independent remediation plan
 // ---------------------------------------------------------------------------
@@ -415,6 +401,16 @@ export async function updateRemediationTask(taskId: string, payload: Remediation
 export async function startRemediationTask(taskId: string): Promise<RemediationTaskApi> {
   return request<RemediationTaskApi>(`/api/remediation-tasks/${encodeURIComponent(taskId)}/start`, {
     method: 'POST',
+  });
+}
+
+export async function uploadRemediationEvidence(taskId: string, file: File): Promise<RemediationEvidenceUploadApi> {
+  validateUploadFile(file);
+  const formData = new FormData();
+  formData.append('file', file);
+  return request<RemediationEvidenceUploadApi>(`/api/remediation-tasks/${encodeURIComponent(taskId)}/evidence`, {
+    method: 'POST',
+    body: formData,
   });
 }
 

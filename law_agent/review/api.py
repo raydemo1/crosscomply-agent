@@ -19,6 +19,7 @@ import threading
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
@@ -852,7 +853,7 @@ def create_app(
     async def current_user(request: Request) -> UserRecord:
         token = request.cookies.get(SESSION_COOKIE)
         if not token:
-            raise HTTPException(status_code=401, detail="请先登录 CrossComply 工作台")
+            raise HTTPException(status_code=401, detail="请先登录 CrossComply 案件管理")
         user = store().get_user_by_session(token)
         if user is None:
             raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
@@ -875,6 +876,51 @@ def create_app(
             return True
         case = store().get_case(task["case_id"])
         return case is not None and case.get("created_by") == user.id
+
+    def remediation_task_payload(task: dict[str, Any]) -> dict[str, Any]:
+        """Return a UI-ready task without exposing only opaque user IDs."""
+        payload = dict(task)
+        assignee = store().get_user(task.get("assignee_id")) if task.get("assignee_id") else None
+        payload["assignee"] = assignee.to_dict() if assignee else None
+        if "submissions" in task:
+            submissions: list[dict[str, Any]] = []
+            for submission in task.get("submissions") or []:
+                item = dict(submission)
+                submitter = store().get_user(item.get("submitted_by")) if item.get("submitted_by") else None
+                reviewer = store().get_user(item.get("reviewed_by")) if item.get("reviewed_by") else None
+                item["submitted_by_user"] = submitter.to_dict() if submitter else None
+                item["reviewed_by_user"] = reviewer.to_dict() if reviewer else None
+                submissions.append(item)
+            payload["submissions"] = submissions
+            payload["latest_submission"] = submissions[-1] if submissions else None
+        case = store().get_case(task["case_id"])
+        if case:
+            payload["case_title"] = case.get("title") or case.get("question")
+            payload["case_question"] = case.get("question")
+        return payload
+
+    def remediation_plan_payload(plan: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(plan)
+        case = store().get_case(plan["case_id"])
+        if case:
+            payload["case_title"] = case.get("title") or case.get("question")
+            payload["case_question"] = case.get("question")
+        tasks = [remediation_task_payload(item) for item in (plan.get("tasks") or [])]
+        payload["tasks"] = tasks
+        payload["counts"] = {
+            "total": len(tasks),
+            "open": sum(item.get("status") == "open" for item in tasks),
+            "in_progress": sum(item.get("status") == "in_progress" for item in tasks),
+            "pending_review": sum(item.get("status") == "pending_review" for item in tasks),
+            "completed": sum(item.get("status") == "completed" for item in tasks),
+            "overdue": sum(
+                bool(item.get("due_date"))
+                and item.get("status") != "completed"
+                and item["due_date"] < datetime.now(UTC).date().isoformat()
+                for item in tasks
+            ),
+        }
+        return payload
 
     def remediation_event(plan_id: str, actor_id: str, *, event_type: str, task_id: str | None = None, payload: dict[str, Any] | None = None) -> None:
         store().add_remediation_event(
@@ -1707,7 +1753,7 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         store().add_event(identifier, user.id, event_type="remediation_plan_created", payload={"plan_id": plan["id"]})
         remediation_event(plan["id"], user.id, event_type="plan_created")
-        return plan
+        return remediation_plan_payload(plan)
 
     @app.get("/api/cases/{identifier}/remediation-plan")
     async def get_remediation_plan(
@@ -1716,7 +1762,7 @@ def create_app(
         plan = store().get_remediation_plan(identifier)
         if plan is None or not remediation_plan_viewable(user, plan):
             raise HTTPException(status_code=404, detail="整改计划不存在或无权访问")
-        return plan
+        return remediation_plan_payload(plan)
 
     @app.post("/api/remediation-plans/{plan_id}/activate")
     async def activate_remediation_plan(
@@ -1731,7 +1777,7 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         store().add_event(plan["case_id"], user.id, event_type="remediation_plan_activated", payload={"plan_id": plan_id})
         remediation_event(plan_id, user.id, event_type="plan_activated")
-        return plan
+        return remediation_plan_payload(plan)
 
     @app.post("/api/remediation-plans/{plan_id}/cancel")
     async def cancel_remediation_plan(
@@ -1744,7 +1790,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="整改计划不存在") from exc
         store().add_event(plan["case_id"], user.id, event_type="remediation_plan_cancelled", payload={"plan_id": plan_id})
         remediation_event(plan_id, user.id, event_type="plan_cancelled")
-        return plan
+        return remediation_plan_payload(plan)
 
     @app.get("/api/remediations")
     async def list_remediations(
@@ -1757,7 +1803,7 @@ def create_app(
             items = store().list_remediation_tasks(status=status)
         else:
             items = store().list_remediation_tasks(assignee_id=user.id, status=status)
-        return {"items": items, "total": len(items)}
+        return {"items": [remediation_task_payload(item) for item in items], "total": len(items)}
 
     @app.get("/api/users/assignable")
     async def list_assignable_users(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
@@ -1773,7 +1819,7 @@ def create_app(
         if task is None or not remediation_task_viewable(user, task):
             raise HTTPException(status_code=404, detail="整改任务不存在或无权访问")
         case = store().get_case(task["case_id"])
-        return {"task": task, "case": _case_summary(case) if case else None}
+        return {"task": remediation_task_payload(task), "case": _case_summary(case) if case else None}
 
     @app.patch("/api/remediation-tasks/{task_id}")
     async def update_remediation_task(
@@ -1793,7 +1839,7 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         store().add_event(task["case_id"], user.id, event_type="remediation_task_updated", payload={"task_id": task_id})
         remediation_event(task["plan_id"], user.id, event_type="task_updated", task_id=task_id)
-        return task
+        return remediation_task_payload(task)
 
     @app.post("/api/remediation-tasks/{task_id}/start")
     async def start_remediation_task(
@@ -1811,7 +1857,41 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         store().add_event(task["case_id"], user.id, event_type="remediation_task_started", payload={"task_id": task_id})
         remediation_event(task["plan_id"], user.id, event_type="task_started", task_id=task_id)
-        return updated
+        return remediation_task_payload(updated)
+
+    @app.post("/api/remediation-tasks/{task_id}/evidence")
+    async def upload_remediation_evidence(
+        task_id: str,
+        file: UploadFile = File(...),
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        task = store().get_remediation_task(task_id)
+        if task is None or task.get("assignee_id") != user.id:
+            raise HTTPException(status_code=404, detail="整改任务不存在或无权访问")
+        filename = Path(file.filename or "remediation-evidence").name
+        suffix = Path(filename).suffix.lower()
+        if suffix not in ALLOWED_UPLOAD_SUFFIXES:
+            raise HTTPException(status_code=422, detail={"code": "unsupported_file_type"})
+        raw = await file.read()
+        if not raw:
+            raise HTTPException(status_code=422, detail={"code": "empty_file"})
+        if len(raw) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=422, detail={"code": "file_too_large"})
+        stored = originals().put_original(
+            case_id=task["case_id"],
+            logical_name=f"remediation-{task_id}",
+            filename=filename,
+            content_type=file.content_type or "application/octet-stream",
+            content=raw,
+        )
+        return {
+            "kind": "file",
+            "label": filename,
+            "object_key": stored.object_key,
+            "content_type": file.content_type or "application/octet-stream",
+            "sha256": stored.sha256,
+            "byte_size": stored.byte_size,
+        }
 
     @app.post("/api/remediation-tasks/{task_id}/submissions")
     async def submit_remediation_task(

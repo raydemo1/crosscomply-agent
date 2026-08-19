@@ -2,15 +2,11 @@
 
 import { useSyncExternalStore } from 'react';
 import {
-  createAction,
   getCaseDetail,
-  getRemediationPlan,
   listCases,
-  listMyRemediations,
   saveFeedback,
-  updateAction,
 } from '../api/client';
-import type { CaseAction, CaseDetailApi, CaseIntake, CaseSummaryApi, RemediationInboxItemApi, RemediationPlanApi } from '../types/api';
+import type { CaseDetailApi, CaseIntake, CaseSummaryApi } from '../types/api';
 import type { CaseFeedback, CitationVerdict, SavedCase } from '../types/case';
 
 const listeners = new Set<() => void>();
@@ -106,7 +102,7 @@ export function fromDetail(detail: CaseDetailApi): SavedCase {
     ),
     status: item.status,
     intake: item.intake,
-    actions: detail.actions,
+    actions: detail.actions ?? [],
     events: detail.events,
     feedback: toFeedback(detail),
     materialSnapshot: detail.material_snapshot,
@@ -194,38 +190,4 @@ export function setConclusionUseful(id: string, useful: boolean | null): void {
 
 export function setFeedbackText(id: string, field: 'missingSources' | 'notes', value: string): void {
   void persistFeedback(id, { [field]: value });
-}
-
-export function setActionStatus(id: string, status: 'open' | 'in_progress' | 'completed'): void {
-  const action = findAction(id);
-  if (!action) return;
-  void updateAction(id, { status }).then(() => openCase(action.case_id));
-}
-
-export function createCaseAction(caseId: string, payload: Omit<CaseAction, 'id' | 'case_id' | 'created_at' | 'updated_at'>): void {
-  void createAction(caseId, payload).then(() => openCase(caseId));
-}
-
-export function updateCaseAction(actionId: string, payload: Partial<Pick<CaseAction, 'title' | 'description' | 'owner_role' | 'priority' | 'status' | 'due_date'>>): void {
-  const action = findAction(actionId);
-  if (!action) return;
-  void updateAction(actionId, payload).then(() => openCase(action.case_id));
-}
-
-/** Read-only loaders used by the independent remediation pages. */
-export async function openRemediationPlan(caseId: string): Promise<RemediationPlanApi> {
-  return getRemediationPlan(caseId);
-}
-
-export async function loadMyRemediations(params: { status?: string; overdue?: boolean } = {}): Promise<RemediationInboxItemApi[]> {
-  const result = await listMyRemediations(params);
-  return result.items;
-}
-
-function findAction(actionId: string): CaseAction | null {
-  for (const saved of snapshot) {
-    const action = saved.actions.find((item) => item.id === actionId);
-    if (action) return action;
-  }
-  return null;
 }
