@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { assignManagedUserRole, createManagedUser, listManagedUsers, resetManagedUserPassword, setManagedUserState } from '../api/client';
 import type { ManagedUserApi, UserRole, WorkbenchUser } from '../types/api';
-import EvalPage from './EvalPage';
 
 interface GovernanceConsolePageProps {
   user: WorkbenchUser;
@@ -74,7 +73,7 @@ export default function GovernanceConsolePage({ user, onBack, onLogout }: Govern
         <section className="governance-intro" aria-labelledby="governance-title">
           <div>
             <h1 id="governance-title">企业治理控制台</h1>
-            <p>{user.display_name} · 管理账户与既有评测资产</p>
+            <p>{user.display_name} · 企业账户与权限管理</p>
           </div>
         </section>
 
@@ -100,8 +99,6 @@ export default function GovernanceConsolePage({ user, onBack, onLogout }: Govern
             ))}
           </div>
         </section>
-
-        <EvalPage />
       </main>
     </div>
   );
