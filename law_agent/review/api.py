@@ -48,17 +48,7 @@ from law_agent.review.governance_store import (
 )
 from law_agent.review.io import read_review_results
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
-from law_agent.review.report_data import (
-    build_ai_review,
-    build_legal_sources,
-    build_remediation_details,
-    manual_confirmations_for_report,
-    selected_path_for_report,
-)
-from law_agent.review.reports import (
-    DecisionReportData,
-    generate_decision_report,
-)
+from law_agent.review.report_service import ensure_decision_report
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.rules import ComplianceFacts, evaluate_national_path
 from law_agent.review.schemas import (
@@ -1512,7 +1502,47 @@ def create_app(
                 to_status=target,
                 payload={"approval_event_id": receipt.event.id},
             )
-        return {"ok": True, "duplicate": receipt.duplicate, "case_status": target}
+        report = governance().get_latest_report(approval.case_id)
+        report_status = "ready" if report is not None else "failed"
+        if report is None:
+            prior_failure = any(
+                item["event_type"] == "decision_report_generation_failed"
+                and item.get("payload", {}).get("approval_event_id") == receipt.event.id
+                for item in store().list_events(approval.case_id)
+            )
+            try:
+                report = ensure_decision_report(
+                    case=case,
+                    case_store=store(),
+                    enterprise_store=enterprise(),
+                    governance_store=governance(),
+                    object_store=originals(),
+                )
+                report_status = "ready"
+                if not prior_failure:
+                    store().add_event(
+                        approval.case_id,
+                        case.get("owner_id") or case["created_by"],
+                        event_type="report_generated",
+                        payload={"report_id": report.id, "approval_event_id": receipt.event.id},
+                    )
+            except Exception as exc:  # noqa: BLE001 - decision write-back must remain authoritative
+                if not prior_failure:
+                    store().add_event(
+                        approval.case_id,
+                        case.get("owner_id") or case["created_by"],
+                        event_type="decision_report_generation_failed",
+                        payload={
+                            "approval_event_id": receipt.event.id,
+                            "message": str(exc)[:500] or exc.__class__.__name__,
+                        },
+                    )
+        return {
+            "ok": True,
+            "duplicate": receipt.duplicate,
+            "case_status": target,
+            "report_status": report_status,
+        }
 
     @app.post("/api/integrations/feishu/subscribe")
     async def subscribe_feishu_approval_events(
@@ -1534,59 +1564,20 @@ def create_app(
         case = store().get_case(identifier)
         if case is None:
             raise HTTPException(status_code=404, detail="案件不存在")
-        approval = governance().get_latest_approval(identifier)
-        if approval is None or approval.status == "pending":
-            raise HTTPException(status_code=409, detail="飞书尚未产生最终审批决定")
-        existing = governance().get_latest_report(identifier)
-        if existing is not None:
-            return asdict(existing)
-        approved_task = enterprise().get_task(approval.task_id)
-        if approved_task is None:
-            raise HTTPException(status_code=409, detail="审批记录绑定的审查任务不存在")
-        snapshot = enterprise().get_material_snapshot(approved_task.material_snapshot_id)
-        rule = enterprise().get_rule_snapshot(approved_task.rule_snapshot_id)
-        if snapshot is None or rule is None:
-            raise HTTPException(status_code=409, detail="审批任务绑定的材料或规则快照不存在")
-        versions = [
-            enterprise().get_material_version(version_id) for version_id in snapshot.version_ids
-        ]
-        actions = store().list_actions(identifier)
-        determination = dict(rule.determination)
-        selected_path = selected_path_for_report(determination)
-        report_data = DecisionReportData(
-            case_number=case["case_number"],
-            decision=approval.status,
-            material_hashes=tuple(item.sha256 for item in versions if item is not None),
-            rule_version=rule.ruleset_version,
-            legal_sources=build_legal_sources(case, determination, selected_path),
-            remediation_items=tuple(item["title"] for item in actions),
-            approver=approval.approver_name or "未记录审批人",
-            approved_at=approval.decided_at or approval.updated_at,
-            case_title=case.get("title", ""),
-            selected_path=selected_path,
-            manual_confirmation_items=manual_confirmations_for_report(determination),
-            ai_review=build_ai_review(case),
-            remediation_details=build_remediation_details(actions),
-        )
-        artifact = generate_decision_report(report_data)
-        stored = originals().put_original(
-            case_id=identifier,
-            logical_name="decision-report",
-            filename=f"{case['case_number']}.pdf",
-            content_type="application/pdf",
-            content=artifact.pdf_bytes,
-        )
-        report = governance().create_report_record(
-            case_id=identifier,
-            approval_id=approval.id,
-            object_key=stored.object_key,
-            sha256=artifact.sha256,
-            metadata={
-                "case_number": case["case_number"],
-                "rule_version": rule.ruleset_version,
-                "material_snapshot_id": snapshot.id,
-            },
-        )
+        try:
+            report = ensure_decision_report(
+                case=case,
+                case_store=store(),
+                enterprise_store=enterprise(),
+                governance_store=governance(),
+                object_store=originals(),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001 - expose a retryable operational failure
+            raise HTTPException(status_code=503, detail="正式报告暂未生成，请稍后重试") from exc
         return asdict(report)
 
     @app.get("/api/reports/{report_id}/download")

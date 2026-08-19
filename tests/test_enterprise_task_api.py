@@ -394,6 +394,12 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         )
         assert callback.status_code == 200, callback.text
         assert callback.json()["case_status"] == "approved"
+        assert callback.json()["report_status"] == "ready"
+        auto_report = client.get(f"/api/cases/{case_id}")
+        assert auto_report.status_code == 200, auto_report.text
+        assert auto_report.json()["report"] is not None
+        assert auto_report.json()["report"]["metadata"]["material_snapshot_id"] == snapshot.id
+        assert auto_report.json()["report"]["metadata"]["rule_version"] == rule.ruleset_version
 
         later_version = enterprise.create_material_version(
             case_id=case_id,
