@@ -83,7 +83,7 @@ export default function Sidebar({
           <img src="/crosscomply-logo.svg" alt="" className="sidebar-brand-mark" />
           <div className="sidebar-brand-copy">
             <div className="sidebar-brand-title">CrossComply</div>
-            <div className="sidebar-brand-subtitle">案件工作台</div>
+            <div className="sidebar-brand-subtitle">案件管理</div>
           </div>
         </div>
         <button type="button" className="sidebar-mobile-close" onClick={onCloseMobile} aria-label="关闭案件导航">×</button>
@@ -93,7 +93,7 @@ export default function Sidebar({
         <div className="sidebar-nav">
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('workbench'); }}>
             <span className="sidebar-nav-item-icon">⌂</span>
-            <span>案件工作台</span>
+            <span>案件管理</span>
           </button>
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'my-remediations' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('my-remediations'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true">✓</span>
@@ -112,7 +112,7 @@ export default function Sidebar({
           {user.role === 'admin' ? (
             <button type="button" className={'sidebar-nav-item' + (currentPage === 'governance' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenGovernance(); }}>
               <span className="sidebar-nav-item-icon" aria-hidden="true">◒</span>
-              <span>治理控制台</span>
+              <span>用户治理</span>
             </button>
           ) : null}
         </div>

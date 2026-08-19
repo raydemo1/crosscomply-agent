@@ -244,14 +244,6 @@ export default function App(): JSX.Element {
   }
   if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
 
-  if (page === 'governance') {
-    return (
-      <Suspense fallback={<div className="app-loading"><img src="/crosscomply-logo.svg" alt="" className="app-loading__mark" /><span>正在加载治理控制台…</span></div>}>
-        <GovernanceConsolePage user={user} onBack={() => setPage('workbench')} onLogout={() => void handleLogout()} />
-      </Suspense>
-    );
-  }
-
   return (
     <div className="app-shell">
       <Sidebar currentPage={page} onPageChange={setPage} onScenarioClick={handleScenarioClick} onOpenCase={handleOpenCase} activeCaseId={activeCaseId} cases={cases} user={user} demoMode={PUBLIC_DEMO_ENABLED} onLogout={() => void handleLogout()} onOpenGovernance={handleOpenGovernance} isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
@@ -266,11 +258,11 @@ export default function App(): JSX.Element {
             <span>CrossComply</span>
           </div>
           <div className="app-mobile-actions">
-            <span className="app-mobile-surface">案件工作台</span>
-            {user.role === 'admin' ? <button type="button" className="app-mobile-utility" onClick={handleOpenGovernance}>治理控制台 ↗</button> : null}
+            <span className="app-mobile-surface">{page === 'governance' ? '用户治理' : page === 'my-remediations' ? '我的整改' : page === 'remediation-plan' ? '整改计划' : page === 'case-detail' ? '案件详情' : '案件管理'}</span>
           </div>
         </div>
         {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
+        {page === 'governance' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载用户治理…</div></div>}><GovernanceConsolePage user={user} /></Suspense> : null}
         {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} demoMode={PUBLIC_DEMO_ENABLED} canEdit={user.role === 'requester' && !PUBLIC_DEMO_ENABLED} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} /></Suspense> : null}
         {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} reviewMode={reviewMode} rerankMode={rerankMode} editingCaseId={editingCaseId} demoMode={PUBLIC_DEMO_ENABLED} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onReviewModeChange={setReviewMode} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
         {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从案件记录中选择一个案件。</p></div> : null}
