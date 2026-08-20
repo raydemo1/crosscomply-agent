@@ -5835,3 +5835,500 @@ body {
   .intake-group--optional .intake-group__grid { padding: var(--space-md); }
   .workspace-hero { display: flex; align-items: stretch; }
 }
+
+/* ============================================================
+ * Typography readability pass
+ * Keep primary UI copy at a comfortable reading size and reserve
+ * smaller sizes for metadata, identifiers and status decoration.
+ * ============================================================ */
+.workspace-hero__metric span { font-size: 0.875rem; }
+.workspace-hero__risk-strip { font-size: 0.8125rem; }
+.workspace-hero__risk-strip strong { font-size: 0.875rem; }
+
+.intake-progress__step > span { font-size: 0.75rem; }
+.intake-progress__step strong { font-size: 0.9rem; }
+.intake-progress__step small { font-size: 0.8rem; }
+
+.sidebar-history__count { font-size: 0.75rem; }
+.sidebar-history__search { font-size: 0.875rem; }
+.sidebar-history__empty,
+.sidebar-history__toggle { font-size: 0.8125rem; }
+.history-item__question { font-size: 0.94rem; line-height: 1.45; }
+.history-item__meta { font-size: 0.8rem; line-height: 1.35; }
+
+.form-label,
+.form-field > span { font-size: 0.875rem; }
+.material-toolbar { font-size: 0.96rem; }
+.material-toolbar .btn-secondary { font-size: 0.94rem; }
+.intake-card__footer { font-size: 0.875rem; }
+.intake-confirmation { font-size: 0.875rem; }
+.intake-confirmation span { font-size: 0.8125rem; }
+.workbench-advanced { font-size: 0.875rem; }
+.guardrail-strip strong { font-size: 0.9rem; }
+.guardrail-strip p { font-size: 0.84rem; }
+
+.case-header__title { font-size: 1.25rem; }
+.case-header__meta { font-size: 0.875rem; }
+.case-header__meta-item code { font-size: 0.8125rem; }
+.case-header__workflow-error { font-size: 0.8125rem; }
+
+.section-title { font-size: 1.125rem; }
+.facts-grid__label { font-size: 0.8rem; }
+.facts-grid__value { font-size: 0.95rem; }
+
+.hero-case-progress__index { font-size: 0.75rem; }
+.hero-case-progress__steps strong { font-size: 0.92rem; }
+.hero-case-progress__steps small { font-size: 0.8rem; }
+.hero-case-progress__summary small { font-size: 0.8rem; }
+.hero-case-progress__summary strong { font-size: 1.05rem; }
+.hero-case-progress__summary > span:last-child,
+.hero-case-progress__summary::after { font-size: 0.8125rem; }
+
+.evidence-sidebar__subtitle { font-size: 0.78rem; }
+.evidence-sidebar__close,
+.evidence-sidebar__count { font-size: 0.8125rem; }
+.evidence-card__index,
+.evidence-card__relation { font-size: 0.8125rem; }
+.evidence-card__article-label {
+  margin-top: 0.1rem;
+  font-size: 0.95rem;
+}
+.evidence-card__meta-grid span { font-size: 0.75rem; }
+.evidence-card__meta-grid strong { font-size: 0.8rem; }
+.evidence-card__full-article { font-size: 1rem; line-height: 1.8; }
+.evidence-card__missing-article { font-size: 0.9375rem; }
+.evidence-card__footer { font-size: 0.8rem; }
+.evidence-card__tech { font-size: 0.72rem; }
+
+.grounded-claims__header { font-size: 0.95rem; }
+.grounded-claims__header span:last-child { font-size: 0.8125rem; }
+.grounded-claim__text { font-size: 0.95rem; }
+/* Legal references use the established serif text face so long Chinese titles
+ * retain the formal, statute-like rhythm of the surrounding citation text. */
+.grounded-claim__ref {
+  padding: 0.45rem 0.8rem;
+  font-family: var(--font-legal);
+  font-size: clamp(0.84rem, 1.1vw, 0.9rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+}
+.grounded-claim__ref-id {
+  flex: 1 1 auto;
+  font-family: var(--font-legal);
+  font-size: inherit;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.markdown-body--report { font-size: 1rem; }
+.markdown-body--report h3 { font-size: 1.125rem; }
+.markdown-body--report h4 { font-size: 1rem; }
+.markdown-body--note { font-size: 0.95rem; }
+
+.review-recommendations__heading span { font-size: 0.8125rem; }
+.case-operations__heading p,
+.review-gaps__heading p { font-size: 0.85rem; }
+.case-operations__blockers,
+.case-operations__confirmation { font-size: 0.875rem; }
+
+/* Page headers share one baseline, face, color and weight; section kickers are omitted. */
+.page-title,
+.workspace-hero h1.page-title,
+.governance-intro h1.page-title,
+.template-page__header h1.page-title,
+.remediation-page__top h1.page-title {
+  margin: 0;
+  color: var(--color-foreground, #102a56);
+  font-family: var(--font-heading, Georgia, serif);
+  font-size: clamp(1.75rem, 2.7vw, 2.15rem);
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.remediation-kicker,
+.template-page__kicker,
+.governance-intro__kicker,
+.demo-notice__eyebrow {
+  display: none;
+}
+
+@media (min-width: 721px) {
+  .governance-intro,
+  .template-page__header,
+  .remediation-page__top {
+    align-items: center;
+  }
+}
+
+.history-item__question {
+  font-weight: 500;
+}
+
+.history-hover-card strong,
+.history-hover-card span {
+  font-weight: 500;
+}
+
+.history-hover-card strong {
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+.history-hover-card span {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  .page-title,
+  .workspace-hero h1.page-title,
+  .governance-intro h1.page-title,
+  .template-page__header h1.page-title,
+  .remediation-page__top h1.page-title {
+    font-size: 1.75rem;
+  }
+}
+
+/* Keep statute names and quoted provisions on the same Chinese-first face. */
+.cite-card__title,
+.cite-card__text,
+.cite-card__text::before,
+.evidence-card__full-article,
+.evidence-card__article-label {
+  font-family: var(--font-legal);
+}
+
+@media (max-width: 640px) {
+  .grounded-claim__ref {
+    max-width: 100%;
+    font-size: 0.875rem;
+  }
+}
+
+/* ============================================================
+ * CrossComply reading-width system
+ * Wide workspaces keep room for forms and task grids; the case
+ * shell steps in before the report settles into a focused document
+ * measure. This keeps the page rhythm coherent without forcing
+ * every surface into the same width.
+ * ============================================================ */
+:root {
+  --content-wide: 1180px;
+  --content-case: 1080px;
+  --content-reading: 900px;
+  --content-gutter: clamp(16px, 3vw, 32px);
+}
+
+.app-center {
+  max-width: none;
+  margin-inline: 0;
+}
+
+.workbench,
+.template-page,
+.remediation-page,
+.governance-main,
+.eval-page {
+  width: min(var(--content-wide), 100%);
+  margin-inline: auto;
+}
+
+.workbench,
+.template-page,
+.remediation-page,
+.governance-main {
+  padding-inline: 0;
+}
+
+.case-detail {
+  width: min(var(--content-case), 100%);
+  max-width: var(--content-case);
+  margin-inline: auto;
+}
+
+.review-report-layout {
+  width: min(var(--content-reading), 100%);
+  max-width: var(--content-reading);
+  margin-inline: auto;
+}
+
+/* Content surfaces are quiet by default; interaction and warning states
+ * provide the contrast instead of a stack of permanent shadows. */
+.app-center .card {
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base), transform var(--transition-base);
+}
+
+.app-center .card--clickable:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.case-header,
+.hero-case-progress {
+  box-shadow: var(--shadow-sm);
+}
+
+.case-header {
+  padding: 20px 24px;
+}
+
+.hero-case-progress {
+  padding: 0;
+}
+
+.review-report {
+  gap: 0;
+}
+
+.evidence-drawer-toolbar {
+  margin-bottom: 18px;
+}
+
+.case-conclusion.report-section,
+.report-section {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.review-report > .report-section + .report-section,
+.review-report > .report-disclosure + .report-section,
+.review-report > .report-section + .report-disclosure {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid var(--color-border);
+}
+
+.case-conclusion__head {
+  min-height: 34px;
+  margin-bottom: 20px;
+}
+
+.case-conclusion__actions {
+  display: none;
+}
+
+.case-conclusion > .section-title {
+  margin: 32px 0 16px;
+  padding: 0;
+  border: 0;
+  font-size: 1.5rem;
+  line-height: 1.35;
+}
+
+.decision-summary {
+  margin: 0 0 32px;
+  padding: 16px 18px;
+  border: 0;
+  border-left: 3px solid #d97706;
+  border-radius: 0 8px 8px 0;
+  background: #fffaf0;
+}
+
+.decision-summary__label {
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+}
+
+.decision-summary p {
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.markdown-body--report {
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.grounded-claims--compact {
+  margin-top: 32px;
+}
+
+.grounded-claims--compact .grounded-claim {
+  padding: 16px 0;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.grounded-claims--compact .grounded-claim:last-child {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.review-recommendations__heading,
+.review-gaps__heading {
+  padding-bottom: 12px;
+}
+
+.review-recommendations__heading h2,
+.review-gaps__heading h2 {
+  font-size: 1.35rem;
+}
+
+.review-recommendations__list {
+  margin-top: 20px;
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.review-gaps__heading p {
+  max-width: 680px;
+}
+
+.review-report > .remediation-summary {
+  display: grid;
+  padding: 20px 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.review-report > .report-section.remediation-summary {
+  padding-top: 20px;
+}
+
+.review-report > .report-section + .report-disclosure {
+  margin-top: 32px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.review-report > .report-disclosure + .report-section {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid var(--color-border);
+}
+
+.report-disclosure {
+  border-color: var(--color-border);
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.report-disclosure summary {
+  padding: 16px 20px;
+  font-size: 0.95rem;
+}
+
+.report-disclosure__body {
+  padding: 20px;
+}
+
+.case-header__more {
+  position: relative;
+}
+
+.case-header__more > summary {
+  list-style: none;
+}
+
+.case-header__more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.case-header__more-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  min-width: 176px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.case-header__more-menu button {
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-foreground);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.case-header__more-menu button:hover,
+.case-header__more-menu button:focus-visible {
+  background: var(--color-muted);
+}
+
+@media (max-width: 1199px) {
+  .workbench,
+  .template-page,
+  .remediation-page,
+  .governance-main,
+  .eval-page {
+    width: 100%;
+  }
+
+  .case-detail,
+  .review-report-layout {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .case-header {
+    padding: 18px 16px;
+  }
+
+  .case-header__actions {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .case-header__more-menu {
+    right: auto;
+    left: 0;
+  }
+
+  .report-section,
+  .review-report > .report-section + .report-section,
+  .review-report > .report-disclosure + .report-section,
+  .review-report > .report-section + .report-disclosure {
+    margin-top: 24px;
+    padding-top: 24px;
+  }
+
+  .review-report > .report-section.remediation-summary {
+    padding-top: 16px;
+  }
+
+  .review-report > .report-section + .report-disclosure {
+    padding-top: 0;
+  }
+
+  .decision-summary {
+    margin-bottom: 24px;
+    padding: 14px 16px;
+  }
+
+  .markdown-body--report {
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  .report-disclosure summary,
+  .report-disclosure__body {
+    padding: 16px;
+  }
+}
