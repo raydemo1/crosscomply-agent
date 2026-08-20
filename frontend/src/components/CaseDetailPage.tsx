@@ -430,9 +430,8 @@ function RemediationSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: () =
     : legacyTasks.filter((action) => action.status !== 'completed' && action.due_date && action.due_date < today).length;
   const href = `?case=${encodeURIComponent(saved.id)}&remediation=plan`;
   return (
-    <section className="card remediation-summary" aria-label="整改计划摘要">
+    <section className="report-section remediation-summary" aria-label="整改计划摘要">
       <div className="remediation-summary__copy">
-        <span className="remediation-kicker">执行闭环</span>
         <h2>整改计划</h2>
         <p>{saved.remediationPlan ? '独立管理负责人、处理说明和审核验收。' : '尚未建立整改计划，审查建议不会自动变成任务。'}</p>
       </div>
@@ -445,7 +444,7 @@ function RemediationSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: () =
 function ReviewRecommendations({ items }: { items: string[] }): JSX.Element | null {
   if (items.length === 0) return null;
   return (
-    <section className="card report-card review-recommendations">
+    <section className="report-section review-recommendations">
       <div className="review-recommendations__heading">
         <h2>审查建议</h2>
         <span>{items.length} 项</span>
@@ -462,7 +461,7 @@ function ReviewGaps({ blockers = [], manualConfirmations = [] }: { blockers?: st
   const confirmationItems = Array.from(new Set(manualConfirmations.filter(Boolean)));
   if (blockingItems.length === 0 && confirmationItems.length === 0) return null;
   return (
-    <section className="card report-card review-gaps">
+    <section className="report-section review-gaps">
       <div className="review-gaps__heading"><div><h2>待补充事实</h2><p>由规则判断和审查结果识别，不是人工创建的整改任务。</p></div></div>
       {blockingItems.length > 0 ? (
         <div className="case-operations__blockers">
@@ -547,17 +546,32 @@ interface CaseHeaderProps {
 }
 
 function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workflowOperation, workflowError, setWorkflowOperation, setWorkflowError }: CaseHeaderProps): JSX.Element {
+  const [shareOpen, setShareOpen] = useState(false);
   return (
+    <>
     <header className="case-header card">
       <div className="case-header__top">
         <button type="button" className="btn-link case-header__back" onClick={onBack}>
-          ← 返回案件管理
+          ← 返回新建案件
         </button>
         <div className="case-header__actions">
           <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} compact />
-          {demoMode ? null : <button type="button" className="case-header__action-btn" onClick={onRerun}>以此为模板重审</button>}
-          <button type="button" className="case-header__action-btn" onClick={() => downloadMarkdown(saved)}>导出 Markdown</button>
-          <button type="button" className="case-header__action-btn" onClick={() => downloadHtml(saved)}>导出 HTML 报告</button>
+          {saved.signedDecision || saved.report ? (
+            demoMode ? (
+              <a className="case-header__action-btn case-header__action-btn--accent" href={DEMO_REPORT_DOWNLOAD_URL} download>下载演示 PDF</a>
+            ) : (
+              <a className="case-header__action-btn case-header__action-btn--accent" href={caseReportDownloadUrl(saved.id)} download>下载正式 PDF</a>
+            )
+          ) : null}
+          <button type="button" className="case-header__action-btn case-header__action-btn--share" onClick={() => setShareOpen(true)}>分享案件</button>
+          <details className="case-header__more">
+            <summary className="case-header__action-btn">更多</summary>
+            <div className="case-header__more-menu">
+              {demoMode ? null : <button type="button" onClick={onRerun}>以此为模板重审</button>}
+              <button type="button" onClick={() => downloadMarkdown(saved)}>导出 Markdown</button>
+              <button type="button" onClick={() => downloadHtml(saved)}>导出 HTML 报告</button>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -586,6 +600,8 @@ function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workfl
         ) : null}
       </div>
     </header>
+    <ShareCaseDialog caseId={saved.id} isOpen={shareOpen} onClose={() => setShareOpen(false)} />
+    </>
   );
 }
 
@@ -694,7 +710,20 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
       </div>
       <div className="review-report-layout">
         <main className="review-report">
-          <section className="card case-conclusion report-card">
+          <div className="evidence-drawer-toolbar">
+            <button
+              type="button"
+              className="evidence-drawer-trigger"
+              onClick={() => setEvidenceDrawerOpen(true)}
+              aria-controls="evidence-sidebar"
+              aria-expanded={evidenceDrawerOpen}
+            >
+              <span>法源核查</span>
+              <span className="evidence-drawer-trigger__count">{citationCount} 条法源</span>
+              <span className="evidence-drawer-trigger__icon" aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <section className="case-conclusion report-section">
             <div className="case-conclusion__head">
               <RiskBadge level={result.risk_level} />
               <span className="case-conclusion__evidence">
@@ -704,21 +733,12 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
                   <span className="case-conclusion__second">· 已触发二次检索</span>
                 ) : null}
               </span>
-              {saved.signedDecision || saved.report ? (
-                <div className="case-conclusion__actions">
-                  {demoMode ? (
-                    <a className="case-header__action-btn case-header__action-btn--accent" href={DEMO_REPORT_DOWNLOAD_URL} download>
-                      下载演示PDF报告
-                    </a>
-                  ) : (
-                    <a className="case-header__action-btn case-header__action-btn--accent" href={caseReportDownloadUrl(saved.id)} download>
-                      下载正式PDF报告
-                    </a>
-                  )}
-                </div>
-              ) : null}
             </div>
-            <div className="section-title">审查结论</div>
+            <div className="decision-summary" aria-label="审批摘要">
+              <span className="decision-summary__label">审批摘要</span>
+              <p>{result.decision_summary}</p>
+            </div>
+            <div className="section-title">完整审查意见</div>
             <MarkdownText
               variant="report"
               className="case-conclusion__body"
@@ -832,7 +852,7 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
           </details>
 
           {viewerRole !== 'requester' && !demoMode ? (
-            <section className="card report-card reviewer-feedback">
+            <section className="report-section reviewer-feedback">
               <div className="section-title">人工复核记录</div>
               <FeedbackPanel saved={saved} />
             </section>
