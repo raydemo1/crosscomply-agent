@@ -30,6 +30,7 @@ env/
 
 # Node / frontend
 node_modules/
+frontend/output/
 .next/
 dist/
 build/
