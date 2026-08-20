@@ -13,8 +13,7 @@ export default function FeedbackPanel({ saved }: FeedbackPanelProps): JSX.Elemen
   const conclusionUseful = feedback?.conclusionUseful ?? null;
 
   return (
-    <div className="card feedback">
-      <div className="section-title">复核记录</div>
+    <div className="feedback">
       <div className="feedback__block">
         <div className="feedback__label">结论是否有助于决策</div>
         <div className="feedback__toggle-group">

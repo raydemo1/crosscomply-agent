@@ -462,21 +462,21 @@ function RemediationSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: () =
     : legacyTasks.filter((action) => action.status !== 'completed' && action.due_date && action.due_date < today).length;
   const href = `?case=${encodeURIComponent(saved.id)}&remediation=plan`;
   return (
-    <section className="report-section remediation-summary" aria-label="整改计划摘要">
+    <div className="remediation-summary" aria-label="整改计划摘要">
       <div className="remediation-summary__copy">
         <h2>整改计划</h2>
         <p>{saved.remediationPlan ? '独立管理负责人、处理说明和审核验收。' : '尚未建立整改计划，审查建议不会自动变成任务。'}</p>
       </div>
       <div className="remediation-summary__stats"><strong>{completed}/{total}</strong><span>已完成</span><span>{pendingReview} 待复核</span>{overdue ? <span className="is-danger">{overdue} 已逾期</span> : null}</div>
       {onOpen ? <button type="button" className="remediation-button remediation-button--primary" onClick={onOpen}>打开整改计划</button> : <a className="remediation-button remediation-button--primary" href={href}>打开整改计划</a>}
-    </section>
+    </div>
   );
 }
 
 function ReviewRecommendations({ items }: { items: string[] }): JSX.Element | null {
   if (items.length === 0) return null;
   return (
-    <section className="report-section review-recommendations">
+    <div className="review-recommendations">
       <div className="review-recommendations__heading">
         <h2>审查建议</h2>
         <span>{items.length} 项</span>
@@ -484,7 +484,7 @@ function ReviewRecommendations({ items }: { items: string[] }): JSX.Element | nu
       <ol className="review-recommendations__list">
         {items.map((item, index) => <li key={index}><MarkdownText variant="note">{item}</MarkdownText></li>)}
       </ol>
-    </section>
+    </div>
   );
 }
 
@@ -493,7 +493,7 @@ function ReviewGaps({ blockers = [], manualConfirmations = [] }: { blockers?: st
   const confirmationItems = Array.from(new Set(manualConfirmations.filter(Boolean)));
   if (blockingItems.length === 0 && confirmationItems.length === 0) return null;
   return (
-    <section className="report-section review-gaps">
+    <section className="report-section review-gaps" id="report-gaps">
       <div className="review-gaps__heading"><div><h2>待补充事实</h2><p>由规则判断和审查结果识别，不是人工创建的整改任务。</p></div></div>
       {blockingItems.length > 0 ? (
         <div className="case-operations__blockers">
@@ -613,7 +613,7 @@ function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workfl
             <div className="case-header__more-menu">
               {demoMode ? null : <button type="button" onClick={onRerun}>以此为模板重审</button>}
               <button type="button" onClick={() => downloadMarkdown(saved)}>导出 Markdown</button>
-              <button type="button" onClick={() => downloadHtml(saved)}>导出 HTML 报告</button>
+              <button type="button" onClick={() => downloadHtml(saved)}>导出 HTML</button>
             </div>
           </details>
         </div>
@@ -699,7 +699,11 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
   const [highlightedCitationRef, setHighlightedCitationRef] = useState<string | null>(null);
   const [evidenceDrawerOpen, setEvidenceDrawerOpen] = useState(false);
   const [evidenceAnnouncement, setEvidenceAnnouncement] = useState('');
+  const [activeReportSection, setActiveReportSection] = useState('report-conclusion');
+  const [reportTocVisible, setReportTocVisible] = useState(false);
+  const [reportScrolling, setReportScrolling] = useState(false);
   const highlightTimer = useRef<number | null>(null);
+  const reportScrollTimer = useRef<number | null>(null);
 
   const evidenceCount = evidenceChunks.length;
   const citationCount = useMemo(
@@ -718,6 +722,20 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
     () => cleanConclusionForDisplay(result.conclusion, hasRiskBoundaryDisclaimer),
     [result.conclusion, hasRiskBoundaryDisclaimer],
   );
+  const reviewBlockers = saved.ruleDecision?.determination.needs_info.length
+    ? saved.ruleDecision.determination.needs_info.map((item) => item.reason)
+    : result.missing_information;
+  const manualConfirmations = saved.ruleDecision?.determination.manual_confirmation_reasons ?? [];
+  const hasReviewGaps = reviewBlockers.length > 0 || manualConfirmations.length > 0;
+  const reportSections = useMemo(() => [
+    { id: 'report-conclusion', label: '审查结论', secondary: false },
+    { id: 'report-basis', label: '判断依据', secondary: false },
+    ...(riskBoundariesForDisplay.length > 0 ? [{ id: 'report-boundaries', label: '风险边界', secondary: false }] : []),
+    ...(hasReviewGaps ? [{ id: 'report-gaps', label: '待补充事实', secondary: false }] : []),
+    { id: 'report-next', label: '建议与后续', secondary: false },
+    { id: 'report-review', label: viewerRole === 'requester' ? '报告反馈' : '人工复核', secondary: true },
+    { id: 'report-records', label: '报告依据与记录', secondary: true },
+  ], [hasReviewGaps, riskBoundariesForDisplay.length, viewerRole]);
 
   const citations = useMemo(
     () => response.citation_groups.flatMap((group) => group.citations),
@@ -746,6 +764,50 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
     });
   }, []);
 
+  const navigateToReportSection = useCallback((id: string) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    if (target instanceof HTMLDetailsElement) target.open = true;
+    target.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+    setActiveReportSection(id);
+    if (target instanceof HTMLDetailsElement) target.querySelector('summary')?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    const updateActiveSection = () => {
+      const marker = Math.min(180, window.innerHeight * 0.28);
+      let next = reportSections[0]?.id ?? 'report-conclusion';
+      reportSections.forEach(({ id }) => {
+        const section = document.getElementById(id);
+        if (section && section.getBoundingClientRect().top <= marker) next = id;
+      });
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
+        next = reportSections[reportSections.length - 1]?.id ?? next;
+      }
+      setActiveReportSection((current) => current === next ? current : next);
+    };
+    const handleReportScroll = () => {
+      updateActiveSection();
+      setReportTocVisible(window.scrollY > 80);
+      setReportScrolling(true);
+      if (reportScrollTimer.current !== null) window.clearTimeout(reportScrollTimer.current);
+      reportScrollTimer.current = window.setTimeout(() => setReportScrolling(false), 700);
+    };
+
+    updateActiveSection();
+    setReportTocVisible(window.scrollY > 80);
+    window.addEventListener('scroll', handleReportScroll, { passive: true });
+    window.addEventListener('resize', updateActiveSection);
+    return () => {
+      window.removeEventListener('scroll', handleReportScroll);
+      window.removeEventListener('resize', updateActiveSection);
+      if (reportScrollTimer.current !== null) window.clearTimeout(reportScrollTimer.current);
+    };
+  }, [reportSections]);
+
   useEffect(() => () => {
     if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
   }, []);
@@ -756,8 +818,25 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
         {evidenceAnnouncement}
       </div>
       <div className="review-report-layout">
+        <aside className={'report-toc' + (reportTocVisible ? ' is-visible' : '') + (reportScrolling ? ' is-scrolling' : '')} aria-label="报告目录">
+          <nav>
+            {reportSections.map((item, index) => (
+              <div className={item.secondary && !reportSections[index - 1]?.secondary ? 'report-toc__secondary' : undefined} key={item.id}>
+                <button
+                  type="button"
+                  className={'report-toc__item' + (activeReportSection === item.id ? ' is-active' : '')}
+                  aria-current={activeReportSection === item.id ? 'location' : undefined}
+                  onClick={() => navigateToReportSection(item.id)}
+                >
+                  <span className="report-toc__marker" aria-hidden="true" />
+                  <span>{item.label}</span>
+                </button>
+              </div>
+            ))}
+          </nav>
+        </aside>
         <main className="review-report">
-          <section className="case-conclusion report-section">
+          <section className="case-conclusion report-section" id="report-conclusion">
             <div className="case-conclusion__head">
               <RiskBadge level={result.risk_level} />
               <span className="case-conclusion__evidence">
@@ -783,6 +862,9 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
             >
               {conclusionForDisplay}
             </MarkdownText>
+          </section>
+
+          <section className="report-section report-basis" id="report-basis">
             <GroundedClaims
               claims={result.claims}
               evidenceChunks={evidenceChunks}
@@ -807,83 +889,33 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
                 handleEvidenceSelect(citationRef, citation?.citation_label ?? citationRef);
               }}
             />
-            {riskBoundariesForDisplay.length > 0 ? (
-              <div className="case-conclusion__boundaries">
-                <div className="section-title">风险边界</div>
-                <div className="warning-list">
-                  {riskBoundariesForDisplay.map((item, index) => <div className="warning-note" key={index}><MarkdownText variant="note">{item}</MarkdownText></div>)}
-                </div>
-              </div>
-            ) : null}
           </section>
 
-          <ReviewRecommendations items={result.recommended_actions} />
+          {riskBoundariesForDisplay.length > 0 ? (
+            <section className="report-section review-boundaries" id="report-boundaries">
+              <div className="section-title">风险边界</div>
+              <p className="report-section__intro">以下内容说明本次结论的适用范围和限制。</p>
+              <div className="warning-list">
+                {riskBoundariesForDisplay.map((item, index) => <div className="warning-note" key={index}><MarkdownText variant="note">{item}</MarkdownText></div>)}
+              </div>
+            </section>
+          ) : null}
 
           <ReviewGaps
-            blockers={saved.ruleDecision?.determination.needs_info.length
-              ? saved.ruleDecision.determination.needs_info.map((item) => item.reason)
-              : result.missing_information}
-            manualConfirmations={saved.ruleDecision?.determination.manual_confirmation_reasons ?? []}
+            blockers={reviewBlockers}
+            manualConfirmations={manualConfirmations}
           />
 
-          <RemediationSummary saved={saved} onOpen={onOpenRemediationPlan} />
+          <section className="report-section review-next-steps" id="report-next">
+            <div className="section-title">建议与后续</div>
+            <ReviewRecommendations items={result.recommended_actions} />
+            <RemediationSummary saved={saved} onOpen={onOpenRemediationPlan} />
+          </section>
 
-          <details className="card report-disclosure">
-            <summary>案件输入与材料版本</summary>
+          <details className="card report-disclosure report-review-disclosure" id="report-review">
+            <summary>{viewerRole === 'requester' ? '报告反馈' : '人工复核'}</summary>
             <div className="report-disclosure__body">
-              <section>
-                <div className="case-field">
-                  <div className="case-field__label">审查问题</div>
-                  <div className="case-field__value">{saved.question}</div>
-                </div>
-                <div className="case-field">
-                  <div className="case-field__label">待审查材料</div>
-                  <pre className="case-field__material">{saved.materialText}</pre>
-                </div>
-              </section>
-              {saved.materialSnapshot ? (
-                <section>
-                  <div className="section-title">冻结材料版本</div>
-                  <div className="enterprise-materials">
-                    {saved.materialSnapshot.version_ids.map((versionId, index) => (
-                      <div key={versionId}><span><strong>材料版本 {index + 1}</strong><small>已冻结到本次审查</small></span><span><code title={versionId}>{versionId}</code></span></div>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-            </div>
-          </details>
-
-          <details className="card report-disclosure">
-            <summary>查看审查流程</summary>
-            <div className="report-disclosure__body">
-              {result.trigger_reasons.length > 0 ? (
-                <section>
-                  <div className="section-title">触发原因</div>
-                  <div className="tag-list">{result.trigger_reasons.map((reason, index) => <span className="tag" key={index}>{reason}</span>)}</div>
-                </section>
-              ) : null}
-              <PipelineStepper
-                factsCount={facts.data_types.length + (facts.cross_border_transfer ? 1 : 0)}
-                queryCount={queries.length}
-                evidenceCount={evidenceCount}
-                selfCheckStatus={selfCheck.status}
-                secondRetrieval={selfCheck.second_retrieval_triggered}
-                riskLevel={result.risk_level}
-              />
-              <ProcessDetails
-                facts={facts}
-                queries={queries}
-                selfCheck={selfCheck}
-                evidenceCount={evidenceCount}
-                citationCount={citationCount}
-              />
-            </div>
-          </details>
-
-          <details className="card report-disclosure">
-            <summary>引用依据复核</summary>
-            <div className="report-disclosure__body">
+              <p className="report-disclosure__intro">{viewerRole === 'requester' ? '如发现结论或引用存在问题，可在这里集中反馈。' : '阅读报告后，可在这里核对引用并记录人工判断。'}</p>
               <CitationList
                 groups={response.citation_groups}
                 evidenceChunks={evidenceChunks}
@@ -894,18 +926,64 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
               />
               {demoMode
                 ? <div className="demo-readonly-note">公开演示仅供浏览，人工评价与整改任务需要接入自己的服务端后保存。</div>
-                : viewerRole === 'requester' ? <FeedbackPanel saved={saved} /> : null}
+                : <FeedbackPanel saved={saved} />}
             </div>
           </details>
 
-          {viewerRole !== 'requester' && !demoMode ? (
-            <section className="report-section reviewer-feedback">
-              <div className="section-title">人工复核记录</div>
-              <FeedbackPanel saved={saved} />
-            </section>
-          ) : null}
+          <details className="card report-disclosure report-records-disclosure" id="report-records">
+            <summary>报告依据与记录</summary>
+            <div className="report-disclosure__body">
+              <section className="report-record-group">
+                <div className="section-title">案件材料</div>
+                <div className="case-field">
+                  <div className="case-field__label">审查问题</div>
+                  <div className="case-field__value">{saved.question}</div>
+                </div>
+                <div className="case-field">
+                  <div className="case-field__label">待审查材料</div>
+                  <pre className="case-field__material">{saved.materialText}</pre>
+                </div>
+                {saved.materialSnapshot ? (
+                  <div className="enterprise-materials">
+                    {saved.materialSnapshot.version_ids.map((versionId, index) => (
+                      <div key={versionId}><span><strong>材料版本 {index + 1}</strong><small>已冻结到本次审查</small></span><span><code title={versionId}>{versionId}</code></span></div>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
 
-          <AuditDisclosure saved={saved} />
+              <section className="report-record-group">
+                <div className="section-title">生成过程</div>
+                {result.trigger_reasons.length > 0 ? (
+                  <div className="report-record-subsection">
+                    <div className="section-title">触发原因</div>
+                    <div className="tag-list">{result.trigger_reasons.map((reason, index) => <span className="tag" key={index}>{reason}</span>)}</div>
+                  </div>
+                ) : null}
+                <PipelineStepper
+                  factsCount={facts.data_types.length + (facts.cross_border_transfer ? 1 : 0)}
+                  queryCount={queries.length}
+                  evidenceCount={evidenceCount}
+                  selfCheckStatus={selfCheck.status}
+                  secondRetrieval={selfCheck.second_retrieval_triggered}
+                  riskLevel={result.risk_level}
+                />
+                <ProcessDetails
+                  facts={facts}
+                  queries={queries}
+                  selfCheck={selfCheck}
+                  evidenceCount={evidenceCount}
+                  citationCount={citationCount}
+                />
+              </section>
+
+              <section className="report-record-group">
+                <div className="section-title">审计记录</div>
+                <EnterpriseDecisionChain saved={saved} includeMaterial={false} embedded />
+                <Timeline events={saved.events} embedded />
+              </section>
+            </div>
+          </details>
         </main>
 
         <EvidenceSidebar

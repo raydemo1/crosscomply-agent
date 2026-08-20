@@ -37,11 +37,11 @@ export default function GroundedClaims({
       aria-label="关键判断与引用依据"
     >
       <div className="grounded-claims__header">
-        <div className="grounded-claims__header-copy">
-          <span>关键判断与引用</span>
-          <span>点击编号查看条文</span>
+        <h2 className="grounded-claims__title">判断依据</h2>
+        <div className="grounded-claims__header-action">
+          <span className="grounded-claims__hint">点击编号查看条文</span>
+          {headerAction}
         </div>
-        {headerAction ? <div className="grounded-claims__header-action">{headerAction}</div> : null}
       </div>
       {claims.map((claim, index) => {
         const citationRefs = claim.supporting_citation_refs ?? [];
