@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, FilePlus2, Files, LayoutTemplate, LogOut, Search, Scale, ShieldCheck, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus2, Files, LayoutTemplate, LogOut, Search, Scale, ShieldCheck, X } from 'lucide-react';
 import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { relativeTime, truncate } from '../utils/display';
 import { CASE_STATUS_LABELS } from '../utils/workflow';
 
 /**
- * Top-level shell destinations. The library destinations are intentionally
- * part of the shell contract before their full pages ship, so the navigation
- * can grow without changing the sidebar API again.
+ * Top-level shell destinations. Legal sources and internal policies share one
+ * governance surface, with the library kind carried by the child destination.
  */
 export type Page =
   | 'workbench'
@@ -17,8 +16,8 @@ export type Page =
   | 'case-templates'
   | 'my-remediations'
   | 'remediation-plan'
-  | 'legal-library'
-  | 'policy-management';
+  | 'knowledge-legal'
+  | 'knowledge-policy';
 
 interface SidebarProps {
   currentPage: Page;
@@ -84,10 +83,16 @@ export default function Sidebar({
   const [casePreview, setCasePreview] = useState<CasePreviewPosition | null>(null);
   const createPagesActive = currentPage === 'workbench' || currentPage === 'case-templates';
   const [createMenuOpen, setCreateMenuOpen] = useState(createPagesActive);
+  const knowledgePagesActive = currentPage === 'knowledge-legal' || currentPage === 'knowledge-policy';
+  const [knowledgeMenuOpen, setKnowledgeMenuOpen] = useState(knowledgePagesActive);
 
   useEffect(() => {
     if (createPagesActive) setCreateMenuOpen(true);
   }, [createPagesActive]);
+
+  useEffect(() => {
+    if (knowledgePagesActive) setKnowledgeMenuOpen(true);
+  }, [knowledgePagesActive]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -145,16 +150,27 @@ export default function Sidebar({
             <span className="sidebar-nav-item-icon" aria-hidden="true"><ClipboardCheck size={18} strokeWidth={1.8} /></span>
             <span>我的整改</span>
           </button>
-          <button type="button" className="sidebar-nav-item sidebar-nav-item--coming-soon" disabled aria-disabled="true">
-            <span className="sidebar-nav-item-icon" aria-hidden="true"><Scale size={18} strokeWidth={1.8} /></span>
-            <span>法律法规库</span>
-            <span className="sidebar-nav-item-status">即将开放</span>
-          </button>
-          <button type="button" className="sidebar-nav-item sidebar-nav-item--coming-soon" disabled aria-disabled="true">
-            <span className="sidebar-nav-item-icon" aria-hidden="true"><BookOpen size={18} strokeWidth={1.8} /></span>
-            <span>政策制度</span>
-            <span className="sidebar-nav-item-status">即将开放</span>
-          </button>
+          {user.role === 'admin' ? (
+            <>
+              <button type="button" className={'sidebar-nav-item sidebar-nav-item--group' + (knowledgePagesActive ? ' is-active' : '')} aria-expanded={knowledgeMenuOpen} onClick={() => { setKnowledgeMenuOpen((open) => !open); if (!knowledgePagesActive) onPageChange('knowledge-legal'); }}>
+                <span className="sidebar-nav-item-icon" aria-hidden="true"><Database size={18} strokeWidth={1.8} /></span>
+                <span>知识库</span>
+                <span className="sidebar-nav-item-chevron" aria-hidden="true">{knowledgeMenuOpen ? <ChevronDown size={15} strokeWidth={1.8} /> : <ChevronRight size={15} strokeWidth={1.8} />}</span>
+              </button>
+              {knowledgeMenuOpen ? (
+                <div className="sidebar-nav-submenu">
+                  <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'knowledge-legal' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('knowledge-legal'); }}>
+                    <span className="sidebar-nav-subitem-icon" aria-hidden="true"><Scale size={16} strokeWidth={1.8} /></span>
+                    <span>法律法规</span>
+                  </button>
+                  <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'knowledge-policy' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('knowledge-policy'); }}>
+                    <span className="sidebar-nav-subitem-icon" aria-hidden="true"><BookOpen size={16} strokeWidth={1.8} /></span>
+                    <span>规章制度</span>
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : null}
           {user.role === 'admin' ? (
             <button type="button" className={'sidebar-nav-item' + (currentPage === 'governance' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenGovernance(); }}>
               <span className="sidebar-nav-item-icon" aria-hidden="true"><ShieldCheck size={18} strokeWidth={1.8} /></span>

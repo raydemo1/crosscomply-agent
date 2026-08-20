@@ -16,6 +16,13 @@ import type {
   EvalRunOptions,
   EvalSummary,
   HealthResponse,
+  KnowledgeDeletePreviewApi,
+  KnowledgeImportPreviewApi,
+  KnowledgeJobApi,
+  KnowledgeLibraryKind,
+  KnowledgeSourceApi,
+  KnowledgeSourceDetailApi,
+  KnowledgeTrashRecordApi,
   FreezeMaterialSnapshotResponse,
   FeishuApprovalApi,
   MaterialVersionApi,
@@ -211,6 +218,109 @@ export async function resetManagedUserPassword(userId: string, password: string)
     method: 'POST',
     body: JSON.stringify({ password }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge-base administration
+// ---------------------------------------------------------------------------
+
+export async function listKnowledgeSources(
+  libraryKind: KnowledgeLibraryKind,
+  params: { query?: string; status?: string } = {},
+): Promise<{ items: KnowledgeSourceApi[]; total: number }> {
+  const query = new URLSearchParams({ library_kind: libraryKind });
+  if (params.query?.trim()) query.set('query', params.query.trim());
+  if (params.status) query.set('status', params.status);
+  return request<{ items: KnowledgeSourceApi[]; total: number }>(`/api/admin/knowledge-sources?${query.toString()}`);
+}
+
+export async function getKnowledgeSource(sourceId: string): Promise<KnowledgeSourceDetailApi> {
+  return request<KnowledgeSourceDetailApi>(`/api/admin/knowledge-sources/${encodeURIComponent(sourceId)}`);
+}
+
+export function knowledgeSourceDownloadUrl(sourceId: string): string {
+  return buildUrl(`/api/admin/knowledge-sources/${encodeURIComponent(sourceId)}/raw`);
+}
+
+export async function previewKnowledgeImport(
+  libraryKind: KnowledgeLibraryKind,
+  files: File[],
+  metadata: Array<Record<string, unknown>> = [],
+): Promise<KnowledgeImportPreviewApi> {
+  if (files.length === 0) throw new ApiError(422, '请选择至少一个来源文件。', '/api/admin/knowledge-import-previews');
+  if (files.length > 50) throw new ApiError(422, '一次最多导入 50 个来源文件。', '/api/admin/knowledge-import-previews');
+  files.forEach(validateUploadFile);
+  const formData = new FormData();
+  formData.append('library_kind', libraryKind);
+  formData.append('metadata_json', JSON.stringify(metadata));
+  files.forEach((file) => formData.append('files', file));
+  return request<KnowledgeImportPreviewApi>('/api/admin/knowledge-import-previews', {
+    method: 'POST',
+    body: formData,
+    timeoutMs: REVIEW_TIMEOUT_MS,
+  });
+}
+
+export async function commitKnowledgeImport(previewId: string): Promise<{ job: KnowledgeJobApi }> {
+  return request<{ job: KnowledgeJobApi }>('/api/admin/knowledge-import-jobs', {
+    method: 'POST',
+    body: JSON.stringify({ preview_id: previewId }),
+  });
+}
+
+export async function updateKnowledgeMetadata(
+  sourceId: string,
+  payload: Record<string, unknown>,
+): Promise<{ job: KnowledgeJobApi }> {
+  return request<{ job: KnowledgeJobApi }>(`/api/admin/knowledge-sources/${encodeURIComponent(sourceId)}/metadata`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function previewKnowledgeDelete(
+  libraryKind: KnowledgeLibraryKind,
+  sourceIds: string[],
+): Promise<KnowledgeDeletePreviewApi> {
+  return request<KnowledgeDeletePreviewApi>('/api/admin/knowledge-delete-previews', {
+    method: 'POST',
+    body: JSON.stringify({ library_kind: libraryKind, source_ids: sourceIds }),
+  });
+}
+
+export async function commitKnowledgeDelete(token: string, confirmation: string): Promise<{ job: KnowledgeJobApi }> {
+  return request<{ job: KnowledgeJobApi }>('/api/admin/knowledge-delete-jobs', {
+    method: 'POST',
+    body: JSON.stringify({ token, confirmation }),
+  });
+}
+
+export async function listKnowledgeTrash(libraryKind: KnowledgeLibraryKind): Promise<{ items: KnowledgeTrashRecordApi[]; total: number }> {
+  const query = new URLSearchParams({ library_kind: libraryKind });
+  return request<{ items: KnowledgeTrashRecordApi[]; total: number }>(`/api/admin/knowledge-trash?${query.toString()}`);
+}
+
+export async function restoreKnowledgeSource(sourceId: string, libraryKind: KnowledgeLibraryKind): Promise<{ job: KnowledgeJobApi }> {
+  return request<{ job: KnowledgeJobApi }>(`/api/admin/knowledge-trash/${encodeURIComponent(sourceId)}/restore`, {
+    method: 'POST',
+    body: JSON.stringify({ library_kind: libraryKind }),
+  });
+}
+
+export async function getKnowledgeJob(jobId: string): Promise<{ job: KnowledgeJobApi }> {
+  return request<{ job: KnowledgeJobApi }>(`/api/admin/knowledge-jobs/${encodeURIComponent(jobId)}`);
+}
+
+export async function waitForKnowledgeJob(
+  jobId: string,
+  onUpdate?: (job: KnowledgeJobApi) => void,
+): Promise<KnowledgeJobApi> {
+  while (true) {
+    const { job } = await getKnowledgeJob(jobId);
+    onUpdate?.(job);
+    if (job.status === 'succeeded' || job.status === 'partially_succeeded' || job.status === 'failed') return job;
+    await new Promise<void>((resolve) => window.setTimeout(resolve, TASK_POLL_INTERVAL_MS));
+  }
 }
 
 export interface CreateCaseInput {

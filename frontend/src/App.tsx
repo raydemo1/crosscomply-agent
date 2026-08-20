@@ -12,6 +12,7 @@ import { EMPTY_INTAKE, initializeDemoCase, openCase, refreshCases, useCaseStore 
 const PUBLIC_DEMO_ENABLED = import.meta.env.VITE_PUBLIC_DEMO === 'true';
 
 const GovernanceConsolePage = lazy(() => import('./components/GovernanceConsolePage'));
+const KnowledgeBasePage = lazy(() => import('./components/KnowledgeBasePage'));
 const CaseDetailPage = lazy(() => import('./components/CaseDetailPage'));
 const TemplateCenterPage = lazy(() => import('./components/TemplateCenterPage'));
 const RemediationPlanPage = lazy(() => import('./components/RemediationPlanPage'));
@@ -298,11 +299,12 @@ export default function App(): JSX.Element {
             <span>CrossComply</span>
           </div>
           <div className="app-mobile-actions">
-            <span className="app-mobile-surface">{page === 'governance' ? '用户管理' : page === 'my-remediations' ? '我的整改' : page === 'remediation-plan' ? '整改计划' : page === 'case-detail' ? '案件详情' : page === 'case-templates' ? '使用模板' : '新建案件'}</span>
+            <span className="app-mobile-surface">{page === 'governance' ? '用户管理' : page === 'knowledge-legal' ? '知识库 · 法律法规' : page === 'knowledge-policy' ? '知识库 · 规章制度' : page === 'my-remediations' ? '我的整改' : page === 'remediation-plan' ? '整改计划' : page === 'case-detail' ? '案件详情' : page === 'case-templates' ? '使用模板' : '新建案件'}</span>
           </div>
         </div>
         {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
         {page === 'governance' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载用户管理…</div></div>}><GovernanceConsolePage user={user} /></Suspense> : null}
+        {page === 'knowledge-legal' || page === 'knowledge-policy' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载知识库…</div></div>}><KnowledgeBasePage user={user} initialLibraryKind={page === 'knowledge-legal' ? 'legal' : 'internal_policy'} /></Suspense> : null}
         {page === 'my-remediations' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载我的整改…</div></div>}><MyRemediationsPage user={user} /></Suspense> : null}
         {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} /></Suspense> : null}
         {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} demoMode={PUBLIC_DEMO_ENABLED} canEdit={user.role === 'requester' && !PUBLIC_DEMO_ENABLED} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} /></Suspense> : null}

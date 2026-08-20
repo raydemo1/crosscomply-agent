@@ -338,6 +338,95 @@ export interface HealthResponse {
 // ---------------------------------------------------------------------------
 
 export type UserRole = 'requester' | 'reviewer' | 'admin';
+export type KnowledgeLibraryKind = 'legal' | 'internal_policy';
+export type KnowledgeInternalStatus = 'draft' | 'effective' | 'retired';
+export type KnowledgeLawStatus = 'effective' | 'not_yet_effective' | 'amended' | 'repealed' | 'unknown';
+export type KnowledgeSourceStatus = 'added' | 'updated' | 'skipped_duplicate' | 'unknown' | string;
+
+export interface KnowledgeSourceRecordApi {
+  source_id: string;
+  library_kind: KnowledgeLibraryKind;
+  title: string;
+  source_url: string;
+  download_url: string | null;
+  source_site: string;
+  doc_type: string;
+  authority: string;
+  law_status: KnowledgeLawStatus;
+  publish_date: string | null;
+  effective_date: string | null;
+  issuing_body: string | null;
+  owning_department: string | null;
+  internal_status: KnowledgeInternalStatus | null;
+  applicable_region: string;
+  legal_domain: string[];
+  applicable_subjects: string[];
+  topic_tags: string[];
+  file_format: string;
+  include_in_mvp: boolean;
+  review_note: string | null;
+}
+
+export interface KnowledgeSourceApi {
+  source: KnowledgeSourceRecordApi;
+  chunk_count: number;
+  status: KnowledgeSourceStatus;
+  raw_format: string;
+}
+
+export interface KnowledgeSourceDetailApi extends KnowledgeSourceApi {
+  raw_filename: string | null;
+  raw_size: number | null;
+  raw_path: string | null;
+  content_hash: string | null;
+  generation_id: string | null;
+}
+
+export type KnowledgeImportAction = 'add' | 'replace' | 'skip' | 'error';
+
+export interface KnowledgeImportPreviewItemApi {
+  id: string;
+  filename: string;
+  size: number;
+  source: KnowledgeSourceRecordApi;
+  content_hash?: string;
+  action: KnowledgeImportAction;
+  duplicate?: boolean;
+  error: string | null;
+}
+
+export interface KnowledgeImportPreviewApi {
+  preview_id: string;
+  items: KnowledgeImportPreviewItemApi[];
+}
+
+export interface KnowledgeJobApi {
+  id?: string;
+  job_type?: 'import' | 'delete' | 'restore' | 'metadata';
+  status: 'queued' | 'running' | 'succeeded' | 'partially_succeeded' | 'failed';
+  result?: { items?: Array<Record<string, unknown>> };
+  error?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface KnowledgeDeletePreviewApi {
+  token: string;
+  items: KnowledgeSourceApi[];
+  missing: string[];
+  total_chunks: number;
+}
+
+export interface KnowledgeTrashRecordApi {
+  source_id: string;
+  library_kind: KnowledgeLibraryKind;
+  title: string;
+  archive_dir: string;
+  trashed_at: string;
+  expires_at: string;
+  source: KnowledgeSourceRecordApi;
+}
+
 export type CaseStatus =
   | 'draft'
   | 'needs_info'
