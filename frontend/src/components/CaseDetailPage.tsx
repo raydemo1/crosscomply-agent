@@ -530,7 +530,7 @@ function statusLabel(status: CaseStatus): string {
 }
 
 // ---------------------------------------------------------------------------
-// CaseHeader — sticky header with identity + actions
+// CaseHeader — case identity with actions
 // ---------------------------------------------------------------------------
 
 interface CaseHeaderProps {
@@ -547,6 +547,12 @@ interface CaseHeaderProps {
 
 function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workflowOperation, workflowError, setWorkflowOperation, setWorkflowError }: CaseHeaderProps): JSX.Element {
   const [shareOpen, setShareOpen] = useState(false);
+  const reportReady = Boolean(saved.report);
+  const reportCanGenerate = Boolean(
+    saved.report
+      || saved.signedDecision
+      || (saved.feishuApproval && saved.feishuApproval.status !== 'pending'),
+  );
   return (
     <>
     <header className="case-header card">
@@ -556,12 +562,18 @@ function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workfl
         </button>
         <div className="case-header__actions">
           <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} compact />
-          {saved.signedDecision || saved.report ? (
+          {reportCanGenerate ? (
             demoMode ? (
               <a className="case-header__action-btn case-header__action-btn--accent" href={DEMO_REPORT_DOWNLOAD_URL} download>下载演示 PDF</a>
             ) : (
-              <a className="case-header__action-btn case-header__action-btn--accent" href={caseReportDownloadUrl(saved.id)} download>下载正式 PDF</a>
+              <a className="case-header__action-btn case-header__action-btn--accent" href={caseReportDownloadUrl(saved.id)} download>
+                {reportReady ? '下载完整报告' : '生成完整报告'}
+              </a>
             )
+          ) : saved.feishuApproval?.status === 'pending' ? (
+            <button type="button" className="case-header__action-btn case-header__action-btn--report-pending" disabled>
+              审批完成后生成报告
+            </button>
           ) : null}
           <button type="button" className="case-header__action-btn case-header__action-btn--share" onClick={() => setShareOpen(true)}>分享案件</button>
           <details className="case-header__more">
@@ -710,19 +722,6 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
       </div>
       <div className="review-report-layout">
         <main className="review-report">
-          <div className="evidence-drawer-toolbar">
-            <button
-              type="button"
-              className="evidence-drawer-trigger"
-              onClick={() => setEvidenceDrawerOpen(true)}
-              aria-controls="evidence-sidebar"
-              aria-expanded={evidenceDrawerOpen}
-            >
-              <span>法源核查</span>
-              <span className="evidence-drawer-trigger__count">{citationCount} 条法源</span>
-              <span className="evidence-drawer-trigger__icon" aria-hidden="true">↗</span>
-            </button>
-          </div>
           <section className="case-conclusion report-section">
             <div className="case-conclusion__head">
               <RiskBadge level={result.risk_level} />
@@ -747,24 +746,37 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
                 handleEvidenceSelect(citationRef, citation?.citation_label ?? citationRef);
               }}
             >
-              {result.conclusion}
+              {conclusionForDisplay}
             </MarkdownText>
             <GroundedClaims
               claims={result.claims}
               evidenceChunks={evidenceChunks}
               citations={citations}
               compact
+              headerAction={(
+                <button
+                  type="button"
+                  className="evidence-drawer-trigger evidence-drawer-trigger--inline"
+                  onClick={() => setEvidenceDrawerOpen(true)}
+                  aria-controls="evidence-sidebar"
+                  aria-expanded={evidenceDrawerOpen}
+                >
+                  <span>法源核查</span>
+                  <span className="evidence-drawer-trigger__count">{citationCount} 条</span>
+                  <span className="evidence-drawer-trigger__icon" aria-hidden="true">↗</span>
+                </button>
+              )}
               onEvidenceSelect={handleEvidenceSelect}
               onCitationClick={(citationRef) => {
                 const citation = citations.find((item) => item.citation_ref === citationRef);
                 handleEvidenceSelect(citationRef, citation?.citation_label ?? citationRef);
               }}
             />
-            {result.risk_boundaries.length > 0 ? (
+            {riskBoundariesForDisplay.length > 0 ? (
               <div className="case-conclusion__boundaries">
                 <div className="section-title">风险边界</div>
                 <div className="warning-list">
-                  {result.risk_boundaries.map((item, index) => <div className="warning-note" key={index}><MarkdownText variant="note">{item}</MarkdownText></div>)}
+                  {riskBoundariesForDisplay.map((item, index) => <div className="warning-note" key={index}><MarkdownText variant="note">{item}</MarkdownText></div>)}
                 </div>
               </div>
             ) : null}

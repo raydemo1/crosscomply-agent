@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import type { Citation, GroundedClaim, RetrievalHit } from '../types/api';
 import MarkdownText from './MarkdownText';
 import { citationDisplayLabel } from '../utils/display';
@@ -8,6 +9,7 @@ interface GroundedClaimsProps {
   evidenceChunks: RetrievalHit[] | undefined;
   citations: Citation[];
   compact?: boolean;
+  headerAction?: ReactNode;
   onEvidenceSelect?: (citationRef: string, label: string) => void;
   onCitationClick?: (citationRef: string) => void;
 }
@@ -17,6 +19,7 @@ export default function GroundedClaims({
   evidenceChunks,
   citations,
   compact = false,
+  headerAction,
   onEvidenceSelect,
   onCitationClick,
 }: GroundedClaimsProps): JSX.Element | null {
@@ -34,8 +37,11 @@ export default function GroundedClaims({
       aria-label="关键判断与引用依据"
     >
       <div className="grounded-claims__header">
-        <span>关键判断与引用</span>
-        <span>点击编号查看条文</span>
+        <div className="grounded-claims__header-copy">
+          <span>关键判断与引用</span>
+          <span>点击编号查看条文</span>
+        </div>
+        {headerAction ? <div className="grounded-claims__header-action">{headerAction}</div> : null}
       </div>
       {claims.map((claim, index) => {
         const citationRefs = claim.supporting_citation_refs ?? [];
