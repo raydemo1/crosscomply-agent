@@ -40,6 +40,7 @@ def test_review_artifacts_roundtrip(tmp_path: Path) -> None:
         review_case_id="review_test",
         trace_id="trace_test",
         risk_level="insufficient_evidence",
+        decision_summary="审查任务尚未运行证据检索，目前没有足够依据形成审批结论；请等待事实提取、法源检索和证据自检完成。",
         conclusion="Review case created. Evidence retrieval has not run yet.",
         review_facts=facts,
     )

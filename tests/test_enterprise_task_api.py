@@ -348,6 +348,7 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
                 "review_result": {
                     "missing_information": [],
                     "risk_level": "medium",
+                    "decision_summary": "当前材料支持采用标准合同路径，不触发安全评估门槛；上线前仍须完成影响评估、合同签署及备案。",
                     "conclusion": "建议采用标准合同路径，并在上线前完成备案。",
                     "recommended_actions": ["完成个人信息保护影响评估"],
                 }
@@ -381,7 +382,8 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         assert created.status_code == 200, created.text
         assert created.json()["instance_id"] == "instance-hero"
         form = {item["id"]: item["value"] for item in fake_feishu.created["form"]}
-        assert form["decision_summary"].startswith("风险：中｜候选路径：标准合同｜AI审查：")
+        assert form["decision_summary"].startswith("风险：中｜候选路径：标准合同｜审批摘要：")
+        assert "当前材料支持采用标准合同路径" in form["decision_summary"]
         assert form["key_actions"] == "完成个人信息保护影响评估；上线前完成跨境合同归档"
         assert form["case_url"] == f"https://crosscomply.example.com/?case={case_id}"
         assert form["task_id"] == task.id

@@ -53,6 +53,7 @@ class DecisionReportData:
 @dataclass(frozen=True)
 class AIReviewSummary:
     risk_level: str = ""
+    decision_summary: str = ""
     conclusion: str = ""
     missing_information: tuple[str, ...] = ()
     recommended_actions: tuple[str, ...] = ()
@@ -93,6 +94,16 @@ SOFT_GOLD = "#FFFBEB"
 SOFT_GREEN = "#F0FDF4"
 GREEN = "#047857"
 RED = "#B91C1C"
+
+_REVIEW_SECTION_TITLES = (
+    "风险定性",
+    "关键法律依据",
+    "合规义务与缺口",
+    "建议措施",
+    "建议动作",
+    "风险边界",
+)
+_REVIEW_SECTION_PATTERN = "|".join(map(re.escape, _REVIEW_SECTION_TITLES))
 
 
 def generate_decision_report(data: DecisionReportData) -> DecisionReportArtifact:
@@ -274,7 +285,10 @@ def _build_styles(ParagraphStyle, get_sample_styles, *, body_font, bold_font, mo
         "table_mono": ParagraphStyle("table_mono", parent=sample["BodyText"], fontName=mono_font, fontSize=8.2, leading=11, textColor=colors.HexColor(INK), splitLongWords=True),
         "callout": ParagraphStyle("callout", parent=sample["BodyText"], fontName=body_font, fontSize=9.2, leading=14, textColor=colors.HexColor(INK)),
         "opinion_label": ParagraphStyle("opinion_label", parent=sample["BodyText"], fontName=bold_font, fontSize=10.2, leading=14, textColor=colors.white),
-        "opinion": ParagraphStyle("opinion", parent=sample["BodyText"], fontName=body_font, fontSize=10.8, leading=17, textColor=colors.HexColor(INK)),
+        "summary_body": ParagraphStyle("summary_body", parent=sample["BodyText"], fontName=body_font, fontSize=10.6, leading=16.5, textColor=colors.HexColor(INK)),
+        "opinion_heading": ParagraphStyle("opinion_heading", parent=sample["Heading3"], fontName=bold_font, fontSize=11.2, leading=16, textColor=colors.HexColor(NAVY), spaceBefore=6, spaceAfter=3),
+        "opinion_body": ParagraphStyle("opinion_body", parent=sample["BodyText"], fontName=body_font, fontSize=10.4, leading=16, textColor=colors.HexColor(INK), spaceAfter=5),
+        "opinion_list": ParagraphStyle("opinion_list", parent=sample["BodyText"], fontName=body_font, fontSize=10.2, leading=15.5, textColor=colors.HexColor(INK), leftIndent=13, firstLineIndent=-13, spaceAfter=3),
     }
 
 
@@ -317,27 +331,105 @@ def _narrative_text(value: object, *, limit: int = 1200) -> str:
     return f"{text[: limit - 1].rstrip()}…"
 
 
-def _narrative_html(value: object, *, limit: int = 1200) -> str:
-    return html.escape(_narrative_text(value, limit=limit)).replace("\n", "<br/>")
+def _join_review_fragments(left: str, right: str) -> str:
+    """Join source wraps while allowing ReportLab to choose visual line breaks."""
+
+    if not left:
+        return right
+    if not right:
+        return left
+    if re.search(r"[\u3400-\u9fff，。；：！？、）》】]$", left) or re.match(
+        r"^[\u3400-\u9fff（《【]", right
+    ):
+        return left + right
+    return f"{left} {right}"
 
 
-def _review_conclusion_parts(value: object) -> tuple[str, tuple[str, ...]]:
-    """Separate the readable conclusion from embedded confirmation bullets."""
+def _review_markdown_blocks(value: object) -> tuple[tuple[str, str, str], ...]:
+    """Parse the small Markdown subset used by generated review reports.
 
-    text = _narrative_text(value, limit=2200)
-    lead: list[str] = []
-    attention: list[str] = []
+    The LLM may put a section heading and its first sentence on the same line,
+    or wrap source text at arbitrary positions.  Those source wraps must not
+    become hard PDF line breaks.
+    """
+
+    text = html.unescape(str(value or ""))
+    text = re.sub(r"<[^>]+>", "", text)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"\\[ \t]*\n[ \t]*", "", text)
+    text = re.sub(
+        rf"(?<!\n)[ \t]*(?=#{{1,6}}\s*(?:{_REVIEW_SECTION_PATTERN}))",
+        "\n",
+        text,
+    )
+    blocks: list[tuple[str, str, str]] = []
+    paragraph = ""
+
+    def flush_paragraph() -> None:
+        nonlocal paragraph
+        cleaned = paragraph.strip()
+        if cleaned:
+            blocks.append(("paragraph", "", cleaned))
+        paragraph = ""
+
     for raw_line in text.splitlines():
-        line = raw_line.strip().strip("；;")
-        if not line or line.startswith("本结论基于"):
+        line = raw_line.strip()
+        if not line:
+            flush_paragraph()
             continue
-        if re.match(r"^(需确认|需取得|需开展|需与|材料中)", line):
-            attention.append(line)
+
+        heading = re.match(
+            rf"^#{{1,6}}\s*({_REVIEW_SECTION_PATTERN})\s*(.*)$",
+            line,
+        )
+        if heading:
+            flush_paragraph()
+            blocks.append(("heading", "", heading.group(1)))
+            remainder = heading.group(2).strip()
+            if remainder:
+                paragraph = remainder
             continue
-        if re.match(r"^\d+[.、]", line):
+
+        bullet = re.match(r"^[-*+]\s+(.+)$", line)
+        numbered = re.match(r"^(\d+)[.、)]\s*(.+)$", line)
+        if bullet or numbered:
+            flush_paragraph()
+            marker = "•" if bullet else f"{numbered.group(1)}."
+            item = bullet.group(1) if bullet else numbered.group(2)
+            blocks.append(("list", marker, item.strip().strip("；;")))
             continue
-        lead.append(line)
-    return "\n".join(lead[:2]), tuple(dict.fromkeys(attention))
+
+        paragraph = _join_review_fragments(paragraph, line)
+
+    flush_paragraph()
+    return tuple(blocks)
+
+
+def _review_inline_html(value: str) -> str:
+    text = re.sub(r"[①②③④⑤⑥⑦⑧⑨⑩]+", "", value)
+    escaped = html.escape(text)
+    escaped = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
+    escaped = re.sub(r"__(.+?)__", r"<b>\1</b>", escaped)
+    return escaped.replace("`", "")
+
+
+def _review_block_flowables(value: object, styles) -> list[Flowable]:
+    flowables: list[Flowable] = []
+    for kind, marker, text in _review_markdown_blocks(value):
+        if kind == "heading":
+            flowables.append(_p(_review_inline_html(text), styles["opinion_heading"], escape=False))
+        elif kind == "list":
+            marker_html = html.escape(marker)
+            flowables.append(
+                _p(
+                    f'<font color="{GOLD}"><b>{marker_html}</b></font>　{_review_inline_html(text)}',
+                    styles["opinion_list"],
+                    escape=False,
+                )
+            )
+        else:
+            flowables.append(_p(_review_inline_html(text), styles["opinion_body"], escape=False))
+    return flowables
 
 
 def _strip_article_prefix(value: object, article: str) -> str:
@@ -480,7 +572,7 @@ def _rich_decision_packet(data, styles, colors):
     if data.ai_review is not None:
         ai = data.ai_review
         risk_label, risk_color, risk_bg = _risk_label(ai.risk_level)
-        conclusion_text, conclusion_attention = _review_conclusion_parts(ai.conclusion)
+        conclusion_flowables = _review_block_flowables(ai.conclusion, styles)
         risk_card = Table([
             [_p("风险等级", styles["card_label"]), _p(risk_label, styles["card_value"])],
         ], colWidths=[38 * mm, 117 * mm])
@@ -497,25 +589,47 @@ def _rich_decision_packet(data, styles, colors):
             ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
         ]))
         story.append(risk_card)
-        if conclusion_text:
+        if ai.decision_summary:
+            story.append(Spacer(1, 9 * mm))
+            summary_card = Table([
+                [_p("审批摘要", styles["opinion_label"])],
+                [_p(ai.decision_summary, styles["summary_body"])],
+            ], colWidths=[155 * mm])
+            summary_card.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(NAVY)),
+                ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor(SOFT_GOLD)),
+                ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#FDE68A")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]))
+            story.append(summary_card)
+        if conclusion_flowables:
             story.extend([
                 Spacer(1, 9 * mm),
             ])
-            opinion_card = Table([
-                [_p("审查意见", styles["opinion_label"])],
-                [_p(_narrative_html(conclusion_text, limit=900), styles["opinion"], escape=False)],
-            ], colWidths=[155 * mm])
+            opinion_rows = [[_p("完整审查意见", styles["opinion_label"])]]
+            opinion_rows.extend([[flowable] for flowable in conclusion_flowables])
+            opinion_card = Table(
+                opinion_rows,
+                colWidths=[155 * mm],
+                repeatRows=1,
+                splitInRow=1,
+            )
             opinion_card.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(NAVY)),
-                ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor(SOFT_BLUE)),
-                ("LINEBEFORE", (0, 1), (0, 1), 4, colors.HexColor(GOLD)),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor(SOFT_BLUE)),
                 ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#BFDBFE")),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.7, colors.HexColor("#BFDBFE")),
                 ("LEFTPADDING", (0, 0), (-1, -1), 12),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 12),
                 ("TOPPADDING", (0, 0), (-1, 0), 8),
                 ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                ("TOPPADDING", (0, 1), (-1, 1), 11),
-                ("BOTTOMPADDING", (0, 1), (-1, 1), 11),
+                ("TOPPADDING", (0, 1), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 1), (-1, -1), 4),
+                ("TOPPADDING", (0, 1), (-1, 1), 10),
+                ("BOTTOMPADDING", (0, -1), (-1, -1), 10),
             ]))
             story.append(opinion_card)
 
@@ -545,7 +659,7 @@ def _rich_decision_packet(data, styles, colors):
             ]))
             story.append(context_table)
 
-        attention = list(conclusion_attention)
+        attention: list[str] = []
         attention.extend(
             f"材料缺口：{_clean_ai_text(item, limit=180)}" for item in ai.missing_information
         )

@@ -176,6 +176,10 @@ def create_review_case(
         review_case_id=review_case_id,
         trace_id=trace_id,
         risk_level="insufficient_evidence",
+        decision_summary=(
+            "审查任务尚未完成，目前没有足够证据形成可供审批的风险结论。"
+            "请等待事实提取、法源检索和证据自检完成后，再依据正式审查结果作出决定。"
+        ),
         conclusion=PLACEHOLDER_CONCLUSION,
         review_facts=facts,
     )

@@ -13,6 +13,7 @@ from law_agent.review.reports import (
     verify_report_hash,
     write_decision_report,
 )
+from law_agent.review.report_data import build_ai_review
 
 
 def report_data() -> DecisionReportData:
@@ -83,6 +84,10 @@ def test_report_surfaces_case_specific_ai_review_and_action_details(tmp_path) ->
         ),
         ai_review=AIReviewSummary(
             risk_level="medium",
+            decision_summary=(
+                "当前材料支持附条件通过，建议采用标准合同路径；上线前必须完成影响评估、"
+                "合同签署备案并补齐分处理者信息。"
+            ),
             conclusion="建议附条件通过，先完成影响评估和标准合同闭环。",
             missing_information=("尚未提供分处理者清单",),
             recommended_actions=("补齐分处理者名称、处理地点和变更通知期",),
@@ -102,7 +107,87 @@ def test_report_surfaces_case_specific_ai_review_and_action_details(tmp_path) ->
     assert destination.read_bytes() == artifact.pdf_bytes
     assert "NimbusCRM 境外 SaaS 上线前审查" in text
     assert "建议附条件通过" in text
+    assert "审批摘要" in text
+    assert "当前材料支持附条件通过" in text
+    assert "完整审查意见" in text
     assert "尚未提供分处理者清单" in text
     assert "个人信息保护负责人" in text
     assert "签署版影响评估与版本号" in text
     assert "c" * 64 not in text
+
+
+def test_report_renders_markdown_review_without_literal_markup_or_forced_wraps(tmp_path) -> None:
+    data = DecisionReportData(
+        case_number="CASE-2026-003",
+        decision="附条件通过",
+        material_hashes=("d" * 64,),
+        rule_version="national-path-2026.08",
+        legal_sources=(LegalSource("促进和规范数据跨境流动规定", "第八条"),),
+        remediation_items=(),
+        ai_review=AIReviewSummary(
+            risk_level="medium",
+            conclusion=(
+                "### 风险定性 该场景涉及**个人信息跨境提供**，存在中等合规风险。\n"
+                "企业拟采购境外 CRM / AI SaaS，向欧洲供应商\n"
+                "传输客户联系人和工单数据。\n\n"
+                "###\\\n关键法律依据 依据《促进和规范数据跨境流动规定》第八条②，\n"
+                "自当\\\n年1月1日起累计人数达到门槛时，应当订立标准合同。\n\n"
+                "### 合规义务与缺口\n"
+                "- 需确认累计向境外提供的个人信息主体人数；\n"
+                "- 需开展个人信息保护影响评估。"
+            ),
+        ),
+        approver="审核人王五",
+        approved_at="2026-08-19T10:00:00+08:00",
+    )
+    destination = tmp_path / "markdown-review.pdf"
+
+    write_decision_report(data, destination)
+    text = "\n".join(page.extract_text() or "" for page in PdfReader(destination).pages)
+
+    assert "###" not in text
+    assert "**" not in text
+    assert "\\" not in text
+    assert "风险定性" in text
+    assert "关键法律依据" in text
+    assert "合规义务与缺口" in text
+    assert "自当年1月1日起" in text.replace("\n", "")
+
+
+def test_report_data_keeps_complete_review_conclusion() -> None:
+    conclusion = "### 风险定性\n" + "完整审查内容。" * 400
+    case = {"response": {"review_result": {"risk_level": "medium", "conclusion": conclusion}}}
+
+    ai_review = build_ai_review(case)
+
+    assert ai_review is not None
+    assert ai_review.conclusion == conclusion
+    assert not ai_review.conclusion.endswith("…")
+
+
+def test_long_review_conclusion_can_span_pages_without_losing_the_end(tmp_path) -> None:
+    conclusion = (
+        "### 风险定性\n审查结论起始标记。"
+        + "这是需要完整保留的审查结论内容。" * 400
+        + "审查结论结束标记。"
+    )
+    data = DecisionReportData(
+        case_number="CASE-2026-LONG",
+        decision="附条件通过",
+        material_hashes=(),
+        rule_version="national-path-2026.08",
+        legal_sources=(),
+        remediation_items=(),
+        ai_review=AIReviewSummary(risk_level="medium", conclusion=conclusion),
+        approver="审核人赵六",
+        approved_at="2026-08-19T11:00:00+08:00",
+    )
+    destination = tmp_path / "long-review.pdf"
+
+    write_decision_report(data, destination)
+    reader = PdfReader(destination)
+    text = "".join(page.extract_text() or "" for page in reader.pages).replace("\n", "")
+
+    assert len(reader.pages) > 3
+    assert "审查结论起始标记" in text
+    assert "审查结论结束标记" in text

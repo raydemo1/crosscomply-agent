@@ -353,6 +353,7 @@ def test_critic_only_runs_for_risk_or_evidence_signals() -> None:
         review_case_id="c",
         trace_id="t",
         risk_level="low",
+        decision_summary="当前材料与证据支持低风险判断，暂未发现需要升级审查的重大事项；如业务范围变化，应重新核对适用义务。",
         conclusion="低风险",
         review_facts=ReviewFacts(),
     )
@@ -416,6 +417,7 @@ def test_evidence_critic_returns_strict_revision_decision() -> None:
         review_case_id="c",
         trace_id="t",
         risk_level="high",
+        decision_summary="当前材料支持较高风险判断，但审批前必须完成证据批评与关键事实复核，避免依据不充分结论直接放行。",
         conclusion="需要申报。",
         review_facts=ReviewFacts(cross_border_transfer=True),
     )

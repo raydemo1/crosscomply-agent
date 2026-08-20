@@ -22,11 +22,11 @@ def _compact_text(value: Any, *, limit: int) -> str:
     return f"{text[: limit - 1].rstrip()}…"
 
 
-def _narrative_text(value: Any, *, limit: int = 1200) -> str:
+def _narrative_text(value: Any, *, limit: int | None = 1200) -> str:
     text = html.unescape(re.sub(r"<[^>]+>", "", str(value or "")))
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"\n\s*\n+", "\n\n", text).strip()
-    if len(text) <= limit:
+    if limit is None or len(text) <= limit:
         return text
     return f"{text[: limit - 1].rstrip()}…"
 
@@ -54,7 +54,11 @@ def build_ai_review(case: dict[str, Any]) -> AIReviewSummary | None:
         facts = {}
     return AIReviewSummary(
         risk_level=str(result.get("risk_level") or ""),
-        conclusion=_narrative_text(result.get("conclusion"), limit=1400),
+        decision_summary=_compact_text(result.get("decision_summary"), limit=240),
+        # The decision report is an audit artifact. Keep the complete review;
+        # pagination belongs to the renderer and must not be replaced by a
+        # silent character limit here.
+        conclusion=_narrative_text(result.get("conclusion"), limit=None),
         missing_information=_text_items(result.get("missing_information")),
         recommended_actions=_text_items(result.get("recommended_actions")),
         risk_boundaries=_text_items(result.get("risk_boundaries")),

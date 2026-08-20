@@ -227,10 +227,10 @@ class PostgresCaseStore:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
                 "SELECT version_num FROM alembic_version WHERE version_num = %s",
-                ("0002_remediation_plan",),
+                ("0003_case_templates",),
             )
             if cur.fetchone() is None:
-                raise RuntimeError("数据库未应用 CrossComply 整改计划结构，请先运行 alembic upgrade head")
+                raise RuntimeError("数据库未应用 CrossComply 最新结构，请先运行 alembic upgrade head")
 
     def authenticate(self, username: str, password: str) -> UserRecord | None:
         with self._connect() as conn, conn.cursor() as cur:

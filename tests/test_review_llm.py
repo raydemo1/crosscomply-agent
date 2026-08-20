@@ -117,6 +117,7 @@ def test_result_prompt_contains_json_example() -> None:
     assert "json" in combined.lower()
     assert "json_example" in combined
     assert '"risk_level"' in combined
+    assert '"decision_summary"' in combined
     assert '"question"' in combined
     assert '"material_excerpt"' in combined
     assert "evidence_packets" in combined
@@ -124,6 +125,46 @@ def test_result_prompt_contains_json_example() -> None:
     assert "supporting_chunks" in combined
     assert "neighbor_chunks" in combined
     assert "retrieval_queries" in combined
+
+
+def test_markdown_result_generation_persists_one_shared_decision_summary() -> None:
+    summary = (
+        "当前材料显示该境外 SaaS 场景属于个人信息出境，但现有事实尚未达到安全评估门槛。"
+        "建议采用标准合同或认证路径，并在上线前完成影响评估、合同签署备案和敏感信息范围核实。"
+    )
+    client = FakeClient(
+        outputs=[{
+            "risk_level": "medium",
+            "decision_summary": summary,
+            "report": (
+                "### 风险定性\n该场景属于个人信息出境，存在中等合规风险。\n\n"
+                "### 建议措施\n1. 完成个人信息保护影响评估。"
+            ),
+            "claims": [{
+                "text": "该场景属于个人信息出境。",
+                "supporting_chunk_ids": ["c1"],
+            }],
+            "trigger_reasons": ["cross_border_transfer"],
+        }]
+    )
+
+    result = build_review_result_with_deepseek(
+        review_result_id="result_markdown",
+        review_case_id="review_markdown",
+        trace_id="trace_markdown",
+        facts=ReviewFacts(cross_border_transfer=True),
+        self_check=EvidenceSelfCheck(status="sufficient"),
+        evidence_hits=[_hit()],
+        question="是否需要数据出境安全评估？",
+        material_text="采购境外 CRM 并向欧洲供应商提供客户与工单数据。",
+        client=client,  # type: ignore[arg-type]
+        max_retries=0,
+        output_format="markdown",
+    )
+
+    assert result.decision_summary == summary
+    assert result.conclusion.startswith("### 风险定性")
+    assert client.kwargs[0]["structured_output_mode"] == "json_object"
 
 
 def test_structured_node_retries_validation_failure() -> None:
@@ -311,6 +352,7 @@ def test_result_generation_with_deepseek_uses_program_citation_groups() -> None:
         outputs=[
             {
                 "risk_level": "medium",
+                "decision_summary": "当前材料显示该场景涉及数据出境，现阶段可作中风险的有边界判断；审批前仍需确认适用门槛和具体申报条件。",
                 "conclusion": "该场景涉及数据出境，需要进一步确认申报条件。",
                 "claims": [
                     {
@@ -338,6 +380,7 @@ def test_result_generation_with_deepseek_uses_program_citation_groups() -> None:
     )
 
     assert result.risk_level == "medium"
+    assert result.decision_summary.startswith("当前材料显示该场景涉及数据出境")
     assert result.conclusion.startswith("该场景涉及数据出境")
     assert result.claims[0].supporting_chunk_ids == ["c1"]
     assert result.applicable_evidence
@@ -349,6 +392,7 @@ def test_result_generation_prompt_receives_trace_context() -> None:
         outputs=[
             {
                 "risk_level": "medium",
+                "decision_summary": "当前材料和证据能够支持初步审查，但关键事实仍需补充确认；建议在信息核实完成前维持中风险并限制上线。",
                 "conclusion": "需要结合材料和证据补充确认。",
                 "claims": [
                     {
@@ -387,6 +431,7 @@ def test_result_generation_degrades_when_all_claims_ungrounded() -> None:
         outputs=[
             {
                 "risk_level": "medium",
+                "decision_summary": "当前材料显示该场景涉及数据出境，但原判断缺少可引用证据支撑；建议维持中风险并补充法源后再作审批决定。",
                 "conclusion": "该场景涉及数据出境。",
                 "claims": [
                     {
@@ -426,6 +471,7 @@ def test_result_generation_no_retry_on_all_claims_ungrounded() -> None:
     reset_telemetry()
     invalid = {
         "risk_level": "medium",
+        "decision_summary": "当前材料显示该场景涉及数据出境，但原判断缺少可引用证据支撑；建议维持中风险并补充法源后再作审批决定。",
         "conclusion": "该场景涉及数据出境。",
         "claims": [
             {
@@ -461,6 +507,7 @@ def test_result_generation_drops_ungrounded_material_fact_claim() -> None:
         outputs=[
             {
                 "risk_level": "medium",
+                "decision_summary": "材料表明业务包含个人信息出境安排，但部分事实性判断缺少可引用法源；建议先核实接收方和适用义务再审批。",
                 "conclusion": "材料描述数据出境，相关义务仍需核验。",
                 "claims": [
                     {
@@ -506,6 +553,7 @@ def test_result_generation_allows_empty_claim_rail_without_citable_evidence() ->
         outputs=[
             {
                 "risk_level": "medium",
+                "decision_summary": "现有行业指南只能作为分类分级的实施参考，不能替代直接法律依据；建议维持中风险并补充法源后再决定。",
                 "conclusion": "行业指南可以作为分类分级实施参考。",
                 "claims": [
                     {
@@ -542,6 +590,7 @@ def test_insufficient_evidence_allows_empty_claims_with_irrelevant_citable_hits(
         outputs=[
             {
                 "risk_level": "insufficient_evidence",
+                "decision_summary": "当前中国大陆数据合规语料不覆盖 EU AI Act，无法形成可靠审批结论；应转交具备相应法域资料的审查流程。",
                 "conclusion": "当前语料不覆盖 EU AI Act。",
                 "claims": [],
                 "trigger_reasons": ["out_of_corpus"],
@@ -573,6 +622,7 @@ def test_revision_applies_bounded_patch_without_regenerating_other_fields() -> N
         review_case_id="review_1",
         trace_id="trace_1",
         risk_level="high",
+        decision_summary="当前材料支持较高风险判断，审批前必须核实活动性质与直接法律依据，并完成必要整改后再决定是否放行。",
         conclusion="该活动确定构成测绘活动。",
         review_facts=ReviewFacts(industry="汽车"),
         claims=[
@@ -614,6 +664,7 @@ def test_non_abstain_revision_cannot_transition_to_insufficient_evidence() -> No
         review_case_id="review_1",
         trace_id="trace_1",
         risk_level="medium",
+        decision_summary="当前证据支持中风险的有边界判断；若后续补证仍不足，应收窄结论并阻止基于未经证实判断直接审批。",
         conclusion="当前证据支持有界的中风险判断。",
         review_facts=ReviewFacts(),
         claims=[{"text": "存在有界风险。", "supporting_chunk_ids": ["c1"]}],
@@ -622,6 +673,7 @@ def test_non_abstain_revision_cannot_transition_to_insufficient_evidence() -> No
         outputs=[
             {
                 "risk_level": "insufficient_evidence",
+                "decision_summary": "补证后仍不足以支持原中风险结论，当前不能形成可靠审批依据；应继续补充直接法律证据后再作决定。",
                 "conclusion": "证据不足。",
                 "remove_claim_indexes": [0],
                 "replace_claims": [],
@@ -649,6 +701,7 @@ def test_revision_rejects_legal_source_absent_from_evidence() -> None:
         review_case_id="review_1",
         trace_id="trace_1",
         risk_level="high",
+        decision_summary="当前材料显示较高行业合规风险，但审批结论必须受现有语料和直接法律证据约束，不得引入范围外依据。",
         conclusion="当前场景存在较高行业合规风险。",
         review_facts=ReviewFacts(industry="汽车"),
         claims=[
@@ -662,6 +715,7 @@ def test_revision_rejects_legal_source_absent_from_evidence() -> None:
         outputs=[
             {
                 "risk_level": "high",
+                "decision_summary": "现有证据不足以支持新增法规认定，不能依据语料之外的法律来源维持高风险结论；应删除无依据内容后再审批。",
                 "conclusion": "依据《测绘法》，该活动确定构成测绘活动。",
                 "remove_claim_indexes": [0],
                 "replace_claims": [],
@@ -697,6 +751,7 @@ def test_out_of_corpus_revision_is_deterministic_and_does_not_call_llm() -> None
         review_case_id="review_1",
         trace_id="trace_1",
         risk_level="insufficient_evidence",
+        decision_summary="当前中国大陆语料不覆盖 EU AI Act，无法形成可靠审批结论；应转交具备相应法域资料的审查流程。",
         conclusion="当前中国大陆语料不覆盖 EU AI Act。",
         review_facts=ReviewFacts(),
         claims=[],
@@ -730,6 +785,7 @@ def test_revision_compiles_single_add_as_narrow_replacement() -> None:
         review_case_id="review_1",
         trace_id="trace_1",
         risk_level="medium",
+        decision_summary="当前证据只支持条件性中风险判断，审批前仍需核实关键事实和直接法律依据，不能按确定性结论放行。",
         conclusion="当前证据只支持条件性判断。",
         review_facts=ReviewFacts(),
         claims=[
@@ -743,6 +799,7 @@ def test_revision_compiles_single_add_as_narrow_replacement() -> None:
         outputs=[
             {
                 "risk_level": None,
+                "decision_summary": "补证后仍仅支持条件性中风险判断，审批前必须完成关键事实核实并确认直接法律依据，不能直接放行。",
                 "conclusion": "当前证据仍只支持条件性判断。",
                 "remove_claim_indexes": [],
                 "replace_claims": [],
@@ -783,6 +840,7 @@ def test_revision_compiler_prefers_replacement_over_duplicate_removal() -> None:
         review_case_id="review_1",
         trace_id="trace_1",
         risk_level="medium",
+        decision_summary="原审查结果为中风险，但证据批评要求进一步收窄结论；审批前应依据修订后的摘要和法源重新判断。",
         conclusion="原结论。",
         review_facts=ReviewFacts(),
         claims=[{"text": "原主张。", "supporting_chunk_ids": ["c1"]}],
@@ -791,6 +849,7 @@ def test_revision_compiler_prefers_replacement_over_duplicate_removal() -> None:
         outputs=[
             {
                 "risk_level": None,
+                "decision_summary": "修订后仅支持更窄的中风险判断，审批前仍需补充直接证据并核实适用条件，不能沿用原摘要放行。",
                 "conclusion": "收窄后的结论。",
                 "remove_claim_indexes": [0],
                 "replace_claims": [
@@ -824,6 +883,7 @@ def test_revision_application_degrades_when_claims_lose_support() -> None:
         review_case_id="review_1",
         trace_id="trace_1",
         risk_level="medium",
+        decision_summary="原审查结果为中风险，但证据批评要求进一步收窄结论；审批前应依据修订后的摘要和法源重新判断。",
         conclusion="原结论。",
         review_facts=ReviewFacts(),
         claims=[{"text": "原主张。", "supporting_chunk_ids": ["old_chunk"]}],

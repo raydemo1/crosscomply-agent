@@ -331,6 +331,7 @@ class ReviewResultPatch(StrictModel):
 
     risk_level: RiskLevel | None = None
     conclusion: str | None = None
+    decision_summary: str | None = Field(default=None, min_length=40, max_length=240)
     remove_claim_indexes: list[int] = Field(default_factory=list)
     replace_claims: list[ClaimReplacement] = Field(default_factory=list)
     add_claims: list[GroundedClaim] = Field(default_factory=list)
@@ -395,6 +396,7 @@ class ReviewResult(StrictModel):
     review_case_id: str
     trace_id: str
     risk_level: RiskLevel
+    decision_summary: str = Field(min_length=40, max_length=240)
     conclusion: str
     review_facts: ReviewFacts
     trigger_reasons: list[str] = Field(default_factory=list)

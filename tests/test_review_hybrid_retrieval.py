@@ -49,6 +49,7 @@ def stub_llm_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
             review_case_id=kwargs["review_case_id"],
             trace_id=kwargs["trace_id"],
             risk_level="medium",
+            decision_summary="当前材料支持中风险的有边界判断，审批前仍需核实关键事实、直接法律依据和适用路径后再作决定。",
             conclusion="测试审查结论。",
             review_facts=kwargs["facts"],
         ),
@@ -910,6 +911,7 @@ def test_multi_agent_reuses_researcher_and_reviewer_after_critic(
             review_case_id="review_test",
             trace_id="trace_test",
             risk_level="high",
+            decision_summary="当前材料可能涉及较高合规风险，但审批前必须依据现有证据收窄结论并完成必要核实后再作决定。",
             conclusion="需要进一步核验。",
             review_facts=kwargs["facts"],
         )
@@ -1041,6 +1043,7 @@ def test_multi_agent_reviewer_revision_failure_is_persisted_and_raised(
             review_case_id="review_test",
             trace_id="trace_test",
             risk_level="high",
+            decision_summary="当前材料可能涉及较高合规风险，但审批前必须依据现有证据收窄结论并完成必要核实后再作决定。",
             conclusion="需要进一步核验。",
             review_facts=kwargs["facts"],
         ),

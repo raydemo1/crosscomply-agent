@@ -5,10 +5,15 @@
   "case": {
     "case_no": "CC-2026-DEMO-001",
     "title": "NimbusCRM AI 境外 SaaS 采购上线前审查（虚构）",
+    "question": "采购境外 CRM / AI SaaS，向欧洲供应商传输客户与工单数据，是否需要数据出境安全评估？",
     "material_snapshot_id": "MS-CC-2026-DEMO-001-V2",
     "rule_version": "cn-cross-border-main-path-2026.08-demo",
     "review_task_id": "task_demo_cc_2026_001",
     "review_completed_at": "2026-08-17T09:12:30+08:00"
+  },
+  "review_result": {
+    "risk_level": "medium",
+    "decision_summary": "按当前材料，本案属于个人信息出境，但企业并非关键信息基础设施运营者、未涉及重要数据，年度非敏感个人信息约18.24万人、敏感个人信息约2400人，尚未达到数据出境安全评估门槛，建议采用标准合同或认证路径。上线前需完成个人信息保护影响评估、标准合同签署备案，并核实工单敏感信息和分处理者范围。"
   },
   "decision": {
     "status": "conditionally_approved",
@@ -84,7 +89,7 @@
   },
   "rendered_report": {
     "filename": "decision_report_example.md",
-    "sha256": "5c512cbf92dc32e15da45692779b0745b15f3542c9c0209b300cab76f9465a21",
+    "sha256": "243b19348c69ea250d7211b4e198bc90ca7325ba81323b4d0a775585a5781501",
     "pdf_sha256": null,
     "pdf_note": "PDF 应由实际报告服务生成后写入哈希；本案例包不把 Markdown 冒充 PDF。"
   },

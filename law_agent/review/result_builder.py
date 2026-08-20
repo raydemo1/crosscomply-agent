@@ -44,6 +44,7 @@ class LLMReviewResultDraft(StrictModel):
     """Required-field schema for LLM structured review generation (plain path)."""
 
     risk_level: RiskLevel
+    decision_summary: str = Field(min_length=40, max_length=240)
     conclusion: str
     claims: list[GroundedClaim] = Field(default_factory=list)
     trigger_reasons: list[str]
@@ -71,6 +72,7 @@ class MarkdownReviewDraft(StrictModel):
     """
 
     risk_level: RiskLevel
+    decision_summary: str = Field(min_length=40, max_length=240)
     report: str
     claims: list[GroundedClaim] = Field(default_factory=list)
     trigger_reasons: list[str]
@@ -80,10 +82,6 @@ class MarkdownReviewDraft(StrictModel):
         if self.risk_level != "insufficient_evidence" and not self.claims:
             raise ValueError("non-abstention report requires grounded claims")
         return self
-
-
-#: Mandatory disclaimer appended to the end of every conclusion string.
-CONCLUSION_DISCLAIMER = "\n\n本结论基于当前材料和已召回证据，**不构成正式法律意见**。"
 
 
 def validate_grounded_claims(
@@ -159,6 +157,9 @@ _CODE_FENCE_RE = re.compile(r"```[^\n]*\n?")
 _HEADING_DOWNGRADE_RE = re.compile(r"^(#{1,2})(?!#)\s", re.MULTILINE)
 # Detect **bold** spans. Non-greedy, disallow nested * to keep it simple.
 _BOLD_SPAN_RE = re.compile(r"\*\*([^\*\n]{1,120}?)\*\*")
+_SUMMARY_FACT_TOKEN_RE = re.compile(
+    r"《[^》\n]{1,80}》|\d+(?:\.\d+)?\s*(?:万)?人|\d+(?:\.\d+)?\s*%"
+)
 
 
 def _sanitize_markdown_text(text: str) -> str:
@@ -197,6 +198,25 @@ def _sanitize_markdown_text(text: str) -> str:
     return text
 
 
+def _validate_decision_summary(summary: str, *, supported_text: str) -> str:
+    """Keep the approval summary plain and bounded by reviewed material/evidence."""
+
+    value = summary.strip()
+    if re.search(r"[\n\r#*_`]", value):
+        raise ValueError("decision_summary must be one plain-text paragraph")
+    normalized_support = re.sub(r"\s+", "", supported_text)
+    unsupported_tokens = [
+        token
+        for token in _SUMMARY_FACT_TOKEN_RE.findall(value)
+        if re.sub(r"\s+", "", token) not in normalized_support
+    ]
+    if unsupported_tokens:
+        raise ValueError(
+            f"decision_summary introduced unsupported legal or numeric facts: {unsupported_tokens}"
+        )
+    return value
+
+
 # ---------------------------------------------------------------------------
 # Inline citation markers: inject ①②③ into the report text so the
 # frontend can render clickable superscripts that link each claim to its
@@ -231,6 +251,98 @@ def _extract_cite_phrase(claim_text: str) -> str | None:
     return None
 
 
+def _compact_markdown_text(value: str) -> str:
+    """Normalize inline markdown so a claim can be located in its report."""
+
+    without_tags = re.sub(r"<[^>]+>", "", value or "")
+    without_formatting = re.sub(r"[*_`~]", "", without_tags)
+    return re.sub(r"[^\w\u4e00-\u9fff]+", "", without_formatting, flags=re.UNICODE)
+
+
+def _claim_terms(value: str) -> set[str]:
+    """Extract stable two-character terms for approximate paragraph matching."""
+
+    without_law_ref = re.sub(r"《[^》]+》", "", value or "")
+    without_law_ref = re.sub(r"第[一二三四五六七八九十百零〇\d]+条", "", without_law_ref)
+    without_formatting = re.sub(r"[*_`~]", "", without_law_ref)
+    terms: set[str] = set()
+    for run in re.findall(r"[\u4e00-\u9fff]{2,}", without_formatting):
+        terms.update(run[index : index + 2] for index in range(len(run) - 1))
+    terms.update(token.casefold() for token in re.findall(r"[A-Za-z0-9]{2,}", without_formatting))
+    return terms
+
+
+def _report_paragraph_ranges(report: str) -> list[tuple[int, int]]:
+    """Return body ranges for markdown paragraphs, excluding heading-only blocks."""
+
+    ranges: list[tuple[int, int]] = []
+
+    def add_block(start: int, end: int) -> None:
+        block = report[start:end]
+        left_trimmed = block.lstrip()
+        if not left_trimmed.strip():
+            return
+        content_start = start + (len(block) - len(left_trimmed))
+        content_end = start + len(block.rstrip())
+        first_line_end = report.find("\n", content_start, content_end)
+        first_line = report[content_start : first_line_end if first_line_end >= 0 else content_end]
+        if first_line.lstrip().startswith("#"):
+            if first_line_end < 0:
+                return
+            content_start = first_line_end + 1
+            content_end = start + len(block.rstrip())
+            if not report[content_start:content_end].strip():
+                return
+        ranges.append((content_start, content_end))
+
+    block_start = 0
+    for separator in re.finditer(r"\n\s*\n+", report):
+        add_block(block_start, separator.start())
+        block_start = separator.end()
+    add_block(block_start, len(report))
+    return ranges
+
+
+def _find_claim_paragraph_end(report: str, claim_text: str) -> int | None:
+    """Find the end of the paragraph containing a grounded claim.
+
+    Claim text often differs from the report only by markdown emphasis or
+    punctuation. Compact matching handles those presentation differences but
+    still requires the claim's substantive text to be present before attaching
+    a marker to the paragraph.
+    """
+
+    compact_claim = _compact_markdown_text(claim_text)
+    if len(compact_claim) < 8:
+        return None
+    for start, end in _report_paragraph_ranges(report):
+        if compact_claim in _compact_markdown_text(report[start:end]):
+            return end
+
+    claim_terms = _claim_terms(claim_text)
+    if len(claim_terms) < 4:
+        return None
+    ranges = _report_paragraph_ranges(report)
+    if _extract_cite_phrase(claim_text):
+        prose_ranges = [
+            (start, end)
+            for start, end in ranges
+            if not re.match(r"(?:[-*]\s+|\d+[.、)]\s*)", report[start:end].lstrip())
+        ]
+        if prose_ranges:
+            ranges = prose_ranges
+    best_overlap = 0
+    best_end: int | None = None
+    for start, end in ranges:
+        overlap = len(claim_terms & _claim_terms(report[start:end]))
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_end = end
+    if best_overlap >= 4:
+        return best_end
+    return None
+
+
 def inject_citation_markers(
     report: str,
     claims: list[GroundedClaim],
@@ -248,9 +360,9 @@ def inject_citation_markers(
     2. The ``article_no`` of the supporting chunk (e.g. "第三十九条").
     3. A ``《法律名》第X条`` phrase extracted from the claim text itself.
 
-    If no phrase can be matched in the report, the marker is collected and
-    appended in a trailing "引用说明" section so every claim still has a
-    visible number that maps to a citation card.
+    If the exact legal phrase cannot be matched, the marker is placed at the
+    end of the paragraph that contains the grounded claim. It is never emitted
+    as a separate explanation block.
     """
 
     if not report or not claims:
@@ -265,8 +377,6 @@ def inject_citation_markers(
     # Track which report positions have already been marked to avoid
     # stacking multiple markers on the same phrase.
     marked_positions: set[int] = set()
-    pending_markers: list[tuple[str, str | None]] = []
-
     text = report
     for index, claim in enumerate(claims[: len(_CIRCLED_NUMBERS)]):
         marker = _CIRCLED_NUMBERS[index]
@@ -292,6 +402,17 @@ def inject_citation_markers(
             phrase = _extract_cite_phrase(claim.text)
 
         inserted = False
+        claim_paragraph_end = _find_claim_paragraph_end(text, claim.text)
+        # Claims without an explicit article reference are narrative claims;
+        # prefer their own paragraph over a matching article number elsewhere.
+        if not _extract_cite_phrase(claim.text) and claim_paragraph_end is not None:
+            ref_attr = f' data-citation-ref="{citation_ref}"' if citation_ref else ""
+            sup = (
+                f'<sup class="cite-marker" id="cite-marker-{index}"'
+                f' data-claim-index="{index}"{ref_attr}>{marker}</sup>'
+            )
+            text = text[:claim_paragraph_end] + sup + text[claim_paragraph_end:]
+            inserted = True
         if phrase:
             # citation_label is stored as "法律名 第X条" (no 《》, space
             # separated), but the report typically writes "《法律名》**第X条**"
@@ -346,21 +467,15 @@ def inject_citation_markers(
                         break
                     search_start = match.end() + 1
         if not inserted:
-            pending_markers.append((marker, citation_ref))
-
-    if pending_markers:
-        # Append unplaced markers in a trailing references section so every
-        # claim still has a visible number that maps to a citation card.
-        labels = " ".join(
-            (
-                f'<sup class="cite-marker" data-citation-ref="{ref}">{marker}</sup>'
-                if ref
-                else marker
-            )
-            for marker, ref in pending_markers
-        )
-        text = text.rstrip() + f"\n\n引用说明：{labels}\n"
-
+            paragraph_end = _find_claim_paragraph_end(text, claim.text)
+            if paragraph_end is not None:
+                ref_attr = f' data-citation-ref="{citation_ref}"' if citation_ref else ""
+                sup = (
+                    f'<sup class="cite-marker" id="cite-marker-{index}"'
+                    f' data-claim-index="{index}"{ref_attr}>{marker}</sup>'
+                )
+                text = text[:paragraph_end] + sup + text[paragraph_end:]
+                inserted = True
     return text
 
 
@@ -476,6 +591,11 @@ def build_result_generation_messages(
         # scene (cross-border / sensitive info / insufficient evidence…).
         json_example = {
             "risk_level": "medium",
+            "decision_summary": (
+                "当前材料显示该境外 CRM 场景属于个人信息出境，但企业并非关键信息基础设施运营者、"
+                "未涉及重要数据，现有数量未达到安全评估门槛，可优先采用标准合同或认证路径。"
+                "上线前仍须核实敏感信息范围，完成个人信息保护影响评估、标准合同签署及备案。"
+            ),
             "report": (
                 "### 风险定性\n"
                 "该场景涉及**个人信息跨境提供**，存在**中等合规风险**。\n\n"
@@ -516,11 +636,12 @@ def build_result_generation_messages(
         # the report-based schema. Extra instructions teach report format
         # and chunk diversification. Plain path stays byte-identical to HEAD.
         format_instruction_replacements = [
-            "必须输出合法 json object，字段必须与 json_example 完全一致；report 字段内使用 markdown 符号（**、###、-、数字列表）。",
+            "必须输出合法 json object，字段必须与 json_example 完全一致；decision_summary 使用纯文本，report 字段内使用 markdown 符号（**、###、-、数字列表）。",
             "claims 必须逐句覆盖 report 中的关键判断；每个 claim.text 是一个可单独展示的结论句，关键法律术语可用 **加粗**（只加粗短语，不加粗整句）。",
             "只输出 json object，不要输出 json 以外的任何解释文字；report 内可自由使用 markdown 让内容更易读。",
         ]
         extra_markdown_instructions = [
+            "decision_summary 是供飞书审批和 PDF 首页共用的审批摘要，用 120-200 个中文字符直接回答问题，并概括风险等级、建议决定、核心依据和上线前 2-4 项关键条件；使用单段纯文本，不要使用 markdown、引用标记或免责声明，不得引入 report 和 evidence_packets 中没有的新事实、法条或数字。",
             "report 用 markdown 输出完整审查报告，根据场景自适应选择小节，通常包含「风险定性」「关键法律依据」「合规义务与缺口」「建议措施」「风险边界」等 ### 小节；段落间空行分隔，关键法律依据短语用 **加粗**，合规义务用 - 列表，建议措施用数字列表；不要用 # 或 ## 标题，不要用 ``` 代码块，长度建议 250-500 字。",
             "语言表达要自然清晰，让业务人员能快速看懂合规风险、义务缺口和下一步动作；不要堆砌法条，要把规则落到当前材料的实际场景上。",
             "claims 的 supporting_chunk_ids 只能从 payload.citable_chunk_ids 中选取（这些是 can_cite_clause=true 的法条 chunk）；不要使用 citable_chunk_ids 以外的任何 chunk_id，evidence_packets 中 can_cite_clause=false 的指南/范本/Q&A/地方清单只能作为背景理解，不能出现在 supporting_chunk_ids 里。",
@@ -530,7 +651,8 @@ def build_result_generation_messages(
         system_content = (
             "你是企业数据合规审查结果生成助手。"
             "只输出一个合法 json object，不要输出 json 以外的任何解释文字；"
-            "report 字段用 markdown 输出清晰易懂的审查报告。"
+            "decision_summary 输出审批人可直接阅读的纯文本摘要，"
+            "report 字段用 markdown 输出清晰易懂的完整审查报告。"
         )
         # markdown path has no missing_information/actions/boundaries fields
         # (they live inside report), so instruction 5 must be adapted.
@@ -541,6 +663,11 @@ def build_result_generation_messages(
     else:
         json_example = {
             "risk_level": "medium",
+            "decision_summary": (
+                "当前材料显示该场景可能涉及个人信息跨境提供，但数据规模、敏感信息范围和同意情况"
+                "尚未完整确认。现阶段可形成中风险的有边界判断，需先补齐关键事实并核对是否触发"
+                "安全评估门槛，再确定标准合同、认证或安全评估路径。"
+            ),
             "conclusion": "该场景可能涉及个人信息跨境提供，但仍需补充数据规模和同意情况。",
             "claims": [
                 {
@@ -559,11 +686,13 @@ def build_result_generation_messages(
         }
         # plain path: keep HEAD instructions exactly as-is (eval stability).
         format_instruction_replacements = [
-            "必须输出合法 json object，字段必须与 json_example 完全一致。",
+            "必须输出合法 json object，字段必须与 json_example 完全一致；decision_summary 使用纯文本。",
             "claims 必须逐句覆盖 conclusion 中的关键判断；每个 claim.text 是一个可单独展示的结论句。",
             "不要输出解释、markdown 或自然语言。",
         ]
-        extra_markdown_instructions = []
+        extra_markdown_instructions = [
+            "decision_summary 是供审批使用的摘要，用 120-200 个中文字符直接回答问题，并概括风险等级、建议决定、核心依据和 2-4 项关键条件；不要使用 markdown，不得引入 conclusion 和 evidence_packets 中没有的新事实、法条或数字。",
+        ]
         system_content = (
             "你是企业数据合规审查结果生成助手。只输出 json，不输出解释、markdown 或自然语言。"
         )
@@ -758,7 +887,27 @@ def build_review_result_with_deepseek(
                 draft_to_validate.claims,
                 evidence_hits,
             )
-            return draft_to_validate.model_copy(update={"claims": validated_claims})
+            complete_review = getattr(
+                draft_to_validate,
+                "report",
+                getattr(draft_to_validate, "conclusion", ""),
+            )
+            supported_summary_text = "\n".join([
+                complete_review,
+                material_text or "",
+                json.dumps(facts.model_dump(), ensure_ascii=False),
+                *[f"{hit.title}\n{hit.text}" for hit in evidence_hits],
+            ])
+            decision_summary = _validate_decision_summary(
+                draft_to_validate.decision_summary,
+                supported_text=supported_summary_text,
+            )
+            return draft_to_validate.model_copy(
+                update={
+                    "claims": validated_claims,
+                    "decision_summary": decision_summary,
+                }
+            )
 
         draft = node.run(
             build_result_generation_messages(
@@ -788,6 +937,7 @@ def build_review_result_with_deepseek(
             md_draft = md_draft.model_copy(
                 update={"report": _sanitize_markdown_text(md_draft.report)}
             )
+            decision_summary = md_draft.decision_summary.strip()
             claims = validate_grounded_claims(md_draft.claims, evidence_hits)
             claims = attach_citation_refs(claims, citation_groups)
             # Inject ①②③ inline citation markers into the report text so
@@ -812,6 +962,7 @@ def build_review_result_with_deepseek(
             risk_boundaries: list[str] = []
         else:
             plain_draft: LLMReviewResultDraft = draft  # type: ignore[assignment]
+            decision_summary = plain_draft.decision_summary.strip()
             conclusion = plain_draft.conclusion
             claims = validate_grounded_claims(plain_draft.claims, evidence_hits)
             claims = attach_citation_refs(claims, citation_groups)
@@ -829,8 +980,9 @@ def build_review_result_with_deepseek(
             trace_id=trace_id,
         ) from exc
 
-    # Append mandatory disclaimer to every LLM-generated conclusion
-    conclusion = conclusion.rstrip() + CONCLUSION_DISCLAIMER
+    # The structured draft owns the disclaimer in its risk-boundary/report
+    # section. Do not append a second fixed sentence to every conclusion.
+    conclusion = conclusion.rstrip()
 
     all_citations: list[Citation] = []
     for group in citation_groups:
@@ -841,6 +993,7 @@ def build_review_result_with_deepseek(
         review_case_id=review_case_id,
         trace_id=trace_id,
         risk_level=risk_level,
+        decision_summary=decision_summary,
         conclusion=conclusion,
         review_facts=facts,
         trigger_reasons=trigger_reasons,
@@ -885,6 +1038,7 @@ def build_revision_patch_messages(
             "不得引入 allowed_citable_evidence 中没有的新法规、条款或制度名称。",
             "无法完成的修订应收窄结论或披露缺口，不能猜测依据。",
             "若 risk_level 改为 insufficient_evidence，remove_claim_indexes 应覆盖全部原 claims，且不得新增 claims。",
+            "修改 risk_level 或 conclusion 时必须同步输出新的 decision_summary；摘要使用 40-240 字单段纯文本，不得引入修订后结论、原事实和允许证据之外的新法条或数字。",
         ],
     }
     if issue_plan is not None:
@@ -900,6 +1054,10 @@ def build_revision_patch_messages(
         )
     example = {
         "risk_level": "medium",
+        "decision_summary": (
+            "补证后仍不足以支持原确定性判断，当前应按中风险有边界处理。"
+            "审批前需补充直接法律依据并重新核对适用路径，不能依据原摘要直接放行。"
+        ),
         "conclusion": "当前证据不足以作确定认定，需补充直接法律依据。",
         "remove_claim_indexes": [0],
         "replace_claims": [],
@@ -985,10 +1143,21 @@ def _validate_revision_patch(
     )
     if requires_conclusion_change and not patch.conclusion:
         raise ValueError("revision actions require a narrowed conclusion")
+    if (requires_conclusion_change or patch.risk_level is not None) and not patch.decision_summary:
+        raise ValueError("revision actions require an updated decision summary")
 
     proposed_text = "\n".join([patch.conclusion or ""] + [claim.text for claim in proposed_claims])
     original_titles = set(re.findall(r"《([^》]+)》", result.conclusion))
     allowed_text = "\n".join(hit.title + "\n" + hit.text for hit in evidence_hits)
+    if patch.decision_summary:
+        _validate_decision_summary(
+            patch.decision_summary,
+            supported_text="\n".join([
+                proposed_text,
+                json.dumps(result.review_facts.model_dump(), ensure_ascii=False),
+                allowed_text,
+            ]),
+        )
     introduced_titles = set(re.findall(r"《([^》]+)》", proposed_text)) - original_titles
     unavailable_titles = [title for title in introduced_titles if title not in allowed_text]
     if unavailable_titles:
@@ -1087,9 +1256,8 @@ def apply_review_result_patch(
     elif claims:
         claims = validate_grounded_claims(claims, evidence_hits)
 
-    conclusion = patch.conclusion or result.conclusion
-    if patch.conclusion and CONCLUSION_DISCLAIMER.strip() not in conclusion:
-        conclusion = conclusion.rstrip() + CONCLUSION_DISCLAIMER
+    conclusion = (patch.conclusion or result.conclusion).rstrip()
+    decision_summary = patch.decision_summary or result.decision_summary
 
     def merged(existing: list[str], additions: list[str]) -> list[str]:
         return list(dict.fromkeys([*existing, *additions]))
@@ -1113,6 +1281,7 @@ def apply_review_result_patch(
     return result.model_copy(
         update={
             "risk_level": risk_level,
+            "decision_summary": decision_summary,
             "conclusion": conclusion,
             "claims": claims,
             "missing_information": merged(

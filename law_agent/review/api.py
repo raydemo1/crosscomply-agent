@@ -52,6 +52,11 @@ from law_agent.review.object_store import MaterialObjectStore, material_object_s
 from law_agent.review.report_service import ensure_decision_report
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.rules import ComplianceFacts, evaluate_national_path
+from law_agent.review.template_store import (
+    InMemoryTemplateStore,
+    PostgresTemplateStore,
+    TemplateStore,
+)
 from law_agent.review.schemas import (
     CitationGroup,
     EvidenceSelfCheck,
@@ -220,6 +225,31 @@ class UserPasswordResetRequest(BaseModel):
 
 class UserRoleRequest(BaseModel):
     role: UserRole
+
+
+class CaseTemplateCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    description: str = Field(default="", max_length=500)
+    question: str = Field(..., min_length=1, max_length=4000)
+    intake: dict[str, Any] = Field(default_factory=dict)
+    review_mode: Literal["llm", "multi_agent"] = "llm"
+    rerank_mode: Literal["off", "embedding"] = "off"
+
+    @field_validator("name", "question")
+    @classmethod
+    def template_text_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("模板名称和审查问题不能为空")
+        return value.strip()
+
+
+class CaseTemplateUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=500)
+    question: str | None = Field(default=None, min_length=1, max_length=4000)
+    intake: dict[str, Any] | None = None
+    review_mode: Literal["llm", "multi_agent"] | None = None
+    rerank_mode: Literal["off", "embedding"] | None = None
 
 
 class FeedbackRequest(BaseModel):
@@ -578,12 +608,12 @@ def _feishu_approval_form(
     }
     risk = risk_labels.get(str(review_result.get("risk_level", "")).lower(), "待核验")
     paths = _candidate_path_labels(rule_determination)
-    conclusion = _compact_approval_text(review_result.get("conclusion"), limit=360)
+    decision_summary = _compact_approval_text(review_result.get("decision_summary"), limit=240)
     summary_parts = [f"风险：{risk}"]
     if paths:
         summary_parts.append(f"候选路径：{'、'.join(paths)}")
-    if conclusion:
-        summary_parts.append(f"AI审查：{conclusion}")
+    if decision_summary:
+        summary_parts.append(f"审批摘要：{decision_summary}")
 
     action_titles = [
         _compact_approval_text(item, limit=100)
@@ -662,6 +692,7 @@ def create_app(
     material_object_store: MaterialObjectStore | None = None,
     user_admin_store: UserAdminStore | None = None,
     governance_store: InMemoryGovernanceStore | PostgresGovernanceStore | None = None,
+    template_store: TemplateStore | None = None,
     feishu_client: FeishuApprovalClient | None = None,
     feishu_config: FeishuApprovalConfig | None = None,
 ) -> FastAPI:
@@ -669,6 +700,7 @@ def create_app(
     async def lifespan(application: FastAPI):
         if not application.state.case_store_initialized:
             application.state.case_store.initialize()
+            application.state.template_store.initialize()
             application.state.case_store_initialized = True
         yield
 
@@ -701,6 +733,13 @@ def create_app(
     app.state.governance_store = governance_store or PostgresGovernanceStore(
         load_service_config().postgres.dsn
     )
+    if template_store is None:
+        template_store = (
+            InMemoryTemplateStore()
+            if isinstance(case_store, InMemoryCaseStore)
+            else PostgresTemplateStore(load_service_config().postgres.dsn)
+        )
+    app.state.template_store = template_store
     app.state.feishu_client = feishu_client
     app.state.feishu_config = feishu_config
     app.state.case_store_initialized = False
@@ -716,6 +755,9 @@ def create_app(
             app.state.case_store.initialize()
             app.state.case_store_initialized = True
         return app.state.case_store
+
+    def templates() -> TemplateStore:
+        return app.state.template_store
 
     def enterprise() -> InMemoryEnterpriseStore | PostgresEnterpriseStore:
         return app.state.enterprise_store
@@ -1001,6 +1043,79 @@ def create_app(
     @app.get("/api/auth/me")
     async def me(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
         return {"user": user.to_dict()}
+
+    def template_payload(item: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(item)
+        creator = store().get_user(item.get("created_by", ""))
+        payload["created_by_user"] = creator.to_dict() if creator else None
+        return payload
+
+    @app.get("/api/case-templates")
+    async def list_case_templates(
+        query: str | None = None,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        items = templates().list_templates(user, query)
+        return {"items": [template_payload(item) for item in items], "total": len(items)}
+
+    @app.post("/api/case-templates")
+    async def create_case_template(
+        payload: CaseTemplateCreateRequest,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        try:
+            item = templates().create_template(
+                user,
+                name=payload.name,
+                description=payload.description,
+                question=payload.question,
+                intake=payload.intake,
+                review_mode=payload.review_mode,
+                rerank_mode=payload.rerank_mode,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return template_payload(item)
+
+    @app.patch("/api/case-templates/{identifier}")
+    async def update_case_template(
+        identifier: str,
+        payload: CaseTemplateUpdateRequest,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        values = payload.model_dump(exclude_unset=True)
+        if not values:
+            raise HTTPException(status_code=422, detail="至少提供一项需要修改的模板字段")
+        if "name" in values and not str(values["name"]).strip():
+            raise HTTPException(status_code=422, detail="模板名称不能为空")
+        if "question" in values and not str(values["question"]).strip():
+            raise HTTPException(status_code=422, detail="审查问题不能为空")
+        if "description" in values and values["description"] is None:
+            values["description"] = ""
+        if "name" in values:
+            values["name"] = str(values["name"]).strip()
+        if "question" in values:
+            values["question"] = str(values["question"]).strip()
+        try:
+            item = templates().update_template(identifier, user, **values)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="使用模板不存在") from exc
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        return template_payload(item)
+
+    @app.post("/api/case-templates/{identifier}/archive")
+    async def archive_case_template(
+        identifier: str,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        try:
+            item = templates().archive_template(identifier, user)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="使用模板不存在") from exc
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        return template_payload(item)
 
     @app.get("/api/admin/users")
     async def list_managed_users(

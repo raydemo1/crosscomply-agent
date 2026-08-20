@@ -27,6 +27,7 @@ def _review_response(
         review_case_id="engine_case_test",
         trace_id="trace_test",
         risk_level=risk_level,  # type: ignore[arg-type]
+        decision_summary="当前材料显示业务涉及个人信息出境，建议维持有边界判断并在关键事实核实、适用路径确认和必要整改完成后再审批。",
         conclusion="当前材料显示该业务需要进一步确认数据出境路径与合规义务。",
         review_facts=facts,
         missing_information=missing or [],
