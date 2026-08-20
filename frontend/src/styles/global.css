@@ -6460,3 +6460,26 @@ body {
     margin-left: auto;
   }
 }
+
+/* Keep the connector on its own rail so it never cuts through step labels. */
+@media (min-width: 768px) {
+  .hero-case-progress__steps li {
+    align-items: center;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 0;
+  }
+
+  .hero-case-progress__steps li::before {
+    right: -50%;
+    left: 50%;
+    z-index: 0;
+  }
+
+  .hero-case-progress__steps li > div {
+    width: 100%;
+    padding-right: 0;
+    background: transparent;
+    text-align: center;
+  }
+}
