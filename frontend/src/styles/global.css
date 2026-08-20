@@ -4547,7 +4547,6 @@ textarea {
 .user-admin {
   margin-bottom: var(--space-lg);
   padding: 22px 24px;
-  border-top: 3px solid var(--color-primary);
 }
 
 .user-admin__heading {
