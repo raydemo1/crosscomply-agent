@@ -12,43 +12,13 @@ from uuid import uuid4
 
 from law_agent.config import require_service_config
 from law_agent.data.chunking.pipeline import chunk_document
-from law_agent.data.cleaners.pipeline import clean_document
-from law_agent.data.normalize import normalize_source
 from law_agent.data.schemas import SourceRecord
+from law_agent.kb.ingestion import prepare_document_for_ingest
 from law_agent.kb.service import InMemoryIndex, KnowledgeBase, SourceSummary, processing_signature
 from law_agent.kb.service_index import ServiceGenerationIndex
 from law_agent.llm.embeddings import build_embeddings_provider
 
 DEFAULT_CORPUS = Path("data/corpus/legal_docs_20260702")
-
-
-def _infer_title(path: Path) -> str:
-    if path.suffix.lower() in {".txt", ".md", ".markdown", ".html", ".htm"}:
-        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
-            candidate = line.lstrip("# ").strip()
-            if candidate:
-                return candidate[:120]
-    return path.stem.replace("_", " ")
-
-
-def _provisional_source(path: Path) -> SourceRecord:
-    return SourceRecord(
-        source_id="candidate_"
-        + hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()[:12],
-        title=_infer_title(path),
-        source_url=path.resolve().as_uri(),
-        source_site="local_import",
-        doc_type="guideline",
-        file_format=path.suffix.lstrip(".") or "txt",
-        include_in_mvp=True,
-    )
-
-
-def _prepare_document_for_ingest(path: Path, *, parser: str):
-    """Run the mandatory parse-and-clean part of every ingest request."""
-
-    provisional = _provisional_source(path)
-    return clean_document(normalize_source(provisional, path, parser=parser))
 
 
 def _new_source_from_interaction(path: Path, title: str, *, as_new: bool = False) -> SourceRecord:
@@ -194,7 +164,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         raise RuntimeError(f"文件不存在：{file_path}")
     # New material always follows the same canonical path before identity,
     # chunking and embedding: parse -> deterministic clean -> chunk.
-    document = _prepare_document_for_ingest(file_path, parser=args.parser)
+    document = prepare_document_for_ingest(file_path, parser=args.parser)
     corpus = Path(args.corpus)
     local_kb = KnowledgeBase(corpus, index=InMemoryIndex())
     exact = local_kb.exact_matches(document.text)

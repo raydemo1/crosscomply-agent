@@ -32,6 +32,8 @@ Authority = Literal[
 ]
 
 LawStatus = Literal["effective", "not_yet_effective", "amended", "repealed", "unknown"]
+LibraryKind = Literal["legal", "internal_policy"]
+InternalPolicyStatus = Literal["draft", "effective", "retired"]
 ClauseCitationRole = Literal[
     "primary_legal_basis",
     "conditional_local_basis",
@@ -85,6 +87,7 @@ class SourceRecord(StrictModel):
     """A candidate source row before ingestion."""
 
     source_id: str
+    library_kind: LibraryKind = "legal"
     title: str
     source_url: str
     download_url: str | None = None
@@ -95,6 +98,8 @@ class SourceRecord(StrictModel):
     publish_date: str | None = None
     effective_date: str | None = None
     issuing_body: str | None = None
+    owning_department: str | None = None
+    internal_status: InternalPolicyStatus | None = None
     applicable_region: str = "CN"
     legal_domain: list[str] = Field(default_factory=list)
     applicable_subjects: list[str] = Field(default_factory=list)
@@ -125,6 +130,11 @@ class SourceRecord(StrictModel):
     def parse_include_in_mvp(cls, value: Any) -> bool:
         return _to_bool(value)
 
+    @field_validator("internal_status", mode="before")
+    @classmethod
+    def parse_internal_status(cls, value: Any) -> Any:
+        return None if value in (None, "") else value
+
 
 class Attachment(StrictModel):
     """A linked attachment discovered during ingestion."""
@@ -148,6 +158,7 @@ class Document(StrictModel):
 
     doc_id: str
     source_id: str
+    library_kind: LibraryKind = "legal"
     title: str
     source_url: str
     download_url: str | None = None
@@ -158,6 +169,8 @@ class Document(StrictModel):
     publish_date: str | None = None
     effective_date: str | None = None
     issuing_body: str | None = None
+    owning_department: str | None = None
+    internal_status: InternalPolicyStatus | None = None
     language: Literal["zh", "en", "mixed"] = "zh"
     applicable_region: str = "CN"
     legal_domain: list[str] = Field(default_factory=list)
@@ -215,6 +228,7 @@ class Chunk(StrictModel):
     chunk_id: str
     doc_id: str
     source_id: str
+    library_kind: LibraryKind = "legal"
     title: str
     text: str
     chunk_index: int
@@ -235,6 +249,8 @@ class Chunk(StrictModel):
     source_url: str
     applicable_region: str = "CN"
     issuing_body: str | None = None
+    owning_department: str | None = None
+    internal_status: InternalPolicyStatus | None = None
     legal_domain: list[str] = Field(default_factory=list)
     applicable_subjects: list[str] = Field(default_factory=list)
     case_no: str | None = None

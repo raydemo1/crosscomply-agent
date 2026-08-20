@@ -439,6 +439,7 @@ def normalize_source(
     return Document(
         doc_id=record.source_id,
         source_id=record.source_id,
+        library_kind=record.library_kind,
         title=record.title,
         source_url=record.source_url,
         download_url=record.download_url,
@@ -449,6 +450,8 @@ def normalize_source(
         publish_date=record.publish_date,
         effective_date=record.effective_date,
         issuing_body=record.issuing_body,
+        owning_department=record.owning_department,
+        internal_status=record.internal_status,
         language=record.language,
         applicable_region=record.applicable_region,
         legal_domain=record.legal_domain,
