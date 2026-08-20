@@ -162,6 +162,7 @@ services:
       dockerfile: docker/frontend.Dockerfile
       args:
         VITE_API_BASE_URL: ""
+        VITE_PUBLIC_DEMO: "false"
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/healthz"]

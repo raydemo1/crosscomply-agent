@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { BookOpen, ClipboardCheck, Files, LogOut, Scale, ShieldCheck, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, FilePlus2, Files, LayoutTemplate, LogOut, Search, Scale, ShieldCheck, X } from 'lucide-react';
 import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { relativeTime, truncate } from '../utils/display';
@@ -14,6 +14,7 @@ export type Page =
   | 'workbench'
   | 'governance'
   | 'case-detail'
+  | 'case-templates'
   | 'my-remediations'
   | 'remediation-plan'
   | 'legal-library'
@@ -22,7 +23,6 @@ export type Page =
 interface SidebarProps {
   currentPage: Page;
   onPageChange: (page: Page) => void;
-  onScenarioClick: (scenario: string) => void;
   onOpenCase: (caseId: string) => void;
   activeCaseId?: string | null;
   cases: SavedCase[];
@@ -33,11 +33,6 @@ interface SidebarProps {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
 }
-
-const SCENARIOS = [
-  '是否需要数据出境安全评估？',
-  '个人信息出境应走哪条合规路径？',
-];
 
 const RISK_DISPLAY: Record<string, { label: string; className: string }> = {
   high: { label: '高风险', className: 'history-item__risk history-item__risk--high' },
@@ -56,10 +51,23 @@ function riskDisplay(item: SavedCase): { label: string; className: string } {
   return level ? (RISK_DISPLAY[level] ?? RISK_DISPLAY.pending) : RISK_DISPLAY.pending;
 }
 
+function summarizeCaseTitle(question: string): string {
+  const normalized = question.replace(/\s+/g, ' ').trim();
+  const cleaned = normalized.replace(/^(?:例如|请判断|请问)[：:\s]*/u, '');
+  const boundary = cleaned.search(/[?？;；。！!]/u);
+  const candidate = boundary > 0 ? cleaned.slice(0, boundary) : cleaned;
+  return truncate(candidate || normalized, 40);
+}
+
+interface CasePreviewPosition {
+  item: SavedCase;
+  top: number;
+  left: number;
+}
+
 export default function Sidebar({
   currentPage,
   onPageChange,
-  onScenarioClick,
   onOpenCase,
   activeCaseId,
   cases,
@@ -71,11 +79,35 @@ export default function Sidebar({
   onCloseMobile,
 }: SidebarProps): JSX.Element {
   const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [showAllCases, setShowAllCases] = useState(false);
+  const [casePreview, setCasePreview] = useState<CasePreviewPosition | null>(null);
+  const createPagesActive = currentPage === 'workbench' || currentPage === 'case-templates';
+  const [createMenuOpen, setCreateMenuOpen] = useState(createPagesActive);
+
+  useEffect(() => {
+    if (createPagesActive) setCreateMenuOpen(true);
+  }, [createPagesActive]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return cases;
     return cases.filter((item) => item.question.toLowerCase().includes(needle) || item.id.toLowerCase().includes(needle));
   }, [cases, query]);
+  const visibleCases = query.trim() || showAllCases ? filtered : filtered.slice(0, 5);
+
+  const showCasePreview = (item: SavedCase, element: HTMLElement): void => {
+    const rect = element.getBoundingClientRect();
+    setCasePreview({
+      item,
+      top: Math.max(12, Math.min(rect.top, window.innerHeight - 148)),
+      left: rect.right + 12,
+    });
+  };
+
+  const clearCasePreview = (caseId: string): void => {
+    setCasePreview((current) => current?.item.id === caseId ? null : current);
+  };
 
   return (
     <aside id="primary-sidebar" className={'app-sidebar sidebar' + (isMobileOpen ? ' is-mobile-open' : '')}>
@@ -92,10 +124,23 @@ export default function Sidebar({
 
       <nav className="sidebar-section" aria-label="主导航">
         <div className="sidebar-nav">
-          <button type="button" className={'sidebar-nav-item' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('workbench'); }}>
+          <button type="button" className={'sidebar-nav-item sidebar-nav-item--group' + (createPagesActive ? ' is-active' : '')} aria-expanded={createMenuOpen} onClick={() => { setCreateMenuOpen((open) => !open); if (!createPagesActive) onPageChange('workbench'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><Files size={18} strokeWidth={1.8} /></span>
-            <span>案件管理</span>
+            <span>新建案件</span>
+            <span className="sidebar-nav-item-chevron" aria-hidden="true">{createMenuOpen ? <ChevronDown size={15} strokeWidth={1.8} /> : <ChevronRight size={15} strokeWidth={1.8} />}</span>
           </button>
+          {createMenuOpen ? (
+            <div className="sidebar-nav-submenu">
+              <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('workbench'); }}>
+                <span className="sidebar-nav-subitem-icon" aria-hidden="true"><FilePlus2 size={16} strokeWidth={1.8} /></span>
+                <span>新建案件</span>
+              </button>
+              <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'case-templates' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('case-templates'); }}>
+                <span className="sidebar-nav-subitem-icon" aria-hidden="true"><LayoutTemplate size={16} strokeWidth={1.8} /></span>
+                <span>使用模板</span>
+              </button>
+            </div>
+          ) : null}
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'my-remediations' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('my-remediations'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><ClipboardCheck size={18} strokeWidth={1.8} /></span>
             <span>我的整改</span>
@@ -113,39 +158,44 @@ export default function Sidebar({
           {user.role === 'admin' ? (
             <button type="button" className={'sidebar-nav-item' + (currentPage === 'governance' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenGovernance(); }}>
               <span className="sidebar-nav-item-icon" aria-hidden="true"><ShieldCheck size={18} strokeWidth={1.8} /></span>
-              <span>用户治理</span>
+              <span>用户管理</span>
             </button>
           ) : null}
         </div>
       </nav>
 
-      <details className="sidebar-section sidebar-scenarios-disclosure">
-        <summary className="sidebar-section-label">更多审查场景</summary>
-        <div className="sidebar-scenarios">
-          {SCENARIOS.map((scenario) => (
-            <button key={scenario} type="button" className="sidebar-scenario" onClick={() => { onCloseMobile(); onScenarioClick(scenario); }}>
-              {scenario}
-            </button>
-          ))}
-        </div>
-      </details>
-
       <div className="sidebar-section sidebar-history">
-        <div className="sidebar-section-label">
-          案件记录 <span className="sidebar-history__count">{cases.length}</span>
+        <div className="sidebar-section-label sidebar-history__header">
+          <span>最近案件 <span className="sidebar-history__count">{cases.length}</span></span>
+          {cases.length > 0 ? (
+            <button type="button" className={'sidebar-history__search-trigger' + (searchOpen ? ' is-active' : '')} onClick={() => { setSearchOpen((open) => !open); if (searchOpen) setQuery(''); }} aria-label={searchOpen ? '收起案件搜索' : '搜索案件'} aria-expanded={searchOpen}>
+              <Search size={16} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
-        {cases.length > 0 ? (
+        {cases.length > 0 && searchOpen ? (
           <input type="search" className="sidebar-history__search" placeholder="搜索案件或编号" value={query} onChange={(event) => setQuery(event.target.value)} />
         ) : null}
         <div className="sidebar-history__list">
           {filtered.length === 0 ? (
             <div className="sidebar-history__empty">暂无匹配案件。</div>
-          ) : filtered.map((item) => {
+          ) : visibleCases.map((item) => {
             const risk = riskDisplay(item);
             return (
-              <button key={item.id} type="button" className={'history-item history-item--button' + (item.id === activeCaseId ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenCase(item.id); }}>
+              <button
+                key={item.id}
+                type="button"
+                className={'history-item history-item--button' + (item.id === activeCaseId ? ' is-active' : '')}
+                aria-label={item.question}
+                aria-describedby={casePreview?.item.id === item.id ? 'recent-case-tooltip' : undefined}
+                onMouseEnter={(event) => showCasePreview(item, event.currentTarget)}
+                onMouseLeave={() => clearCasePreview(item.id)}
+                onFocus={(event) => showCasePreview(item, event.currentTarget)}
+                onBlur={() => clearCasePreview(item.id)}
+                onClick={() => { onCloseMobile(); onOpenCase(item.id); }}
+              >
                 <div className="history-item__top">
-                  <span className="history-item__question">{truncate(item.question, 32)}</span>
+                  <span className="history-item__question">{summarizeCaseTitle(item.question)}</span>
                 </div>
                 <div className="history-item__meta">
                   <span className={risk.className}>{risk.label}</span>
@@ -156,6 +206,22 @@ export default function Sidebar({
             );
           })}
         </div>
+        {casePreview ? (
+          <div
+            id="recent-case-tooltip"
+            className="history-hover-card"
+            role="tooltip"
+            style={{ top: casePreview.top, left: casePreview.left }}
+          >
+            <strong>{casePreview.item.question}</strong>
+            <span>{riskDisplay(casePreview.item).label} · {CASE_STATUS_LABELS[casePreview.item.status]} · {relativeTime(casePreview.item.savedAt)}</span>
+          </div>
+        ) : null}
+        {!query.trim() && cases.length > 5 ? (
+          <button type="button" className="sidebar-history__toggle" onClick={() => setShowAllCases((shown) => !shown)}>
+            {showAllCases ? '收起案件' : `展开全部（${cases.length}）`}
+          </button>
+        ) : null}
       </div>
 
       <div className="sidebar-user-card sidebar-user-card--bottom">

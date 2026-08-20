@@ -229,6 +229,8 @@ const response: ReviewResponse = {
     review_case_id: CASE_ID,
     trace_id: 'trace_demo_cross_border_saas',
     risk_level: 'medium',
+    decision_summary:
+      '按当前材料，本案属于个人信息出境，但企业并非关键信息基础设施运营者、未涉及重要数据，年度非敏感个人信息约 18.24 万人、敏感个人信息约 2400 人，尚未达到数据出境安全评估门槛，建议采用标准合同或认证路径。上线前需完成个人信息保护影响评估、标准合同签署备案，并核实工单敏感信息和分处理者范围。',
     conclusion:
       '本案属于个人信息出境活动，当前材料显示企业不是关键信息基础设施运营者，且未识别出重要数据<sup data-citation-ref="法源-02">[2]</sup>。按现有业务规模和资料，**可以优先采用个人信息出境标准合同路径**<sup data-citation-ref="法源-03">[3]</sup>，但在标准合同签署、个人信息保护影响评估和备案完成前，不应将客户数据接入生产环境。\n\n需要特别关注的是：自由文本工单可能包含敏感个人信息<sup data-citation-ref="法源-01">[1]</sup>，供应商的分处理者、远程运维地点和删除/备份机制仍需形成可验证的合同与技术证据，相关落地要求可参考备案指南<sup data-citation-ref="法源-04">[4]</sup>。',
     review_facts: facts,
@@ -414,7 +416,7 @@ export const DEMO_CASE: SavedCase = {
   id: CASE_ID,
   traceId: response.trace_id,
   savedAt: REPORT_AT,
-  question: `境外 CRM / AI SaaS 上线前，向欧洲供应商提供客户联系人和工单数据，是否可以采用个人信息出境标准合同？（${CASE_NUMBER}）`,
+  question: '采购境外 CRM / AI SaaS，向欧洲供应商传输客户与工单数据，是否需要数据出境安全评估？',
   materialText: '华辰智造拟采购托管于德国的 NimbusCRM AI，用于客户联系人管理、客服工单、服务质量分析和安全运维。材料显示年度向境外提供约 18.24 万名个人信息主体的数据，敏感个人信息主体约 2400 人。自由文本工单可能出现客户联系方式和个案描述，供应商声明会使用德国区域并保留分处理者和远程运维能力。',
   materialSource: 'cross-border-saas-demo-materials',
   response,

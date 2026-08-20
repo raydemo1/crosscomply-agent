@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { isReviewFailedResponse } from './types/api';
-import type { CaseIntake, ComplianceFactsApi, DashboardSummaryApi, WorkbenchUser } from './types/api';
+import type { CaseIntake, CaseTemplateApi, ComplianceFactsApi, DashboardSummaryApi, WorkbenchUser } from './types/api';
 import type { Page } from './components/Sidebar';
 import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
@@ -13,6 +13,7 @@ const PUBLIC_DEMO_ENABLED = import.meta.env.VITE_PUBLIC_DEMO === 'true';
 
 const GovernanceConsolePage = lazy(() => import('./components/GovernanceConsolePage'));
 const CaseDetailPage = lazy(() => import('./components/CaseDetailPage'));
+const TemplateCenterPage = lazy(() => import('./components/TemplateCenterPage'));
 const RemediationPlanPage = lazy(() => import('./components/RemediationPlanPage'));
 const MyRemediationsPage = lazy(async () => {
   const module = await import('./components/RemediationPlanPage');
@@ -129,7 +130,7 @@ export default function App(): JSX.Element {
         }
       }
     }).catch((reason) => {
-      if (mounted) setAuthError(reason instanceof Error ? reason.message : '无法连接到案件管理');
+      if (mounted) setAuthError(reason instanceof Error ? reason.message : '无法连接到 CrossComply 服务');
     }).finally(() => {
       if (mounted) setBooting(false);
     });
@@ -244,14 +245,21 @@ export default function App(): JSX.Element {
     setPage('remediation-plan');
   }, []);
 
+  const handleUseTemplate = useCallback((template: CaseTemplateApi): void => {
+    setQuestion(template.question);
+    setMaterial('');
+    setIntake({ ...EMPTY_INTAKE, ...template.intake, data_types: [...(template.intake.data_types ?? [])] });
+    setReviewMode(template.review_mode);
+    setRerankMode(template.rerank_mode);
+    setEditingCaseId(null);
+    setActiveCaseId(null);
+    setError(null);
+    setPage('workbench');
+  }, []);
+
   const remediationRecommendations = activeCase?.response && !isReviewFailedResponse(activeCase.response)
     ? activeCase.response.review_result.recommended_actions
     : [];
-
-  const handleScenarioClick = useCallback((scenario: string): void => {
-    setQuestion(scenario);
-    setPage('workbench');
-  }, []);
 
   const handleEditCase = useCallback((saved: NonNullable<typeof activeCase>): void => {
     setQuestion(saved.question);
@@ -272,13 +280,13 @@ export default function App(): JSX.Element {
   }, []);
 
   if (booting) {
-    return <div className="app-loading"><img src="/crosscomply-logo.svg" alt="" className="app-loading__mark" /><span>正在连接 CrossComply 案件管理…</span></div>;
+    return <div className="app-loading"><img src="/crosscomply-logo.svg" alt="" className="app-loading__mark" /><span>正在连接 CrossComply 新建案件…</span></div>;
   }
   if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
 
   return (
     <div className="app-shell">
-      <Sidebar currentPage={page} onPageChange={setPage} onScenarioClick={handleScenarioClick} onOpenCase={handleOpenCase} activeCaseId={activeCaseId} cases={cases} user={user} demoMode={PUBLIC_DEMO_ENABLED} onLogout={() => void handleLogout()} onOpenGovernance={handleOpenGovernance} isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+      <Sidebar currentPage={page} onPageChange={setPage} onOpenCase={handleOpenCase} activeCaseId={activeCaseId} cases={cases} user={user} demoMode={PUBLIC_DEMO_ENABLED} onLogout={() => void handleLogout()} onOpenGovernance={handleOpenGovernance} isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
       {mobileSidebarOpen ? <button type="button" className="sidebar-scrim" onClick={() => setMobileSidebarOpen(false)} aria-label="关闭案件导航" /> : null}
       <main className="app-center">
         <div className="app-mobile-nav">
@@ -290,16 +298,17 @@ export default function App(): JSX.Element {
             <span>CrossComply</span>
           </div>
           <div className="app-mobile-actions">
-            <span className="app-mobile-surface">{page === 'governance' ? '用户治理' : page === 'my-remediations' ? '我的整改' : page === 'remediation-plan' ? '整改计划' : page === 'case-detail' ? '案件详情' : '案件管理'}</span>
+            <span className="app-mobile-surface">{page === 'governance' ? '用户管理' : page === 'my-remediations' ? '我的整改' : page === 'remediation-plan' ? '整改计划' : page === 'case-detail' ? '案件详情' : page === 'case-templates' ? '使用模板' : '新建案件'}</span>
           </div>
         </div>
         {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
-        {page === 'governance' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载用户治理…</div></div>}><GovernanceConsolePage user={user} /></Suspense> : null}
-        {page === 'my-remediations' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载我的整改…</div></div>}><MyRemediationsPage user={user} onBack={() => setPage('workbench')} /></Suspense> : null}
-        {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} onBack={() => setPage('case-detail')} /></Suspense> : null}
+        {page === 'governance' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载用户管理…</div></div>}><GovernanceConsolePage user={user} /></Suspense> : null}
+        {page === 'my-remediations' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载我的整改…</div></div>}><MyRemediationsPage user={user} /></Suspense> : null}
+        {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} /></Suspense> : null}
         {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} demoMode={PUBLIC_DEMO_ENABLED} canEdit={user.role === 'requester' && !PUBLIC_DEMO_ENABLED} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} /></Suspense> : null}
+        {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage onUseTemplate={handleUseTemplate} demoMode={PUBLIC_DEMO_ENABLED} /></Suspense> : null}
         {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} reviewMode={reviewMode} rerankMode={rerankMode} editingCaseId={editingCaseId} demoMode={PUBLIC_DEMO_ENABLED} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onReviewModeChange={setReviewMode} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
-        {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从案件记录中选择一个案件。</p></div> : null}
+        {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从最近案件中选择一个案件。</p></div> : null}
       </main>
     </div>
   );

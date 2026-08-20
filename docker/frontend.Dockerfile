@@ -9,6 +9,8 @@ RUN sed -i "s#https://registry.npmmirror.com#${NPM_REGISTRY}#g" package-lock.jso
 COPY frontend .
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ARG VITE_PUBLIC_DEMO=false
+ENV VITE_PUBLIC_DEMO=${VITE_PUBLIC_DEMO}
 RUN npm run build
 
 FROM nginx:1.27-alpine

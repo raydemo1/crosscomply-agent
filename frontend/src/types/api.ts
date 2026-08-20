@@ -270,6 +270,7 @@ export interface ReviewResult {
   review_case_id: string;
   trace_id: string;
   risk_level: RiskLevel;
+  decision_summary: string;
   conclusion: string;
   review_facts: ReviewFacts;
   trigger_reasons: string[];
@@ -662,6 +663,32 @@ export interface CaseIntake {
   contract_status: string;
   legal_basis_or_consent: string;
   notes: string;
+}
+
+/** A reusable new-case field preset. Materials and review results never belong to a template. */
+export interface CaseTemplateApi {
+  id: string;
+  name: string;
+  description: string;
+  question: string;
+  intake: CaseIntake;
+  review_mode: 'llm' | 'multi_agent';
+  rerank_mode: 'off' | 'embedding';
+  created_by: string;
+  created_by_user?: WorkbenchUser | null;
+  updated_by?: string | null;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseTemplatePayload {
+  name: string;
+  description?: string;
+  question: string;
+  intake: CaseIntake;
+  review_mode?: 'llm' | 'multi_agent';
+  rerank_mode?: 'off' | 'embedding';
 }
 
 export interface CaseAction {

@@ -6,6 +6,8 @@ import type {
   CaseIntake,
   CaseListApi,
   CaseSummaryApi,
+  CaseTemplateApi,
+  CaseTemplatePayload,
   CaseStatus,
   ComplianceFactsApi,
   DashboardSummaryApi,
@@ -259,6 +261,34 @@ export async function createCase(input: CreateCaseInput): Promise<CaseDetailApi>
 export async function listCases(query = ''): Promise<CaseListApi> {
   const suffix = query ? `?query=${encodeURIComponent(query)}` : '';
   return request<CaseListApi>(`/api/cases${suffix}`);
+}
+
+export async function listCaseTemplates(query = ''): Promise<{ items: CaseTemplateApi[]; total: number }> {
+  const suffix = query.trim() ? `?query=${encodeURIComponent(query.trim())}` : '';
+  return request<{ items: CaseTemplateApi[]; total: number }>(`/api/case-templates${suffix}`);
+}
+
+export async function createCaseTemplate(payload: CaseTemplatePayload): Promise<CaseTemplateApi> {
+  return request<CaseTemplateApi>('/api/case-templates', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCaseTemplate(
+  templateId: string,
+  payload: Partial<CaseTemplatePayload>,
+): Promise<CaseTemplateApi> {
+  return request<CaseTemplateApi>(`/api/case-templates/${encodeURIComponent(templateId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function archiveCaseTemplate(templateId: string): Promise<CaseTemplateApi> {
+  return request<CaseTemplateApi>(`/api/case-templates/${encodeURIComponent(templateId)}/archive`, {
+    method: 'POST',
+  });
 }
 
 export async function getCaseDetail(caseId: string): Promise<CaseDetailApi> {

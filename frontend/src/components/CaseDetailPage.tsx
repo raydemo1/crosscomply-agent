@@ -29,6 +29,7 @@ import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
 import GroundedClaims, { cssId } from './GroundedClaims';
 import MarkdownText from './MarkdownText';
+import ShareCaseDialog from './ShareCaseDialog';
 import { downloadHtml, downloadMarkdown } from '../utils/report';
 import { CASE_STATUS_LABELS, REVIEW_TASK_STATUS_LABELS } from '../utils/workflow';
 import './RemediationPlanPage.css';
@@ -84,6 +85,28 @@ const FACT_FIELDS: Array<{ key: string; label: string; render: (f: ReviewFacts) 
   { key: 'industry', label: '行业', render: (f) => renderText(f.industry) },
   { key: 'missing_information', label: '缺失信息', render: (f) => renderList(f.missing_information) },
 ];
+
+const DISCLAIMER_SENTENCE_DETECTOR = /本结论基于当前材料(?:和|及|、)\s*已召回证据[，,、]?\s*\**不构成正式法律意见\**[。；;]?/;
+const CONCLUSION_DISCLAIMER_SENTENCE = /本结论基于当前材料(?:和|及|、)\s*已召回证据[，,、]?\s*\**不构成正式法律意见\**[。；;]?/g;
+const TRAILING_CITATION_NOTE = /(?:^|\n)\s*引用说明[：:][^\n]*(?=\n|$)/g;
+
+function cleanConclusionForDisplay(value: string, removeWhenBoundaryAlreadyShows: boolean): string {
+  let cleaned = value
+    .replace(TRAILING_CITATION_NOTE, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  const disclaimerMatches = [...cleaned.matchAll(CONCLUSION_DISCLAIMER_SENTENCE)];
+  if (disclaimerMatches.length > 1 || (removeWhenBoundaryAlreadyShows && disclaimerMatches.length > 0)) {
+    const last = disclaimerMatches[disclaimerMatches.length - 1];
+    const start = last.index ?? -1;
+    if (start >= 0) {
+      cleaned = `${cleaned.slice(0, start)}${cleaned.slice(start + last[0].length)}`
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+  }
+  return cleaned;
+}
 
 export default function CaseDetailPage({
   saved,
@@ -163,10 +186,17 @@ function DraftCaseView({
   setWorkflowOperation: (value: string | null) => void;
   setWorkflowError: (value: string | null) => void;
 }): JSX.Element {
+  const [shareOpen, setShareOpen] = useState(false);
   return (
+    <>
     <div className="case-detail">
       <header className="case-header card">
-        <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回案件管理</button>
+        <div className="case-header__top">
+          <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回新建案件</button>
+          <div className="case-header__actions">
+            <button type="button" className="case-header__action-btn" onClick={() => setShareOpen(true)}>分享案件</button>
+          </div>
+        </div>
         <div className="case-header__eyebrow">案件 {saved.id.slice(0, 18)}</div>
         <h1 className="case-header__title">{saved.question}</h1>
         <div className="case-header__meta"><span className={'status-chip status-chip--' + saved.status}>{statusLabel(saved.status)}</span><span>{saved.savedAt.replace('T', ' ').slice(0, 16)}</span></div>
@@ -189,6 +219,8 @@ function DraftCaseView({
       </section>
       <AuditDisclosure saved={saved} includeMaterial />
     </div>
+    <ShareCaseDialog caseId={saved.id} isOpen={shareOpen} onClose={() => setShareOpen(false)} />
+    </>
   );
 }
 
@@ -665,7 +697,7 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
   const verdicts = saved.feedback?.citationVerdicts ?? {};
   const [selectedCitationRef, setSelectedCitationRef] = useState<string | null>(null);
   const [highlightedCitationRef, setHighlightedCitationRef] = useState<string | null>(null);
-  const [mobileEvidenceOpen, setMobileEvidenceOpen] = useState(false);
+  const [evidenceDrawerOpen, setEvidenceDrawerOpen] = useState(false);
   const [evidenceAnnouncement, setEvidenceAnnouncement] = useState('');
   const highlightTimer = useRef<number | null>(null);
 
@@ -673,6 +705,18 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
   const citationCount = useMemo(
     () => response.citation_groups.reduce((sum, g) => sum + g.citations.length, 0),
     [response.citation_groups],
+  );
+  const riskBoundariesForDisplay = useMemo(
+    () => Array.from(new Set(result.risk_boundaries.map((item) => item.trim()).filter(Boolean))),
+    [result.risk_boundaries],
+  );
+  const hasRiskBoundaryDisclaimer = useMemo(
+    () => riskBoundariesForDisplay.some((item) => DISCLAIMER_SENTENCE_DETECTOR.test(item)),
+    [riskBoundariesForDisplay],
+  );
+  const conclusionForDisplay = useMemo(
+    () => cleanConclusionForDisplay(result.conclusion, hasRiskBoundaryDisclaimer),
+    [result.conclusion, hasRiskBoundaryDisclaimer],
   );
 
   const citations = useMemo(
@@ -693,21 +737,12 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
     if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
     highlightTimer.current = window.setTimeout(() => setHighlightedCitationRef(null), 1500);
 
-    const isMobile = window.matchMedia('(max-width: 1100px)').matches;
-    if (isMobile) setMobileEvidenceOpen(true);
+    setEvidenceDrawerOpen(true);
 
     window.requestAnimationFrame(() => {
       const target = document.getElementById(`evidence-${cssId(citationRef)}`);
       if (!target) return;
-      target.focus({ preventScroll: isMobile });
-      if (!isMobile) {
-        target.scrollIntoView({
-          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-            ? 'auto'
-            : 'smooth',
-          block: 'nearest',
-        });
-      }
+      target.focus({ preventScroll: true });
     });
   }, []);
 
@@ -879,9 +914,9 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
           claims={result.claims}
           selectedCitationRef={selectedCitationRef}
           highlightedCitationRef={highlightedCitationRef}
-          mobileOpen={mobileEvidenceOpen}
+          drawerOpen={evidenceDrawerOpen}
           onCitationSelect={handleEvidenceSelect}
-          onCloseMobile={() => setMobileEvidenceOpen(false)}
+          onCloseDrawer={() => setEvidenceDrawerOpen(false)}
           viewerRole={viewerRole}
         />
       </div>
@@ -993,9 +1028,9 @@ function EvidenceSidebar({
   claims,
   selectedCitationRef,
   highlightedCitationRef,
-  mobileOpen,
+  drawerOpen,
   onCitationSelect,
-  onCloseMobile,
+  onCloseDrawer,
   viewerRole,
 }: {
   groups: CitationGroup[];
@@ -1003,9 +1038,9 @@ function EvidenceSidebar({
   claims: Array<{ supporting_citation_refs: string[] }>;
   selectedCitationRef: string | null;
   highlightedCitationRef: string | null;
-  mobileOpen: boolean;
+  drawerOpen: boolean;
   onCitationSelect: (citationRef: string, label: string) => void;
-  onCloseMobile: () => void;
+  onCloseDrawer: () => void;
   viewerRole: UserRole;
 }): JSX.Element {
   const chunks = useMemo(() => {
@@ -1026,40 +1061,40 @@ function EvidenceSidebar({
   const displayGroups = groups;
 
   useEffect(() => {
-    if (!mobileOpen || !selectedCitationRef || !window.matchMedia('(max-width: 1100px)').matches) return;
+    if (!drawerOpen || !selectedCitationRef) return;
     const frame = window.requestAnimationFrame(() => {
       const target = document.getElementById(`evidence-${cssId(selectedCitationRef)}`);
       if (!target) return;
       target.scrollIntoView({
         behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-        block: 'start',
+        block: 'nearest',
         inline: 'nearest',
       });
       target.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [mobileOpen, selectedCitationRef]);
+  }, [drawerOpen, selectedCitationRef]);
 
   return (
     <>
-      {mobileOpen ? (
-        <button type="button" className="evidence-sidebar__scrim" onClick={onCloseMobile} aria-label="关闭引用详情" />
+      {drawerOpen ? (
+        <button type="button" className="evidence-sidebar__scrim" onClick={onCloseDrawer} aria-label="关闭法源核查" />
       ) : null}
       <aside
-        className={'evidence-sidebar' + (mobileOpen ? ' is-mobile-open' : '')}
+        id="evidence-sidebar"
+        className={'evidence-sidebar' + (drawerOpen ? ' is-drawer-open' : '')}
         aria-label="引用依据详情"
-        aria-hidden={!mobileOpen && typeof window !== 'undefined' && window.matchMedia('(max-width: 1100px)').matches}
+        aria-hidden={!drawerOpen}
       >
         <div className="evidence-sidebar__head">
           <div>
             <div className="evidence-sidebar__title">法源核查</div>
-            <div className="evidence-sidebar__subtitle">完整条文与官方来源</div>
           </div>
           <div className="evidence-sidebar__head-actions">
             <div className="evidence-sidebar__count">
               {displayGroups.reduce((total, group) => total + group.citations.length, 0)} 条法源
             </div>
-            <button type="button" className="evidence-sidebar__close" onClick={onCloseMobile} aria-label="关闭引用详情">
+            <button type="button" className="evidence-sidebar__close" onClick={onCloseDrawer} aria-label="关闭法源核查">
               关闭
             </button>
           </div>
@@ -1131,13 +1166,20 @@ function EvidenceCard({
         className="evidence-card__trigger"
         onClick={() => onSelect(item.citation_ref, label)}
         aria-expanded={selected}
+        aria-controls={`evidence-detail-${cssId(item.citation_ref)}`}
       >
         <span className="evidence-card__top">
           <span className="evidence-card__index">{label}</span>
         </span>
       </button>
       {selected ? (
-        <div className="evidence-card__detail">
+        <div className="evidence-card__detail" id={`evidence-detail-${cssId(item.citation_ref)}`}>
+          <div className="evidence-card__article-label">具体法条</div>
+          {articleText ? (
+            <pre className="evidence-card__full-article">{articleText}</pre>
+          ) : (
+            <div className="evidence-card__missing-article">当前知识库未收录完整条文</div>
+          )}
           {supportingClaims.length > 0 ? (
             <div className="evidence-card__relation">
               支持结论 {supportingClaims.map((claimIndex) => String.fromCharCode(0x245f + claimIndex)).join('、')}
@@ -1150,12 +1192,6 @@ function EvidenceCard({
             <div><span>发布日期</span><strong>{item.publish_date || '未提供'}</strong></div>
             <div><span>生效日期</span><strong>{item.effective_date || '未提供'}</strong></div>
           </div>
-          <div className="evidence-card__article-label">完整条文</div>
-          {articleText ? (
-            <pre className="evidence-card__full-article">{articleText}</pre>
-          ) : (
-            <div className="evidence-card__missing-article">当前知识库未收录完整条文</div>
-          )}
           <div className="evidence-card__footer">
             <span>{CITATION_ROLE_LABELS[item.citation_role] ?? '引用角色未提供'}</span>
             {item.source_url ? (

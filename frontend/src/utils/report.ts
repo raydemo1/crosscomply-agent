@@ -283,6 +283,12 @@ export function buildMarkdownReport(saved: SavedCase): string {
   lines.push('');
   lines.push(`**风险等级：${RISK_LABELS[result.risk_level]}**`);
   lines.push('');
+  lines.push('### 审批摘要');
+  lines.push('');
+  lines.push(result.decision_summary);
+  lines.push('');
+  lines.push('### 完整审查意见');
+  lines.push('');
   lines.push(result.conclusion);
   lines.push('');
   const groundedClaims = claimsToMarkdown(result.claims, response.citation_groups);
@@ -577,6 +583,9 @@ export function buildHtmlReport(saved: SavedCase): string {
 
   parts.push('<h2>七、审查结论</h2>');
   parts.push(`<p><span class="risk risk-${escHtml(result.risk_level)}">${escHtml(RISK_LABELS[result.risk_level])}</span></p>`);
+  parts.push('<h3>审批摘要</h3>');
+  parts.push(`<p>${escHtml(result.decision_summary)}</p>`);
+  parts.push('<h3>完整审查意见</h3>');
   parts.push(`<p>${escHtml(result.conclusion)}</p>`);
   parts.push(claimsToHtml(result.claims, response.citation_groups));
 
