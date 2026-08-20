@@ -35,7 +35,6 @@ const PRIORITY_LABELS: Record<RemediationPriority, string> = { high: '高优先�
 export interface RemediationPlanPageProps {
   caseId: string;
   user: WorkbenchUser;
-  onBack?: () => void;
   /** Optional server result for previews/tests; production loads by caseId. */
   initialPlan?: RemediationPlanApi | null;
   /** Review suggestions selected by the reviewer when no plan exists yet. */
@@ -44,7 +43,6 @@ export interface RemediationPlanPageProps {
 
 export interface MyRemediationsPageProps {
   user: WorkbenchUser;
-  onBack?: () => void;
   initialItems?: RemediationTaskApi[];
 }
 
@@ -110,7 +108,7 @@ function planStatusLabel(status: RemediationPlanApi['status']): string {
   return { draft: '待建立', active: '执行中', completed: '已完成', cancelled: '已取消' }[status];
 }
 
-export default function RemediationPlanPage({ caseId, user, onBack, initialPlan = null, recommendations = [] }: RemediationPlanPageProps): JSX.Element {
+export default function RemediationPlanPage({ caseId, user, initialPlan = null, recommendations = [] }: RemediationPlanPageProps): JSX.Element {
   const [plan, setPlan] = useState<RemediationPlanApi | null>(initialPlan);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialPlan?.tasks[0]?.id ?? null);
   const [assignableUsers, setAssignableUsers] = useState<RemediationAssigneeApi[]>([]);
@@ -152,7 +150,7 @@ export default function RemediationPlanPage({ caseId, user, onBack, initialPlan 
   if (!plan) {
     return (
       <section className="remediation-page">
-        <RemediationPageTop title="建立整改计划" onBack={onBack} />
+        <RemediationPageTop title="建立整改计划" />
         <div className="card remediation-empty-plan">
           <div className="remediation-empty-plan__mark" aria-hidden="true">＋</div>
           <h1>这个案件还没有整改计划</h1>
@@ -167,7 +165,7 @@ export default function RemediationPlanPage({ caseId, user, onBack, initialPlan 
 
   return (
     <section className="remediation-page">
-      <RemediationPageTop title="案件整改计划" onBack={onBack}>
+      <RemediationPageTop title="案件整改计划">
         <span className={`remediation-plan-status remediation-plan-status--${plan.status}`}>{planStatusLabel(plan.status)}</span>
       </RemediationPageTop>
       <RemediationPlanOverview plan={plan} />
@@ -193,14 +191,14 @@ export default function RemediationPlanPage({ caseId, user, onBack, initialPlan 
   );
 }
 
-function RemediationPageTop({ title, onBack, children }: { title: string; onBack?: () => void; children?: React.ReactNode }): JSX.Element {
-  return <header className="remediation-page__top"><button type="button" className="remediation-back" onClick={onBack}>← 返回</button><div><span className="remediation-kicker">CrossComply · 执行闭环</span><h1>{title}</h1></div><div className="remediation-page__top-meta">{children}</div></header>;
+function RemediationPageTop({ title, children }: { title: string; children?: React.ReactNode }): JSX.Element {
+  return <header className="remediation-page__top"><h1 className="page-title">{title}</h1><div className="remediation-page__top-meta">{children}</div></header>;
 }
 
 function RemediationPlanOverview({ plan }: { plan: RemediationPlanApi }): JSX.Element {
   const counts = planCounts(plan);
   const progress = counts.total ? Math.round((counts.completed / counts.total) * 100) : 0;
-  return <section className="card remediation-overview"><div className="remediation-overview__copy"><span className="remediation-kicker">关联案件</span><h2>{plan.case_title ?? plan.case_id}</h2><p>整改计划独立于审查结论，完成后由审核人验收并关闭。</p></div><div className="remediation-progress"><div className="remediation-progress__value"><strong>{progress}%</strong><span>完成进度</span></div><div className="remediation-progress__track"><span style={{ width: `${progress}%` }} /></div><div className="remediation-progress__stats"><span>{counts.completed} 已完成</span><span>{counts.pending_review} 待复核</span><span className={counts.overdue ? 'is-danger' : ''}>{counts.overdue} 已逾期</span></div></div></section>;
+  return <section className="card remediation-overview"><div className="remediation-overview__copy"><span className="remediation-kicker">关联案件</span><h2>{plan.case_title ?? plan.case_id}</h2></div><div className="remediation-progress"><div className="remediation-progress__value"><strong>{progress}%</strong><span>完成进度</span></div><div className="remediation-progress__track"><span style={{ width: `${progress}%` }} /></div><div className="remediation-progress__stats"><span>{counts.completed} 已完成</span><span>{counts.pending_review} 待复核</span><span className={counts.overdue ? 'is-danger' : ''}>{counts.overdue} 已逾期</span></div></div></section>;
 }
 
 function PlanBuilder({ caseId, user, recommendations, assignableUsers, onCreated, onCancel }: { caseId: string; user: WorkbenchUser; recommendations: string[]; assignableUsers: RemediationAssigneeApi[]; onCreated: (plan: RemediationPlanApi) => void; onCancel: () => void }): JSX.Element {
@@ -263,7 +261,7 @@ function SubmissionCard({ submission }: { submission: NonNullable<RemediationTas
   return <div className="remediation-submission"><div className="remediation-submission__head"><span>最近一次提交</span><span className={`remediation-submission-status remediation-submission-status--${submission.status}`}>{submission.status === 'pending_review' ? '待复核' : submission.status === 'accepted' ? '已通过' : '需补充'}</span></div><p>{submission.note}</p><small>{submission.submitted_by_user?.display_name ?? submission.submitted_by} · {relativeTime(submission.created_at)}</small>{submission.evidence.length ? <div className="remediation-evidence-list">{submission.evidence.map((item) => <span key={item.id}>{item.kind === 'file' ? '附件' : item.kind === 'link' ? '链接' : '材料'} · {item.label}</span>)}</div> : null}{submission.review_note ? <div className="remediation-submission__review">复核意见：{submission.review_note}</div> : null}</div>;
 }
 
-export function MyRemediationsPage({ user, onBack, initialItems }: MyRemediationsPageProps): JSX.Element {
+export function MyRemediationsPage({ user, initialItems }: MyRemediationsPageProps): JSX.Element {
   const [items, setItems] = useState<RemediationTaskApi[]>(initialItems ?? []);
   const [loading, setLoading] = useState(initialItems === undefined);
   const [status, setStatus] = useState<'all' | RemediationTaskStatus>('all');
@@ -292,5 +290,5 @@ export function MyRemediationsPage({ user, onBack, initialItems }: MyRemediation
   const tabs: Array<['all' | RemediationTaskStatus, string]> = reviewerView
     ? [['all', '全部'], ['open', '待处理'], ['pending_review', '待我复核'], ['completed', '已完成']]
     : [['all', '全部'], ['open', '待处理'], ['in_progress', '处理中'], ['completed', '已完成']];
-  return <section className="remediation-page"><RemediationPageTop title={reviewerView ? '整改复核' : '我的整改'} onBack={onBack}><span className="remediation-inbox-summary">{counts.open} 待处理{reviewerView ? ` · ${counts.pending} 待复核` : ''}</span></RemediationPageTop><div className="remediation-inbox-tabs" role="tablist" aria-label="整改任务筛选">{tabs.map(([key, label]) => <button type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} key={key} onClick={() => setStatus(key)}>{label}</button>)}</div>{error ? <div className="remediation-error" role="alert">{error}</div> : null}{loading ? <div className="card remediation-state">正在加载任务…</div> : <div className="remediation-workspace remediation-workspace--inbox"><section className="card remediation-inbox-list">{items.length ? items.map((item) => <button type="button" className={'remediation-task-item' + (selectedTaskId === item.id ? ' is-selected' : '')} key={item.id} onClick={() => { setSelectedTaskId(item.id); setSelectedDetail(null); }}><span className={taskStatusClass(item.status)}>{STATUS_LABELS[item.status]}</span><strong>{item.title}</strong><small>{item.case_title ?? item.case_id} · {item.due_date ? `截止 ${item.due_date}` : '未设期限'}</small>{isOverdue(item) ? <em>已逾期</em> : null}</button>) : <div className="remediation-muted">当前没有需要你处理的整改任务。</div>}</section><section className="card remediation-task-detail">{selected ? <RemediationTaskDetail task={selectedDetail ?? selected} user={user} assignableUsers={[]} onChanged={refresh} /> : <div className="remediation-detail-placeholder">选择任务查看详情。</div>}</section></div>}</section>;
+  return <section className="remediation-page"><RemediationPageTop title={reviewerView ? '整改复核' : '我的整改'}><span className="remediation-inbox-summary">{counts.open} 待处理{reviewerView ? ` · ${counts.pending} 待复核` : ''}</span></RemediationPageTop><div className="remediation-inbox-tabs" role="tablist" aria-label="整改任务筛选">{tabs.map(([key, label]) => <button type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} key={key} onClick={() => setStatus(key)}>{label}</button>)}</div>{error ? <div className="remediation-error" role="alert">{error}</div> : null}{loading ? <div className="card remediation-state">正在加载任务…</div> : <div className="remediation-workspace remediation-workspace--inbox"><section className="card remediation-inbox-list">{items.length ? items.map((item) => <button type="button" className={'remediation-task-item' + (selectedTaskId === item.id ? ' is-selected' : '')} key={item.id} onClick={() => { setSelectedTaskId(item.id); setSelectedDetail(null); }}><span className={taskStatusClass(item.status)}>{STATUS_LABELS[item.status]}</span><strong>{item.title}</strong><small>{item.case_title ?? item.case_id} · {item.due_date ? `截止 ${item.due_date}` : '未设期限'}</small>{isOverdue(item) ? <em>已逾期</em> : null}</button>) : <div className="remediation-muted">当前没有需要你处理的整改任务。</div>}</section><section className="card remediation-task-detail">{selected ? <RemediationTaskDetail task={selectedDetail ?? selected} user={user} assignableUsers={[]} onChanged={refresh} /> : <div className="remediation-detail-placeholder">选择任务查看详情。</div>}</section></div>}</section>;
 }

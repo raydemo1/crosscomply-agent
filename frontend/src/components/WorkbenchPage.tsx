@@ -73,7 +73,7 @@ export default function WorkbenchPage({
     <div className="workbench" aria-busy={loading}>
       <header className="workspace-hero">
         <div>
-          <h1>{editingCaseId ? '补充案件信息' : '创建合规案件'}</h1>
+          <h1 className="page-title">{editingCaseId ? '补充案件信息' : '创建合规案件'}</h1>
         </div>
         <div className="workspace-hero__metric"><strong>{summary?.total_cases ?? historyCount}</strong><span>案件总数</span></div>
         <div className="workspace-hero__risk-strip">
@@ -104,7 +104,7 @@ export default function WorkbenchPage({
           <div className="section-heading-row"><div><h2>案件信息</h2></div></div>
           <label className="form-label" htmlFor="wb-question">审查问题</label>
           <input id="wb-question" className="workbench__input" value={question} onChange={(event) => onQuestionChange(event.target.value)} placeholder="例如：这个业务是否需要数据出境安全评估？" disabled={loading} />
-          <label className="form-label" htmlFor="wb-material">待审查材料</label>
+          <label className="form-label form-label--material" htmlFor="wb-material">待审查材料</label>
           <div className="material-toolbar">
             <span>{selectedFile ? `已选择：${selectedFile.name}` : '粘贴项目说明、数据流、供应商信息或合同片段'}</span>
             <input ref={fileInputRef} type="file" accept=".txt,.md,.markdown,.pdf,.docx,.html,.htm,.json" onChange={handleFileChange} hidden />

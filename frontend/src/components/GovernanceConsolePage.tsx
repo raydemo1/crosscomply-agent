@@ -56,14 +56,12 @@ export default function GovernanceConsolePage({ user }: GovernanceConsolePagePro
     <section className="governance-main">
       <section className="governance-intro" aria-labelledby="governance-title">
         <div>
-          <span className="governance-intro__kicker">访问控制</span>
-          <h1 id="governance-title">用户治理</h1>
-          <p>{user.display_name} · 企业账户与权限管理</p>
+          <h1 id="governance-title" className="page-title">用户管理</h1>
         </div>
       </section>
 
       <section className="card user-admin" aria-labelledby="user-admin-title">
-        <div className="user-admin__heading"><div><span>账户与权限</span><h2 id="user-admin-title">企业用户管理</h2></div><strong>{users.length} 个账户</strong></div>
+        <div className="user-admin__heading"><div><h2 id="user-admin-title">企业用户管理</h2></div><strong>{users.length} 个账户</strong></div>
         <div className="user-admin__create">
           <label className="form-field"><span>登录名</span><input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="buyer@example.com" /></label>
           <label className="form-field"><span>显示名称</span><input value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} placeholder="采购申请人" /></label>
