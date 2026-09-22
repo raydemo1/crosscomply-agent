@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from law_agent.config import RerankMode
 from law_agent.review.case_store import UserRecord
 from law_agent.review.evalset.cases import EvalSuite
-from law_agent.review.evalset.runner import ReviewEvalMode, run_evaluation
+from law_agent.review.evalset.runner import run_evaluation
 from law_agent.review.evalset.schemas import EvalSummary
 from law_agent.review.http.schemas import EvalJobResponse, EvalRunRequest
 from law_agent.review.ids import utc_now_iso
@@ -89,7 +89,6 @@ def register_evaluation_routes(
             if request and request.chunks_path
             else app.state.chunks_path
         )
-        review_mode_value: ReviewEvalMode = request.review_mode if request else "llm"
         top_k = request.top_k if request else 10
         max_workers = request.max_workers if request else 4
         rerank_mode_value: RerankMode = request.rerank_mode if request else "off"
@@ -112,7 +111,6 @@ def register_evaluation_routes(
                 app,
                 job_id,
                 chunks,
-                review_mode_value,
                 top_k,
                 max_workers,
                 rerank_mode_value,
@@ -140,7 +138,6 @@ def run_eval_job(
     app: FastAPI,
     job_id: str,
     chunks: Path,
-    review_mode: ReviewEvalMode,
     top_k: int,
     max_workers: int,
     rerank_mode: RerankMode,
@@ -149,7 +146,6 @@ def run_eval_job(
     try:
         summary = run_evaluation(
             chunks_path=chunks,
-            review_mode=review_mode,
             top_k=top_k,
             rerank_mode=rerank_mode,
             max_workers=max_workers,

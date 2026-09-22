@@ -84,7 +84,6 @@ def upgrade() -> None:
         sa.Column("material_source", sa.Text()),
         sa.Column("intake_json", postgresql.JSONB(), server_default=json_default, nullable=False),
         sa.Column("status", sa.Text(), nullable=False),
-        sa.Column("review_mode", sa.Text(), server_default="llm", nullable=False),
         sa.Column("rerank_mode", sa.Text(), server_default="off", nullable=False),
         sa.Column("created_by", sa.Text(), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("owner_id", sa.Text(), sa.ForeignKey("users.id")),

@@ -201,3 +201,166 @@ def test_write_index_artifacts(tmp_path: Path) -> None:
     pg_row = json.loads(pg_path.read_text(encoding="utf-8").splitlines()[0])
     assert pg_row["chunk_id"] == FIXTURE_CHUNKS[0].chunk_id
     assert pg_row["embedding"] is None
+
+
+# ---------------------------------------------------------------------------
+# Resumable service indexing (checkpoint per batch)
+# ---------------------------------------------------------------------------
+
+
+class _CountingEmbeddings:
+    """Records which texts were embedded; skips are proven by this log."""
+
+    def __init__(self) -> None:
+        self.batches: list[list[str]] = []
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        self.batches.append(list(texts))
+        return [[0.1, 0.2, 0.3] for _text in texts]
+
+
+def _patch_index_stores(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    pg_ids: set[str],
+    es_ids: set[str],
+):
+    import types
+
+    from law_agent.review.retrieval import service_backends as backends
+
+    written_pg: list[str] = []
+    written_es: list[str] = []
+
+    class FakeConn:
+        def close(self) -> None:
+            pass
+
+    class FakeIndices:
+        def refresh(self, *, index: str) -> None:
+            pass
+
+    class FakeES:
+        def __init__(self) -> None:
+            self.indices = FakeIndices()
+
+        def count(self, *, index: str) -> dict:
+            return {"count": len(es_ids)}
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(backends, "create_elasticsearch_client", lambda _config: FakeES())
+    monkeypatch.setattr(backends, "create_postgres_connection", lambda _config: FakeConn())
+    monkeypatch.setattr(
+        backends, "ensure_elasticsearch_index", lambda _client, _name: {"analyzer": "ik_max_word"}
+    )
+    monkeypatch.setattr(backends, "ensure_pgvector_schema", lambda _conn, _table, _dim: None)
+    monkeypatch.setattr(backends, "_existing_pg_chunk_ids", lambda _conn, _table: set(pg_ids))
+    monkeypatch.setattr(backends, "_existing_es_chunk_ids", lambda _client, _name: set(es_ids))
+
+    def fake_upsert(_conn, _table, rows):
+        written_pg.extend(row["chunk_id"] for row in rows)
+        return len(rows)
+
+    def fake_bulk(_client, _name, chunks, **_kwargs):
+        written_es.extend(chunk.chunk_id for chunk in chunks)
+        return len(chunks)
+
+    monkeypatch.setattr(backends, "upsert_pgvector_rows", fake_upsert)
+    monkeypatch.setattr(backends, "bulk_index_chunks", fake_bulk)
+
+    config = types.SimpleNamespace(
+        embedding=types.SimpleNamespace(dimension=3),
+        elasticsearch=types.SimpleNamespace(index_name="lawagent_chunks"),
+        postgres=types.SimpleNamespace(table_name="lawagent_chunks"),
+    )
+    return config, written_pg, written_es
+
+
+def test_index_to_services_checkpoints_every_batch(monkeypatch: pytest.MonkeyPatch) -> None:
+    from law_agent.review.retrieval import service_backends as backends
+
+    config, written_pg, written_es = _patch_index_stores(
+        monkeypatch, pg_ids=set(), es_ids=set()
+    )
+    embeddings = _CountingEmbeddings()
+    progress: list[str] = []
+
+    summary = backends.index_corpus_to_services(
+        config,
+        FIXTURE_CHUNKS,
+        embeddings=embeddings,
+        batch_size=2,
+        progress=progress.append,
+    )
+
+    expected_ids = [chunk.chunk_id for chunk in FIXTURE_CHUNKS]
+    assert written_pg == expected_ids
+    assert written_es == expected_ids
+    # 6 chunks / batch size 2 -> 3 embedding round trips, none skipped.
+    assert [len(batch) for batch in embeddings.batches] == [2, 2, 2]
+    assert summary["total_chunks"] == 6
+    assert summary["already_indexed"] == 0
+    assert summary["newly_indexed"] == 6
+    assert progress[0].startswith("0/6 chunks already indexed")
+    assert progress[-1].startswith("indexed 6/6 chunks")
+
+
+def test_index_to_services_skips_chunks_in_both_stores(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from law_agent.review.retrieval import service_backends as backends
+
+    done = {chunk.chunk_id for chunk in FIXTURE_CHUNKS[:4]}
+    config, written_pg, written_es = _patch_index_stores(
+        monkeypatch, pg_ids=set(done), es_ids=set(done)
+    )
+    embeddings = _CountingEmbeddings()
+
+    summary = backends.index_corpus_to_services(
+        config, FIXTURE_CHUNKS, embeddings=embeddings, batch_size=2
+    )
+
+    pending_ids = [chunk.chunk_id for chunk in FIXTURE_CHUNKS[4:]]
+    assert written_pg == pending_ids
+    assert written_es == pending_ids
+    # Already-indexed chunks are never re-embedded; pending ones are.
+    embedded_texts = [text for batch in embeddings.batches for text in batch]
+    assert any("负面清单" in text for text in embedded_texts)
+    assert any("答记者问" in text for text in embedded_texts)
+    assert all("汽车数据处理者" not in text for text in embedded_texts)
+    assert all("标准合同的方式" not in text for text in embedded_texts)
+    assert summary["already_indexed"] == 4
+    assert summary["newly_indexed"] == 2
+
+
+def test_index_to_services_recovers_after_inter_store_split(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # pg has chunk_assessment + chunk_contract; ES only has chunk_contract.
+    # chunk_assessment committed to pg but never reached ES -> it must be
+    # treated as pending and rewritten idempotently on the next run.
+    from law_agent.review.retrieval import service_backends as backends
+
+    pg_ids = {"chunk_assessment", "chunk_contract"}
+    es_ids = {"chunk_contract"}
+    config, written_pg, written_es = _patch_index_stores(
+        monkeypatch, pg_ids=pg_ids, es_ids=es_ids
+    )
+    embeddings = _CountingEmbeddings()
+
+    summary = backends.index_corpus_to_services(
+        config, FIXTURE_CHUNKS, embeddings=embeddings, batch_size=3
+    )
+
+    assert "chunk_assessment" in written_pg
+    assert "chunk_assessment" in written_es
+    assert "chunk_contract" not in written_pg
+    assert "chunk_contract" not in written_es
+    assert summary["already_indexed"] == 1
+    assert summary["newly_indexed"] == 5
+    embedded_ids_text = " ".join(
+        text for batch in embeddings.batches for text in batch
+    )
+    assert "数据出境安全评估办法" in embedded_ids_text

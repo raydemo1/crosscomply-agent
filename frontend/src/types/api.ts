@@ -71,9 +71,6 @@ export type RetrieverName =
 /** Evaluation retrieval backend under test. */
 export type EvalRetrievalMode = 'service' | 'local';
 
-/** Evaluation review owner under test. */
-export type EvalReviewMode = 'llm' | 'local' | 'multi_agent';
-
 /** Optional post-fusion reranker arm for A/B evaluation. */
 export type EvalRerankMode = 'off' | 'embedding';
 
@@ -761,7 +758,6 @@ export interface CaseTemplateApi {
   description: string;
   question: string;
   intake: CaseIntake;
-  review_mode: 'llm' | 'multi_agent';
   rerank_mode: 'off' | 'embedding';
   created_by: string;
   created_by_user?: WorkbenchUser | null;
@@ -776,7 +772,6 @@ export interface CaseTemplatePayload {
   description?: string;
   question: string;
   intake: CaseIntake;
-  review_mode?: 'llm' | 'multi_agent';
   rerank_mode?: 'off' | 'embedding';
 }
 
@@ -832,7 +827,6 @@ export interface CaseRecordApi extends CaseSummaryApi {
   material_text: string;
   material_source: string | null;
   intake: CaseIntake;
-  review_mode: 'llm' | 'multi_agent';
   rerank_mode: 'off' | 'embedding';
   trace_id: string | null;
   response: ReviewApiResponse | null;
@@ -948,7 +942,6 @@ export interface EvalSummary {
 export interface EvalRunOptions {
   chunks_path?: string;
   retrieval_mode?: EvalRetrievalMode;
-  review_mode?: EvalReviewMode;
   top_k?: number;
   max_workers?: number;
   rerank_mode?: EvalRerankMode;

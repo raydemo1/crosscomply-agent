@@ -7,14 +7,12 @@ interface WorkbenchPageProps {
   question: string;
   material: string;
   intake: CaseIntake;
-  reviewMode: 'llm' | 'multi_agent';
   rerankMode: 'off' | 'embedding';
   editingCaseId: string | null;
   demoMode?: boolean;
   onQuestionChange: (value: string) => void;
   onMaterialChange: (value: string) => void;
   onIntakeChange: (value: CaseIntake) => void;
-  onReviewModeChange: (mode: 'llm' | 'multi_agent') => void;
   onRerankModeChange: (mode: 'off' | 'embedding') => void;
   onSubmit: (question: string, material: string, intake: CaseIntake, file?: File | null) => void;
   loading: boolean;
@@ -31,14 +29,12 @@ export default function WorkbenchPage({
   question,
   material,
   intake,
-  reviewMode,
   rerankMode,
   editingCaseId,
   demoMode = false,
   onQuestionChange,
   onMaterialChange,
   onIntakeChange,
-  onReviewModeChange,
   onRerankModeChange,
   onSubmit,
   loading,
@@ -147,7 +143,7 @@ export default function WorkbenchPage({
             </details>
           </div>
           <div className="intake-confirmation"><label><input type="checkbox" checked={intake.cross_border_transfer === true} onChange={(event) => updateIntake(intake, onIntakeChange, 'cross_border_transfer', event.target.checked)} /> <strong>我确认材料涉及向境外提供数据</strong></label><span>未确认事实会标为待补充。</span></div>
-          <details className="workbench-advanced"><summary>审查运行设置</summary><div className="workbench-advanced__body"><label className="form-field"><span>审查深度</span><select value={reviewMode} onChange={(event) => onReviewModeChange(event.target.value as 'llm' | 'multi_agent')}><option value="llm">标准审查</option><option value="multi_agent">深入审查</option></select></label><label className="intake-confirmation"><input type="checkbox" checked={rerankMode === 'embedding'} onChange={(event) => onRerankModeChange(event.target.checked ? 'embedding' : 'off')} /> 启用增强依据排序</label></div></details>
+          <details className="workbench-advanced"><summary>审查运行设置</summary><div className="workbench-advanced__body"><label className="intake-confirmation"><input type="checkbox" checked={rerankMode === 'embedding'} onChange={(event) => onRerankModeChange(event.target.checked ? 'embedding' : 'off')} /> 启用增强依据排序</label></div></details>
           <div className="intake-card__footer"><span>{demoMode ? '公开演示不提交自定义问题。' : '需审核人确认。'}</span><button type="button" className="btn-primary" disabled={!canSubmit} onClick={submit}>{loading ? '正在提交案件…' : editingCaseId ? '保存补充并重新提交' : '创建案件并提交审查'}</button></div>
         </section>
       )}

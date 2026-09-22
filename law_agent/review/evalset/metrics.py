@@ -283,11 +283,7 @@ def aggregate_metrics(
     total_retries = sum(c.retry_count for c in case_results)
     workflow_successes = sum(1 for c in case_results if not c.workflow_failed)
     clean_successes = sum(1 for c in case_results if c.workflow_outcome == "clean_success")
-    degraded_successes = sum(1 for c in case_results if c.workflow_outcome == "degraded_success")
     hard_failures = sum(1 for c in case_results if c.workflow_outcome == "hard_failure")
-    critic_triggers = sum(1 for c in case_results if c.critic_triggered)
-    critic_revisions = sum(1 for c in case_results if c.critic_revised)
-    targeted_retrievals = sum(1 for c in case_results if c.targeted_retrieval_triggered)
 
     bad_count = sum(1 for c in case_results if c.is_bad_case)
     taxonomy = Counter(category for case in case_results for category in case.bad_case_categories)
@@ -318,12 +314,8 @@ def aggregate_metrics(
         total_retries=total_retries,
         workflow_success_rate=round(workflow_successes / total, 4),
         clean_success_rate=round(clean_successes / total, 4),
-        degraded_success_rate=round(degraded_successes / total, 4),
         hard_failure_rate=round(hard_failures / total, 4),
         source_bearing_case_count=source_total,
-        critic_trigger_rate=round(critic_triggers / total, 4),
-        critic_revision_rate=round(critic_revisions / total, 4),
-        targeted_retrieval_trigger_rate=round(targeted_retrievals / total, 4),
         bad_case_count=bad_count,
         bad_case_taxonomy=dict(sorted(taxonomy.items())),
         total_cases=total,

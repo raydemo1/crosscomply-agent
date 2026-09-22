@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/raydemo1/crosscomply-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/raydemo1/crosscomply-agent/actions/workflows/ci.yml)
 
-CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 Agentic RAG 项目，主线是“材料输入 -> 审查事实抽取 -> 混合检索 -> 证据自检 -> 受控二次召回 -> 结构化审查结果与引用”。复杂审查可使用确定性 Multi-Agent 模式：Case Analyst 依次提取事实、拆分议题并按议题并行生成查询；Evidence Researchers 按议题执行检索，Evidence Gate 确定性形成证据 dossier；Compliance Reviewer 复用受控报告生成链路，结合议题计划和 dossier 写出结果；条件式 Evidence Critic 只作 `accept`、`research_required` 或 `revision_required` 路由，最多复用一次 Researcher 补证和一次 Reviewer 修订。检索不可满足的法规要求会披露为 evidence gap，而不是交给模型猜测。
+CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 Agentic RAG 项目，主线是“材料输入 -> 审查事实抽取 -> 混合检索 -> 证据自检 -> 受控二次召回 -> 结构化审查结果与引用”。检索不可满足的法规要求会披露为 evidence gap，而不是交给模型猜测。
 
-在完整部署中，这条审查链路可用作企业数据出境上线前的合规闸门：确定性规则负责硬条件计算，LLM/Multi-Agent 继续负责证据化深审，最终决定由飞书审批回写。
+在完整部署中，这条审查链路可用作企业数据出境上线前的合规闸门：确定性规则负责硬条件计算，LLM 负责证据化深审，最终决定由飞书审批回写。
 
 ## Product preview
 
@@ -14,13 +14,13 @@ CrossComply 是一个面向企业数据出境/跨境数据合规审查场景的 
 
 ## Full evaluation result
 
-| Metric | LLM | LLM + rerank | Bounded Multi-Agent |
-|---|---:|---:|---:|
-| Recall@5 | 87.06% | 87.72% | **90.57%** |
-| Must-have Recall@5 | 89.04% | 89.91% | **92.54%** |
-| Optional coverage@5 | 82.14% | 75.00% | **85.71%** |
+| Metric | LLM | LLM + rerank |
+|---|---:|---:|
+| Recall@5 | 87.06% | 87.72% |
+| Must-have Recall@5 | 89.04% | 89.91% |
+| Optional coverage@5 | 82.14% | 75.00% |
 
-三组均使用相同的 82 个场景、冻结事实与查询输入、真实 service 检索、DeepSeek-V4-Flash，以及人工复核的核心/辅助法源标签。Must-have 覆盖 76 个含核心法源的场景，Optional 覆盖 28 个需要指南、模板、Q&A 或国标补充的场景。相较 LLM 基线，有界 Multi-Agent 的 Recall@5、Must-have Recall@5 和 Optional coverage@5 分别提升 3.51pp、3.50pp 和 3.57pp。
+两组均使用相同的 82 个场景、冻结事实与查询输入、真实 service 检索、DeepSeek-V4-Flash，以及人工复核的核心/辅助法源标签。Must-have 覆盖 76 个含核心法源的场景，Optional 覆盖 28 个需要指南、模板、Q&A 或国标补充的场景。
 
 > 上表对应已冻结的 82 个评测场景与现有产物。企业流程功能开发默认不触发高成本模型评测；仅在需要更新对外指标时显式重跑。
 
@@ -129,13 +129,13 @@ npm run dev
 快速 smoke：
 
 ```powershell
-python -m law_agent.review eval --suite quick --review-mode llm --max-workers 8 --output data/review_runs/eval_quick_service.json --report data/review_runs/eval_quick_service.md
+python -m law_agent.review eval --suite quick --max-workers 8 --output data/review_runs/eval_quick_service.json --report data/review_runs/eval_quick_service.md
 ```
 
 完整验证：
 
 ```powershell
-python -m law_agent.review eval --suite full --review-mode multi_agent --max-workers 8 --output data/review_runs/eval_full_service.json --report data/review_runs/eval_full_service.md
+python -m law_agent.review eval --suite full --max-workers 8 --output data/review_runs/eval_full_service.json --report data/review_runs/eval_full_service.md
 ```
 
 评测汇总会包含检索质量指标，以及 `mean_total_latency_ms`、`mean_retrieval_latency_ms`、`total_llm_calls`、`total_retries`。

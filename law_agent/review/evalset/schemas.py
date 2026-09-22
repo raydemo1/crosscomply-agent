@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from law_agent.review.evalset.manual_labels import MANUAL_LABELS
-from law_agent.review.schemas import AgentStep, StrictModel
+from law_agent.review.schemas import StrictModel
 
 BadCaseCategory = Literal[
     "retrieval_zero_recall",
@@ -16,7 +16,7 @@ BadCaseCategory = Literal[
     "abstention_error",
     "workflow_error",
 ]
-WorkflowOutcome = Literal["clean_success", "degraded_success", "hard_failure"]
+WorkflowOutcome = Literal["clean_success", "hard_failure"]
 
 # ---------------------------------------------------------------------------
 # Golden set case schema
@@ -112,12 +112,6 @@ class CaseMetricResult(StrictModel):
     workflow_outcome: WorkflowOutcome = "clean_success"
     failed_node: str | None = None
     failure_reason: str | None = None
-    issue_count: int = 0
-    critic_triggered: bool = False
-    critic_revised: bool = False
-    targeted_retrieval_triggered: bool = False
-    critic_reason: str | None = None
-    agent_steps: list[AgentStep] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -148,12 +142,8 @@ class ModeMetrics(StrictModel):
     total_retries: int = 0
     workflow_success_rate: float = 1.0
     clean_success_rate: float = 1.0
-    degraded_success_rate: float = 0.0
     hard_failure_rate: float = 0.0
     source_bearing_case_count: int = 0
-    critic_trigger_rate: float = 0.0
-    critic_revision_rate: float = 0.0
-    targeted_retrieval_trigger_rate: float = 0.0
     bad_case_count: int
     bad_case_taxonomy: dict[str, int] = Field(default_factory=dict)
     total_cases: int

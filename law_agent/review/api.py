@@ -67,7 +67,7 @@ from law_agent.review.schemas import (
     ReviewResult,
     SourceEvidencePacket,
 )
-from law_agent.review.service import ReviewMode, create_review_case, run_service_retrieval
+from law_agent.review.service import create_review_case, run_service_retrieval
 from law_agent.review.template_store import (
     InMemoryTemplateStore,
     PostgresTemplateStore,
@@ -348,13 +348,11 @@ def _run_review(app: FastAPI, case: dict[str, Any]) -> ReviewResponse:
             question=case["question"],
             material_text=material,
             output_dir=output_dir,
-            review_mode=case["review_mode"],
         )
         trace = run_service_retrieval(
             case_id=created.review_case.review_case_id,
             chunks_path=app.state.chunks_path,
             output_dir=output_dir,
-            review_mode=case["review_mode"],
             rerank_mode=case["rerank_mode"],
             output_format="markdown",
         )
@@ -381,7 +379,6 @@ def _run_review(app: FastAPI, case: dict[str, Any]) -> ReviewResponse:
 def create_app(
     *,
     chunks_path: Path | str = DEFAULT_CHUNKS_PATH,
-    review_mode: ReviewMode = "llm",
     eval_cache_dir: Path | str | None = None,
     case_store: CaseStore | None = None,
     enterprise_store: InMemoryEnterpriseStore | PostgresEnterpriseStore | None = None,
@@ -422,7 +419,6 @@ def create_app(
     )
     app.state.chunks_path = Path(chunks_path)
     knowledge_corpus_path = Path(knowledge_corpus) if knowledge_corpus else Path(chunks_path).parent
-    app.state.review_mode = review_mode
     app.state.case_store = case_store or PostgresCaseStore(load_service_config().postgres.dsn)
     app.state.enterprise_store = enterprise_store or PostgresEnterpriseStore(
         load_service_config().postgres.dsn

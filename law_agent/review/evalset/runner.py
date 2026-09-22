@@ -1,7 +1,7 @@
-"""Evaluation runner for review modes (Issue 9).
+"""Evaluation runner (Issue 9).
 
-Runs golden-set scenarios through explicit review modes, computes metrics,
-and produces a comparison summary.
+Runs golden-set scenarios through the review pipeline, computes metrics,
+and produces a summary.
 """
 
 from __future__ import annotations
@@ -11,7 +11,6 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 from law_agent.config import RerankMode
 from law_agent.review.evalset.cases import EvalSuite, get_scenarios
@@ -28,16 +27,11 @@ from law_agent.review.io import (
 from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.schemas import (
-    CaseAnalysis,
-    IssuePlan,
     RetrievalQuery,
     ReviewFacts,
-    ReviewIssue,
 )
 from law_agent.review.service import create_review_case, run_service_retrieval
 
-ReviewEvalMode = Literal["llm", "multi_agent"]
-DEFAULT_REVIEW_MODE: ReviewEvalMode = "llm"
 DEFAULT_RERANK_MODE: RerankMode = "off"
 DEFAULT_EVAL_SUITE: EvalSuite = "full"
 DEFAULT_MAX_WORKERS = 4
@@ -58,14 +52,13 @@ def run_evaluation(
     scenarios: list[EvalScenario] | None = None,
     suite: EvalSuite = DEFAULT_EVAL_SUITE,
     top_k: int = 10,
-    review_mode: ReviewEvalMode = DEFAULT_REVIEW_MODE,
     rerank_mode: RerankMode = DEFAULT_RERANK_MODE,
     max_workers: int = DEFAULT_MAX_WORKERS,
     eval_inputs_path: Path | str | None = None,
 ) -> EvalSummary:
-    """Run full evaluation across selected modes.
+    """Run the evaluation across the golden-set scenarios.
 
-    Returns an ``EvalSummary`` with per-mode aggregated metrics and bad cases.
+    Returns an ``EvalSummary`` with aggregated metrics and bad cases.
     """
 
     cases_label = suite if scenarios is None else "custom"
@@ -74,21 +67,20 @@ def run_evaluation(
 
     generated_at = utc_now_iso()
 
-    eval_key = _eval_key(review_mode, rerank_mode)
+    eval_key = _eval_key(rerank_mode)
     max_workers = max(1, max_workers)
     eval_inputs: dict[str, EvalCaseInput] = {}
-    if review_mode in ("llm", "multi_agent"):
-        resolved_inputs_path = _default_eval_inputs_path(
-            suite=suite,
-            cases_label=cases_label,
-            eval_inputs_path=eval_inputs_path,
+    resolved_inputs_path = _default_eval_inputs_path(
+        suite=suite,
+        cases_label=cases_label,
+        eval_inputs_path=eval_inputs_path,
+    )
+    if resolved_inputs_path is not None:
+        eval_inputs = _load_or_build_eval_inputs(
+            resolved_inputs_path,
+            scenarios,
+            max_workers=max_workers,
         )
-        if resolved_inputs_path is not None:
-            eval_inputs = _load_or_build_eval_inputs(
-                resolved_inputs_path,
-                scenarios,
-                max_workers=max_workers,
-            )
 
     # Serial service retrieval can reuse adapters. Parallel service retrieval
     # must not share the pgvector Postgres connection across threads, so each
@@ -109,7 +101,6 @@ def run_evaluation(
                     lambda scenario: _run_single_case_safely(
                         scenario,
                         chunks_path,
-                        review_mode=review_mode,
                         rerank_mode=rerank_mode,
                         top_k=top_k,
                         service_adapters=service_adapters,
@@ -218,7 +209,6 @@ def _build_eval_input(scenario: EvalScenario) -> EvalCaseInput:
             output_dir=Path(tmpdir),
             now=lambda: "2026-07-06T00:00:00+00:00",
             id_factory=lambda prefix: f"{prefix}_eval",
-            review_mode="llm",
         )
     return EvalCaseInput(
         facts=response.review_case.review_facts,
@@ -226,56 +216,25 @@ def _build_eval_input(scenario: EvalScenario) -> EvalCaseInput:
     )
 
 
-def _frozen_case_analyst(input: EvalCaseInput):
-    """Adapt frozen eval input to the runtime Case Analyst interface."""
-
-    query_types = list(dict.fromkeys(query.query_type for query in input.queries))
-    issue_plan = IssuePlan(
-        issues=[
-            ReviewIssue(
-                issue_id="issue_1",
-                question="Frozen evaluation research plan",
-                query_ids=[query.query_id for query in input.queries],
-                query_types=query_types,
-                required_evidence_roles=["primary_legal_basis"],
-                priority="high",
-            )
-        ]
-    )
-
-    def run(*, question: str, material_text: str, trace_id: str) -> CaseAnalysis:
-        return CaseAnalysis(
-            facts=input.facts,
-            issue_plan=issue_plan,
-            queries=input.queries,
-        )
-
-    return run
-
-
 def _run_single_case(
     scenario: EvalScenario,
     chunks_path: Path | str,
     *,
-    review_mode: ReviewEvalMode,
     top_k: int,
     rerank_mode: RerankMode = DEFAULT_RERANK_MODE,
     service_adapters: object | None = None,
     service_config: object | None = None,
     eval_input: EvalCaseInput | None = None,
 ) -> CaseMetricResult:
-    """Run a single scenario in one mode and return metrics."""
+    """Run a single scenario and return metrics."""
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         facts_extractor = None
         query_planner = None
-        case_analyst = None
-        if eval_input is not None and review_mode == "llm":
+        if eval_input is not None:
             facts_extractor = lambda _material, _question=None: eval_input.facts
             query_planner = lambda _question, _facts, _material=None: eval_input.queries
-        elif eval_input is not None:
-            case_analyst = _frozen_case_analyst(eval_input)
 
         create_review_case(
             question=scenario.question,
@@ -283,7 +242,6 @@ def _run_single_case(
             output_dir=tmp_path,
             now=lambda: "2026-07-06T00:00:00+00:00",
             id_factory=lambda prefix: f"{prefix}_eval",
-            review_mode=review_mode,
             facts_extractor=facts_extractor,
             query_planner=query_planner,
         )
@@ -295,11 +253,9 @@ def _run_single_case(
             chunks_path=chunks_path,
             output_dir=tmp_path,
             top_k=top_k,
-            review_mode=review_mode,
             rerank_mode=rerank_mode,
             config=service_config,
             adapters=service_adapters,
-            case_analyst=case_analyst,
         )
         hits = trace.final_evidence or trace.hybrid_results
         second_retrieval_triggered = trace.evidence_self_check.second_retrieval_triggered
@@ -320,35 +276,12 @@ def _run_single_case(
             risk_level=risk_level,
             second_retrieval_triggered=second_retrieval_triggered,
         )
-        workflow_outcome = (
-            "degraded_success"
-            if any(step.status == "failed" for step in trace.agent_steps)
-            else "clean_success"
-        )
         return case_metrics.model_copy(
             update={
                 "total_latency_ms": trace.total_latency_ms,
                 "retrieval_latency_ms": trace.retrieval_latency_ms,
                 "llm_call_count": trace.llm_call_count,
                 "retry_count": trace.retry_count,
-                "issue_count": len(trace.issue_plan.issues) if trace.issue_plan else 0,
-                "critic_triggered": trace.critique_decision is not None,
-                "critic_revised": (
-                    trace.critique_decision is not None
-                    and trace.critique_decision.decision
-                    in {"research_required", "revision_required"}
-                ),
-                "targeted_retrieval_triggered": any(
-                    step.agent_name == "evidence_researcher"
-                    and step.decision is not None
-                    and "critic-requested" in step.decision
-                    for step in trace.agent_steps
-                ),
-                "critic_reason": (
-                    trace.critique_decision.reason if trace.critique_decision else None
-                ),
-                "agent_steps": trace.agent_steps,
-                "workflow_outcome": workflow_outcome,
             }
         )
 
@@ -380,11 +313,8 @@ def _run_single_case_safely(
         )
 
 
-def _eval_key(
-    review_mode: ReviewEvalMode,
-    rerank_mode: RerankMode = DEFAULT_RERANK_MODE,
-) -> str:
-    base = f"retrieval=service,review={review_mode}"
+def _eval_key(rerank_mode: RerankMode = DEFAULT_RERANK_MODE) -> str:
+    base = "retrieval=service"
     if rerank_mode == "off":
         return base
     return f"{base},rerank={rerank_mode}"
@@ -433,14 +363,7 @@ def format_summary_text(summary: EvalSummary) -> str:
         lines.append(f"  LLM calls / retries: {metrics.total_llm_calls} / {metrics.total_retries}")
         lines.append(f"  Workflow success rate: {metrics.workflow_success_rate:.4f}")
         lines.append(f"  Clean success rate: {metrics.clean_success_rate:.4f}")
-        lines.append(f"  Degraded success rate: {metrics.degraded_success_rate:.4f}")
         lines.append(f"  Hard failure rate: {metrics.hard_failure_rate:.4f}")
-        if metrics.critic_trigger_rate:
-            lines.append(f"  Critic trigger rate: {metrics.critic_trigger_rate:.4f}")
-            lines.append(f"  Critic revision rate: {metrics.critic_revision_rate:.4f}")
-            lines.append(
-                f"  Targeted retrieval rate: {metrics.targeted_retrieval_trigger_rate:.4f}"
-            )
         lines.append(f"  Bad cases:          {metrics.bad_case_count}")
         if metrics.bad_case_taxonomy:
             taxonomy = ", ".join(
@@ -511,11 +434,7 @@ def format_summary_markdown(
                 f"| Total retries | {metrics.total_retries} |",
                 f"| Workflow success rate | {metrics.workflow_success_rate:.4f} |",
                 f"| Clean success rate | {metrics.clean_success_rate:.4f} |",
-                f"| Degraded success rate | {metrics.degraded_success_rate:.4f} |",
                 f"| Hard failure rate | {metrics.hard_failure_rate:.4f} |",
-                f"| Critic trigger rate | {metrics.critic_trigger_rate:.4f} |",
-                f"| Critic revision rate | {metrics.critic_revision_rate:.4f} |",
-                f"| Targeted retrieval trigger rate | {metrics.targeted_retrieval_trigger_rate:.4f} |",
             ]
         )
         if metrics.bad_case_taxonomy:

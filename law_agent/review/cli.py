@@ -26,7 +26,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
             question=args.question,
             material=material,
             output_dir=Path(args.output_dir),
-            review_mode=args.mode,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -36,20 +35,17 @@ def _cmd_run(args: argparse.Namespace) -> int:
     print(f"Trace {response.trace.trace_id}")
     print(f"Result {response.result.review_result_id}")
 
-    if args.mode == "multi_agent":
-        print("Case Analyst will extract facts and plan issue queries during retrieval.")
-    else:
-        facts = response.review_case.review_facts
-        print(f"Facts: cross_border={facts.cross_border_transfer}, data_types={facts.data_types}")
-        if facts.industry:
-            print(f"  industry={facts.industry}")
-        if facts.region:
-            print(f"  region={facts.region}")
-        if facts.missing_information:
-            print(f"  missing={facts.missing_information}")
-        print(f"Queries: {len(response.trace.queries)} planned")
-        for query in response.trace.queries:
-            print(f"  [{query.query_type}] {query.text}")
+    facts = response.review_case.review_facts
+    print(f"Facts: cross_border={facts.cross_border_transfer}, data_types={facts.data_types}")
+    if facts.industry:
+        print(f"  industry={facts.industry}")
+    if facts.region:
+        print(f"  region={facts.region}")
+    if facts.missing_information:
+        print(f"  missing={facts.missing_information}")
+    print(f"Queries: {len(response.trace.queries)} planned")
+    for query in response.trace.queries:
+        print(f"  [{query.query_type}] {query.text}")
 
     print(f"Wrote {response.case_path}")
     print(f"Wrote {response.trace_path}")
@@ -64,7 +60,6 @@ def _cmd_retrieve(args: argparse.Namespace) -> int:
             chunks_path=Path(args.chunks),
             output_dir=Path(args.output_dir),
             top_k=args.top_k,
-            review_mode=args.mode,
             rerank_mode=args.rerank_mode,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
@@ -153,7 +148,6 @@ def _cmd_eval(args: argparse.Namespace) -> int:
             chunks_path=Path(args.chunks),
             suite=args.suite,
             top_k=args.top_k,
-            review_mode=args.review_mode,
             rerank_mode=args.rerank_mode,
             max_workers=args.max_workers,
             eval_inputs_path=args.eval_inputs,
@@ -179,7 +173,6 @@ def _cmd_eval(args: argparse.Namespace) -> int:
                 summary,
                 run_config={
                     "retrieval_mode": "service",
-                    "review_mode": args.review_mode,
                     "rerank_mode": args.rerank_mode,
                     "max_workers": args.max_workers,
                     "top_k": args.top_k,
@@ -207,13 +200,11 @@ def _cmd_serve(args: argparse.Namespace) -> int:
 
     app = create_app(
         chunks_path=Path(args.chunks),
-        review_mode=args.mode,
     )
 
     print(f"Starting LawAgent Review API at http://{args.host}:{args.port}")
     print(f"  OpenAPI docs: http://{args.host}:{args.port}/docs")
     print(f"  Corpus: {args.chunks}")
-    print(f"  Review mode: {args.mode}")
     print("  Retrieval backend: service")
     print("  Press Ctrl+C to stop")
 
@@ -240,7 +231,11 @@ def _cmd_index_service(args: argparse.Namespace) -> int:
 
             config = require_service_config()
             chunks = load_corpus(args.chunks)
-            summary = index_corpus_to_services(config, chunks)
+            summary = index_corpus_to_services(
+                config,
+                chunks,
+                progress=lambda message: print(message, flush=True),
+            )
             print("Indexed corpus into Elasticsearch + pgvector:")
             for key, value in summary.items():
                 print(f"  {key}: {value}")
@@ -299,12 +294,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Parser used for --material-file. Pasted text ignores this option.",
     )
     run.add_argument("--output-dir", default=str(DEFAULT_REVIEW_RUNS_DIR))
-    run.add_argument(
-        "--mode",
-        choices=["llm", "multi_agent"],
-        default="llm",
-        help="Review owner mode.",
-    )
     run.set_defaults(func=_cmd_run)
 
     retrieve = subparsers.add_parser("retrieve", help="Run retrieval for an existing review case")
@@ -316,12 +305,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     retrieve.add_argument("--output-dir", default=str(DEFAULT_REVIEW_RUNS_DIR))
     retrieve.add_argument("--top-k", type=int, default=10)
-    retrieve.add_argument(
-        "--mode",
-        choices=["llm", "multi_agent"],
-        default="llm",
-        help="Review owner mode.",
-    )
     retrieve.add_argument(
         "--rerank-mode",
         choices=["off", "embedding"],
@@ -348,12 +331,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=4,
         help="Number of eval cases to run in parallel. Defaults to 4.",
-    )
-    eval_parser.add_argument(
-        "--review-mode",
-        choices=["llm", "multi_agent"],
-        default="llm",
-        help="Review owner for eval. Defaults to llm.",
     )
     eval_parser.add_argument(
         "--rerank-mode",
@@ -399,12 +376,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--reload",
         action="store_true",
         help="Enable auto-reload for development",
-    )
-    serve.add_argument(
-        "--mode",
-        choices=["llm", "multi_agent"],
-        default="llm",
-        help="Review owner mode.",
     )
     serve.set_defaults(func=_cmd_serve)
 

@@ -52,9 +52,6 @@ def max_retries_for_node(node_name: str, default: int = 3) -> int:
         "query_planning": "LAWAGENT_LLM_QUERY_RETRIES",
         "evidence_check": "LAWAGENT_LLM_EVIDENCE_CHECK_RETRIES",
         "result_generation": "LAWAGENT_LLM_RESULT_RETRIES",
-        "case_analyst": "LAWAGENT_LLM_ANALYST_RETRIES",
-        "evidence_critic": "LAWAGENT_LLM_CRITIC_RETRIES",
-        "compliance_reviewer_revision": "LAWAGENT_LLM_RESULT_RETRIES",
     }
     raw = os.getenv(env_by_node.get(node_name, ""), os.getenv("LAWAGENT_LLM_MAX_RETRIES"))
     if raw is None:
@@ -74,9 +71,6 @@ def model_for_node(node_name: str) -> str | None:
         "query_planning": "LAWAGENT_LLM_QUERY_MODEL",
         "evidence_check": "LAWAGENT_LLM_EVIDENCE_MODEL",
         "result_generation": "LAWAGENT_LLM_RESULT_MODEL",
-        "case_analyst": "LAWAGENT_LLM_ANALYST_MODEL",
-        "evidence_critic": "LAWAGENT_LLM_CRITIC_MODEL",
-        "compliance_reviewer_revision": "LAWAGENT_LLM_RESULT_MODEL",
     }
     return os.getenv(env_by_node.get(node_name, ""))
 

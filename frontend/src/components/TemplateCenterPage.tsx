@@ -30,12 +30,11 @@ interface TemplateDraft {
   description: string;
   question: string;
   intake: CaseIntake;
-  review_mode: 'llm' | 'multi_agent';
   rerank_mode: 'off' | 'embedding';
 }
 
 const EMPTY_DRAFT: TemplateDraft = {
-  name: '', description: '', question: '', intake: { ...EMPTY_INTAKE }, review_mode: 'llm', rerank_mode: 'off',
+  name: '', description: '', question: '', intake: { ...EMPTY_INTAKE }, rerank_mode: 'off',
 };
 
 function toDraft(template?: CaseTemplateApi | null): TemplateDraft {
@@ -45,7 +44,6 @@ function toDraft(template?: CaseTemplateApi | null): TemplateDraft {
     description: template.description,
     question: template.question,
     intake: { ...EMPTY_INTAKE, ...template.intake },
-    review_mode: template.review_mode,
     rerank_mode: template.rerank_mode,
   };
 }
@@ -66,7 +64,6 @@ function asExportPayload(template: CaseTemplateApi): Record<string, unknown> {
     description: template.description,
     question: template.question,
     intake: template.intake,
-    review_mode: template.review_mode,
     rerank_mode: template.rerank_mode,
   };
 }
@@ -138,7 +135,7 @@ export default function TemplateCenterPage({ onUseTemplate, demoMode = false }: 
     try {
       const payload: CaseTemplatePayload = {
         name: draft.name.trim(), description: draft.description.trim(), question: draft.question.trim(),
-        intake: draft.intake, review_mode: draft.review_mode, rerank_mode: draft.rerank_mode,
+        intake: draft.intake, rerank_mode: draft.rerank_mode,
       };
       if (editing) await updateCaseTemplate(editing.id, payload);
       else await createCaseTemplate(payload);
@@ -191,7 +188,6 @@ export default function TemplateCenterPage({ onUseTemplate, demoMode = false }: 
       const payload: CaseTemplatePayload = {
         name: `${value.name.trim()}（导入副本）`, description: typeof value.description === 'string' ? value.description : '',
         question: value.question.trim(), intake: { ...EMPTY_INTAKE, ...(value.intake && typeof value.intake === 'object' ? value.intake : {}) },
-        review_mode: value.review_mode === 'multi_agent' ? 'multi_agent' : 'llm',
         rerank_mode: value.rerank_mode === 'embedding' ? 'embedding' : 'off',
       };
       setBusy(true);
@@ -233,7 +229,7 @@ export default function TemplateCenterPage({ onUseTemplate, demoMode = false }: 
           <article className="template-card card" key={template.id}>
             <div className="template-card__top"><div><h2>{template.name}</h2><p>{template.description || '未填写适用场景说明'}</p></div><span className="template-card__date">更新于 {formatDate(template.updated_at)}</span></div>
             <div className="template-card__question"><span>审查问题</span><strong>{template.question}</strong></div>
-            <div className="template-card__meta"><span>审查方式：{template.review_mode === 'multi_agent' ? '多智能体' : '标准审查'}</span><span>字段预设：已保存</span></div>
+            <div className="template-card__meta"><span>字段预设：已保存</span></div>
             <div className="template-card__actions"><button className="button button--primary" type="button" onClick={() => onUseTemplate?.(template)} disabled={!onUseTemplate || serviceUnavailable}>使用此模板</button><button className="icon-button" type="button" title="编辑模板" aria-label="编辑模板" onClick={() => openEdit(template)} disabled={serviceUnavailable}><Pencil size={17} /></button><button className="icon-button" type="button" title="导出 JSON" aria-label="导出 JSON" onClick={() => exportTemplate(template)} disabled={serviceUnavailable}><Download size={17} /></button><button className="icon-button icon-button--danger" type="button" title="归档模板" aria-label="归档模板" onClick={() => void archive(template)} disabled={busy || serviceUnavailable}><Archive size={17} /></button></div>
           </article>
         ))}
@@ -246,7 +242,7 @@ export default function TemplateCenterPage({ onUseTemplate, demoMode = false }: 
             <label className="template-field"><span>模板名称</span><input value={draft.name} maxLength={120} onChange={(event) => updateDraft('name', event.target.value)} placeholder="例如：个人信息出境审查" /></label>
             <label className="template-field"><span>适用场景说明</span><input value={draft.description} maxLength={500} onChange={(event) => updateDraft('description', event.target.value)} placeholder="说明什么时候适合使用" /></label>
             <label className="template-field"><span>审查问题</span><textarea value={draft.question} maxLength={4000} onChange={(event) => updateDraft('question', event.target.value)} rows={4} placeholder="例如：这个业务是否需要数据出境安全评估？" /></label>
-            <div className="template-editor__grid"><label className="template-field"><span>审查方式</span><select value={draft.review_mode} onChange={(event) => updateDraft('review_mode', event.target.value as TemplateDraft['review_mode'])}><option value="llm">标准审查</option><option value="multi_agent">多智能体审查</option></select></label><label className="template-field"><span>依据排序</span><select value={draft.rerank_mode} onChange={(event) => updateDraft('rerank_mode', event.target.value as TemplateDraft['rerank_mode'])}><option value="off">默认排序</option><option value="embedding">增强排序</option></select></label></div>
+            <div className="template-editor__grid"><label className="template-field"><span>依据排序</span><select value={draft.rerank_mode} onChange={(event) => updateDraft('rerank_mode', event.target.value as TemplateDraft['rerank_mode'])}><option value="off">默认排序</option><option value="embedding">增强排序</option></select></label></div>
             <p className="template-editor__note">这里只保存新建案件字段预设，不包含案件材料、审查结论、法源引用或审计记录。</p>
             <div className="template-editor__footer"><button className="button button--secondary" type="button" onClick={closeEditor} disabled={busy}>取消</button><button className="button button--primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? '保存中…' : '保存模板'}</button></div>
           </section>

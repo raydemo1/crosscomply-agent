@@ -28,14 +28,12 @@ def upgrade() -> None:
             server_default=sa.text("'{}'::jsonb"),
             nullable=False,
         ),
-        sa.Column("review_mode", sa.Text(), server_default="llm", nullable=False),
         sa.Column("rerank_mode", sa.Text(), server_default="off", nullable=False),
         sa.Column("created_by", sa.Text(), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("updated_by", sa.Text(), sa.ForeignKey("users.id")),
         sa.Column("archived", sa.Boolean(), server_default=sa.false(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.CheckConstraint("review_mode IN ('llm', 'multi_agent')", name="case_templates_review_mode_ck"),
         sa.CheckConstraint("rerank_mode IN ('off', 'embedding')", name="case_templates_rerank_mode_ck"),
     )
     op.create_index("case_templates_active_idx", "case_templates", ["archived", "updated_at"])

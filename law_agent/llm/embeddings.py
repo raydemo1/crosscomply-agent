@@ -88,7 +88,10 @@ class OpenAICompatibleEmbeddings(EmbeddingsProvider):
                     ) from exc
                 backoff = min(2**attempt, 8)
                 time.sleep(backoff)
-            except urllib.error.URLError as exc:
+            except (urllib.error.URLError, TimeoutError) as exc:
+                # Python 3.12 surfaces socket read timeouts during
+                # getresponse() as a bare TimeoutError instead of wrapping
+                # it in URLError, so it must be retried explicitly.
                 if attempt == max_retries - 1:
                     raise RuntimeError(f"embedding request failed: {exc}") from exc
                 time.sleep(min(2**attempt, 8))

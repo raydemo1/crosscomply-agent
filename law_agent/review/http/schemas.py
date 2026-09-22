@@ -9,9 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from law_agent.config import RerankMode
 from law_agent.data.schemas import InternalPolicyStatus, LibraryKind
 from law_agent.review.evalset.cases import EvalSuite
-from law_agent.review.evalset.runner import ReviewEvalMode
 from law_agent.review.rules import ComplianceFacts
-from law_agent.review.service import ReviewMode
 from law_agent.review.user_admin import UserRole
 
 
@@ -82,7 +80,6 @@ class HealthResponse(BaseModel):
 
 class EvalRunRequest(BaseModel):
     chunks_path: str | None = None
-    review_mode: ReviewEvalMode = "llm"
     top_k: int = Field(default=10, ge=1, le=100)
     max_workers: int = Field(default=4, ge=1, le=16)
     rerank_mode: RerankMode = "off"
@@ -122,7 +119,6 @@ class CaseCreateRequest(BaseModel):
     material_text: str = Field(..., min_length=1)
     material_source: str | None = None
     intake: IntakePayload = Field(default_factory=IntakePayload)
-    review_mode: ReviewMode = "llm"
     rerank_mode: RerankMode = "off"
 
     @field_validator("question", "material_text")
@@ -239,7 +235,6 @@ class CaseTemplateCreateRequest(BaseModel):
     description: str = Field(default="", max_length=500)
     question: str = Field(..., min_length=1, max_length=4000)
     intake: dict[str, object] = Field(default_factory=dict)
-    review_mode: Literal["llm", "multi_agent"] = "llm"
     rerank_mode: Literal["off", "embedding"] = "off"
 
     @field_validator("name", "question")
@@ -255,7 +250,6 @@ class CaseTemplateUpdateRequest(BaseModel):
     description: str | None = Field(default=None, max_length=500)
     question: str | None = Field(default=None, min_length=1, max_length=4000)
     intake: dict[str, object] | None = None
-    review_mode: Literal["llm", "multi_agent"] | None = None
     rerank_mode: Literal["off", "embedding"] | None = None
 
 

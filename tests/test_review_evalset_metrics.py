@@ -54,7 +54,7 @@ def test_empty_expected_sources_are_not_retrieval_scores() -> None:
 def test_aggregate_retrieval_uses_only_source_bearing_cases() -> None:
     bearing = evaluate_case(_scenario(["s1"]), [_hit(source_id="s1")])
     abstain = evaluate_case(_scenario([]), [])
-    metrics = aggregate_metrics([bearing, abstain], "service_multi_agent")
+    metrics = aggregate_metrics([bearing, abstain], "service")
     assert metrics.source_bearing_case_count == 1
     assert metrics.mean_recall_at_5 == 1.0
 

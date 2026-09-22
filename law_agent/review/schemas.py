@@ -5,12 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 
 from law_agent.data.schemas import Authority, ClauseCitationRole, DocType, LawStatus, StrictModel
 
 ReviewInputMode = Literal["pasted_text", "uploaded_file"]
-ReviewMode = Literal["llm", "multi_agent"]
 RiskLevel = Literal["high", "medium", "low", "insufficient_evidence"]
 _SEMANTIC_NULL_STRINGS = frozenset({"null", "none", "unknown", "n/a", "未知", "未提供", "未说明"})
 RetrievalQueryType = Literal[
@@ -219,176 +218,6 @@ class GroundedClaim(StrictModel):
     supporting_citation_refs: list[str] = Field(default_factory=list)
 
 
-class ReviewIssue(StrictModel):
-    """One bounded legal issue identified by the case analyst."""
-
-    issue_id: str
-    question: str
-    query_ids: list[str] = Field(default_factory=list)
-    query_types: list[RetrievalQueryType] = Field(default_factory=list)
-    research_queries: list[str] = Field(default_factory=list, max_length=3)
-    required_evidence_roles: list[ClauseCitationRole] = Field(default_factory=list)
-    priority: Literal["high", "medium", "low"] = "medium"
-
-
-class IssuePlan(StrictModel):
-    """Deterministic case-analyst output consumed by research and critique."""
-
-    issues: list[ReviewIssue] = Field(default_factory=list, max_length=5)
-
-
-class IssueDraft(StrictModel):
-    """One issue-planning node output before queries have been generated."""
-
-    question: str = Field(min_length=1)
-    query_types: list[RetrievalQueryType] = Field(min_length=1)
-    required_evidence_roles: list[ClauseCitationRole] = Field(default_factory=list)
-    priority: Literal["high", "medium", "low"] = "medium"
-
-
-class IssuePlanDraft(StrictModel):
-    """Strict output of the Case Analyst issue-planning step."""
-
-    issues: list[IssueDraft] = Field(min_length=1, max_length=4)
-
-
-class EvidenceDossier(StrictModel):
-    """Deterministic evidence handoff for one review issue."""
-
-    issue_id: str
-    evidence_chunk_ids: list[str] = Field(default_factory=list)
-    source_ids: list[str] = Field(default_factory=list)
-    evidence_gap: bool = False
-    coverage_status: Literal["covered", "partial", "missing"] = "missing"
-    missing_evidence_roles: list[ClauseCitationRole] = Field(default_factory=list)
-
-
-class IssueResearchResult(StrictModel):
-    """Tool-backed research output produced by one Evidence Researcher."""
-
-    issue_id: str
-    executed_queries: list[RetrievalQuery] = Field(default_factory=list)
-    keyword_hits: list[RetrievalHit] = Field(default_factory=list)
-    vector_hits: list[RetrievalHit] = Field(default_factory=list)
-    candidate_hits: list[RetrievalHit] = Field(default_factory=list)
-    evidence_hits: list[RetrievalHit] = Field(default_factory=list)
-
-
-class CaseAnalysis(StrictModel):
-    """Case-analyst output with issue-specific queries ready for retrieval."""
-
-    facts: ReviewFacts
-    issue_plan: IssuePlan
-    queries: list[RetrievalQuery] = Field(default_factory=list)
-
-
-class TargetedRetrievalRequest(StrictModel):
-    """One bounded evidence gap that the critic asks researchers to refill."""
-
-    issue_id: str
-    query: str
-    query_type: RetrievalQueryType = "legal_issue"
-    reason: str
-
-    @field_validator("query")
-    @classmethod
-    def query_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("targeted retrieval query must not be blank")
-        return value.strip()
-
-
-RevisionOperation = Literal[
-    "remove_claim",
-    "narrow_claim",
-    "add_supported_claim",
-    "mark_evidence_gap",
-    "change_risk_boundary",
-    "abstain",
-]
-
-
-class RevisionAction(StrictModel):
-    """One evidence-constrained operation requested by the Critic."""
-
-    operation: RevisionOperation
-    reason: str
-    issue_id: str | None = None
-    claim_index: int | None = Field(default=None, ge=0)
-    replacement_text: str | None = None
-    supporting_chunk_ids: list[str] = Field(default_factory=list)
-
-
-class ClaimReplacement(StrictModel):
-    """Replace one existing grounded claim without regenerating the result."""
-
-    claim_index: int = Field(ge=0)
-    claim: GroundedClaim
-
-
-class ReviewResultPatch(StrictModel):
-    """Bounded delta applied to an already validated ReviewResult."""
-
-    risk_level: RiskLevel | None = None
-    conclusion: str | None = None
-    decision_summary: str | None = Field(default=None, min_length=40, max_length=240)
-    remove_claim_indexes: list[int] = Field(default_factory=list)
-    replace_claims: list[ClaimReplacement] = Field(default_factory=list)
-    add_claims: list[GroundedClaim] = Field(default_factory=list)
-    append_missing_information: list[str] = Field(default_factory=list)
-    append_recommended_actions: list[str] = Field(default_factory=list)
-    append_risk_boundaries: list[str] = Field(default_factory=list)
-
-
-class CritiqueDecision(StrictModel):
-    """Evidence critic decision; at most one revision is allowed."""
-
-    decision: Literal["accept", "research_required", "revision_required"]
-    unsupported_claims: list[str] = Field(default_factory=list)
-    missing_issue_ids: list[str] = Field(default_factory=list)
-    revision_instructions: list[str] = Field(default_factory=list)
-    revision_actions: list[RevisionAction] = Field(default_factory=list, max_length=5)
-    targeted_retrieval_requests: list[TargetedRetrievalRequest] = Field(
-        default_factory=list, max_length=3
-    )
-    reason: str
-
-    @model_validator(mode="after")
-    def decision_requires_consistent_route(self) -> CritiqueDecision:
-        needs_revision = self.decision in {
-            "research_required",
-            "revision_required",
-        }
-        if needs_revision and not self.revision_instructions and not self.revision_actions:
-            raise ValueError(f"{self.decision} decision requires revision actions")
-        if self.decision == "accept" and self.targeted_retrieval_requests:
-            raise ValueError("accept decision cannot request targeted retrieval")
-        if self.decision == "accept" and self.revision_actions:
-            raise ValueError("accept decision cannot request revision actions")
-        if self.decision == "accept" and self.revision_instructions:
-            raise ValueError("accept decision cannot request revision instructions")
-        if self.decision == "research_required" and not self.targeted_retrieval_requests:
-            raise ValueError("research_required decision requires targeted retrieval")
-        if self.decision == "revision_required" and self.targeted_retrieval_requests:
-            raise ValueError("revision_required decision cannot request targeted retrieval")
-        return self
-
-
-class AgentStep(StrictModel):
-    """Compact trace record for one business-agent execution."""
-
-    agent_name: Literal[
-        "case_analyst",
-        "evidence_researcher",
-        "compliance_reviewer",
-        "evidence_critic",
-    ]
-    status: Literal["completed", "skipped", "failed"]
-    decision: str | None = None
-    latency_ms: int = 0
-    llm_calls: int = 0
-
-
 class ReviewResult(StrictModel):
     """Structured review result produced from facts and evidence."""
 
@@ -416,7 +245,6 @@ class ReviewCase(StrictModel):
     question: str
     material: MaterialRecord
     review_facts: ReviewFacts
-    review_mode: ReviewMode = "llm"
     trace_id: str
     latest_result_id: str | None = None
     user_feedback: dict[str, str] = Field(default_factory=dict)
@@ -452,11 +280,6 @@ class RetrievalTrace(StrictModel):
     final_evidence: list[RetrievalHit] = Field(default_factory=list)
     source_evidence_packets: list[SourceEvidencePacket] = Field(default_factory=list)
     citation_validation: dict[str, object] = Field(default_factory=dict)
-    issue_plan: IssuePlan | None = None
-    issue_research_results: list[IssueResearchResult] = Field(default_factory=list)
-    evidence_dossiers: list[EvidenceDossier] = Field(default_factory=list)
-    critique_decision: CritiqueDecision | None = None
-    agent_steps: list[AgentStep] = Field(default_factory=list)
     latency_ms: int | None = None
     total_latency_ms: int | None = None
     retrieval_latency_ms: int | None = None

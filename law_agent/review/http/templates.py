@@ -52,7 +52,6 @@ def register_template_routes(
                 description=payload.description,
                 question=payload.question,
                 intake=payload.intake,
-                review_mode=payload.review_mode,
                 rerank_mode=payload.rerank_mode,
             )
         except ValueError as exc:

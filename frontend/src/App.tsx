@@ -82,7 +82,6 @@ export default function App(): JSX.Element {
   const [question, setQuestion] = useState('');
   const [material, setMaterial] = useState('');
   const [intake, setIntake] = useState<CaseIntake>({ ...EMPTY_INTAKE });
-  const [reviewMode, setReviewMode] = useState<'llm' | 'multi_agent'>('llm');
   const [rerankMode, setRerankMode] = useState<'off' | 'embedding'>('off');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -200,7 +199,7 @@ export default function App(): JSX.Element {
           material_text: m,
           intake: confirmedIntake,
         })
-        : await createCase({ question: q, materialText: m, intake: confirmedIntake, reviewMode, rerankMode, file });
+        : await createCase({ question: q, materialText: m, intake: confirmedIntake, rerankMode, file });
       setEditingCaseId(null);
       setActiveCaseId(saved.case.id);
       setPage('case-detail');
@@ -227,7 +226,7 @@ export default function App(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [editingCaseId, rerankMode, reviewMode, user]);
+  }, [editingCaseId, rerankMode, user]);
 
   const handleOpenCase = useCallback(async (caseId: string): Promise<void> => {
     setError(null);
@@ -250,7 +249,6 @@ export default function App(): JSX.Element {
     setQuestion(template.question);
     setMaterial('');
     setIntake({ ...EMPTY_INTAKE, ...template.intake, data_types: [...(template.intake.data_types ?? [])] });
-    setReviewMode(template.review_mode);
     setRerankMode(template.rerank_mode);
     setEditingCaseId(null);
     setActiveCaseId(null);
@@ -309,7 +307,7 @@ export default function App(): JSX.Element {
         {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} /></Suspense> : null}
         {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} demoMode={PUBLIC_DEMO_ENABLED} canEdit={user.role === 'requester' && !PUBLIC_DEMO_ENABLED} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} /></Suspense> : null}
         {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage onUseTemplate={handleUseTemplate} demoMode={PUBLIC_DEMO_ENABLED} /></Suspense> : null}
-        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} reviewMode={reviewMode} rerankMode={rerankMode} editingCaseId={editingCaseId} demoMode={PUBLIC_DEMO_ENABLED} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onReviewModeChange={setReviewMode} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
+        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} rerankMode={rerankMode} editingCaseId={editingCaseId} demoMode={PUBLIC_DEMO_ENABLED} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
         {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从最近案件中选择一个案件。</p></div> : null}
       </main>
     </div>

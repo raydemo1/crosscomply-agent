@@ -2,7 +2,7 @@
  * Shared display helpers for the review workbench.
  *
  * Centralises the enum → Chinese label maps and formatting helpers so the
- * workbench, case detail page, evidence dossier, and report exporter all
+ * workbench, case detail page, evidence panel, and report exporter all
  * render risk levels, citation roles, and evidence status consistently.
  */
 

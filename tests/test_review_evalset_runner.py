@@ -15,7 +15,7 @@ from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.schemas import RetrievalQuery, ReviewFacts
 
 
-def test_eval_inputs_round_trip_for_fair_workflow_comparison(tmp_path: Path) -> None:
+def test_eval_inputs_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "full_llm_inputs.jsonl"
     path.write_text(
         '{"case_id":"case_1","facts":{"business_activity":"测试",'
@@ -47,8 +47,8 @@ def test_markdown_report_contains_core_metrics_and_bad_cases() -> None:
         chunks_path="data/corpus/chunks.jsonl",
         cases_path="full",
         mode_metrics={
-            "retrieval=service,review=llm": ModeMetrics(
-                mode="retrieval=service,review=llm",
+            "retrieval=service": ModeMetrics(
+                mode="retrieval=service",
                 mean_recall_at_3=0.75,
                 mean_recall_at_5=0.85,
                 mean_mrr_at_10=0.9,
@@ -84,7 +84,6 @@ def test_eval_records_workflow_failure_without_aborting_suite(
     result = _run_single_case_safely(
         scenario,
         tmp_path / "chunks.jsonl",
-        review_mode="llm",
         top_k=10,
     )
 

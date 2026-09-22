@@ -30,7 +30,6 @@ def _payload(name: str = "出境审查") -> dict:
         "description": "个人信息向境外供应商提供的场景",
         "question": "这个业务是否需要数据出境安全评估？",
         "intake": {"business_activity": "推荐系统", "data_types": ["手机号"]},
-        "review_mode": "llm",
         "rerank_mode": "off",
     }
 

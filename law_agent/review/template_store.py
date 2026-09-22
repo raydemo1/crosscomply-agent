@@ -32,7 +32,6 @@ def _template_dict(row: dict[str, Any]) -> dict[str, Any]:
         "description": row.get("description") or "",
         "question": row["question"],
         "intake": row.get("intake_json") or {},
-        "review_mode": row.get("review_mode") or "llm",
         "rerank_mode": row.get("rerank_mode") or "off",
         "created_by": row["created_by"],
         "updated_by": row.get("updated_by"),
@@ -98,9 +97,9 @@ class PostgresTemplateStore:
             cur.execute(
                 """
                 INSERT INTO case_templates
-                    (id, name, description, question, intake_json, review_mode, rerank_mode,
+                    (id, name, description, question, intake_json, rerank_mode,
                      created_by, updated_by, archived, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, FALSE, %s, %s)
                 RETURNING *
                 """,
                 (
@@ -109,7 +108,6 @@ class PostgresTemplateStore:
                     kwargs.get("description", ""),
                     kwargs["question"],
                     Jsonb(kwargs.get("intake") or {}),
-                    kwargs.get("review_mode", "llm"),
                     kwargs.get("rerank_mode", "off"),
                     user.id,
                     user.id,
@@ -129,7 +127,7 @@ class PostgresTemplateStore:
                 raise KeyError(identifier)
             if not self._can_manage(user, existing):
                 raise PermissionError("只有模板创建者或管理员可以编辑使用模板")
-            allowed = {"name", "description", "question", "intake", "review_mode", "rerank_mode", "archived"}
+            allowed = {"name", "description", "question", "intake", "rerank_mode", "archived"}
             updates = {key: value for key, value in kwargs.items() if key in allowed}
             if "intake" in updates:
                 updates["intake_json"] = Jsonb(updates.pop("intake") or {})
@@ -179,7 +177,6 @@ class InMemoryTemplateStore:
             "description": kwargs.get("description", ""),
             "question": kwargs["question"],
             "intake": dict(kwargs.get("intake") or {}),
-            "review_mode": kwargs.get("review_mode", "llm"),
             "rerank_mode": kwargs.get("rerank_mode", "off"),
             "created_by": user.id,
             "updated_by": user.id,
@@ -196,7 +193,7 @@ class InMemoryTemplateStore:
             raise KeyError(identifier)
         if not self._can_manage(user, item):
             raise PermissionError("只有模板创建者或管理员可以编辑使用模板")
-        for key in ("name", "description", "question", "intake", "review_mode", "rerank_mode", "archived"):
+        for key in ("name", "description", "question", "intake", "rerank_mode", "archived"):
             if key in kwargs:
                 item[key] = dict(kwargs[key]) if key == "intake" else kwargs[key]
         item["updated_by"] = user.id

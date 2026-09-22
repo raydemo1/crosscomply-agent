@@ -206,6 +206,7 @@ def bulk_index_chunks(
     *,
     generation_id: str | None = None,
     retrieval_enabled: bool = True,
+    refresh: bool = True,
 ) -> int:
     """Bulk-index chunks into Elasticsearch. Returns the number of actions."""
 
@@ -224,7 +225,7 @@ def bulk_index_chunks(
     )
     if not actions:
         return 0
-    success, _errors = helpers.bulk(client, actions, refresh=True)
+    success, _errors = helpers.bulk(client, actions, refresh=refresh)
     return int(success)
 
 
@@ -555,46 +556,34 @@ def build_service_adapters(
 # ---------------------------------------------------------------------------
 
 
-def _embed_chunk_texts(
-    chunks: Sequence[Chunk],
-    embeddings: EmbeddingsProvider,
-) -> dict[str, list[float]]:
-    """Embed each chunk's ``title + text`` in batches, keyed by chunk_id.
+def _existing_pg_chunk_ids(conn: Any, table_name: str) -> set[str]:
+    """Return the chunk_ids already committed in the pgvector table."""
 
-    Paces requests with a small delay between batches to stay within the
-    embedding provider's rate limit (SiliconCloud free tier in particular).
-    """
-
-    import time
-
-    vectors: dict[str, list[float]] = {}
-    batch: list[tuple[str, str]] = []
-    for batch_no, chunk in enumerate(chunks):
-        text = f"{chunk.title}\n{chunk.text}" if chunk.title else chunk.text
-        batch.append((chunk.chunk_id, text))
-        if len(batch) >= _EMBEDDING_BATCH_SIZE:
-            _flush_embedding_batch(batch, embeddings, vectors)
-            batch = []
-            # Pacing: ~0.3s between batches to avoid transient 400/429.
-            time.sleep(0.3)
-    if batch:
-        _flush_embedding_batch(batch, embeddings, vectors)
-    return vectors
+    table_name = _validate_pg_identifier(table_name, field_name="PG_TABLE")
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT chunk_id FROM {table_name}")
+        return {row[0] for row in cur.fetchall()}
 
 
-def _flush_embedding_batch(
-    batch: list[tuple[str, str]],
-    embeddings: EmbeddingsProvider,
-    sink: dict[str, list[float]],
-) -> None:
-    texts = [text for _chunk_id, text in batch]
-    vectors = embeddings.embed_texts(texts)
-    if len(vectors) != len(batch):
+def _existing_es_chunk_ids(client: Any, index_name: str) -> set[str]:
+    """Return the ids (``index_id == chunk_id``) already present in ES."""
+
+    try:
+        from elasticsearch import helpers
+    except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError(
-            f"embedding provider returned {len(vectors)} vectors for {len(batch)} texts"
+            "elasticsearch is not installed; install with pip install 'lawagent[service]'"
+        ) from exc
+
+    return {
+        hit["_id"]
+        for hit in helpers.scan(
+            client,
+            index=index_name,
+            _source=False,
+            query={"query": {"match_all": {}}},
         )
-    for (chunk_id, _text), vector in zip(batch, vectors, strict=True):
-        sink[chunk_id] = vector
+    }
 
 
 def index_corpus_to_services(
@@ -602,32 +591,33 @@ def index_corpus_to_services(
     chunks: Sequence[Chunk],
     *,
     embeddings: EmbeddingsProvider | None = None,
+    progress: Callable[[str], None] | None = None,
+    batch_size: int = _EMBEDDING_BATCH_SIZE,
 ) -> dict[str, Any]:
-    """Index chunks into both Elasticsearch and pgvector.
+    """Index chunks into both Elasticsearch and pgvector, resumably.
 
-    Ensures the ES index and pgvector table exist, embeds chunk text, and
-    bulk/upsert-imports the corpus. Returns a summary with counts and the
-    analyzer pair used.
+    A chunk counts as indexed only when it is committed in *both* stores. On
+    startup the existing chunk ids are read from each store, so a run killed
+    mid-corpus resumes from the first missing chunk instead of re-embedding
+    everything. Each batch is embedded then written (pgvector upsert with its
+    own commit, then an ES bulk) before moving on, which is the checkpoint
+    boundary. Writes are idempotent per ``chunk_id``; a chunk present in only
+    one store is simply re-written on the next run and the stores reconverge.
+
+    ``progress`` receives one human-readable line per checkpoint. Returns a
+    summary with skip/new counts and the final store totals.
     """
+
+    import time
 
     from law_agent.llm.embeddings import build_embeddings_provider
 
     if embeddings is None:
         embeddings = build_embeddings_provider(config.embedding)
+    if batch_size < 1:
+        raise ValueError("batch_size must be >= 1")
 
-    vectors = _embed_chunk_texts(chunks, embeddings)
-    if len(vectors) != len(chunks):
-        raise RuntimeError(f"embedded {len(vectors)} chunks for {len(chunks)} input chunks")
-    for chunk in chunks:
-        vector = vectors.get(chunk.chunk_id)
-        if vector is None:
-            raise RuntimeError(f"missing embedding for chunk {chunk.chunk_id}")
-        if len(vector) != config.embedding.dimension:
-            raise RuntimeError(
-                f"chunk {chunk.chunk_id} embedding dimension {len(vector)} "
-                f"does not match configured dimension {config.embedding.dimension}"
-            )
-
+    total = len(chunks)
     es_client = None
     conn = None
     try:
@@ -636,12 +626,67 @@ def index_corpus_to_services(
 
         conn = create_postgres_connection(config)
         ensure_pgvector_schema(conn, config.postgres.table_name, config.embedding.dimension)
-        rows = [
-            {**chunk_index_document(chunk), "embedding": vectors[chunk.chunk_id]}
-            for chunk in chunks
-        ]
-        pg_count = upsert_pgvector_rows(conn, config.postgres.table_name, rows)
-        es_count = bulk_index_chunks(es_client, config.elasticsearch.index_name, chunks)
+
+        pg_ids = _existing_pg_chunk_ids(conn, config.postgres.table_name)
+        es_ids = _existing_es_chunk_ids(es_client, config.elasticsearch.index_name)
+        already_indexed_ids = pg_ids & es_ids
+        pending = [chunk for chunk in chunks if chunk.chunk_id not in already_indexed_ids]
+        already = total - len(pending)
+        if progress is not None:
+            progress(
+                f"{already}/{total} chunks already indexed in both stores; "
+                f"{len(pending)} pending"
+            )
+
+        dimension = config.embedding.dimension
+        newly_indexed = 0
+        for start in range(0, len(pending), batch_size):
+            if start > 0:
+                # Pacing between batches for low-rate-limit embedding tiers.
+                time.sleep(0.3)
+            batch = pending[start : start + batch_size]
+            texts = [
+                f"{chunk.title}\n{chunk.text}" if chunk.title else chunk.text
+                for chunk in batch
+            ]
+            vectors = embeddings.embed_texts(texts)
+            if len(vectors) != len(batch):
+                raise RuntimeError(
+                    f"embedding provider returned {len(vectors)} vectors for {len(batch)} texts"
+                )
+
+            rows = []
+            for chunk, vector in zip(batch, vectors, strict=True):
+                if len(vector) != dimension:
+                    raise RuntimeError(
+                        f"chunk {chunk.chunk_id} embedding dimension {len(vector)} "
+                        f"does not match configured dimension {dimension}"
+                    )
+                rows.append({**chunk_index_document(chunk), "embedding": vector})
+
+            # Checkpoint: commit pgvector first, then ES. A crash between the
+            # two leaves the chunk missing from one store, and the next run's
+            # intersection makes it pending again; both writes are upserts.
+            upsert_pgvector_rows(conn, config.postgres.table_name, rows)
+            bulk_index_chunks(
+                es_client,
+                config.elasticsearch.index_name,
+                batch,
+                refresh=False,
+            )
+            newly_indexed += len(batch)
+            if progress is not None:
+                progress(
+                    f"indexed {already + newly_indexed}/{total} chunks "
+                    f"(this batch: {len(batch)}, embeddings pending: "
+                    f"{len(pending) - newly_indexed})"
+                )
+
+        es_client.indices.refresh(index=config.elasticsearch.index_name)
+        pg_count = len(_existing_pg_chunk_ids(conn, config.postgres.table_name))
+        es_count = int(
+            es_client.count(index=config.elasticsearch.index_name).get("count", 0)
+        )
     finally:
         if es_client is not None:
             try:
@@ -660,7 +705,10 @@ def index_corpus_to_services(
         "elasticsearch_analyzer": analyzers,
         "pgvector_table": config.postgres.table_name,
         "pgvector_rows": pg_count,
-        "embedding_dimension": config.embedding.dimension,
+        "embedding_dimension": dimension,
+        "total_chunks": total,
+        "already_indexed": already,
+        "newly_indexed": newly_indexed,
     }
 
 

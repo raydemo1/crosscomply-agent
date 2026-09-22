@@ -129,7 +129,6 @@ def register_case_routes(
         material_text: str = Form(default=""),
         material_source: str | None = Form(default=None),
         intake_json: str = Form(default="{}"),
-        review_mode: str = Form(default="llm"),
         rerank_mode: str = Form(default="off"),
         file: UploadFile | None = File(default=None),
     ) -> dict[str, Any]:
@@ -154,7 +153,6 @@ def register_case_routes(
                     material_text=material_text,
                     material_source=material_source,
                     intake=IntakePayload.model_validate_json(intake_json or "{}"),
-                    review_mode=review_mode,
                     rerank_mode=rerank_mode,
                 )
             except ValidationError as exc:
@@ -165,7 +163,6 @@ def register_case_routes(
             material_text=payload.material_text,
             material_source=payload.material_source,
             intake=payload.intake.model_dump(mode="json"),
-            review_mode=payload.review_mode,
             rerank_mode=payload.rerank_mode,
             created_by=user.id,
             owner_id=user.id,

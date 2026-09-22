@@ -329,7 +329,6 @@ export interface CreateCaseInput {
   materialText: string;
   materialSource?: string | null;
   intake: CaseIntake;
-  reviewMode: 'llm' | 'multi_agent';
   rerankMode: 'off' | 'embedding';
   file?: File | null;
 }
@@ -345,7 +344,6 @@ export async function createCase(input: CreateCaseInput): Promise<CaseDetailApi>
     formData.append('material_text', input.materialText);
     formData.append('material_source', input.file.name);
     formData.append('intake_json', JSON.stringify(input.intake));
-    formData.append('review_mode', input.reviewMode);
     formData.append('rerank_mode', input.rerankMode);
     formData.append('file', input.file);
     return request<CaseDetailApi>('/api/cases', {
@@ -362,7 +360,6 @@ export async function createCase(input: CreateCaseInput): Promise<CaseDetailApi>
       material_text: input.materialText,
       material_source: input.materialSource ?? null,
       intake: input.intake,
-      review_mode: input.reviewMode,
       rerank_mode: input.rerankMode,
     }),
   });
@@ -589,7 +586,7 @@ export async function getDashboardSummary(): Promise<DashboardSummaryApi> {
 }
 
 export async function runEvaluation(options: EvalRunOptions = {
-  retrieval_mode: 'service', review_mode: 'llm', top_k: 10, max_workers: 4, rerank_mode: 'off', suite: 'full',
+  retrieval_mode: 'service', top_k: 10, max_workers: 4, rerank_mode: 'off', suite: 'full',
 }): Promise<EvalJobResponse> {
   return request<EvalJobResponse>('/api/eval/run', {
     method: 'POST',

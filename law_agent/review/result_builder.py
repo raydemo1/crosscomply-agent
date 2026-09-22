@@ -2,10 +2,10 @@
 
 Generates governed ``ReviewResult`` via DeepSeek with Pydantic strict
 validation. Includes schema definitions, prompt builders, evidence
-grounding validation, revision logic, and citation injection.  Risk
-level, conclusion, claims, trigger reasons, recommended actions, and
-risk boundaries are all produced by the LLM under schema constraints —
-there is no rule-based fallback path.
+grounding validation, and citation injection.  Risk level, conclusion,
+claims, trigger reasons, recommended actions, and risk boundaries are
+all produced by the LLM under schema constraints — there is no
+rule-based fallback path.
 """
 
 from __future__ import annotations
@@ -24,17 +24,12 @@ from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
 from law_agent.review.schemas import (
     Citation,
     CitationGroup,
-    ClaimReplacement,
-    EvidenceDossier,
     EvidenceSelfCheck,
     GroundedClaim,
-    IssuePlan,
     RetrievalHit,
     RetrievalQuery,
     ReviewFacts,
     ReviewResult,
-    ReviewResultPatch,
-    RevisionAction,
     RiskLevel,
     SourceEvidencePacket,
 )
@@ -566,10 +561,7 @@ def build_result_generation_messages(
     retrieval_queries: list[RetrievalQuery] | None = None,
     second_retrieval: dict[str, object] | None = None,
     source_evidence_packets: list[SourceEvidencePacket] | None = None,
-    issue_plan: IssuePlan | None = None,
-    evidence_dossiers: list[EvidenceDossier] | None = None,
     output_format: Literal["plain", "markdown"] = "plain",
-    critique_instructions: list[str] | None = None,
 ) -> list[ChatMessage]:
     """Build a DeepSeek JSON prompt for structured review result generation.
 
@@ -749,7 +741,6 @@ def build_result_generation_messages(
             ],
         },
         "json_example": json_example,
-        "critique_instructions": critique_instructions or [],
         "instructions": [
             "基于审查事实和 evidence_packets 生成结构化审查结果。",
             "必须结合 question、material_excerpt、retrieval_queries 和 evidence_self_check 判断结论边界。",
@@ -768,28 +759,9 @@ def build_result_generation_messages(
             "不得编造未出现在证据中的法律来源。",
             "优先依据 representative_chunk；supporting_chunks 用于补充同一来源内更精确的条款；neighbor_chunks 只用于理解上下文。",
             "引用分组由程序处理，本节点不要输出 citations。",
-            "如果 critique_instructions 非空，必须逐条修正，但不得引入 evidence_packets 之外的新依据。",
             format_instruction_replacements[2],
         ],
     }
-    if issue_plan is not None:
-        system_content += (
-            "当前处于 multi-agent 工作流：你是最终的 Compliance Reviewer，"
-            "应根据已交接的议题计划和证据工作包完成报告，而不是重新规划检索。"
-        )
-        payload["issue_plan"] = [issue.model_dump() for issue in issue_plan.issues]
-        payload["evidence_dossiers"] = [
-            dossier.model_dump() for dossier in (evidence_dossiers or [])
-        ]
-        payload["instructions"].append(
-            "multi-agent 模式：你是 Compliance Reviewer。issue_plan 是必须逐项完成的审查"
-            "清单，不要重新拆分或忽略其中的问题；有两个及以上独立 issue 时，应让业务读者"
-            "能在报告中区分各问题的判断。evidence_dossiers 仅是 Researcher 的交接："
-            "coverage_status=covered 时给出有边界的判断；partial 或 missing 时明确写出该问题"
-            "尚不能确定的条件、证据缺口和下一步核验，不得把缺口推断为事实或确定结论。"
-            "dossier 中的 chunk_id 不是可引用依据；claims 的 supporting_chunk_ids 仍只能引用"
-            "evidence_packets 中允许的原始条文。"
-        )
     return [
         ChatMessage(
             role="system",
@@ -830,12 +802,9 @@ def build_review_result_with_deepseek(
     retrieval_queries: list[RetrievalQuery] | None = None,
     second_retrieval: dict[str, object] | None = None,
     source_evidence_packets: list[SourceEvidencePacket] | None = None,
-    issue_plan: IssuePlan | None = None,
-    evidence_dossiers: list[EvidenceDossier] | None = None,
     client: OpenAICompatibleClient | None = None,
     max_retries: int | None = None,
     output_format: Literal["plain", "markdown"] = "plain",
-    critique_instructions: list[str] | None = None,
 ) -> ReviewResult:
     """Build a governed ReviewResult using DeepSeek for result content.
 
@@ -919,10 +888,7 @@ def build_review_result_with_deepseek(
                 retrieval_queries=retrieval_queries,
                 second_retrieval=second_retrieval,
                 source_evidence_packets=source_evidence_packets,
-                issue_plan=issue_plan,
-                evidence_dossiers=evidence_dossiers,
                 output_format=output_format,
-                critique_instructions=critique_instructions,
             ),
             post_validate=validate_draft_grounding,
             post_validation_reason="claim_grounding_validation_failed",
@@ -1003,428 +969,4 @@ def build_review_result_with_deepseek(
         claims=claims,
         citations=all_citations,
         applicable_evidence=citation_groups,
-    )
-
-
-def build_revision_patch_messages(
-    *,
-    result: ReviewResult,
-    actions: list[RevisionAction],
-    evidence_hits: list[RetrievalHit],
-    issue_plan: IssuePlan | None = None,
-    evidence_dossiers: list[EvidenceDossier] | None = None,
-) -> list[ChatMessage]:
-    """Build a minimal-delta revision prompt with an explicit evidence inventory."""
-
-    citable_hits = [hit for hit in evidence_hits if hit.can_cite_clause]
-    payload = {
-        "original_result": result.model_dump(exclude={"citations", "applicable_evidence"}),
-        "revision_actions": [action.model_dump() for action in actions],
-        "allowed_citable_evidence": [
-            {
-                "chunk_id": hit.chunk_id,
-                "title": hit.title,
-                "text": hit.text[:1000],
-                "citation_role": hit.citation_role,
-            }
-            for hit in citable_hits
-        ],
-        "allowed_supporting_chunk_ids": [hit.chunk_id for hit in citable_hits],
-        "instructions": [
-            "只输出对 original_result 的最小 patch，不重新生成整份结果。",
-            "remove_claim/narrow_claim 必须删除或收窄无依据结论。",
-            "mark_evidence_gap 必须写入 missing_information 或 risk_boundaries。",
-            "只有 add_supported_claim 才可新增 claim，且 chunk_id 必须来自白名单。",
-            "不得引入 allowed_citable_evidence 中没有的新法规、条款或制度名称。",
-            "无法完成的修订应收窄结论或披露缺口，不能猜测依据。",
-            "若 risk_level 改为 insufficient_evidence，remove_claim_indexes 应覆盖全部原 claims，且不得新增 claims。",
-            "修改 risk_level 或 conclusion 时必须同步输出新的 decision_summary；摘要使用 40-240 字单段纯文本，不得引入修订后结论、原事实和允许证据之外的新法条或数字。",
-        ],
-    }
-    if issue_plan is not None:
-        payload["issue_plan"] = [issue.model_dump() for issue in issue_plan.issues]
-        payload["evidence_dossiers"] = [
-            dossier.model_dump() for dossier in (evidence_dossiers or [])
-        ]
-        payload["instructions"].append(
-            "multi-agent 模式：这是同一 Compliance Reviewer 的一次最小修订，不重写整份报告。"
-            "修订后仍须保留对 issue_plan 的逐项覆盖；对 evidence_dossiers 为 partial 或 missing"
-            "的问题，只能收窄结论或披露缺口。evidence_dossiers 说明补证后的问题级覆盖状态，"
-            "但只能使用 allowed_citable_evidence 中的条文。"
-        )
-    example = {
-        "risk_level": "medium",
-        "decision_summary": (
-            "补证后仍不足以支持原确定性判断，当前应按中风险有边界处理。"
-            "审批前需补充直接法律依据并重新核对适用路径，不能依据原摘要直接放行。"
-        ),
-        "conclusion": "当前证据不足以作确定认定，需补充直接法律依据。",
-        "remove_claim_indexes": [0],
-        "replace_claims": [],
-        "add_claims": [],
-        "append_missing_information": ["缺少直接法律依据"],
-        "append_recommended_actions": [],
-        "append_risk_boundaries": ["不得将辅助材料作为法条依据"],
-    }
-    return [
-        ChatMessage(
-            role="system",
-            content=(
-                "你是企业数据合规审查的 Compliance Reviewer，正在执行一次受证据约束的局部修订；"
-                "证据不足时删除、收窄或标记缺口，绝不补写语料中不存在的法规。"
-            ),
-        ),
-        ChatMessage(
-            role="user",
-            content=(
-                "输出严格 JSON。"
-                f"\njson_example={json.dumps(example, ensure_ascii=False)}"
-                f"\npayload={json.dumps(payload, ensure_ascii=False)}"
-            ),
-        ),
-    ]
-
-
-def _validate_revision_patch(
-    patch: ReviewResultPatch,
-    *,
-    result: ReviewResult,
-    actions: list[RevisionAction],
-    evidence_hits: list[RetrievalHit],
-) -> ReviewResultPatch:
-    claim_count = len(result.claims)
-    indexes = list(patch.remove_claim_indexes) + [
-        replacement.claim_index for replacement in patch.replace_claims
-    ]
-    if any(index >= claim_count for index in indexes):
-        raise ValueError("revision patch references an unknown claim index")
-    if len(indexes) != len(set(indexes)):
-        raise ValueError("revision patch modifies the same claim more than once")
-
-    operations = {action.operation for action in actions}
-    if patch.add_claims and "add_supported_claim" not in operations:
-        raise ValueError("revision patch cannot add claims without an add action")
-    if patch.replace_claims and not operations.intersection(
-        {"narrow_claim", "add_supported_claim"}
-    ):
-        raise ValueError("revision patch cannot replace claims for these actions")
-    if patch.remove_claim_indexes and not operations.intersection(
-        {"remove_claim", "narrow_claim", "mark_evidence_gap", "abstain"}
-    ):
-        raise ValueError("revision patch cannot remove claims for these actions")
-    if (
-        patch.risk_level is not None
-        and patch.risk_level != result.risk_level
-        and not operations.intersection(
-            {"narrow_claim", "mark_evidence_gap", "change_risk_boundary", "abstain"}
-        )
-    ):
-        raise ValueError("revision patch cannot change risk for these actions")
-    if (
-        patch.risk_level == "insufficient_evidence"
-        and result.risk_level != "insufficient_evidence"
-        and "abstain" not in operations
-    ):
-        raise ValueError("only an explicit abstain action may transition to insufficient_evidence")
-
-    allowed_ids = {hit.chunk_id for hit in evidence_hits if hit.can_cite_clause}
-    proposed_claims = [replacement.claim for replacement in patch.replace_claims] + list(
-        patch.add_claims
-    )
-    for claim in proposed_claims:
-        if not claim.supporting_chunk_ids or not set(claim.supporting_chunk_ids).issubset(
-            allowed_ids
-        ):
-            raise ValueError("revision patch claim uses unavailable legal evidence")
-
-    requires_conclusion_change = any(
-        action.operation in {"remove_claim", "narrow_claim", "mark_evidence_gap", "abstain"}
-        for action in actions
-    )
-    if requires_conclusion_change and not patch.conclusion:
-        raise ValueError("revision actions require a narrowed conclusion")
-    if (requires_conclusion_change or patch.risk_level is not None) and not patch.decision_summary:
-        raise ValueError("revision actions require an updated decision summary")
-
-    proposed_text = "\n".join([patch.conclusion or ""] + [claim.text for claim in proposed_claims])
-    original_titles = set(re.findall(r"《([^》]+)》", result.conclusion))
-    allowed_text = "\n".join(hit.title + "\n" + hit.text for hit in evidence_hits)
-    if patch.decision_summary:
-        _validate_decision_summary(
-            patch.decision_summary,
-            supported_text="\n".join([
-                proposed_text,
-                json.dumps(result.review_facts.model_dump(), ensure_ascii=False),
-                allowed_text,
-            ]),
-        )
-    introduced_titles = set(re.findall(r"《([^》]+)》", proposed_text)) - original_titles
-    unavailable_titles = [title for title in introduced_titles if title not in allowed_text]
-    if unavailable_titles:
-        raise ValueError(f"revision introduced unavailable legal sources: {unavailable_titles}")
-    return patch
-
-
-def _normalize_revision_patch(
-    patch: ReviewResultPatch,
-    *,
-    result: ReviewResult,
-    actions: list[RevisionAction],
-) -> ReviewResultPatch:
-    """Compile common LLM patch-shape mistakes into one safe deterministic delta."""
-
-    operations = {action.operation for action in actions}
-    narrow_indexes = [
-        action.claim_index
-        for action in actions
-        if action.operation == "narrow_claim" and action.claim_index is not None
-    ]
-    explicit_remove_indexes = {
-        action.claim_index
-        for action in actions
-        if action.operation == "remove_claim" and action.claim_index is not None
-    }
-
-    replacements = list(patch.replace_claims)
-    additions = list(patch.add_claims)
-    if "add_supported_claim" not in operations and additions:
-        if len(additions) == 1 and len(narrow_indexes) == 1:
-            replacements.append(
-                ClaimReplacement(
-                    claim_index=narrow_indexes[0],
-                    claim=additions[0],
-                )
-            )
-        additions = []
-
-    unique_replacements: dict[int, ClaimReplacement] = {}
-    for replacement in replacements:
-        unique_replacements.setdefault(replacement.claim_index, replacement)
-    for index in explicit_remove_indexes:
-        unique_replacements.pop(index, None)
-
-    replacement_indexes = set(unique_replacements)
-    remove_indexes = sorted(
-        {
-            index
-            for index in patch.remove_claim_indexes
-            if index not in replacement_indexes or index in explicit_remove_indexes
-        }
-    )
-    if "remove_claim" not in operations and "abstain" not in operations:
-        remove_indexes = []
-    risk_level = patch.risk_level
-    if (
-        risk_level == "insufficient_evidence"
-        and result.risk_level != "insufficient_evidence"
-        and "abstain" not in operations
-    ):
-        risk_level = None
-
-    return patch.model_copy(
-        update={
-            "risk_level": risk_level,
-            "remove_claim_indexes": remove_indexes,
-            "replace_claims": list(unique_replacements.values()),
-            "add_claims": additions,
-        }
-    )
-
-
-def apply_review_result_patch(
-    *,
-    result: ReviewResult,
-    patch: ReviewResultPatch,
-    evidence_hits: list[RetrievalHit],
-    chunks_by_id: dict[str, Chunk] | None = None,
-) -> ReviewResult:
-    """Apply a validated patch while preserving every untouched result field."""
-
-    replacements = {
-        replacement.claim_index: replacement.claim for replacement in patch.replace_claims
-    }
-    removed = set(patch.remove_claim_indexes)
-    claims = [
-        replacements.get(index, claim)
-        for index, claim in enumerate(result.claims)
-        if index not in removed
-    ]
-    claims.extend(patch.add_claims)
-    risk_level = patch.risk_level or result.risk_level
-    if risk_level == "insufficient_evidence":
-        claims = []
-    elif claims:
-        claims = validate_grounded_claims(claims, evidence_hits)
-
-    conclusion = (patch.conclusion or result.conclusion).rstrip()
-    decision_summary = patch.decision_summary or result.decision_summary
-
-    def merged(existing: list[str], additions: list[str]) -> list[str]:
-        return list(dict.fromkeys([*existing, *additions]))
-
-    citation_groups, _violations = group_citations(evidence_hits, result.review_facts, chunks_by_id)
-    claims = attach_citation_refs(claims, citation_groups)
-    citation_ref_by_chunk_id = {
-        citation.chunk_id: citation.citation_ref
-        for group in citation_groups
-        for citation in group.citations
-        if citation.citation_ref
-    }
-    conclusion = inject_citation_markers(
-        _remove_citation_markers(conclusion),
-        claims,
-        evidence_hits,
-        citation_ref_by_chunk_id,
-    )
-    citations = [citation for group in citation_groups for citation in group.citations]
-
-    return result.model_copy(
-        update={
-            "risk_level": risk_level,
-            "decision_summary": decision_summary,
-            "conclusion": conclusion,
-            "claims": claims,
-            "missing_information": merged(
-                result.missing_information, patch.append_missing_information
-            ),
-            "recommended_actions": merged(
-                result.recommended_actions, patch.append_recommended_actions
-            ),
-            "risk_boundaries": merged(result.risk_boundaries, patch.append_risk_boundaries),
-            "citations": citations,
-            "applicable_evidence": citation_groups,
-        }
-    )
-
-
-def _apply_revision_patch_or_fail(
-    *,
-    result: ReviewResult,
-    patch: ReviewResultPatch,
-    evidence_hits: list[RetrievalHit],
-    chunks_by_id: dict[str, Chunk] | None,
-) -> ReviewResult:
-    """Convert patch-application invariant failures into a degradable node failure."""
-
-    try:
-        return apply_review_result_patch(
-            result=result,
-            patch=patch,
-            evidence_hits=evidence_hits,
-            chunks_by_id=chunks_by_id,
-        )
-    except ValueError as exc:
-        raise ReviewWorkflowFailed(
-            failed_node="compliance_reviewer_revision",
-            reason="revision_patch_application_failed",
-            message=str(exc),
-            attempts=0,
-            trace_id=result.trace_id,
-        ) from exc
-
-
-def revise_review_result_with_deepseek(
-    *,
-    result: ReviewResult,
-    actions: list[RevisionAction],
-    evidence_hits: list[RetrievalHit],
-    chunks_by_id: dict[str, Chunk] | None = None,
-    issue_plan: IssuePlan | None = None,
-    evidence_dossiers: list[EvidenceDossier] | None = None,
-    client: OpenAICompatibleClient | None = None,
-    max_retries: int | None = None,
-) -> ReviewResult:
-    """Generate and apply one evidence-constrained delta to a valid result."""
-
-    if result.risk_level == "insufficient_evidence":
-        gaps = [
-            action.reason
-            for action in actions
-            if action.operation in {"mark_evidence_gap", "abstain", "narrow_claim"}
-        ]
-        return result.model_copy(
-            update={
-                "claims": [],
-                "missing_information": list(dict.fromkeys([*result.missing_information, *gaps])),
-                "risk_boundaries": list(dict.fromkeys([*result.risk_boundaries, *gaps])),
-            }
-        )
-
-    deterministic_actions = [
-        action
-        for action in actions
-        if action.operation in {"remove_claim", "mark_evidence_gap", "abstain"}
-    ]
-    language_actions = [
-        action
-        for action in actions
-        if action.operation in {"narrow_claim", "add_supported_claim", "change_risk_boundary"}
-    ]
-    if deterministic_actions:
-        remove_indexes = sorted(
-            {
-                action.claim_index
-                for action in deterministic_actions
-                if action.operation == "remove_claim" and action.claim_index is not None
-            }
-        )
-        gaps = [
-            action.reason
-            for action in deterministic_actions
-            if action.operation in {"mark_evidence_gap", "abstain"}
-        ]
-        abstain = any(action.operation == "abstain" for action in deterministic_actions)
-        conclusion = None
-        if remove_indexes:
-            conclusion = "已移除缺乏当前证据支持的结论，其余判断仅在现有证据边界内成立。"
-        if abstain:
-            conclusion = "当前材料与可引用证据不足以支持实体合规判断。"
-            remove_indexes = list(range(len(result.claims)))
-        deterministic_patch = ReviewResultPatch(
-            risk_level="insufficient_evidence" if abstain else None,
-            conclusion=conclusion,
-            remove_claim_indexes=remove_indexes,
-            append_missing_information=gaps,
-            append_risk_boundaries=gaps,
-        )
-        result = _apply_revision_patch_or_fail(
-            result=result,
-            patch=deterministic_patch,
-            evidence_hits=evidence_hits,
-            chunks_by_id=chunks_by_id,
-        )
-        if not language_actions or result.risk_level == "insufficient_evidence":
-            return result
-        actions = language_actions
-
-    if client is None:
-        client = OpenAICompatibleClient(require_llm_config())
-    node = StructuredLLMNode(
-        node_name="compliance_reviewer_revision",
-        output_model=ReviewResultPatch,
-        client=client,
-        max_retries=min(max_retries if max_retries is not None else 1, 1),
-        trace_id=result.trace_id,
-    )
-    patch = node.run(
-        build_revision_patch_messages(
-            result=result,
-            actions=actions,
-            evidence_hits=evidence_hits,
-            issue_plan=issue_plan,
-            evidence_dossiers=evidence_dossiers,
-        ),
-        post_validate=lambda candidate: _validate_revision_patch(
-            _normalize_revision_patch(candidate, result=result, actions=actions),
-            result=result,
-            actions=actions,
-            evidence_hits=evidence_hits,
-        ),
-        post_validation_reason="revision_patch_validation_failed",
-    )
-    return _apply_revision_patch_or_fail(
-        result=result,
-        patch=patch,
-        evidence_hits=evidence_hits,
-        chunks_by_id=chunks_by_id,
     )
