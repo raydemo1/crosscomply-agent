@@ -445,6 +445,8 @@ class PostgresCaseStore:
             "acceptance_criteria": row["acceptance_criteria"],
             "source_recommendation_index": row["source_recommendation_index"],
             "source_recommendation": row["source_recommendation"],
+            "source_review_result_id": row["source_review_result_id"],
+            "source_issue_id": row["source_issue_id"],
             "assignee_id": row["assignee_id"], "priority": row["priority"],
             "due_date": _json_value(row["due_date"]), "status": row["status"],
             "version": row["version"], "created_at": _json_value(row["created_at"]),
@@ -475,7 +477,8 @@ class PostgresCaseStore:
             "id": row["id"], "submission_id": row["submission_id"], "kind": row["kind"],
             "label": row["label"], "uri": row["uri"], "object_key": row["object_key"],
             "content_type": row["content_type"], "sha256": row["sha256"],
-            "byte_size": row["byte_size"], "created_at": _json_value(row["created_at"]),
+            "byte_size": row["byte_size"], "parsed_text": row["parsed_text"],
+            "parse_status": row["parse_status"], "created_at": _json_value(row["created_at"]),
         }
 
     def get_remediation_plan(self, identifier: str) -> dict[str, Any] | None:
@@ -533,11 +536,13 @@ class PostgresCaseStore:
                 cur.execute(
                     """INSERT INTO remediation_tasks (
                     id, plan_id, case_id, title, description, acceptance_criteria,
-                    source_recommendation_index, source_recommendation, assignee_id, priority, due_date
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    source_recommendation_index, source_recommendation,
+                    source_review_result_id, source_issue_id, assignee_id, priority, due_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (task.get("id") or remediation_task_id(), plan_identifier, identifier, task["title"],
                      task.get("description", ""), task.get("acceptance_criteria", ""),
                      task.get("source_recommendation_index"), task.get("source_recommendation"),
+                     task.get("source_review_result_id"), task.get("source_issue_id"),
                      task.get("assignee_id"), task.get("priority", "medium"), task.get("due_date")),
                 )
             conn.commit()
@@ -610,9 +615,9 @@ class PostgresCaseStore:
     def create_remediation_task(self, plan_id: str, **kwargs: Any) -> dict[str, Any]:
         plan = self._plan_case_id(plan_id)
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("""INSERT INTO remediation_tasks (id, plan_id, case_id, title, description, acceptance_criteria, source_recommendation_index, source_recommendation, assignee_id, priority, due_date)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
-                (remediation_task_id(), plan, kwargs["case_id"], kwargs["title"], kwargs.get("description", ""), kwargs.get("acceptance_criteria", ""), kwargs.get("source_recommendation_index"), kwargs.get("source_recommendation"), kwargs.get("assignee_id"), kwargs.get("priority", "medium"), kwargs.get("due_date")))
+            cur.execute("""INSERT INTO remediation_tasks (id, plan_id, case_id, title, description, acceptance_criteria, source_recommendation_index, source_recommendation, source_review_result_id, source_issue_id, assignee_id, priority, due_date)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                (remediation_task_id(), plan, kwargs["case_id"], kwargs["title"], kwargs.get("description", ""), kwargs.get("acceptance_criteria", ""), kwargs.get("source_recommendation_index"), kwargs.get("source_recommendation"), kwargs.get("source_review_result_id"), kwargs.get("source_issue_id"), kwargs.get("assignee_id"), kwargs.get("priority", "medium"), kwargs.get("due_date")))
             row = cur.fetchone()
             conn.commit()
         return self._remediation_task_dict(row)
@@ -667,7 +672,7 @@ class PostgresCaseStore:
             cur.execute("INSERT INTO remediation_submissions (id, task_id, submitted_by, note) VALUES (%s, %s, %s, %s) RETURNING *", (submission_identifier, identifier, kwargs["submitted_by"], kwargs["note"]))
             row = cur.fetchone()
             for item in evidence:
-                cur.execute("INSERT INTO remediation_evidence (id, submission_id, kind, label, uri, object_key, content_type, sha256, byte_size) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", (remediation_evidence_id(), submission_identifier, item["kind"], item["label"], item.get("uri"), item.get("object_key"), item.get("content_type"), item.get("sha256"), item.get("byte_size")))
+                cur.execute("INSERT INTO remediation_evidence (id, submission_id, kind, label, uri, object_key, content_type, sha256, byte_size, parsed_text, parse_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (remediation_evidence_id(), submission_identifier, item["kind"], item["label"], item.get("uri"), item.get("object_key"), item.get("content_type"), item.get("sha256"), item.get("byte_size"), item.get("parsed_text"), item.get("parse_status", "pending")))
             cur.execute("UPDATE remediation_tasks SET status = 'pending_review', version = version + 1, updated_at = now() WHERE id = %s", (identifier,))
             conn.commit()
         result = self._remediation_submission_dict(row)
@@ -1022,7 +1027,10 @@ class InMemoryCaseStore:
             "case_id": kwargs["case_id"], "title": kwargs["title"],
             "description": kwargs.get("description", ""), "acceptance_criteria": kwargs.get("acceptance_criteria", ""),
             "source_recommendation_index": kwargs.get("source_recommendation_index"),
-            "source_recommendation": kwargs.get("source_recommendation"), "assignee_id": kwargs.get("assignee_id"),
+            "source_recommendation": kwargs.get("source_recommendation"),
+            "source_review_result_id": kwargs.get("source_review_result_id"),
+            "source_issue_id": kwargs.get("source_issue_id"),
+            "assignee_id": kwargs.get("assignee_id"),
             "priority": kwargs.get("priority", "medium"), "due_date": kwargs.get("due_date"),
             "status": "open", "version": 1, "created_at": now, "updated_at": now,
         }

@@ -51,7 +51,7 @@ from law_agent.review.http.knowledge import (
     register_knowledge_routes,
     shutdown_knowledge_state,
 )
-from law_agent.review.http.remediation import register_remediation_routes
+from law_agent.review.http.remediation import RereviewRunner, register_remediation_routes
 from law_agent.review.http.reports import register_report_routes
 from law_agent.review.http.revisions import register_revision_routes
 from law_agent.review.http.system import register_system_routes
@@ -59,6 +59,11 @@ from law_agent.review.http.templates import register_template_routes
 from law_agent.review.http.users import register_user_routes
 from law_agent.review.io import read_review_results
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
+from law_agent.review.remediation import (
+    InMemoryRemediationAssessmentStore,
+    PostgresRemediationAssessmentStore,
+    execute_rereview,
+)
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.revisions import InMemoryRevisionStore, PostgresRevisionStore
 from law_agent.review.rules import evaluate_national_path
@@ -394,6 +399,7 @@ def create_app(
     feishu_config: FeishuApprovalConfig | None = None,
     knowledge_job_store: KnowledgeJobStore | None = None,
     knowledge_corpus: Path | str | None = None,
+    rereview: RereviewRunner | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
@@ -431,6 +437,11 @@ def create_app(
     app.state.annotation_store = (
         InMemoryAnnotationStore() if isinstance(app.state.case_store, InMemoryCaseStore)
         else PostgresAnnotationStore(load_service_config().postgres.dsn)
+    )
+    app.state.remediation_assessment_store = (
+        InMemoryRemediationAssessmentStore()
+        if isinstance(app.state.case_store, InMemoryCaseStore)
+        else PostgresRemediationAssessmentStore(load_service_config().postgres.dsn)
     )
     app.state.enterprise_store = enterprise_store or PostgresEnterpriseStore(
         load_service_config().postgres.dsn
@@ -672,9 +683,14 @@ def create_app(
         current_user=current_user,
         reviewer_only=reviewer_only,
         store=store,
+        enterprise=enterprise,
+        revisions=lambda: app.state.revision_store,
+        assessments=lambda: app.state.remediation_assessment_store,
         originals=originals,
+        chunks_path=lambda: app.state.chunks_path,
         case_summary=_case_summary,
         can_view=_can_view,
+        rereview=rereview or execute_rereview,
     )
 
     def record_remediation_event(

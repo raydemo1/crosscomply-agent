@@ -31,6 +31,7 @@ import type {
   ManagedUserApi,
   ReviewTaskApi,
   RemediationAssigneeApi,
+  RemediationAssessmentApi,
   RemediationEvidenceUploadApi,
   RemediationInboxItemApi,
   RemediationPlanApi,
@@ -628,10 +629,26 @@ export async function uploadRemediationEvidence(taskId: string, file: File): Pro
   });
 }
 
-export async function submitRemediationTask(taskId: string, payload: RemediationSubmissionPayload): Promise<RemediationSubmissionApi> {
-  return request<RemediationSubmissionApi>(`/api/remediation-tasks/${encodeURIComponent(taskId)}/submissions`, {
+export async function submitRemediationTask(
+  taskId: string,
+  payload: RemediationSubmissionPayload,
+): Promise<{ submission: RemediationSubmissionApi; assessment: RemediationAssessmentApi }> {
+  return request<{ submission: RemediationSubmissionApi; assessment: RemediationAssessmentApi }>(
+    `/api/remediation-tasks/${encodeURIComponent(taskId)}/submissions`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ note: payload.note, evidence: payload.evidence ?? [] }),
+    },
+  );
+}
+
+export async function answerRemediationAssessment(
+  assessmentId: string,
+  payload: { gate_id: string; answer: string },
+): Promise<RemediationAssessmentApi> {
+  return request<RemediationAssessmentApi>(`/api/remediation-assessments/${encodeURIComponent(assessmentId)}/input`, {
     method: 'POST',
-    body: JSON.stringify({ note: payload.note, evidence: payload.evidence ?? [] }),
+    body: JSON.stringify(payload),
   });
 }
 

@@ -243,8 +243,11 @@ def test_remediation_feedback_and_dashboard_are_persisted(app) -> None:
             },
         )
         assert submission.status_code == 200, submission.text
+        body = submission.json()
+        assert body["submission"]["note"] == "已补充并归档供应商合同。"
+        assert body["assessment"]["submission_id"] == body["submission"]["id"]
         reviewed = client.post(
-            f"/api/remediation-submissions/{submission.json()['id']}/review",
+            f"/api/remediation-submissions/{body['submission']['id']}/review",
             json={"decision": "accepted"},
         )
         assert reviewed.status_code == 200, reviewed.text

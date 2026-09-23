@@ -541,6 +541,53 @@ export interface RemediationEvidenceApi {
   created_at: string;
 }
 
+export type RemediationAssessmentRunStatus = 'running' | 'waiting_input' | 'completed' | 'failed';
+export type RemediationAssessmentStatus = 'resolved' | 'partially_resolved' | 'not_resolved' | 'insufficient_evidence';
+
+/** One cited source supporting a confirmed point in an Agent re-review. */
+export interface RemediationAssessmentBasisApi {
+  source: string;
+  reference: string;
+  quote: string;
+  start_offset?: number;
+  end_offset?: number;
+  sha256?: string | null;
+}
+
+export interface RemediationAssessmentPointApi {
+  text: string;
+  basis: RemediationAssessmentBasisApi[];
+}
+
+/**
+ * One Agent re-review run for a remediation submission.
+ *
+ * Matches `_view` in `law_agent/review/remediation.py`. `run_status` is the
+ * runtime state; `status` is the Agent's judgement and is only set once the run
+ * completes. The Agent never changes the business status — a reviewer still
+ * decides with `退回补充` / `验收完成`.
+ */
+export interface RemediationAssessmentApi {
+  run_status: RemediationAssessmentRunStatus;
+  status: RemediationAssessmentStatus | null;
+  summary: string | null;
+  confirmed_points: RemediationAssessmentPointApi[];
+  remaining_gaps: string[];
+  next_request: string;
+  grounded_evidence: RemediationAssessmentBasisApi[];
+  gate_id: string | null;
+  question: string | null;
+  error_message: string | null;
+  trace_id: string | null;
+  id: string;
+  task_id: string;
+  submission_id: string;
+  source_review_result_id: string | null;
+  source_issue_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RemediationSubmissionApi {
   id: string;
   task_id: string;
@@ -553,6 +600,8 @@ export interface RemediationSubmissionApi {
   review_note: string | null;
   created_at: string;
   reviewed_at: string | null;
+  /** Latest Agent re-review for this submission, when one has run. */
+  assessment?: RemediationAssessmentApi | null;
 }
 
 export interface RemediationTaskApi {
@@ -574,6 +623,8 @@ export interface RemediationTaskApi {
   version?: number;
   submissions?: RemediationSubmissionApi[];
   latest_submission?: RemediationSubmissionApi | null;
+  /** Latest Agent re-review across the whole task, when one has run. */
+  latest_assessment?: RemediationAssessmentApi | null;
   created_at: string;
   updated_at: string;
 }
@@ -613,8 +664,10 @@ export interface RemediationPlanCreatePayload {
   tasks: Array<{
     title: string;
     description: string;
+    acceptance_criteria?: string;
     source_recommendation?: string | null;
     source_recommendation_index?: number | null;
+    source_issue_id?: string | null;
     assignee_id: string;
     priority: RemediationPriority;
     due_date: string;

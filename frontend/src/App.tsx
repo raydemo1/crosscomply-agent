@@ -240,6 +240,10 @@ export default function App(): JSX.Element {
     ? activeCase.response.review_result.recommended_actions
     : [];
 
+  const remediationIssues = activeCase && activeCase.id === remediationCaseId && activeCase.response && !isReviewFailedResponse(activeCase.response)
+    ? activeCase.response.review_result.issues
+    : [];
+
   const handleEditCase = useCallback((saved: NonNullable<typeof activeCase>): void => {
     setQuestion(saved.question);
     setMaterial(saved.materialText);
@@ -284,7 +288,7 @@ export default function App(): JSX.Element {
         {page === 'governance' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载用户管理…</div></div>}><GovernanceConsolePage user={user} /></Suspense> : null}
         {page === 'knowledge-legal' || page === 'knowledge-policy' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载知识库…</div></div>}><KnowledgeBasePage user={user} initialLibraryKind={page === 'knowledge-legal' ? 'legal' : 'internal_policy'} /></Suspense> : null}
         {page === 'my-remediations' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载我的整改…</div></div>}><MyRemediationsPage user={user} /></Suspense> : null}
-        {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} /></Suspense> : null}
+        {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} issues={remediationIssues} /></Suspense> : null}
         {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} canEdit={user.role === 'requester'} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} /></Suspense> : null}
         {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage onUseTemplate={handleUseTemplate} /></Suspense> : null}
         {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} rerankMode={rerankMode} editingCaseId={editingCaseId} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}

@@ -181,6 +181,8 @@ class RemediationTaskRequest(BaseModel):
     acceptance_criteria: str = ""
     source_recommendation_index: int | None = Field(default=None, ge=0)
     source_recommendation: str | None = None
+    source_review_result_id: str | None = None
+    source_issue_id: str | None = None
     assignee_id: str | None = None
     priority: Literal["high", "medium", "low"] = "medium"
     due_date: str | None = None
