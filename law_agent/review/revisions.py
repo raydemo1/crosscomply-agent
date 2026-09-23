@@ -90,6 +90,11 @@ class InMemoryRevisionStore:
         self.items: dict[str, dict[str, Any]] = {}
 
     def create(self, data: dict[str, Any]) -> dict[str, Any]:
+        latest = self.current_draft(data["source_material_version_id"])
+        if (latest["result_version"] if latest else 0) != data["base_version"] or (
+            latest is not None and latest["result_sha256"] != data["base_sha256"]
+        ):
+            raise RevisionConflict("工作稿已有新修改，请重新生成修改提案")
         for existing in self.items.values():
             if existing["status"] == "pending" and all(existing[key] == data[key] for key in (
                 "case_id", "source_review_result_id", "issue_id", "source_material_version_id",
@@ -142,14 +147,14 @@ class InMemoryRevisionStore:
             item["version"] += 1
             raise RevisionConflict("工作稿版本已变化，请重新生成修改提案")
         if decision == "accepted":
-            text = (replacement if replacement is not None else item["proposed_text"]).strip()
-            if not text or text == item["target_quote"]:
+            accepted_text = replacement if replacement is not None else item["proposed_text"]
+            if not accepted_text.strip() or accepted_text.strip() == item["target_quote"].strip():
                 raise RevisionError("接受的建议文本必须与原文不同且非空")
             start, end = item["target_start"], item["target_end"]
             if current_base_text[start:end] != item["target_quote"]:
                 raise RevisionConflict("目标原文已改变，请重新生成修改提案")
-            result = current_base_text[:start] + text + current_base_text[end:]
-            item.update(accepted_text=text, result_text=result, result_sha256=sha256(result), result_version=item["base_version"] + 1)
+            result = current_base_text[:start] + accepted_text + current_base_text[end:]
+            item.update(accepted_text=accepted_text, result_text=result, result_sha256=sha256(result), result_version=item["base_version"] + 1)
             for other in self.items.values():
                 if other["id"] != proposal_id and other["source_material_version_id"] == item["source_material_version_id"] and other["status"] == "pending":
                     other["status"] = "superseded"
@@ -182,6 +187,16 @@ class PostgresRevisionStore:
         values = [Jsonb(item[key]) if key in {"open_points_json", "citation_refs_json"} else item[key] for key in columns]
         try:
             with self._connect() as conn, conn.cursor() as cur:
+                cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (data["source_material_version_id"],))
+                cur.execute(
+                    "SELECT result_sha256, result_version FROM revision_proposals WHERE source_material_version_id = %s AND status = 'accepted' ORDER BY result_version DESC LIMIT 1",
+                    (data["source_material_version_id"],),
+                )
+                latest = cur.fetchone()
+                if (latest["result_version"] if latest else 0) != data["base_version"] or (
+                    latest is not None and latest["result_sha256"] != data["base_sha256"]
+                ):
+                    raise RevisionConflict("工作稿已有新修改，请重新生成修改提案")
                 cur.execute(
                     f"INSERT INTO revision_proposals ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))}) RETURNING *",
                     values,
@@ -243,20 +258,20 @@ class PostgresRevisionStore:
                 cur.execute("UPDATE revision_proposals SET status = 'superseded', version = version + 1 WHERE id = %s", (proposal_id,))
                 conn.commit()
                 raise RevisionConflict("工作稿已有新修改，请重新生成修改提案")
-            result_text = result_hash = result_version = None
+            result_text = result_hash = result_version = accepted_text = None
             if decision == "accepted":
-                text = (replacement if replacement is not None else item["proposed_text"]).strip()
-                if not text or text == item["target_quote"]:
+                accepted_text = replacement if replacement is not None else item["proposed_text"]
+                if not accepted_text.strip() or accepted_text.strip() == item["target_quote"].strip():
                     raise RevisionError("接受的建议文本必须与原文不同且非空")
                 start, end = item["target_start"], item["target_end"]
                 if current_base_text[start:end] != item["target_quote"]:
                     raise RevisionConflict("目标原文已改变，请重新生成修改提案")
-                result_text = current_base_text[:start] + text + current_base_text[end:]
+                result_text = current_base_text[:start] + accepted_text + current_base_text[end:]
                 result_hash = sha256(result_text)
                 result_version = item["base_version"] + 1
             cur.execute(
                 "UPDATE revision_proposals SET status = %s, version = version + 1, accepted_text = %s, result_text = %s, result_sha256 = %s, result_version = %s, decision_note = %s, decided_by = %s, decided_at = now() WHERE id = %s RETURNING *",
-                (decision, text if decision == "accepted" else None, result_text, result_hash, result_version, note, actor_id, proposal_id),
+                (decision, accepted_text, result_text, result_hash, result_version, note, actor_id, proposal_id),
             )
             updated = cur.fetchone()
             if decision == "accepted":

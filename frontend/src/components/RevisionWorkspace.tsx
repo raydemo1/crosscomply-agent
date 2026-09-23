@@ -98,7 +98,7 @@ export default function RevisionWorkspace({ caseId, selection, canManageActions 
           <mark className="revision-workspace__highlight">{selection.target.quote}</mark>
           <div>{draft.text.slice(highlightAt + selection.target.quote.length)}</div>
         </div> : <div className="revision-workspace__changed"><strong>该段原文已在工作稿中改变</strong><p>请在阅读视图查看当前完整文本。若要继续修改同一段，请重新审查并定位。</p></div>}
-      </div> : <div className="revision-workspace__paper revision-workspace__paper--reading"><MarkdownText variant="report">{draft.text}</MarkdownText></div>}
+      </div> : <div className="revision-workspace__paper revision-workspace__paper--reading"><MarkdownText variant="report" allowRawHtml={false}>{draft.text}</MarkdownText></div>}
     </> : null}
     {selection ? <div className="revision-workspace__proposal">
       <div className="revision-workspace__proposal-head"><div><span>修改提案</span><h3>{current ? current.status === 'pending' ? '等待人工确认' : current.status === 'accepted' ? '已形成工作稿' : current.status === 'rejected' ? '已驳回' : '审查结果已更新' : '尚未生成'}</h3></div>{canManageActions && (!current || current.status !== 'pending') ? <button type="button" className="revision-workspace__generate" disabled={busy || highlightAt < 0} onClick={() => void generate()}>{busy ? '正在准备…' : '生成修改提案'}</button> : null}</div>

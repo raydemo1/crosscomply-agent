@@ -77,6 +77,8 @@ def register_revision_routes(
         issue = next((item for item in result.get("issues", []) if item.get("id") == issue_id), None)
         if issue is None:
             raise HTTPException(status_code=404, detail="审查问题不存在")
+        if issue.get("kind") == "missing_information":
+            raise HTTPException(status_code=422, detail="缺失信息类问题需要补充材料证据，不能通过修改文字解决")
         target = next((item for item in issue.get("material_evidence", [])
                        if item.get("material_version_id") == payload.material_version_id
                        and item.get("start_offset") == payload.start_offset

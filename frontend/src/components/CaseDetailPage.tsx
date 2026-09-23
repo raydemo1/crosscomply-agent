@@ -551,7 +551,7 @@ function ReviewIssues({
                       <span>{item.filename}</span>
                     </div>
                     <blockquote><mark className="issue-excerpt__highlight">{item.quote}</mark></blockquote>
-                    {canManageActions ? <button type="button" className="issue-excerpt__action" onClick={() => onRevisionTarget({ issue, target: item })}>针对这段准备修改</button> : null}
+                    {canManageActions && issue.kind !== 'missing_information' ? <button type="button" className="issue-excerpt__action" onClick={() => onRevisionTarget({ issue, target: item })}>针对这段准备修改</button> : null}
                   </div>
                 ))}
               </div>

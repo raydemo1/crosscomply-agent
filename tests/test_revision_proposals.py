@@ -44,6 +44,47 @@ def test_exact_target_must_be_unique() -> None:
             raise AssertionError("non-unique target accepted")
 
 
+def test_accepted_text_keeps_raw_replacement_whitespace() -> None:
+    revisions = InMemoryRevisionStore()
+    base = "A OLD B"
+    proposal = revisions.create({
+        "case_id": "case", "source_review_result_id": "review", "issue_id": "one",
+        "source_material_version_id": "material", "target_quote": "OLD", "target_start": 2,
+        "target_end": 5, "base_version": 0, "base_sha256": sha256(base),
+        "proposed_text": "NEW", "rationale": "test", "open_points_json": [],
+        "citation_refs_json": [], "created_by": "reviewer",
+    })
+    accepted = revisions.decide(
+        proposal["id"], decision="accepted", expected_version=1,
+        current_review_result_id="review", current_base_text=base,
+        replacement="\nNEW TEXT\n", note=None, actor_id="reviewer",
+    )
+    assert accepted["accepted_text"] == "\nNEW TEXT\n"
+    assert accepted["result_text"] == "A \nNEW TEXT\n B"
+    assert revisions.current_draft("material")["result_text"] == "A \nNEW TEXT\n B"
+
+
+def test_create_conflicts_when_base_is_stale_after_another_proposal_is_accepted() -> None:
+    revisions = InMemoryRevisionStore()
+    base = "A OLD B OTHER C"
+    common = {
+        "case_id": "case", "source_review_result_id": "review", "source_material_version_id": "material",
+        "base_version": 0, "base_sha256": sha256(base), "rationale": "test",
+        "open_points_json": [], "citation_refs_json": [], "created_by": "reviewer",
+    }
+    first = revisions.create({**common, "issue_id": "one", "target_quote": "OLD", "target_start": 2, "target_end": 5, "proposed_text": "NEW"})
+    revisions.decide(first["id"], decision="accepted", expected_version=1,
+                     current_review_result_id="review", current_base_text=base,
+                     replacement=None, note=None, actor_id="reviewer")
+    assert revisions.current_draft("material")["result_version"] == 1
+    try:
+        revisions.create({**common, "issue_id": "two", "target_quote": "OTHER", "target_start": 8, "target_end": 13, "proposed_text": "DIFFERENT"})
+    except RevisionConflict:
+        pass
+    else:
+        raise AssertionError("stale base proposal accepted after another proposal became the working draft")
+
+
 def test_accepting_one_proposal_supersedes_other_pending_proposals() -> None:
     revisions = InMemoryRevisionStore()
     base = "A OLD B OTHER C"
@@ -133,3 +174,24 @@ def test_revision_proposal_accepts_only_grounded_span_and_keeps_original(
             "decision": "rejected", "expected_version": 1,
         })
         assert repeated.status_code == 409
+
+        # 缺失信息类问题不能进入修改流程：即便自带材料依据，也要在调用模型前被硬拒绝。
+        cases.update_case(case["id"], response_json={"review_result": {
+            "review_result_id": "result_1",
+            "citations": [{"citation_ref": "法源-01", "title": "测试法", "full_article_text": "仅限必要用途"}],
+            "issues": [
+                {"id": "issue_1", "title": "用途过宽", "kind": "legal_gap", "finding": "需要收紧用途",
+                 "supporting_citation_refs": ["法源-01"],
+                 "material_evidence": [{"material_version_id": material.id, "quote": "OLD",
+                                        "start_offset": 4, "end_offset": 7}]},
+                {"id": "issue_2", "title": "保留期限未知", "kind": "missing_information",
+                 "finding": "材料未说明保留期限", "supporting_citation_refs": [],
+                 "material_evidence": [{"material_version_id": material.id, "quote": "XYZ",
+                                        "start_offset": 8, "end_offset": 11}]},
+            ],
+        }})
+        calls_before = len(received)
+        blocked = client.post(f"/api/cases/{case['id']}/issues/issue_2/revision-proposals",
+                              json={"material_version_id": material.id, "start_offset": 8, "end_offset": 11})
+        assert blocked.status_code == 422, blocked.text
+        assert len(received) == calls_before
