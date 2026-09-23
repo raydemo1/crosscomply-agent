@@ -35,20 +35,6 @@ function notify(): void {
   listeners.forEach((listener) => listener());
 }
 
-/**
- * The demo fixture is injected at runtime instead of being imported, so the
- * production bundle never carries demo data. When the public demo is enabled,
- * the store holds the fixture in memory; otherwise `demoCase` stays null and
- * `openCase` never touches it.
- */
-let demoCase: SavedCase | null = null;
-
-export function initializeDemoCase(demo: SavedCase): void {
-  demoCase = demo;
-  snapshot = [demo];
-  notify();
-}
-
 function toFeedback(detail: CaseDetailApi): CaseFeedback | null {
   if (!detail.feedback) return null;
   return {
@@ -136,10 +122,6 @@ export async function refreshCases(): Promise<SavedCase[]> {
 }
 
 export async function openCase(id: string): Promise<SavedCase> {
-  if (demoCase && id === demoCase.id) {
-    mergeCase(demoCase);
-    return demoCase;
-  }
   const detail = await getCaseDetail(id);
   const next = fromDetail(detail);
   mergeCase(next);

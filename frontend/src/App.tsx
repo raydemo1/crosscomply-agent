@@ -7,9 +7,7 @@ import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
 import LoginPage from './components/LoginPage';
 import { ApiError, createCase, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
-import { EMPTY_INTAKE, initializeDemoCase, openCase, refreshCases, useCaseStore } from './store/caseStore';
-
-const PUBLIC_DEMO_ENABLED = import.meta.env.VITE_PUBLIC_DEMO === 'true';
+import { EMPTY_INTAKE, openCase, refreshCases, useCaseStore } from './store/caseStore';
 
 const GovernanceConsolePage = lazy(() => import('./components/GovernanceConsolePage'));
 const KnowledgeBasePage = lazy(() => import('./components/KnowledgeBasePage'));
@@ -91,19 +89,6 @@ export default function App(): JSX.Element {
   const activeCase = useMemo(() => activeCaseId ? cases.find((item) => item.id === activeCaseId) ?? null : null, [cases, activeCaseId]);
 
   useEffect(() => {
-    if (PUBLIC_DEMO_ENABLED) {
-      let mounted = true;
-      void import('./demo/demoCase').then(({ DEMO_CASE, DEMO_SUMMARY, DEMO_USER }) => {
-        if (!mounted) return;
-        initializeDemoCase(DEMO_CASE);
-        setUser(DEMO_USER);
-        setDashboardSummary(DEMO_SUMMARY);
-        setActiveCaseId(DEMO_CASE.id);
-        setPage('case-detail');
-        setBooting(false);
-      });
-      return () => { mounted = false; };
-    }
     let mounted = true;
     void getCurrentUser().then(async (current) => {
       if (!mounted) return;
@@ -169,7 +154,6 @@ export default function App(): JSX.Element {
   }, []);
 
   const handleLogout = useCallback(async (): Promise<void> => {
-    if (PUBLIC_DEMO_ENABLED) return;
     await logout();
     setUser(null);
     setDashboardSummary(null);
@@ -186,10 +170,6 @@ export default function App(): JSX.Element {
 
   const handleSubmit = useCallback(async (q: string, m: string, confirmedIntake: CaseIntake, file?: File | null): Promise<void> => {
     if (!user) return;
-    if (PUBLIC_DEMO_ENABLED) {
-      setError('当前是公开演示模式。要提交自己的问题，请部署 CrossComply 服务端并配置模型、知识库和对象存储 Key。');
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
@@ -285,7 +265,7 @@ export default function App(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <Sidebar currentPage={page} onPageChange={setPage} onOpenCase={handleOpenCase} activeCaseId={activeCaseId} cases={cases} user={user} demoMode={PUBLIC_DEMO_ENABLED} onLogout={() => void handleLogout()} onOpenGovernance={handleOpenGovernance} isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+      <Sidebar currentPage={page} onPageChange={setPage} onOpenCase={handleOpenCase} activeCaseId={activeCaseId} cases={cases} user={user} onLogout={() => void handleLogout()} onOpenGovernance={handleOpenGovernance} isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
       {mobileSidebarOpen ? <button type="button" className="sidebar-scrim" onClick={() => setMobileSidebarOpen(false)} aria-label="关闭案件导航" /> : null}
       <main className="app-center">
         <div className="app-mobile-nav">
@@ -305,9 +285,9 @@ export default function App(): JSX.Element {
         {page === 'knowledge-legal' || page === 'knowledge-policy' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载知识库…</div></div>}><KnowledgeBasePage user={user} initialLibraryKind={page === 'knowledge-legal' ? 'legal' : 'internal_policy'} /></Suspense> : null}
         {page === 'my-remediations' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载我的整改…</div></div>}><MyRemediationsPage user={user} /></Suspense> : null}
         {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} /></Suspense> : null}
-        {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} demoMode={PUBLIC_DEMO_ENABLED} canEdit={user.role === 'requester' && !PUBLIC_DEMO_ENABLED} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} /></Suspense> : null}
-        {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage onUseTemplate={handleUseTemplate} demoMode={PUBLIC_DEMO_ENABLED} /></Suspense> : null}
-        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} rerankMode={rerankMode} editingCaseId={editingCaseId} demoMode={PUBLIC_DEMO_ENABLED} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
+        {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} canEdit={user.role === 'requester'} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} /></Suspense> : null}
+        {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage onUseTemplate={handleUseTemplate} /></Suspense> : null}
+        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} rerankMode={rerankMode} editingCaseId={editingCaseId} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
         {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从最近案件中选择一个案件。</p></div> : null}
       </main>
     </div>

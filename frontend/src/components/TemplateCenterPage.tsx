@@ -22,7 +22,6 @@ const TEMPLATE_FORMAT = 'crosscomply.case-template';
 
 export interface TemplateCenterPageProps {
   onUseTemplate?: (template: CaseTemplateApi) => void;
-  demoMode?: boolean;
 }
 
 interface TemplateDraft {
@@ -68,7 +67,7 @@ function asExportPayload(template: CaseTemplateApi): Record<string, unknown> {
   };
 }
 
-export default function TemplateCenterPage({ onUseTemplate, demoMode = false }: TemplateCenterPageProps): JSX.Element {
+export default function TemplateCenterPage({ onUseTemplate }: TemplateCenterPageProps): JSX.Element {
   const [templates, setTemplates] = useState<CaseTemplateApi[]>([]);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<CaseTemplateApi | null>(null);
@@ -89,14 +88,12 @@ export default function TemplateCenterPage({ onUseTemplate, demoMode = false }: 
     void load().catch((reason) => {
       setServiceUnavailable(true);
       setMessage(
-        demoMode
-          ? '公开演示暂不提供模板数据，请连接自己的服务端后使用。'
-          : reason instanceof ApiError && reason.status === 404
+        reason instanceof ApiError && reason.status === 404
             ? '模板服务尚未就绪，请先执行 alembic upgrade head。'
             : reason instanceof Error ? reason.message : '无法加载模板',
       );
     });
-  }, [demoMode, query]);
+  }, [query]);
 
   const visibleTemplates = useMemo(() => templates.filter((item) => !item.archived), [templates]);
 

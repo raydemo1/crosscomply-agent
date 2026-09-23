@@ -15,6 +15,7 @@ export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
 export const REVIEW_TASK_STATUS_LABELS: Record<ReviewTaskStatus, string> = {
   queued: '排队中',
   running: '运行中',
+  waiting_input: '等待补充',
   succeeded: '已完成',
   failed: '运行失败',
 };

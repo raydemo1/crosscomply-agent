@@ -26,7 +26,6 @@ interface SidebarProps {
   activeCaseId?: string | null;
   cases: SavedCase[];
   user: WorkbenchUser;
-  demoMode?: boolean;
   onLogout: () => void;
   onOpenGovernance: () => void;
   isMobileOpen: boolean;
@@ -71,7 +70,6 @@ export default function Sidebar({
   activeCaseId,
   cases,
   user,
-  demoMode = false,
   onLogout,
   onOpenGovernance,
   isMobileOpen,
@@ -251,7 +249,7 @@ export default function Sidebar({
           <strong>{user.display_name}</strong>
           <span>{user.role === 'admin' ? '管理员' : user.role === 'reviewer' ? '合规审核人' : '业务申请人'}</span>
         </div>
-        {demoMode ? <span className="sidebar-user-card__demo">演示</span> : <button type="button" className="sidebar-user-card__logout" onClick={() => { onCloseMobile(); onLogout(); }} title="退出登录" aria-label="退出登录"><LogOut size={16} strokeWidth={1.8} /></button>}
+        <button type="button" className="sidebar-user-card__logout" onClick={() => { onCloseMobile(); onLogout(); }} title="退出登录" aria-label="退出登录"><LogOut size={16} strokeWidth={1.8} /></button>
       </div>
     </aside>
   );

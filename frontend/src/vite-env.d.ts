@@ -10,7 +10,6 @@ interface ImportMetaEnv {
    */
   readonly VITE_API_BASE_URL?: string;
   /** Enables the static public product-tour mode on Vercel. */
-  readonly VITE_PUBLIC_DEMO?: string;
 }
 
 interface ImportMeta {
