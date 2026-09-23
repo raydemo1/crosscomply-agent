@@ -15,6 +15,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from law_agent.review.case_store import UserRecord, utc_now
+from law_agent.review.db_schema import EXPECTED_SCHEMA_REVISION
 
 
 def template_id() -> str:
@@ -66,7 +67,7 @@ class PostgresTemplateStore:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
                 "SELECT version_num FROM alembic_version WHERE version_num = %s",
-                ("0004_agent_runtime",),
+                (EXPECTED_SCHEMA_REVISION,),
             )
             if cur.fetchone() is None:
                 raise RuntimeError("数据库未应用 CrossComply 使用模板结构，请先运行 alembic upgrade head")

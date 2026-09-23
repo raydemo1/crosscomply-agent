@@ -51,12 +51,14 @@ from law_agent.review.http.knowledge import (
 )
 from law_agent.review.http.remediation import register_remediation_routes
 from law_agent.review.http.reports import register_report_routes
+from law_agent.review.http.revisions import register_revision_routes
 from law_agent.review.http.system import register_system_routes
 from law_agent.review.http.templates import register_template_routes
 from law_agent.review.http.users import register_user_routes
 from law_agent.review.io import read_review_results
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
+from law_agent.review.revisions import InMemoryRevisionStore, PostgresRevisionStore
 from law_agent.review.rules import evaluate_national_path
 from law_agent.review.schemas import (
     CitationGroup,
@@ -420,6 +422,10 @@ def create_app(
     app.state.chunks_path = Path(chunks_path)
     knowledge_corpus_path = Path(knowledge_corpus) if knowledge_corpus else Path(chunks_path).parent
     app.state.case_store = case_store or PostgresCaseStore(load_service_config().postgres.dsn)
+    app.state.revision_store = (
+        InMemoryRevisionStore() if isinstance(app.state.case_store, InMemoryCaseStore)
+        else PostgresRevisionStore(load_service_config().postgres.dsn)
+    )
     app.state.enterprise_store = enterprise_store or PostgresEnterpriseStore(
         load_service_config().postgres.dsn
     )
@@ -643,6 +649,11 @@ def create_app(
         case_summary=_case_summary,
         can_view=_can_view,
         evaluate_national_path=evaluate_national_path,
+    )
+    register_revision_routes(
+        app, current_user=current_user, reviewer_only=reviewer_only,
+        store=store, enterprise=enterprise,
+        revisions=lambda: app.state.revision_store, can_view=_can_view,
     )
     register_remediation_routes(
         app,

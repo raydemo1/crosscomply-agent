@@ -38,8 +38,37 @@ import type {
   RemediationSubmissionPayload,
   RemediationTaskApi,
   RemediationTaskUpdatePayload,
+  RevisionProposalApi,
+  WorkingDraftApi,
   WorkbenchUser,
 } from '../types/api';
+
+export async function listRevisionProposals(caseId: string): Promise<RevisionProposalApi[]> {
+  const response = await request<{ items: RevisionProposalApi[] }>(`/api/cases/${encodeURIComponent(caseId)}/revision-proposals`);
+  return response.items;
+}
+
+export async function generateRevisionProposal(
+  caseId: string, issueId: string,
+  target: { material_version_id: string; start_offset: number; end_offset: number },
+): Promise<RevisionProposalApi> {
+  return request<RevisionProposalApi>(`/api/cases/${encodeURIComponent(caseId)}/issues/${encodeURIComponent(issueId)}/revision-proposals`, {
+    method: 'POST', body: JSON.stringify(target), timeoutMs: REVIEW_TIMEOUT_MS,
+  });
+}
+
+export async function decideRevisionProposal(
+  proposalId: string, decision: 'accepted' | 'rejected', expectedVersion: number,
+  replacement?: string, note?: string,
+): Promise<RevisionProposalApi> {
+  return request<RevisionProposalApi>(`/api/revision-proposals/${encodeURIComponent(proposalId)}/decision`, {
+    method: 'POST', body: JSON.stringify({ decision, expected_version: expectedVersion, replacement, note }),
+  });
+}
+
+export async function getWorkingDraft(caseId: string, materialVersionId: string): Promise<WorkingDraftApi> {
+  return request<WorkingDraftApi>(`/api/cases/${encodeURIComponent(caseId)}/working-draft?material_version_id=${encodeURIComponent(materialVersionId)}`);
+}
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') ?? '';
 const DEFAULT_TIMEOUT_MS = 30_000;

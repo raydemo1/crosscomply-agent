@@ -198,6 +198,32 @@ export interface ReviewIssue {
   recommended_action: string;
 }
 
+export interface RevisionProposalApi {
+  id: string;
+  case_id: string;
+  source_review_result_id: string;
+  issue_id: string;
+  source_material_version_id: string;
+  target_quote: string;
+  proposed_text: string;
+  accepted_text: string | null;
+  rationale: string;
+  open_points: string[];
+  citation_refs: string[];
+  status: 'pending' | 'accepted' | 'rejected' | 'superseded';
+  version: number;
+  result_version: number | null;
+  decision_note: string | null;
+}
+
+export interface WorkingDraftApi {
+  source_material_version_id: string;
+  version: number;
+  text: string;
+  sha256: string;
+  latest_proposal_id: string | null;
+}
+
 /**
  * A specific evidence sufficiency issue detected during self-check.
  *

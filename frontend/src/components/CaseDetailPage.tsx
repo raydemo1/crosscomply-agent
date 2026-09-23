@@ -30,6 +30,7 @@ import FeedbackPanel from './FeedbackPanel';
 import GroundedClaims, { cssId } from './GroundedClaims';
 import MarkdownText from './MarkdownText';
 import ShareCaseDialog from './ShareCaseDialog';
+import RevisionWorkspace, { type RevisionSelection } from './RevisionWorkspace';
 import { downloadHtml, downloadMarkdown } from '../utils/report';
 import { CASE_STATUS_LABELS, REVIEW_TASK_STATUS_LABELS } from '../utils/workflow';
 import './RemediationPlanPage.css';
@@ -513,10 +514,14 @@ function ReviewIssues({
   issues,
   citations,
   onEvidenceSelect,
+  onRevisionTarget,
+  canManageActions,
 }: {
   issues: ReviewIssue[];
   citations: Citation[];
   onEvidenceSelect: (citationRef: string, label: string) => void;
+  onRevisionTarget: (selection: RevisionSelection) => void;
+  canManageActions: boolean;
 }): JSX.Element | null {
   if (issues.length === 0) return null;
   return (
@@ -545,7 +550,8 @@ function ReviewIssues({
                       <strong>{item.logical_name} v{item.version_number}</strong>
                       <span>{item.filename}</span>
                     </div>
-                    <blockquote>{item.quote}</blockquote>
+                    <blockquote><mark className="issue-excerpt__highlight">{item.quote}</mark></blockquote>
+                    {canManageActions ? <button type="button" className="issue-excerpt__action" onClick={() => onRevisionTarget({ issue, target: item })}>针对这段准备修改</button> : null}
                   </div>
                 ))}
               </div>
@@ -802,6 +808,7 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
   const [activeReportSection, setActiveReportSection] = useState('report-conclusion');
   const [reportTocVisible, setReportTocVisible] = useState(false);
   const [reportScrolling, setReportScrolling] = useState(false);
+  const [revisionSelection, setRevisionSelection] = useState<RevisionSelection | null>(null);
   const highlightTimer = useRef<number | null>(null);
   const reportScrollTimer = useRef<number | null>(null);
 
@@ -829,6 +836,7 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
   const hasReviewGaps = reviewBlockers.length > 0 || manualConfirmations.length > 0;
   const reportSections = useMemo(() => [
     ...(issues.length > 0 ? [{ id: 'report-issues', label: '调查与问题', secondary: false }] : []),
+    ...(issues.length > 0 ? [{ id: 'report-revisions', label: '文书与修改', secondary: false }] : []),
     { id: 'report-conclusion', label: '审查结论', secondary: false },
     { id: 'report-basis', label: '判断依据', secondary: false },
     ...(riskBoundariesForDisplay.length > 0 ? [{ id: 'report-boundaries', label: '风险边界', secondary: false }] : []),
@@ -941,7 +949,10 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
             issues={issues}
             citations={citations}
             onEvidenceSelect={handleEvidenceSelect}
+            onRevisionTarget={(selection) => { setRevisionSelection(selection); window.setTimeout(() => document.getElementById('report-revisions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0); }}
+            canManageActions={canManageActions}
           />
+          {issues.length > 0 ? <RevisionWorkspace caseId={saved.id} selection={revisionSelection} canManageActions={canManageActions} /> : null}
 
           <section className="case-conclusion report-section" id="report-conclusion">
             <div className="case-conclusion__head">
