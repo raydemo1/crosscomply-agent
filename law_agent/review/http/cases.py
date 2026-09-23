@@ -22,6 +22,7 @@ from law_agent.config import load_llm_config
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
 from law_agent.review.http.schemas import (
+    AgentInputRequest,
     CaseCreateRequest,
     CaseStatusRequest,
     CaseUpdateRequest,
@@ -423,15 +424,17 @@ def register_case_routes(
         case = store().get_case(identifier)
         if case is None:
             raise HTTPException(status_code=404, detail="案件不存在")
-        if case["status"] == "review_running":
+        if case["status"] in {"review_running", "needs_info"}:
             active_task = enterprise().get_latest_task(identifier)
-            if active_task is not None and active_task.status in {"queued", "running"}:
+            if active_task is not None and active_task.status in {
+                "queued", "running", "waiting_input"
+            }:
                 return JSONResponse(
                     status_code=202,
                     content={"task_id": active_task.id, "status": active_task.status},
                 )
-        if case["status"] != "pending_review":
-            raise HTTPException(status_code=409, detail="案件必须完成事实确认并处于待审查状态")
+        if case["status"] not in {"pending_review", "needs_info"}:
+            raise HTTPException(status_code=409, detail="案件必须处于待审查或待补充信息状态")
         material_snapshot = enterprise().get_latest_material_snapshot(identifier)
         if material_snapshot is None:
             raise HTTPException(status_code=409, detail="案件尚未生成不可变材料快照")
@@ -441,8 +444,17 @@ def register_case_routes(
         )
         if rule_snapshot is None:
             raise HTTPException(status_code=409, detail="当前材料快照尚未完成全国主路径判定")
-        if rule_snapshot.determination.get("needs_info"):
-            raise HTTPException(status_code=409, detail="仍有关键事实缺失，不得运行审查或送审")
+        latest_task = enterprise().get_latest_task(identifier)
+        if (
+            latest_task is not None
+            and latest_task.status == "succeeded"
+            and latest_task.material_snapshot_id == material_snapshot.id
+            and latest_task.rule_snapshot_id == rule_snapshot.id
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="当前冻结输入已完成调查；请补充事实并生成新的规则快照后重新运行",
+            )
         versions = [
             enterprise().get_material_version(version_id)
             for version_id in material_snapshot.version_ids
@@ -468,8 +480,13 @@ def register_case_routes(
                 ),
             },
         )
+        if task.status not in {"queued", "running", "waiting_input"}:
+            raise HTTPException(
+                status_code=409,
+                detail="当前冻结输入已有终态任务；请生成新的材料与规则快照后重新运行",
+            )
         validate_case_transition(
-            current="pending_review",
+            current=case["status"],
             target="review_running",
             authority="local",
         )
@@ -478,7 +495,7 @@ def register_case_routes(
             identifier,
             user.id,
             event_type="review_queued",
-            from_status="pending_review",
+            from_status=case["status"],
             to_status="review_running",
             payload={"task_id": task.id, "material_snapshot_id": material_snapshot.id},
         )
@@ -499,6 +516,54 @@ def register_case_routes(
         if case is None or not can_view(user, case):
             raise HTTPException(status_code=404, detail="审查任务不存在或无权访问")
         return asdict(task)
+
+    @router.post("/api/tasks/{task_id}/answer")
+    async def answer_agent_question(
+        task_id: str,
+        payload: AgentInputRequest,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        from law_agent.review.agent import AgentState, answer_agent
+
+        reviewer_only(user)
+        task = enterprise().get_task(task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="审查任务不存在")
+        case = store().get_case(task.case_id)
+        if case is None:
+            raise HTTPException(status_code=404, detail="案件不存在")
+        if payload.changes_frozen_facts:
+            raise HTTPException(
+                status_code=409,
+                detail="该补充会改变冻结规则事实，请生成新材料与规则快照后重新提交",
+            )
+        if task.agent_state is None:
+            raise HTTPException(status_code=409, detail="任务没有可恢复的 Agent 状态")
+        is_plan_gate = payload.gate_id.startswith("plan_")
+        if is_plan_gate and payload.decision is None:
+            raise HTTPException(status_code=422, detail="计划确认必须选择批准或要求调整")
+        try:
+            state = answer_agent(
+                AgentState.model_validate(task.agent_state),
+                gate_id=payload.gate_id,
+                answer=payload.answer,
+                approve_plan=payload.decision != "revise",
+            )
+            resumed = enterprise().resume_task(
+                task_id, state=state.model_dump(mode="json")
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        store().update_case(task.case_id, status="review_running")
+        store().add_event(
+            task.case_id,
+            user.id,
+            event_type="agent_input_received",
+            from_status=case["status"],
+            to_status="review_running",
+            payload={"task_id": task_id, "gate_id": payload.gate_id},
+        )
+        return asdict(resumed)
 
     @router.post("/api/tasks/{task_id}/retry")
     async def retry_review_task(

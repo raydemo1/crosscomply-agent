@@ -1,8 +1,11 @@
 """Tests for the persistent review worker boundary."""
 
+from dataclasses import replace
+
+from law_agent.review.agent import AgentState
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
 from law_agent.review.llm import ReviewWorkflowFailed
-from law_agent.review.worker import ReviewWorker
+from law_agent.review.worker import ReviewWorker, completion_has_missing_information
 
 
 def _queued_task(store: InMemoryEnterpriseStore):
@@ -80,3 +83,87 @@ def test_worker_returns_none_when_queue_is_empty() -> None:
         queue=InMemoryEnterpriseStore(), worker_id="worker-empty", execute=lambda task: {}
     )
     assert worker.run_once() is None
+
+
+def test_stale_worker_cannot_overwrite_a_reclaimed_attempt() -> None:
+    store = InMemoryEnterpriseStore()
+    queued = _queued_task(store)
+
+    def lose_lease(_task):
+        store.tasks[queued.id].lease_expires_at = "2000-01-01T00:00:00+00:00"
+        assert store.requeue_expired_tasks() == 1
+        reclaimed = store.claim_next_task(worker_id="worker-new")
+        assert reclaimed is not None
+        assert reclaimed.attempt_count == 2
+        return {"conclusion": "旧 Worker 的迟到结果"}
+
+    stale_worker = ReviewWorker(
+        queue=store,
+        worker_id="worker-old",
+        execute=lose_lease,
+    )
+
+    current = stale_worker.run_once()
+
+    assert current is not None
+    assert current.status == "running"
+    assert current.attempt_count == 2
+    assert current.result is None
+
+
+def test_worker_persists_agent_pause_and_resume() -> None:
+    store = InMemoryEnterpriseStore()
+    queued = _queued_task(store)
+    waiting_state = AgentState(
+        goal="判断是否需要补充境外接收方信息",
+        status="waiting_input",
+        turns=1,
+        pending_question="请确认境外接收方所在国家或地区",
+        gate_id="input_1",
+    )
+    worker = ReviewWorker(
+        queue=store,
+        worker_id="worker-agent",
+        execute=lambda _task: waiting_state,
+    )
+
+    paused = worker.run_once()
+
+    assert paused is not None
+    assert paused.status == "waiting_input"
+    assert paused.agent_state["gate_id"] == "input_1"
+    resumed_state = waiting_state.model_copy(
+        update={"status": "running", "pending_question": None, "gate_id": None}
+    )
+    resumed = store.resume_task(
+        queued.id, state=resumed_state.model_dump(mode="json")
+    )
+    assert resumed.status == "queued"
+
+
+def test_unresolved_rule_snapshot_blocks_approval_even_when_report_has_no_gaps() -> None:
+    store = InMemoryEnterpriseStore()
+    queued = _queued_task(store)
+    rule = store.get_rule_snapshot(queued.rule_snapshot_id)
+    assert rule is not None
+    rule = replace(
+        rule,
+        determination={
+            "status": "needs_info",
+            "needs_info": [{"key": "important_data"}],
+        },
+    )
+    queued.result = {"review_result": {"missing_information": []}}
+
+    assert completion_has_missing_information(queued, rule) is True
+
+
+def test_determined_rule_and_complete_report_can_continue_to_approval() -> None:
+    store = InMemoryEnterpriseStore()
+    queued = _queued_task(store)
+    rule = store.get_rule_snapshot(queued.rule_snapshot_id)
+    assert rule is not None
+    rule = replace(rule, determination={"status": "determined", "needs_info": []})
+    queued.result = {"review_result": {"missing_information": []}}
+
+    assert completion_has_missing_information(queued, rule) is False

@@ -8,6 +8,7 @@ from pathlib import Path
 from Crypto.Cipher import AES
 from fastapi.testclient import TestClient
 
+from law_agent.review.agent import AgentState
 from law_agent.review.api import create_app
 from law_agent.review.case_store import InMemoryCaseStore
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
@@ -129,7 +130,7 @@ def test_case_cannot_be_submitted_without_frozen_rule_inputs(tmp_path: Path) -> 
         assert "冻结材料" in response.json()["detail"]
 
 
-def test_missing_critical_facts_cannot_enqueue_review(tmp_path: Path) -> None:
+def test_missing_critical_facts_can_enqueue_agent_investigation(tmp_path: Path) -> None:
     case_store = InMemoryCaseStore(seed_password="pw")
     enterprise = InMemoryEnterpriseStore()
     chunks = tmp_path / "chunks.jsonl"
@@ -144,9 +145,123 @@ def test_missing_critical_facts_cannot_enqueue_review(tmp_path: Path) -> None:
 
         response = client.post(f"/api/cases/{case_id}/run")
 
+        assert response.status_code == 202
+        task = enterprise.get_task(response.json()["task_id"])
+        assert task is not None
+        assert task.rule_snapshot_id
+
+
+def test_reviewer_can_answer_and_resume_waiting_agent(tmp_path: Path) -> None:
+    case_store = InMemoryCaseStore(seed_password="pw")
+    enterprise = InMemoryEnterpriseStore()
+    chunks = tmp_path / "chunks.jsonl"
+    chunks.write_text("", encoding="utf-8")
+    app = create_app(chunks_path=chunks, case_store=case_store, enterprise_store=enterprise)
+
+    with TestClient(app) as client:
+        _login(client)
+        case_id = _create_case(client)
+        snapshot, rule = _freeze_inputs(enterprise, case_id)
+        task = enterprise.enqueue_review_task(
+            case_id=case_id,
+            material_snapshot_id=snapshot.id,
+            rule_snapshot_id=rule.id,
+            model_id="approved-model",
+            data_boundary_summary={},
+        )
+        enterprise.claim_next_task(worker_id="worker-agent")
+        state = AgentState(
+            goal="确认调查计划",
+            status="waiting_input",
+            plan=["阅读材料", "检索法源"],
+            turns=1,
+            pending_question="请确认执行计划",
+            gate_id="plan_1",
+        )
+        enterprise.pause_task(task.id, state=state.model_dump(mode="json"))
+        case_store.update_case(case_id, status="needs_info")
+
+        response = client.post(
+            f"/api/tasks/{task.id}/answer",
+            json={"gate_id": "plan_1", "answer": "同意执行", "decision": "approve"},
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "queued"
+        assert response.json()["agent_state"]["plan_confirmed"] is True
+        assert case_store.get_case(case_id)["status"] == "review_running"
+
+
+def test_plan_revision_requeues_without_confirming_plan(tmp_path: Path) -> None:
+    case_store = InMemoryCaseStore(seed_password="pw")
+    enterprise = InMemoryEnterpriseStore()
+    chunks = tmp_path / "chunks.jsonl"
+    chunks.write_text("", encoding="utf-8")
+    app = create_app(chunks_path=chunks, case_store=case_store, enterprise_store=enterprise)
+
+    with TestClient(app) as client:
+        _login(client)
+        case_id = _create_case(client)
+        snapshot, rule = _freeze_inputs(enterprise, case_id)
+        task = enterprise.enqueue_review_task(
+            case_id=case_id,
+            material_snapshot_id=snapshot.id,
+            rule_snapshot_id=rule.id,
+            model_id="approved-model",
+            data_boundary_summary={},
+        )
+        enterprise.claim_next_task(worker_id="worker-agent")
+        state = AgentState(
+            goal="确认调查计划",
+            status="waiting_input",
+            plan=["阅读材料", "检索法源"],
+            turns=1,
+            pending_question="请确认执行计划",
+            gate_id="plan_1",
+        )
+        enterprise.pause_task(task.id, state=state.model_dump(mode="json"))
+        case_store.update_case(case_id, status="review_running")
+
+        response = client.post(
+            f"/api/tasks/{task.id}/answer",
+            json={
+                "gate_id": "plan_1",
+                "answer": "增加接收方所在地规则检索",
+                "decision": "revise",
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["agent_state"]["plan_confirmed"] is False
+        assert response.json()["agent_state"]["steps"][-1]["action"] == "plan_revision_requested"
+
+
+def test_completed_frozen_inputs_cannot_be_run_again(tmp_path: Path) -> None:
+    case_store = InMemoryCaseStore(seed_password="pw")
+    enterprise = InMemoryEnterpriseStore()
+    chunks = tmp_path / "chunks.jsonl"
+    chunks.write_text("", encoding="utf-8")
+    app = create_app(chunks_path=chunks, case_store=case_store, enterprise_store=enterprise)
+
+    with TestClient(app) as client:
+        _login(client)
+        case_id = _create_case(client)
+        snapshot, rule = _freeze_inputs(enterprise, case_id)
+        task = enterprise.enqueue_review_task(
+            case_id=case_id,
+            material_snapshot_id=snapshot.id,
+            rule_snapshot_id=rule.id,
+            model_id="approved-model",
+            data_boundary_summary={},
+        )
+        enterprise.claim_next_task(worker_id="worker-agent")
+        enterprise.complete_task(task.id, result={"review_result": {}}, final_node="completed")
+        case_store.update_case(case_id, status="needs_info")
+
+        response = client.post(f"/api/cases/{case_id}/run")
+
         assert response.status_code == 409
-        assert "关键事实缺失" in response.json()["detail"]
-        assert not enterprise.tasks
+        assert "当前冻结输入已完成调查" in response.json()["detail"]
 
 
 def test_upload_freeze_and_download_preserve_original_hash(tmp_path: Path) -> None:

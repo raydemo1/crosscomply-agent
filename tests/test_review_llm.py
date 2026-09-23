@@ -25,7 +25,6 @@ from law_agent.review.result_builder import (
 from law_agent.review.schemas import (
     EvidenceSelfCheck,
     ReviewFacts,
-    ReviewResult,
     SourceEvidencePacket,
 )
 from law_agent.review.telemetry import current_telemetry, reset_telemetry

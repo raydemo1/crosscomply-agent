@@ -20,7 +20,6 @@ from law_agent.review.report_data import (
 )
 from law_agent.review.reports import DecisionReportData, generate_decision_report
 
-
 GovernanceStore = InMemoryGovernanceStore | PostgresGovernanceStore
 
 

@@ -188,7 +188,7 @@ def test_run_persists_queued_task_and_audit_event(app) -> None:
         }
 
 
-def test_evidence_gap_stays_in_needs_info(app) -> None:
+def test_evidence_gap_allows_agent_investigation_but_not_terminal_decision(app) -> None:
     with TestClient(app) as client:
         _login(client, "reviewer@crosscomply.local")
         case_id = _create_case(client)
@@ -196,8 +196,8 @@ def test_evidence_gap_stays_in_needs_info(app) -> None:
         app.state.case_store.update_case(case_id, status="pending_review")
 
         response = client.post(f"/api/cases/{case_id}/run")
-        assert response.status_code == 409
-        assert "关键事实缺失" in response.json()["detail"]
+        assert response.status_code == 202
+        assert response.json()["status"] == "queued"
 
         complete = client.post(f"/api/cases/{case_id}/status", json={"status": "approved"})
         assert complete.status_code == 403

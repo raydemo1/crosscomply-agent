@@ -158,6 +158,13 @@ class MaterialSnapshotRequest(BaseModel):
     facts: ComplianceFacts
 
 
+class AgentInputRequest(BaseModel):
+    gate_id: str = Field(..., min_length=1, max_length=200)
+    answer: str = Field(..., min_length=1, max_length=6000)
+    changes_frozen_facts: bool = False
+    decision: Literal["approve", "revise"] | None = None
+
+
 class RemediationEvidenceRequest(BaseModel):
     kind: Literal["case_material", "file", "link"]
     label: str = Field(..., min_length=1)

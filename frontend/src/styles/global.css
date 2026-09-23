@@ -2923,31 +2923,6 @@ textarea {
 .workspace-hero__risk-strip .risk-dot--medium { background: var(--color-risk-medium); }
 .workspace-hero__risk-strip .risk-dot--insufficient { background: var(--color-risk-insufficient); }
 
-.demo-notice {
-  border-color: rgba(59, 130, 246, 0.24);
-  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 68%);
-}
-.demo-notice__eyebrow {
-  margin-bottom: 5px;
-  color: var(--color-primary);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.demo-notice strong {
-  display: block;
-  color: var(--color-foreground);
-  font-size: 0.95rem;
-}
-.demo-notice p {
-  max-width: 860px;
-  margin: 6px 0 0;
-  color: var(--color-muted-foreground);
-  font-size: 0.82rem;
-  line-height: 1.65;
-}
-
 .intake-progress {
   display: flex;
   align-items: center;
@@ -3602,16 +3577,6 @@ textarea {
 .signed-decision strong { color: #166534; font-size: 0.8rem; }
 .signed-decision small { margin-top: 2px; color: #64748b; font-size: 0.68rem; }
 
-.demo-readonly-note {
-  margin-top: var(--space-md);
-  padding: 10px 12px;
-  border-left: 3px solid var(--color-primary);
-  color: var(--color-muted-foreground);
-  background: var(--color-muted);
-  font-size: 0.78rem;
-  line-height: 1.55;
-}
-
 .case-operations,
 .case-timeline,
 .draft-case-card {
@@ -3899,17 +3864,6 @@ textarea {
   color: #94a3b8;
   background: transparent;
   cursor: pointer;
-}
-
-.sidebar-user-card__demo {
-  margin-left: auto;
-  padding: 3px 7px;
-  border: 1px solid rgba(147, 197, 253, 0.35);
-  border-radius: var(--radius-pill);
-  color: #bfdbfe !important;
-  background: rgba(30, 64, 175, 0.3);
-  font-size: 0.68rem !important;
-  font-weight: 700;
 }
 
 .history-item--button {
@@ -4843,6 +4797,138 @@ body {
   font-size: 0.78rem;
 }
 
+.review-issues__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.review-issues__heading h2 { font-size: 1.45rem; }
+
+.review-issues__heading p {
+  margin: var(--space-xs) 0 0;
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+}
+
+.review-issues__heading > span {
+  color: var(--color-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.review-issues__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.review-issue {
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.review-issue__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.review-issue__head h3 { font-size: 1.05rem; }
+
+.issue-kind {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted-foreground);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.issue-kind--material_conflict { border-color: #fed7aa; background: #fff7ed; color: #7c2d12; }
+.issue-kind--legal_gap { border-color: #fecaca; background: #fef2f2; color: #7f1d1d; }
+.issue-kind--missing_information { border-color: #bae6fd; background: #f0f9ff; color: #0c4a6e; }
+
+.review-issue__finding {
+  margin-top: var(--space-sm);
+  line-height: 1.8;
+}
+
+.review-issue__block { margin-top: var(--space-md); }
+
+.review-issue__label {
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+}
+
+.issue-excerpt {
+  margin-top: var(--space-sm);
+  padding: 12px 14px;
+  border-left: 2px solid var(--color-border);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--color-background);
+}
+
+.issue-excerpt__source {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-size: 0.8rem;
+}
+
+.issue-excerpt__source span { color: var(--color-muted-foreground); }
+
+.issue-excerpt blockquote {
+  margin-top: var(--space-xs);
+  font-family: var(--font-legal);
+  line-height: 1.75;
+}
+
+.issue-excerpt blockquote::before { content: '\201C'; }
+.issue-excerpt blockquote::after { content: '\201D'; }
+
+.review-issue__citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.review-issue__citation {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.review-issue__citation:hover { border-color: var(--color-primary); background: var(--color-background); }
+.review-issue__citation:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
+
+.review-issue__citation-ref {
+  color: var(--color-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.review-issue__unknowns {
+  margin: var(--space-sm) 0 0 18px;
+  line-height: 1.8;
+}
+
 .case-operations__blockers,
 .case-operations__confirmation {
   margin-bottom: var(--space-md);
@@ -5025,8 +5111,7 @@ body {
 
 .remediation-kicker,
 .template-page__kicker,
-.governance-intro__kicker,
-.demo-notice__eyebrow {
+.governance-intro__kicker {
   display: none;
 }
 

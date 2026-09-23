@@ -471,6 +471,18 @@ export async function retryReviewTask(taskId: string): Promise<ReviewTaskApi> {
   });
 }
 
+export async function answerReviewTask(
+  taskId: string,
+  gateId: string,
+  answer: string,
+  decision?: 'approve' | 'revise',
+): Promise<ReviewTaskApi> {
+  return request<ReviewTaskApi>(`/api/tasks/${encodeURIComponent(taskId)}/answer`, {
+    method: 'POST',
+    body: JSON.stringify({ gate_id: gateId, answer, decision, changes_frozen_facts: false }),
+  });
+}
+
 export async function createFeishuApproval(caseId: string): Promise<FeishuApprovalApi> {
   return request<FeishuApprovalApi>(`/api/cases/${encodeURIComponent(caseId)}/feishu-approval`, {
     method: 'POST',
@@ -488,7 +500,7 @@ export async function waitForReviewTask(
   while (true) {
     const task = await getReviewTask(taskId);
     await onUpdate?.(task);
-    if (task.status === 'succeeded' || task.status === 'failed') return task;
+    if (task.status === 'waiting_input' || task.status === 'succeeded' || task.status === 'failed') return task;
     await new Promise<void>((resolve) => window.setTimeout(resolve, TASK_POLL_INTERVAL_MS));
   }
 }

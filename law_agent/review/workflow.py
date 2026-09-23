@@ -25,7 +25,7 @@ ApprovalDecision = Literal[
 
 CASE_TRANSITIONS: dict[CaseStatus, frozenset[CaseStatus]] = {
     "draft": frozenset({"needs_info", "pending_review"}),
-    "needs_info": frozenset({"draft", "pending_review"}),
+    "needs_info": frozenset({"draft", "pending_review", "review_running"}),
     "pending_review": frozenset({"needs_info", "review_running"}),
     "review_running": frozenset({"needs_info", "pending_feishu_approval", "run_failed"}),
     "pending_feishu_approval": frozenset({"approved", "conditionally_approved", "rejected"}),

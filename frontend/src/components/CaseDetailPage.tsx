@@ -18,12 +18,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CaseStatus, Citation, CitationGroup, RetrievalHit, ReviewApiResponse, ReviewFacts, UserRole } from '../types/api';
+import type { CaseStatus, Citation, CitationGroup, RetrievalHit, ReviewApiResponse, ReviewFacts, ReviewIssue, UserRole } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
 import { setCitationVerdict } from '../store/caseStore';
 import { openCase } from '../store/caseStore';
-import { caseReportDownloadUrl, createFeishuApproval, retryReviewTask, runCase, waitForReviewTask } from '../api/client';
+import { answerReviewTask, caseReportDownloadUrl, createFeishuApproval, retryReviewTask, runCase, waitForReviewTask } from '../api/client';
 import RiskBadge from './RiskBadge';
 import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
@@ -39,6 +39,7 @@ import {
   EVIDENCE_STATUS_LABELS,
   AUTHORITY_LABELS,
   CITATION_ROLE_LABELS,
+  ISSUE_KIND_LABELS,
   citationDisplayLabel,
   DOC_TYPE_LABELS,
   legalBasisLabel,
@@ -52,11 +53,8 @@ import {
   shortId,
 } from '../utils/display';
 
-const DEMO_REPORT_DOWNLOAD_URL = '/reports/crosscomply-case-CC-20260818-42AEC816.pdf';
-
 interface CaseDetailPageProps {
   saved: SavedCase;
-  demoMode?: boolean;
   canEdit: boolean;
   onEdit: (saved: SavedCase) => void;
   /** Called when the user wants to start a fresh review from this case's inputs. */
@@ -110,7 +108,6 @@ function cleanConclusionForDisplay(value: string, removeWhenBoundaryAlreadyShows
 
 export default function CaseDetailPage({
   saved,
-  demoMode = false,
   canEdit,
   onEdit,
   onRerun,
@@ -136,7 +133,6 @@ export default function CaseDetailPage({
     <div className="case-detail">
       <CaseHeader
         saved={completedSaved}
-        demoMode={demoMode}
         onBack={onBack}
         onRerun={() => onRerun(completedSaved.question, completedSaved.materialText)}
         canManageActions={canManageActions}
@@ -152,7 +148,6 @@ export default function CaseDetailPage({
       ) : (
         <ReviewChain
           saved={completedSaved}
-          demoMode={demoMode}
           onVerdictChange={handleVerdict}
           viewerRole={viewerRole}
           canManageActions={canManageActions}
@@ -315,6 +310,8 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
             <div><span>执行模型</span><strong>{reviewTask.model_id}</strong></div>
             <div><span>执行次数</span><strong>{reviewTask.attempt_count}</strong></div>
           </div>
+          {reviewTask.agent_state?.plan?.length ? <div className="enterprise-callout"><strong>Agent 当前计划</strong><ol>{reviewTask.agent_state.plan.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ol></div> : null}
+          {reviewTask.steps?.length ? <div className="enterprise-materials">{reviewTask.steps.map((step) => <div key={step.number}><span><strong>{step.summary}</strong><small>{step.action}</small></span><span><code>#{step.number}</code></span></div>)}</div> : null}
           {reviewTask.status === 'failed' ? <div className="enterprise-callout enterprise-callout--danger"><strong>{reviewTask.error_category || '审查任务失败'}</strong><span>{reviewTask.error_message || '可由审核人发起重试，失败节点和记录已保留。'}</span></div> : null}
         </article>
       ) : null}
@@ -349,6 +346,7 @@ function CaseWorkflowActions({
   setError,
   compact = false,
 }: CaseWorkflowActionsProps): JSX.Element | null {
+  const [agentAnswer, setAgentAnswer] = useState('');
   if (!canManage) return null;
 
   const execute = async (name: string, action: () => Promise<void>): Promise<void> => {
@@ -394,16 +392,39 @@ function CaseWorkflowActions({
     });
   };
 
+  const resumeAgent = (decision?: 'approve' | 'revise'): void => {
+    const task = saved.reviewTask;
+    const gateId = task?.agent_state?.gate_id;
+    const isPlanGate = Boolean(gateId?.startsWith('plan_'));
+    if (!task || !gateId || (!isPlanGate && !agentAnswer.trim())) return;
+    if (decision === 'revise' && !agentAnswer.trim()) return;
+    void execute('answer', async () => {
+      const answer = agentAnswer.trim() || '批准该调查计划';
+      const resumed = await answerReviewTask(task.id, gateId, answer, decision);
+      setAgentAnswer('');
+      await openCase(saved.id);
+      await waitForReviewTask(resumed.id, async () => {
+        await openCase(saved.id);
+      });
+      await openCase(saved.id);
+    });
+  };
+
+  const activeTask = Boolean(saved.reviewTask && ['queued', 'running', 'waiting_input'].includes(saved.reviewTask.status));
   const hasAction = saved.status === 'pending_review'
+    || (saved.status === 'needs_info' && !activeTask)
     || saved.status === 'run_failed'
-    || saved.status === 'pending_feishu_approval';
+    || saved.status === 'pending_feishu_approval'
+    || saved.reviewTask?.status === 'waiting_input';
   if (!hasAction && !error) return null;
 
   const controls = (
     <div className="workflow-actions__controls">
       {saved.status === 'pending_review' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '审查运行中…' : '启动证据化审查'}</button> : null}
+      {saved.status === 'needs_info' && !activeTask ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '调查启动中…' : '按最新冻结材料重新调查'}</button> : null}
       {saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? '重新运行中…' : '重试失败任务'}</button> : null}
       {saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
+      {saved.reviewTask?.status === 'waiting_input' ? <div className="enterprise-callout enterprise-callout--warning"><strong>{saved.reviewTask.agent_state?.pending_question || 'Agent 需要补充信息'}</strong><textarea value={agentAnswer} onChange={(event) => setAgentAnswer(event.target.value)} placeholder={saved.reviewTask.agent_state?.gate_id?.startsWith('plan_') ? '如需调整计划，请说明调整要求' : '仅补充调查线索；如会改变冻结事实，请先更新材料并生成新快照'} rows={3} />{saved.reviewTask.agent_state?.gate_id?.startsWith('plan_') ? <div className="workflow-actions__controls"><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={() => resumeAgent('approve')}>{operation === 'answer' ? '正在恢复…' : '确认计划并继续'}</button><button type="button" className="case-header__action-btn" disabled={operation !== null || !agentAnswer.trim()} onClick={() => resumeAgent('revise')}>要求调整计划</button></div> : <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !agentAnswer.trim()} onClick={() => resumeAgent()}>{operation === 'answer' ? '正在恢复…' : '提交线索并继续'}</button>}<small>这里的输入只用于本次调查，不会修改已冻结的规则事实。</small></div> : null}
     </div>
   );
 
@@ -488,6 +509,89 @@ function ReviewRecommendations({ items }: { items: string[] }): JSX.Element | nu
   );
 }
 
+function ReviewIssues({
+  issues,
+  citations,
+  onEvidenceSelect,
+}: {
+  issues: ReviewIssue[];
+  citations: Citation[];
+  onEvidenceSelect: (citationRef: string, label: string) => void;
+}): JSX.Element | null {
+  if (issues.length === 0) return null;
+  return (
+    <section className="report-section review-issues" id="report-issues">
+      <div className="review-issues__heading">
+        <div>
+          <h2>调查与问题</h2>
+          <p>本次调查确认的问题，每条都已核对到材料原文或法源。</p>
+        </div>
+        <span>{issues.length} 项</span>
+      </div>
+      <div className="review-issues__list">
+        {issues.map((issue) => (
+          <article className="review-issue" key={issue.id}>
+            <div className="review-issue__head">
+              <span className={'issue-kind issue-kind--' + issue.kind}>{ISSUE_KIND_LABELS[issue.kind] ?? issue.kind}</span>
+              <h3>{issue.title}</h3>
+            </div>
+            <MarkdownText variant="note" className="review-issue__finding">{issue.finding}</MarkdownText>
+            {issue.material_evidence.length > 0 ? (
+              <div className="review-issue__block">
+                <div className="review-issue__label">材料依据</div>
+                {issue.material_evidence.map((item) => (
+                  <div className="issue-excerpt" key={item.material_version_id + '-' + item.start_offset}>
+                    <div className="issue-excerpt__source">
+                      <strong>{item.logical_name} v{item.version_number}</strong>
+                      <span>{item.filename}</span>
+                    </div>
+                    <blockquote>{item.quote}</blockquote>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {issue.supporting_citation_refs.length > 0 ? (
+              <div className="review-issue__block">
+                <div className="review-issue__label">法律依据</div>
+                <div className="review-issue__citations">
+                  {issue.supporting_citation_refs.map((ref) => {
+                    const citation = citations.find((item) => item.citation_ref === ref);
+                    return (
+                      <button
+                        type="button"
+                        className="review-issue__citation"
+                        key={ref}
+                        onClick={() => onEvidenceSelect(ref, citation?.citation_label ?? ref)}
+                      >
+                        <span className="review-issue__citation-ref">{ref}</span>
+                        <span>{citation?.citation_label ?? citation?.title ?? '法律依据'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+            {issue.unknowns.length > 0 ? (
+              <div className="review-issue__block">
+                <div className="review-issue__label">仍需确认</div>
+                <ul className="review-issue__unknowns">
+                  {issue.unknowns.map((item, index) => <li key={index}>{item}</li>)}
+                </ul>
+              </div>
+            ) : null}
+            {issue.recommended_action ? (
+              <div className="review-issue__block">
+                <div className="review-issue__label">建议处理</div>
+                <MarkdownText variant="note">{issue.recommended_action}</MarkdownText>
+              </div>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ReviewGaps({ blockers = [], manualConfirmations = [] }: { blockers?: string[]; manualConfirmations?: string[] }): JSX.Element | null {
   const blockingItems = Array.from(new Set(blockers.filter(Boolean)));
   const confirmationItems = Array.from(new Set(manualConfirmations.filter(Boolean)));
@@ -567,7 +671,6 @@ function statusLabel(status: CaseStatus): string {
 
 interface CaseHeaderProps {
   saved: SavedCaseWithResponse;
-  demoMode: boolean;
   onBack: () => void;
   onRerun: () => void;
   canManageActions: boolean;
@@ -577,7 +680,7 @@ interface CaseHeaderProps {
   setWorkflowError: (value: string | null) => void;
 }
 
-function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workflowOperation, workflowError, setWorkflowOperation, setWorkflowError }: CaseHeaderProps): JSX.Element {
+function CaseHeader({ saved, onBack, onRerun, canManageActions, workflowOperation, workflowError, setWorkflowOperation, setWorkflowError }: CaseHeaderProps): JSX.Element {
   const [shareOpen, setShareOpen] = useState(false);
   const reportReady = Boolean(saved.report);
   const reportCanGenerate = Boolean(
@@ -595,13 +698,9 @@ function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workfl
         <div className="case-header__actions">
           <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} compact />
           {reportCanGenerate ? (
-            demoMode ? (
-              <a className="case-header__action-btn case-header__action-btn--accent" href={DEMO_REPORT_DOWNLOAD_URL} download>下载演示 PDF</a>
-            ) : (
-              <a className="case-header__action-btn case-header__action-btn--accent" href={caseReportDownloadUrl(saved.id)} download>
-                {reportReady ? '下载完整报告' : '生成完整报告'}
-              </a>
-            )
+            <a className="case-header__action-btn case-header__action-btn--accent" href={caseReportDownloadUrl(saved.id)} download>
+              {reportReady ? '下载完整报告' : '生成完整报告'}
+            </a>
           ) : saved.feishuApproval?.status === 'pending' ? (
             <button type="button" className="case-header__action-btn case-header__action-btn--report-pending" disabled>
               审批完成后生成报告
@@ -611,7 +710,7 @@ function CaseHeader({ saved, demoMode, onBack, onRerun, canManageActions, workfl
           <details className="case-header__more">
             <summary className="case-header__action-btn">更多</summary>
             <div className="case-header__more-menu">
-              {demoMode ? null : <button type="button" onClick={onRerun}>以此为模板重审</button>}
+              <button type="button" onClick={onRerun}>以此为模板重审</button>
               <button type="button" onClick={() => downloadMarkdown(saved)}>导出 Markdown</button>
               <button type="button" onClick={() => downloadHtml(saved)}>导出 HTML</button>
             </div>
@@ -680,19 +779,20 @@ function FailedChain({ response }: { response: Extract<ReviewApiResponse, { stat
 
 interface ReviewChainProps {
   saved: SavedCaseWithResponse;
-  demoMode: boolean;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
   viewerRole: UserRole;
   canManageActions: boolean;
   onOpenRemediationPlan?: () => void;
 }
 
-function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageActions, onOpenRemediationPlan }: ReviewChainProps): JSX.Element {
+function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onOpenRemediationPlan }: ReviewChainProps): JSX.Element {
   const response = saved.response as Extract<ReviewApiResponse, { review_case_id: string }>;
   const result = response.review_result;
+  const issues = result.issues ?? [];
   const facts = response.review_facts;
   const selfCheck = response.evidence_self_check;
   const queries = response.retrieval_queries ?? [];
+  const agent = response.agent;
   const evidenceChunks = response.evidence_chunks ?? [];
   const verdicts = saved.feedback?.citationVerdicts ?? {};
   const [selectedCitationRef, setSelectedCitationRef] = useState<string | null>(null);
@@ -728,6 +828,7 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
   const manualConfirmations = saved.ruleDecision?.determination.manual_confirmation_reasons ?? [];
   const hasReviewGaps = reviewBlockers.length > 0 || manualConfirmations.length > 0;
   const reportSections = useMemo(() => [
+    ...(issues.length > 0 ? [{ id: 'report-issues', label: '调查与问题', secondary: false }] : []),
     { id: 'report-conclusion', label: '审查结论', secondary: false },
     { id: 'report-basis', label: '判断依据', secondary: false },
     ...(riskBoundariesForDisplay.length > 0 ? [{ id: 'report-boundaries', label: '风险边界', secondary: false }] : []),
@@ -735,7 +836,7 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
     { id: 'report-next', label: '建议与后续', secondary: false },
     { id: 'report-review', label: viewerRole === 'requester' ? '报告反馈' : '人工复核', secondary: true },
     { id: 'report-records', label: '报告依据与记录', secondary: true },
-  ], [hasReviewGaps, riskBoundariesForDisplay.length, viewerRole]);
+  ], [hasReviewGaps, issues.length, riskBoundariesForDisplay.length, viewerRole]);
 
   const citations = useMemo(
     () => response.citation_groups.flatMap((group) => group.citations),
@@ -836,6 +937,12 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
           </nav>
         </aside>
         <main className="review-report">
+          <ReviewIssues
+            issues={issues}
+            citations={citations}
+            onEvidenceSelect={handleEvidenceSelect}
+          />
+
           <section className="case-conclusion report-section" id="report-conclusion">
             <div className="case-conclusion__head">
               <RiskBadge level={result.risk_level} />
@@ -920,13 +1027,10 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
                 groups={response.citation_groups}
                 evidenceChunks={evidenceChunks}
                 verdicts={verdicts}
-                readOnly={demoMode}
                 onVerdictChange={onVerdictChange}
                 viewerRole={viewerRole}
               />
-              {demoMode
-                ? <div className="demo-readonly-note">公开演示仅供浏览，人工评价与整改任务需要接入自己的服务端后保存。</div>
-                : <FeedbackPanel saved={saved} />}
+              <FeedbackPanel saved={saved} />
             </div>
           </details>
 
@@ -960,17 +1064,18 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
                     <div className="tag-list">{result.trigger_reasons.map((reason, index) => <span className="tag" key={index}>{reason}</span>)}</div>
                   </div>
                 ) : null}
-                <PipelineStepper
-                  factsCount={facts.data_types.length + (facts.cross_border_transfer ? 1 : 0)}
-                  queryCount={queries.length}
-                  evidenceCount={evidenceCount}
-                  selfCheckStatus={selfCheck.status}
-                  secondRetrieval={selfCheck.second_retrieval_triggered}
-                  riskLevel={result.risk_level}
-                />
+                {agent ? (
+                  <AgentExecutionSummary
+                    plan={agent.plan}
+                    turns={agent.turns}
+                    searches={agent.searches}
+                    evidenceCount={evidenceCount}
+                  />
+                ) : null}
                 <ProcessDetails
                   facts={facts}
                   queries={queries}
+                  agent={agent}
                   selfCheck={selfCheck}
                   evidenceCount={evidenceCount}
                   citationCount={citationCount}
@@ -1005,12 +1110,14 @@ function ReviewChain({ saved, demoMode, onVerdictChange, viewerRole, canManageAc
 function ProcessDetails({
   facts,
   queries,
+  agent,
   selfCheck,
   evidenceCount,
   citationCount,
 }: {
   facts: ReviewFacts;
   queries: NonNullable<Extract<ReviewApiResponse, { review_case_id: string }>['retrieval_queries']>;
+  agent: Extract<ReviewApiResponse, { review_case_id: string }>['agent'];
   selfCheck: Extract<ReviewApiResponse, { review_case_id: string }>['evidence_self_check'];
   evidenceCount: number;
   citationCount: number;
@@ -1055,12 +1162,14 @@ function ProcessDetails({
               {EVIDENCE_STATUS_LABELS[selfCheck.status]}
             </span>
           </div>
-          <div className="selfcheck__row">
-            <span className="selfcheck__label">二次检索</span>
-            <span className="selfcheck__value">
-              {selfCheck.second_retrieval_triggered ? '已触发' : '未触发'}
-            </span>
-          </div>
+          {agent ? (
+            <div className="selfcheck__row">
+              <span className="selfcheck__label">自主追加检索</span>
+              <span className="selfcheck__value">
+                {agent.searches > 1 ? `已进行 ${agent.searches} 轮` : '未触发'}
+              </span>
+            </div>
+          ) : null}
           {evidenceCount > 0 ? (
             <div className="selfcheck__row">
               <span className="selfcheck__label">候选证据</span>
@@ -1288,37 +1397,28 @@ function EvidenceCard({
 }
 
 // ---------------------------------------------------------------------------
-// PipelineStepper — visual pipeline timeline
+// AgentExecutionSummary — actual runtime telemetry, not a fixed workflow
 // ---------------------------------------------------------------------------
 
-interface PipelineStepperProps {
-  factsCount: number;
-  queryCount: number;
+interface AgentExecutionSummaryProps {
+  plan: string[];
+  turns: number;
+  searches: number;
   evidenceCount: number;
-  selfCheckStatus: string;
-  secondRetrieval: boolean;
-  riskLevel: string;
 }
 
-function PipelineStepper({
-  factsCount,
-  queryCount,
+function AgentExecutionSummary({
+  plan,
+  turns,
+  searches,
   evidenceCount,
-  selfCheckStatus,
-  secondRetrieval,
-  riskLevel,
-}: PipelineStepperProps): JSX.Element {
+}: AgentExecutionSummaryProps): JSX.Element {
   const steps: Array<{ label: string; detail: string; tone: 'done' | 'warn' | 'neutral' }> = [
-    { label: '事实抽取', detail: `${factsCount} 项`, tone: 'done' },
-    { label: '查询规划', detail: `${queryCount} 条查询`, tone: queryCount > 0 ? 'done' : 'neutral' },
-    { label: '混合检索', detail: `${evidenceCount} 条证据`, tone: evidenceCount > 0 ? 'done' : 'neutral' },
-    {
-      label: '证据自检',
-      detail: selfCheckStatus === 'sufficient' ? '证据充分' : selfCheckStatus === 'insufficient' ? '证据不足' : '需二次检索',
-      tone: selfCheckStatus === 'sufficient' ? 'done' : selfCheckStatus === 'insufficient' ? 'warn' : 'warn',
-    },
-    { label: '二次检索', detail: secondRetrieval ? '已触发' : '未触发', tone: secondRetrieval ? 'warn' : 'neutral' },
-    { label: '结论生成', detail: riskLabel(riskLevel), tone: riskLevel === 'high' ? 'warn' : 'done' },
+    { label: '计划确认', detail: `${plan.length} 项`, tone: plan.length > 0 ? 'done' : 'neutral' },
+    { label: '自主执行', detail: `${turns} 次决策`, tone: turns > 0 ? 'done' : 'neutral' },
+    { label: '动态检索', detail: `${searches} 轮`, tone: searches > 0 ? 'done' : 'neutral' },
+    { label: '证据归集', detail: `${evidenceCount} 条`, tone: evidenceCount > 0 ? 'done' : 'warn' },
+    { label: '受控交付', detail: '已完成', tone: 'done' },
   ];
 
   return (
@@ -1337,11 +1437,4 @@ function PipelineStepper({
       </div>
     </section>
   );
-}
-
-function riskLabel(level: string): string {
-  if (level === 'high') return '高风险';
-  if (level === 'medium') return '中风险';
-  if (level === 'low') return '低风险';
-  return '证据不足';
 }

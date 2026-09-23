@@ -26,6 +26,7 @@ from law_agent.review.schemas import (
     CitationGroup,
     EvidenceSelfCheck,
     GroundedClaim,
+    IssueKind,
     RetrievalHit,
     RetrievalQuery,
     ReviewFacts,
@@ -33,6 +34,29 @@ from law_agent.review.schemas import (
     RiskLevel,
     SourceEvidencePacket,
 )
+
+
+class MaterialEvidenceDraft(StrictModel):
+    """Material excerpt proposed by the model.
+
+    The model only knows which frozen material it read and what text it saw;
+    ``filename``/``version_number``/offsets are resolved by the finalizer.
+    """
+
+    material_version_id: str
+    quote: str
+
+
+class ReviewIssueDraft(StrictModel):
+    """Issue proposed by the model before deterministic grounding."""
+
+    kind: IssueKind
+    title: str
+    finding: str
+    material_evidence: list[MaterialEvidenceDraft]
+    supporting_chunk_ids: list[str]
+    unknowns: list[str]
+    recommended_action: str
 
 
 class LLMReviewResultDraft(StrictModel):
@@ -46,6 +70,7 @@ class LLMReviewResultDraft(StrictModel):
     missing_information: list[str]
     recommended_actions: list[str]
     risk_boundaries: list[str]
+    issues: list[ReviewIssueDraft] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def claims_required_unless_abstaining(self) -> LLMReviewResultDraft:
@@ -193,7 +218,7 @@ def _sanitize_markdown_text(text: str) -> str:
     return text
 
 
-def _validate_decision_summary(summary: str, *, supported_text: str) -> str:
+def validate_decision_summary(summary: str, *, supported_text: str) -> str:
     """Keep the approval summary plain and bounded by reviewed material/evidence."""
 
     value = summary.strip()
@@ -675,6 +700,7 @@ def build_result_generation_messages(
             "missing_information": ["legal_basis_or_consent", "data_volume_threshold"],
             "recommended_actions": ["确认是否取得单独同意", "确认出境数据规模"],
             "risk_boundaries": ["本结论基于当前材料和已召回证据，不构成正式法律意见"],
+            "issues": [],
         }
         # plain path: keep HEAD instructions exactly as-is (eval stability).
         format_instruction_replacements = [
@@ -867,7 +893,7 @@ def build_review_result_with_deepseek(
                 json.dumps(facts.model_dump(), ensure_ascii=False),
                 *[f"{hit.title}\n{hit.text}" for hit in evidence_hits],
             ])
-            decision_summary = _validate_decision_summary(
+            decision_summary = validate_decision_summary(
                 draft_to_validate.decision_summary,
                 supported_text=supported_summary_text,
             )

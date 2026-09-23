@@ -4,6 +4,7 @@ import hashlib
 
 from pypdf import PdfReader
 
+from law_agent.review.report_data import build_ai_review
 from law_agent.review.reports import (
     AIReviewSummary,
     DecisionReportData,
@@ -13,7 +14,6 @@ from law_agent.review.reports import (
     verify_report_hash,
     write_decision_report,
 )
-from law_agent.review.report_data import build_ai_review
 
 
 def report_data() -> DecisionReportData:

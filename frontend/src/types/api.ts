@@ -159,6 +159,45 @@ export interface GroundedClaim {
   supporting_citation_refs: string[];
 }
 
+/** Kind of investigation finding surfaced by the review. */
+export type IssueKind = 'material_conflict' | 'missing_information' | 'legal_gap';
+
+/**
+ * One verified excerpt from a frozen material version.
+ *
+ * Matches `MaterialEvidenceRef` in `law_agent/review/schemas.py`. The server
+ * resolves filename, version number and character offsets; the UI only shows
+ * them.
+ */
+export interface MaterialEvidenceRef {
+  material_version_id: string;
+  logical_name: string;
+  filename: string;
+  version_number: number;
+  quote: string;
+  start_offset: number;
+  end_offset: number;
+}
+
+/**
+ * One investigation finding shown on the case detail page.
+ *
+ * Matches `ReviewIssue` in `law_agent/review/schemas.py`. `material_conflict`
+ * carries the conflicting excerpts, `legal_gap` carries both material facts
+ * and citable legal refs, `missing_information` carries `unknowns`.
+ */
+export interface ReviewIssue {
+  id: string;
+  kind: IssueKind;
+  title: string;
+  finding: string;
+  material_evidence: MaterialEvidenceRef[];
+  supporting_chunk_ids: string[];
+  supporting_citation_refs: string[];
+  unknowns: string[];
+  recommended_action: string;
+}
+
 /**
  * A specific evidence sufficiency issue detected during self-check.
  *
@@ -278,6 +317,8 @@ export interface ReviewResult {
   citations: Citation[];
   /** Evidence grouped by usage category. */
   applicable_evidence: CitationGroup[];
+  /** Investigation findings grounded in material and legal evidence. */
+  issues: ReviewIssue[];
 }
 
 /** Structured review result returned inside a persisted case. */
@@ -296,6 +337,16 @@ export interface ReviewResponse {
   evidence_chunks: RetrievalHit[];
   /** Source-level evidence packets with representative/supporting/neighbor chunks. */
   source_evidence_packets: SourceEvidencePacket[];
+  /**
+   * Runtime summary produced by the single autonomous compliance Agent.
+   *
+   * Absent on payloads persisted before the Agent runtime existed.
+   */
+  agent?: {
+    plan: string[];
+    turns: number;
+    searches: number;
+  };
 }
 
 /**
@@ -435,7 +486,7 @@ export type CaseStatus =
   | 'rejected'
   | 'run_failed';
 export type ActionStatus = 'open' | 'in_progress' | 'completed';
-export type ReviewTaskStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+export type ReviewTaskStatus = 'queued' | 'running' | 'waiting_input' | 'succeeded' | 'failed';
 
 /**
  * Independent remediation-plan workflow. These models deliberately stay
@@ -661,7 +712,7 @@ export interface RuleDecisionApi {
 export interface ReviewTaskAttemptApi {
   attempt_number: number;
   worker_id: string;
-  status: 'running' | 'succeeded' | 'failed';
+  status: 'running' | 'waiting_input' | 'succeeded' | 'failed';
   failed_node: string | null;
   error_category: string | null;
   error_message: string | null;
@@ -683,6 +734,19 @@ export interface ReviewTaskApi {
   model_id: string;
   data_boundary_summary: Record<string, unknown>;
   result: Record<string, unknown> | null;
+  agent_state: {
+    plan: string[];
+    pending_question: string | null;
+    gate_id: string | null;
+    turns: number;
+    searches: number;
+  } | null;
+  steps: Array<{
+    number: number;
+    action: string;
+    summary: string;
+    observation: Record<string, unknown>;
+  }>;
   attempts: ReviewTaskAttemptApi[];
   created_at: string;
   updated_at: string;

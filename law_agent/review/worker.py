@@ -8,7 +8,8 @@ import time
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from law_agent.review.enterprise_store import ReviewTask
+from law_agent.review.agent import AgentState
+from law_agent.review.enterprise_store import ReviewTask, RuleSnapshot
 from law_agent.review.llm import ReviewWorkflowFailed
 
 
@@ -16,7 +17,12 @@ class ReviewTaskQueue(Protocol):
     def claim_next_task(self, *, worker_id: str) -> ReviewTask | None: ...
 
     def complete_task(
-        self, task_id: str, *, result: dict[str, Any], final_node: str
+        self,
+        task_id: str,
+        *,
+        result: dict[str, Any],
+        final_node: str,
+        expected_attempt: int | None = None,
     ) -> ReviewTask: ...
 
     def fail_task(
@@ -26,7 +32,18 @@ class ReviewTaskQueue(Protocol):
         failed_node: str,
         error_category: str,
         error_message: str,
+        expected_attempt: int | None = None,
     ) -> ReviewTask: ...
+
+    def pause_task(
+        self,
+        task_id: str,
+        *,
+        state: dict[str, Any],
+        expected_attempt: int | None = None,
+    ) -> ReviewTask: ...
+
+    def get_task(self, task_id: str) -> ReviewTask | None: ...
 
     def get_material_snapshot(self, snapshot_id: str): ...
 
@@ -41,10 +58,11 @@ class ReviewWorker:
         *,
         queue: ReviewTaskQueue,
         worker_id: str,
-        execute: Callable[[ReviewTask], dict[str, Any]],
+        execute: Callable[[ReviewTask], dict[str, Any] | AgentState],
         on_started: Callable[[ReviewTask], None] | None = None,
         on_succeeded: Callable[[ReviewTask], None] | None = None,
         on_failed: Callable[[ReviewTask], None] | None = None,
+        on_waiting: Callable[[ReviewTask], None] | None = None,
     ) -> None:
         self._queue = queue
         self._worker_id = worker_id
@@ -52,42 +70,108 @@ class ReviewWorker:
         self._on_started = on_started or (lambda _task: None)
         self._on_succeeded = on_succeeded or (lambda _task: None)
         self._on_failed = on_failed or (lambda _task: None)
+        self._on_waiting = on_waiting or (lambda _task: None)
 
     def run_once(self) -> ReviewTask | None:
         task = self._queue.claim_next_task(worker_id=self._worker_id)
         if task is None:
             return None
-        self._on_started(task)
+        claimed_attempt = task.attempt_count
         try:
+            self._on_started(task)
             result = self._execute(task)
-        except ReviewWorkflowFailed as exc:
-            failed = self._queue.fail_task(
+            if isinstance(result, AgentState):
+                if result.status == "waiting_input":
+                    waiting = self._queue.pause_task(
+                        task.id,
+                        state=result.model_dump(mode="json"),
+                        expected_attempt=claimed_attempt,
+                    )
+                    self._on_waiting(waiting)
+                    return waiting
+                if result.status != "completed" or result.result is None:
+                    raise RuntimeError(f"Agent returned non-terminal status: {result.status}")
+                result_payload = result.result
+            else:
+                result_payload = result
+            completed = self._queue.complete_task(
                 task.id,
+                result=result_payload,
+                final_node="completed",
+                expected_attempt=claimed_attempt,
+            )
+            self._on_succeeded(completed)
+            return completed
+        except ReviewWorkflowFailed as exc:
+            return self._persist_failure(
+                task,
                 failed_node=exc.failed_node,
                 error_category=exc.reason,
                 error_message=exc.message,
+                expected_attempt=claimed_attempt,
             )
-            self._on_failed(failed)
-            return failed
         except Exception as exc:  # noqa: BLE001 - worker must persist unexpected failures
-            failed = self._queue.fail_task(
-                task.id,
+            return self._persist_failure(
+                task,
                 failed_node=task.current_node or "worker",
                 error_category=exc.__class__.__name__,
                 error_message=str(exc),
+                expected_attempt=claimed_attempt,
             )
-            self._on_failed(failed)
-            return failed
-        completed = self._queue.complete_task(task.id, result=result, final_node="completed")
-        self._on_succeeded(completed)
-        return completed
+
+    def _persist_failure(
+        self,
+        task: ReviewTask,
+        *,
+        failed_node: str,
+        error_category: str,
+        error_message: str,
+        expected_attempt: int,
+    ) -> ReviewTask:
+        try:
+            failed = self._queue.fail_task(
+                task.id,
+                failed_node=failed_node,
+                error_category=error_category,
+                error_message=error_message,
+                expected_attempt=expected_attempt,
+            )
+        except ValueError:
+            current = self._queue.get_task(task.id)
+            if current is None:
+                raise
+            return current
+        self._on_failed(failed)
+        return failed
+
+
+def completion_has_missing_information(
+    task: ReviewTask,
+    rule_snapshot: RuleSnapshot | None,
+) -> bool:
+    """Keep unresolved frozen rules from being promoted to approval."""
+
+    determination = rule_snapshot.determination if rule_snapshot is not None else {}
+    review_result = (task.result or {}).get("review_result") or {}
+    return bool(
+        rule_snapshot is None
+        or determination.get("status") != "determined"
+        or determination.get("needs_info")
+        or review_result.get("missing_information")
+    )
+
+
+def is_plan_gate(task: ReviewTask) -> bool:
+    gate_id = (task.agent_state or {}).get("gate_id")
+    return isinstance(gate_id, str) and gate_id.startswith("plan_")
 
 
 def main() -> None:
     """Run the production worker until the container is stopped."""
 
     from law_agent.config import load_service_config
-    from law_agent.review.api import _run_review, create_app
+    from law_agent.review.agent_runtime import execute_agent_task
+    from law_agent.review.api import create_app
     from law_agent.review.case_store import PostgresCaseStore
     from law_agent.review.enterprise_store import PostgresEnterpriseStore
     from law_agent.review.workflow import next_status_after_review
@@ -98,7 +182,7 @@ def main() -> None:
     app = create_app(case_store=case_store)
     case_store.initialize()
 
-    def execute(task: ReviewTask) -> dict[str, Any]:
+    def execute(task: ReviewTask) -> AgentState:
         case = case_store.get_case(task.case_id)
         if case is None:
             raise RuntimeError(f"审查任务引用的案件不存在：{task.case_id}")
@@ -108,20 +192,20 @@ def main() -> None:
         versions = [queue.get_material_version(item) for item in snapshot.version_ids]
         if any(item is None or not (item.parsed_text or "").strip() for item in versions):
             raise RuntimeError("材料快照中存在未完成解析的版本")
+        frozen_versions = [item for item in versions if item is not None]
         frozen_material = "\n\n".join(
-            f"【{item.logical_name} v{item.version_number}】\n{item.parsed_text}"
-            for item in versions
-            if item is not None
+            f"【材料 {item.logical_name} v{item.version_number} | {item.id}】\n{item.parsed_text}"
+            for item in frozen_versions
         )
-        response = _run_review(
-            app,
-            {
-                **case,
-                "material_text": frozen_material,
-                "material_source": f"material_snapshot:{snapshot.id}",
-            },
+        return execute_agent_task(
+            task,
+            store=queue,
+            goal=case["question"],
+            material=frozen_material,
+            material_versions=frozen_versions,
+            chunks_path=app.state.chunks_path,
+            rerank_mode=case["rerank_mode"],
         )
-        return response.model_dump(mode="json")
 
     def actor(case: dict[str, Any]) -> str:
         return case.get("owner_id") or case["created_by"]
@@ -146,8 +230,10 @@ def main() -> None:
         if case is None or task.result is None:
             return
         review_result = task.result.get("review_result") or {}
-        missing = review_result.get("missing_information") or []
-        final_status = next_status_after_review(has_missing_information=bool(missing))
+        rule_snapshot = queue.get_rule_snapshot(task.rule_snapshot_id)
+        final_status = next_status_after_review(
+            has_missing_information=completion_has_missing_information(task, rule_snapshot)
+        )
         case_store.update_case(
             task.case_id,
             status=final_status,
@@ -182,6 +268,25 @@ def main() -> None:
             },
         )
 
+    def on_waiting(task: ReviewTask) -> None:
+        case = case_store.get_case(task.case_id)
+        if case is None:
+            return
+        next_status = "review_running" if is_plan_gate(task) else "needs_info"
+        case_store.update_case(task.case_id, status=next_status)
+        case_store.add_event(
+            task.case_id,
+            actor(case),
+            event_type="agent_waiting_input",
+            from_status="review_running",
+            to_status=next_status,
+            payload={
+                "task_id": task.id,
+                "gate_id": (task.agent_state or {}).get("gate_id"),
+                "question": (task.agent_state or {}).get("pending_question"),
+            },
+        )
+
     worker_id = os.getenv("CROSSCOMPLY_WORKER_ID") or f"{socket.gethostname()}-{os.getpid()}"
     poll_seconds = max(0.2, float(os.getenv("CROSSCOMPLY_WORKER_POLL_SECONDS", "2")))
     worker = ReviewWorker(
@@ -191,6 +296,7 @@ def main() -> None:
         on_started=on_started,
         on_succeeded=on_succeeded,
         on_failed=on_failed,
+        on_waiting=on_waiting,
     )
     while True:
         if worker.run_once() is None:

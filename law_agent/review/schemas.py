@@ -35,6 +35,7 @@ EvidenceIssueType = Literal[
     "cross_border_mismatch",
     "critical_facts_missing",
 ]
+IssueKind = Literal["material_conflict", "missing_information", "legal_gap"]
 
 
 class ReviewFacts(StrictModel):
@@ -218,6 +219,47 @@ class GroundedClaim(StrictModel):
     supporting_citation_refs: list[str] = Field(default_factory=list)
 
 
+class MaterialEvidenceRef(StrictModel):
+    """One verified excerpt from a frozen material version.
+
+    ``start_offset``/``end_offset`` are computed by the finalizer after the
+    quote is located in the frozen ``parsed_text``; the model never produces
+    them.
+    """
+
+    material_version_id: str
+    logical_name: str
+    filename: str
+    version_number: int
+    quote: str
+    start_offset: int
+    end_offset: int
+
+
+class ReviewIssue(StrictModel):
+    """One investigation finding surfaced to the case detail page.
+
+    ``kind`` decides which evidence is mandatory:
+
+    * ``material_conflict`` requires at least two distinct grounded material
+      excerpts;
+    * ``legal_gap`` requires both a grounded material excerpt and a citable
+      legal chunk from the current evidence set;
+    * ``missing_information`` requires at least one unresolved unknown and may
+      carry context excerpts.
+    """
+
+    id: str
+    kind: IssueKind
+    title: str
+    finding: str
+    material_evidence: list[MaterialEvidenceRef]
+    supporting_chunk_ids: list[str]
+    supporting_citation_refs: list[str]
+    unknowns: list[str]
+    recommended_action: str
+
+
 class ReviewResult(StrictModel):
     """Structured review result produced from facts and evidence."""
 
@@ -235,6 +277,7 @@ class ReviewResult(StrictModel):
     claims: list[GroundedClaim] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     applicable_evidence: list[CitationGroup] = Field(default_factory=list)
+    issues: list[ReviewIssue] = Field(default_factory=list)
 
 
 class ReviewCase(StrictModel):

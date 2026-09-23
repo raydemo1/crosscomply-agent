@@ -11,6 +11,7 @@ import type {
   ClauseCitationRole,
   EvidenceStatus,
   EvidenceIssueType,
+  IssueKind,
   RetrievalQueryType,
   RiskLevel,
 } from '../types/api';
@@ -110,6 +111,12 @@ export const EVIDENCE_ISSUE_LABELS: Record<EvidenceIssueType, string> = {
   only_auxiliary_evidence: '仅有辅助证据',
   cross_border_mismatch: '跨境场景不匹配',
   critical_facts_missing: '关键事实缺失',
+};
+
+export const ISSUE_KIND_LABELS: Record<IssueKind, string> = {
+  material_conflict: '材料冲突',
+  missing_information: '信息缺口',
+  legal_gap: '合规缺口',
 };
 
 export const QUERY_TYPE_LABELS: Record<RetrievalQueryType, string> = {

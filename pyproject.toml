@@ -17,6 +17,7 @@ dependencies = [
 dev = [
   "pytest>=8.0",
   "httpx2>=2.0.0",
+  "pypdf>=5.0",
 ]
 service = [
   "alembic>=1.13",

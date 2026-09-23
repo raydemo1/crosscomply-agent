@@ -18,7 +18,7 @@ from psycopg.types.json import Jsonb
 from law_agent.review.case_store import utc_now
 
 ParseStatus = Literal["pending", "parsing", "ready", "failed"]
-TaskStatus = Literal["queued", "running", "succeeded", "failed"]
+TaskStatus = Literal["queued", "running", "waiting_input", "succeeded", "failed"]
 DEFAULT_TASK_LEASE_SECONDS = 2 * 60 * 60
 
 
@@ -84,7 +84,7 @@ class RuleSnapshot:
 class TaskAttempt:
     attempt_number: int
     worker_id: str
-    status: Literal["running", "succeeded", "failed"] = "running"
+    status: Literal["running", "waiting_input", "succeeded", "failed"] = "running"
     failed_node: str | None = None
     error_category: str | None = None
     error_message: str | None = None
@@ -107,6 +107,8 @@ class ReviewTask:
     error_message: str | None = None
     attempt_count: int = 0
     result: dict[str, Any] | None = None
+    agent_state: dict[str, Any] | None = None
+    steps: list[dict[str, Any]] = field(default_factory=list)
     attempts: list[TaskAttempt] = field(default_factory=list)
     lease_expires_at: str | None = None
     created_at: str = field(default_factory=utc_now)
@@ -295,7 +297,7 @@ class InMemoryEnterpriseStore:
             if existing_id is not None:
                 return self.tasks[existing_id]
             if any(
-                item.case_id == case_id and item.status in {"queued", "running"}
+                item.case_id == case_id and item.status in {"queued", "running", "waiting_input"}
                 for item in self.tasks.values()
             ):
                 raise ValueError("案件已有排队中或运行中的审查任务")
@@ -344,10 +346,15 @@ class InMemoryEnterpriseStore:
         failed_node: str,
         error_category: str,
         error_message: str,
+        expected_attempt: int | None = None,
     ) -> ReviewTask:
         with self._lock:
             task = self.tasks[task_id]
-            if task.status != "running" or not task.attempts:
+            if (
+                task.status != "running"
+                or not task.attempts
+                or (expected_attempt is not None and task.attempt_count != expected_attempt)
+            ):
                 raise ValueError("只有运行中的审查任务可以标记失败")
             task.status = "failed"
             task.lease_expires_at = None
@@ -361,6 +368,68 @@ class InMemoryEnterpriseStore:
             attempt.error_message = error_message
             attempt.finished_at = utc_now()
             task.updated_at = attempt.finished_at
+            return task
+
+    def checkpoint_agent(
+        self,
+        task_id: str,
+        *,
+        state: dict[str, Any],
+        expected_attempt: int | None = None,
+    ) -> ReviewTask:
+        with self._lock:
+            task = self.tasks[task_id]
+            if task.status != "running" or (
+                expected_attempt is not None and task.attempt_count != expected_attempt
+            ):
+                raise ValueError("只有运行中的审查任务可以保存 Agent 进度")
+            task.agent_state = _json_copy(state)
+            task.steps = _json_copy({"items": state.get("steps", [])})["items"]
+            steps = state.get("steps") or []
+            task.current_node = steps[-1].get("action") if steps else "agent_decision"
+            task.lease_expires_at = (
+                datetime.now(UTC) + timedelta(seconds=DEFAULT_TASK_LEASE_SECONDS)
+            ).isoformat()
+            task.updated_at = utc_now()
+            return task
+
+    def pause_task(
+        self,
+        task_id: str,
+        *,
+        state: dict[str, Any],
+        expected_attempt: int | None = None,
+    ) -> ReviewTask:
+        with self._lock:
+            task = self.tasks[task_id]
+            if (
+                task.status != "running"
+                or not task.attempts
+                or (expected_attempt is not None and task.attempt_count != expected_attempt)
+            ):
+                raise ValueError("只有运行中的审查任务可以等待人工输入")
+            task.agent_state = _json_copy(state)
+            task.steps = _json_copy({"items": state.get("steps", [])})["items"]
+            steps = state.get("steps") or []
+            task.current_node = steps[-1].get("action") if steps else "agent_decision"
+            task.status = "waiting_input"
+            task.lease_expires_at = None
+            attempt = task.attempts[-1]
+            attempt.status = "waiting_input"
+            attempt.finished_at = utc_now()
+            task.updated_at = attempt.finished_at
+            return task
+
+    def resume_task(self, task_id: str, *, state: dict[str, Any]) -> ReviewTask:
+        with self._lock:
+            task = self.tasks[task_id]
+            if task.status != "waiting_input":
+                raise ValueError("只有等待人工输入的审查任务可以恢复")
+            task.status = "queued"
+            task.agent_state = _json_copy(state)
+            task.steps = _json_copy({"items": state.get("steps", [])})["items"]
+            task.current_node = "human_input"
+            task.updated_at = utc_now()
             return task
 
     def retry_task(self, task_id: str) -> ReviewTask:
@@ -388,10 +457,15 @@ class InMemoryEnterpriseStore:
         *,
         result: dict[str, Any],
         final_node: str,
+        expected_attempt: int | None = None,
     ) -> ReviewTask:
         with self._lock:
             task = self.tasks[task_id]
-            if task.status != "running" or not task.attempts:
+            if (
+                task.status != "running"
+                or not task.attempts
+                or (expected_attempt is not None and task.attempt_count != expected_attempt)
+            ):
                 raise ValueError("只有运行中的审查任务可以标记完成")
             task.status = "succeeded"
             task.lease_expires_at = None
@@ -815,7 +889,7 @@ class PostgresEnterpriseStore:
             cur.execute(
                 """
                 SELECT id FROM review_tasks
-                WHERE case_id = %s AND status IN ('queued', 'running')
+                WHERE case_id = %s AND status IN ('queued', 'running', 'waiting_input')
                   AND idempotency_key <> %s
                 FOR UPDATE
                 """,
@@ -925,6 +999,7 @@ class PostgresEnterpriseStore:
         failed_node: str,
         error_category: str,
         error_message: str,
+        expected_attempt: int | None = None,
     ) -> ReviewTask:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
@@ -933,9 +1008,13 @@ class PostgresEnterpriseStore:
                 SET status = 'failed', current_node = %s, error_category = %s,
                     error_message = %s, lease_expires_at = NULL, updated_at = now()
                 WHERE id = %s AND status = 'running'
+                  AND (%s IS NULL OR attempt_count = %s)
                 RETURNING *
                 """,
-                (failed_node, error_category, error_message, task_id),
+                (
+                    failed_node, error_category, error_message, task_id,
+                    expected_attempt, expected_attempt,
+                ),
             )
             row = cur.fetchone()
             if row is None:
@@ -950,6 +1029,122 @@ class PostgresEnterpriseStore:
                 """,
                 (failed_node, error_category, error_message, task_id, row["attempt_count"]),
             )
+            attempts = self._load_attempts(cur, task_id)
+            conn.commit()
+        return self._review_task(row, attempts)
+
+    def checkpoint_agent(
+        self,
+        task_id: str,
+        *,
+        state: dict[str, Any],
+        expected_attempt: int | None = None,
+    ) -> ReviewTask:
+        with self._connect() as conn, conn.cursor() as cur:
+            steps = state.get("steps") or []
+            current_node = steps[-1].get("action") if steps else "agent_decision"
+            cur.execute(
+                """
+                UPDATE review_tasks
+                SET agent_state_json = %s, current_node = %s,
+                    lease_expires_at = now() + (%s * interval '1 second'),
+                    updated_at = now()
+                WHERE id = %s AND status = 'running'
+                  AND (%s IS NULL OR attempt_count = %s)
+                RETURNING *
+                """,
+                (
+                    Jsonb(state), current_node, DEFAULT_TASK_LEASE_SECONDS, task_id,
+                    expected_attempt, expected_attempt,
+                ),
+            )
+            row = cur.fetchone()
+            if row is None:
+                self._raise_invalid_state(cur, task_id, "只有运行中的审查任务可以保存 Agent 进度")
+            for step in steps:
+                cur.execute(
+                    """
+                    INSERT INTO review_task_steps (
+                        id, task_id, step_number, action, summary, observation_json
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (task_id, step_number) DO NOTHING
+                    """,
+                    (
+                        _identifier("task_step"), task_id, step["number"], step["action"],
+                        step["summary"], Jsonb(step.get("observation") or {}),
+                    ),
+                )
+            attempts = self._load_attempts(cur, task_id)
+            conn.commit()
+        assert row is not None
+        return self._review_task(row, attempts)
+
+    def pause_task(
+        self,
+        task_id: str,
+        *,
+        state: dict[str, Any],
+        expected_attempt: int | None = None,
+    ) -> ReviewTask:
+        with self._connect() as conn, conn.cursor() as cur:
+            steps = state.get("steps") or []
+            current_node = steps[-1].get("action") if steps else "agent_decision"
+            cur.execute(
+                """
+                UPDATE review_tasks
+                SET status = 'waiting_input', agent_state_json = %s,
+                    current_node = %s, lease_expires_at = NULL, updated_at = now()
+                WHERE id = %s AND status = 'running'
+                  AND (%s IS NULL OR attempt_count = %s)
+                RETURNING *
+                """,
+                (Jsonb(state), current_node, task_id, expected_attempt, expected_attempt),
+            )
+            row = cur.fetchone()
+            if row is None:
+                self._raise_invalid_state(cur, task_id, "只有运行中的审查任务可以等待人工输入")
+            assert row is not None
+            for step in steps:
+                cur.execute(
+                    """
+                    INSERT INTO review_task_steps (
+                        id, task_id, step_number, action, summary, observation_json
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (task_id, step_number) DO NOTHING
+                    """,
+                    (
+                        _identifier("task_step"), task_id, step["number"], step["action"],
+                        step["summary"], Jsonb(step.get("observation") or {}),
+                    ),
+                )
+            cur.execute(
+                """
+                UPDATE review_task_attempts
+                SET status = 'waiting_input', finished_at = now()
+                WHERE task_id = %s AND attempt_number = %s AND status = 'running'
+                """,
+                (task_id, row["attempt_count"]),
+            )
+            attempts = self._load_attempts(cur, task_id)
+            conn.commit()
+        return self._review_task(row, attempts)
+
+    def resume_task(self, task_id: str, *, state: dict[str, Any]) -> ReviewTask:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE review_tasks
+                SET status = 'queued', agent_state_json = %s,
+                    current_node = 'human_input', updated_at = now()
+                WHERE id = %s AND status = 'waiting_input'
+                RETURNING *
+                """,
+                (Jsonb(state), task_id),
+            )
+            row = cur.fetchone()
+            if row is None:
+                self._raise_invalid_state(cur, task_id, "只有等待人工输入的审查任务可以恢复")
+            assert row is not None
             attempts = self._load_attempts(cur, task_id)
             conn.commit()
         return self._review_task(row, attempts)
@@ -979,6 +1174,7 @@ class PostgresEnterpriseStore:
         *,
         result: dict[str, Any],
         final_node: str,
+        expected_attempt: int | None = None,
     ) -> ReviewTask:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
@@ -988,9 +1184,10 @@ class PostgresEnterpriseStore:
                     error_category = NULL, error_message = NULL,
                     lease_expires_at = NULL, updated_at = now()
                 WHERE id = %s AND status = 'running'
+                  AND (%s IS NULL OR attempt_count = %s)
                 RETURNING *
                 """,
-                (final_node, Jsonb(result), task_id),
+                (final_node, Jsonb(result), task_id, expected_attempt, expected_attempt),
             )
             row = cur.fetchone()
             if row is None:
@@ -1118,6 +1315,16 @@ class PostgresEnterpriseStore:
             error_message=row["error_message"],
             attempt_count=row["attempt_count"],
             result=(_json_copy(row["result_json"]) if row.get("result_json") is not None else None),
+            agent_state=(
+                _json_copy(row["agent_state_json"])
+                if row.get("agent_state_json") is not None
+                else None
+            ),
+            steps=(
+                _json_copy({"items": (row.get("agent_state_json") or {}).get("steps", [])})[
+                    "items"
+                ]
+            ),
             attempts=attempts,
             lease_expires_at=(
                 _timestamp(row["lease_expires_at"])
