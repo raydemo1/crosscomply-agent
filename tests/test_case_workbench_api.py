@@ -126,6 +126,75 @@ def test_login_creates_session_and_persists_case(app) -> None:
         assert listing.json()["total"] == 1
 
 
+def test_intake_extraction_prefills_material_and_asks_only_blocking_facts(app, monkeypatch) -> None:
+    """The Agent reads the material before the case exists and returns only blocking facts."""
+
+    def fake_extract(material_text: str, question: str | None = None, **_: object) -> ReviewFacts:
+        assert "新加坡云服务商" in material_text
+        assert question == "这个业务是否需要数据出境安全评估？"
+        return ReviewFacts(
+            business_activity="推荐系统",
+            data_types=["手机号", "定位信息"],
+            sensitive_personal_info=True,
+            cross_border_transfer=True,
+            overseas_recipient="新加坡云服务商",
+            processing_purpose="个性化推荐",
+        )
+
+    monkeypatch.setattr("law_agent.review.http.cases.extract_facts_with_deepseek", fake_extract)
+
+    with TestClient(app) as client:
+        _login(client, "requester@crosscomply.local")
+        response = client.post(
+            "/api/intake-extraction",
+            data={
+                "question": "这个业务是否需要数据出境安全评估？",
+                "material_text": "我们将境内用户手机号和定位信息发送给新加坡云服务商。",
+            },
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+
+        assert body["intake"]["business_activity"] == "推荐系统"
+        assert body["intake"]["data_types"] == ["手机号", "定位信息"]
+        assert body["intake"]["sensitive_personal_info"] is True
+        assert body["intake"]["cross_border_transfer"] is True
+        assert body["intake"]["overseas_recipient"] == "新加坡云服务商"
+
+        # Only facts that block a conclusion come back, and each carries a reason.
+        keys = [item["key"] for item in body["missing"]]
+        assert keys == [
+            "important_data",
+            "is_ciio",
+            "cumulative_personal_information_subjects",
+            "cumulative_sensitive_personal_information_subjects",
+        ]
+        assert all(item["reason"] for item in body["missing"])
+
+        # Reading material must never create a case as a side effect.
+        assert client.get("/api/cases").json()["total"] == 0
+
+
+def test_intake_extraction_requires_material(app) -> None:
+    with TestClient(app) as client:
+        _login(client, "requester@crosscomply.local")
+        response = client.post("/api/intake-extraction", data={"question": "是否需要安全评估？"})
+        assert response.status_code == 422
+        assert "材料" in str(response.json()["detail"])
+
+
+def test_intake_extraction_rejects_unsupported_upload(app) -> None:
+    with TestClient(app) as client:
+        _login(client, "requester@crosscomply.local")
+        response = client.post(
+            "/api/intake-extraction",
+            data={"question": "是否需要安全评估？"},
+            files={"files": ("notes.exe", b"binary", "application/octet-stream")},
+        )
+        assert response.status_code == 422
+        assert response.json()["detail"]["code"] == "unsupported_file_type"
+
+
 def test_role_permissions_and_case_status_flow(app) -> None:
     requester = TestClient(app)
     reviewer = TestClient(app)
@@ -139,6 +208,10 @@ def test_role_permissions_and_case_status_flow(app) -> None:
     )
     assert submitted.status_code == 200
     assert submitted.json()["case"]["facts_confirmed"] is True
+    # 提交即进入审查队列，申请人不需要再等审核人手动启动。
+    assert submitted.json()["case"]["status"] == "review_running"
+    events = requester.get(f"/api/cases/{case_id}/events").json()["items"]
+    assert "review_queued" in {event["event_type"] for event in events}
 
     denied = requester.post(
         f"/api/cases/{case_id}/status",

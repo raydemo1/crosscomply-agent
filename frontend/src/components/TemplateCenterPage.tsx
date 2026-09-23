@@ -8,7 +8,7 @@ import {
   updateCaseTemplate,
   ApiError,
 } from '../api/client';
-import type { CaseIntake, CaseTemplateApi, CaseTemplatePayload } from '../types/api';
+import type { CaseIntake, CaseTemplateApi, CaseTemplatePayload, WorkbenchUser } from '../types/api';
 import './TemplateCenterPage.css';
 
 const EMPTY_INTAKE: CaseIntake = {
@@ -22,6 +22,8 @@ const TEMPLATE_FORMAT = 'crosscomply.case-template';
 
 export interface TemplateCenterPageProps {
   onUseTemplate?: (template: CaseTemplateApi) => void;
+  /** 模板的增删改（新建、编辑、导入、导出、归档）属于管理员工作，只有 admin 可见。 */
+  user?: WorkbenchUser;
 }
 
 interface TemplateDraft {
@@ -29,11 +31,10 @@ interface TemplateDraft {
   description: string;
   question: string;
   intake: CaseIntake;
-  rerank_mode: 'off' | 'embedding';
 }
 
 const EMPTY_DRAFT: TemplateDraft = {
-  name: '', description: '', question: '', intake: { ...EMPTY_INTAKE }, rerank_mode: 'off',
+  name: '', description: '', question: '', intake: { ...EMPTY_INTAKE },
 };
 
 function toDraft(template?: CaseTemplateApi | null): TemplateDraft {
@@ -43,7 +44,6 @@ function toDraft(template?: CaseTemplateApi | null): TemplateDraft {
     description: template.description,
     question: template.question,
     intake: { ...EMPTY_INTAKE, ...template.intake },
-    rerank_mode: template.rerank_mode,
   };
 }
 
@@ -67,7 +67,8 @@ function asExportPayload(template: CaseTemplateApi): Record<string, unknown> {
   };
 }
 
-export default function TemplateCenterPage({ onUseTemplate }: TemplateCenterPageProps): JSX.Element {
+export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCenterPageProps): JSX.Element {
+  const canManageTemplates = user?.role === 'admin';
   const [templates, setTemplates] = useState<CaseTemplateApi[]>([]);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<CaseTemplateApi | null>(null);
@@ -132,7 +133,7 @@ export default function TemplateCenterPage({ onUseTemplate }: TemplateCenterPage
     try {
       const payload: CaseTemplatePayload = {
         name: draft.name.trim(), description: draft.description.trim(), question: draft.question.trim(),
-        intake: draft.intake, rerank_mode: draft.rerank_mode,
+        intake: draft.intake,
       };
       if (editing) await updateCaseTemplate(editing.id, payload);
       else await createCaseTemplate(payload);
@@ -185,7 +186,6 @@ export default function TemplateCenterPage({ onUseTemplate }: TemplateCenterPage
       const payload: CaseTemplatePayload = {
         name: `${value.name.trim()}（导入副本）`, description: typeof value.description === 'string' ? value.description : '',
         question: value.question.trim(), intake: { ...EMPTY_INTAKE, ...(value.intake && typeof value.intake === 'object' ? value.intake : {}) },
-        rerank_mode: value.rerank_mode === 'embedding' ? 'embedding' : 'off',
       };
       setBusy(true);
       await createCaseTemplate(payload);
@@ -204,11 +204,13 @@ export default function TemplateCenterPage({ onUseTemplate }: TemplateCenterPage
         <div>
           <h1 id="template-page-title" className="page-title">使用模板</h1>
         </div>
-        <div className="template-page__actions">
-          <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={(event) => void importTemplate(event)} />
-          <button className="button button--secondary" type="button" onClick={() => importRef.current?.click()} disabled={busy || serviceUnavailable}><Upload size={16} />导入模板</button>
-          <button className="button button--primary" type="button" onClick={openCreate} disabled={serviceUnavailable}><Plus size={17} />新建模板</button>
-        </div>
+        {canManageTemplates ? (
+          <div className="template-page__actions">
+            <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={(event) => void importTemplate(event)} />
+            <button className="button button--secondary" type="button" onClick={() => importRef.current?.click()} disabled={busy || serviceUnavailable}><Upload size={16} />导入模板</button>
+            <button className="button button--primary" type="button" onClick={openCreate} disabled={serviceUnavailable}><Plus size={17} />新建模板</button>
+          </div>
+        ) : null}
       </header>
 
       {message && <div className="template-page__message" role="status">{message}</div>}
@@ -221,25 +223,24 @@ export default function TemplateCenterPage({ onUseTemplate }: TemplateCenterPage
 
       <section className="template-grid" aria-label="模板列表">
         {visibleTemplates.length === 0 ? (
-          <div className="template-empty card"><FileJson size={30} /><h2>{serviceUnavailable ? '模板服务未连接' : '还没有模板'}</h2><p>{serviceUnavailable ? '连接服务端并完成数据库升级后，即可在这里管理可复用的案件字段。' : '把高频审查场景保存下来，下一次新建案件可以直接套用。'}</p><button className="button button--primary" type="button" onClick={openCreate} disabled={serviceUnavailable}><Plus size={16} />新建第一个模板</button></div>
+          <div className="template-empty card"><FileJson size={30} /><h2>{serviceUnavailable ? '模板服务未连接' : canManageTemplates ? '还没有模板' : '还没有可用的模板'}</h2><p>{serviceUnavailable ? (canManageTemplates ? '连接服务端并完成数据库升级后，即可在这里管理可复用的案件字段。' : '连接服务端并完成数据库升级后，即可在这里查看可复用的案件字段。') : canManageTemplates ? '把高频审查场景保存下来，下一次新建案件可以直接套用。' : '模板由管理员维护。你可以先直接新建案件，或请管理员把常用场景加进来。'}</p>{canManageTemplates ? <button className="button button--primary" type="button" onClick={openCreate} disabled={serviceUnavailable}><Plus size={16} />新建第一个模板</button> : null}</div>
         ) : visibleTemplates.map((template) => (
           <article className="template-card card" key={template.id}>
             <div className="template-card__top"><div><h2>{template.name}</h2><p>{template.description || '未填写适用场景说明'}</p></div><span className="template-card__date">更新于 {formatDate(template.updated_at)}</span></div>
             <div className="template-card__question"><span>审查问题</span><strong>{template.question}</strong></div>
             <div className="template-card__meta"><span>字段预设：已保存</span></div>
-            <div className="template-card__actions"><button className="button button--primary" type="button" onClick={() => onUseTemplate?.(template)} disabled={!onUseTemplate || serviceUnavailable}>使用此模板</button><button className="icon-button" type="button" title="编辑模板" aria-label="编辑模板" onClick={() => openEdit(template)} disabled={serviceUnavailable}><Pencil size={17} /></button><button className="icon-button" type="button" title="导出 JSON" aria-label="导出 JSON" onClick={() => exportTemplate(template)} disabled={serviceUnavailable}><Download size={17} /></button><button className="icon-button icon-button--danger" type="button" title="归档模板" aria-label="归档模板" onClick={() => void archive(template)} disabled={busy || serviceUnavailable}><Archive size={17} /></button></div>
+            <div className="template-card__actions"><button className="button button--primary" type="button" onClick={() => onUseTemplate?.(template)} disabled={!onUseTemplate || serviceUnavailable}>使用此模板</button>{canManageTemplates ? <><button className="icon-button" type="button" title="编辑模板" aria-label="编辑模板" onClick={() => openEdit(template)} disabled={serviceUnavailable}><Pencil size={17} /></button><button className="icon-button" type="button" title="导出 JSON" aria-label="导出 JSON" onClick={() => exportTemplate(template)} disabled={serviceUnavailable}><Download size={17} /></button><button className="icon-button icon-button--danger" type="button" title="归档模板" aria-label="归档模板" onClick={() => void archive(template)} disabled={busy || serviceUnavailable}><Archive size={17} /></button></> : null}</div>
           </article>
         ))}
       </section>
 
-      {editorOpen ? (
+      {canManageTemplates && editorOpen ? (
         <div className="template-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
           <section className="template-editor card" role="dialog" aria-modal="true" aria-labelledby="template-editor-title">
             <div className="template-editor__header"><div><h2 id="template-editor-title">{editing ? '编辑模板' : '新建模板'}</h2></div><button className="icon-button" type="button" aria-label="关闭编辑器" onClick={closeEditor}><X size={18} /></button></div>
             <label className="template-field"><span>模板名称</span><input value={draft.name} maxLength={120} onChange={(event) => updateDraft('name', event.target.value)} placeholder="例如：个人信息出境审查" /></label>
             <label className="template-field"><span>适用场景说明</span><input value={draft.description} maxLength={500} onChange={(event) => updateDraft('description', event.target.value)} placeholder="说明什么时候适合使用" /></label>
             <label className="template-field"><span>审查问题</span><textarea value={draft.question} maxLength={4000} onChange={(event) => updateDraft('question', event.target.value)} rows={4} placeholder="例如：这个业务是否需要数据出境安全评估？" /></label>
-            <div className="template-editor__grid"><label className="template-field"><span>依据排序</span><select value={draft.rerank_mode} onChange={(event) => updateDraft('rerank_mode', event.target.value as TemplateDraft['rerank_mode'])}><option value="off">默认排序</option><option value="embedding">增强排序</option></select></label></div>
             <p className="template-editor__note">这里只保存新建案件字段预设，不包含案件材料、审查结论、法源引用或审计记录。</p>
             <div className="template-editor__footer"><button className="button button--secondary" type="button" onClick={closeEditor} disabled={busy}>取消</button><button className="button button--primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? '保存中…' : '保存模板'}</button></div>
           </section>

@@ -660,6 +660,18 @@ export interface RemediationInboxItemApi extends RemediationTaskApi {
   plan_status?: RemediationPlanStatus;
 }
 
+export interface RemediationTaskDraftApi {
+  title: string;
+  description: string;
+  acceptance_criteria: string;
+  priority: RemediationPriority;
+  source_issue_id: string | null;
+  source_recommendation_index: number | null;
+  source_recommendation: string | null;
+  suggested_assignee_role: 'requester' | 'reviewer' | 'admin';
+  suggested_due_days: number;
+}
+
 export interface RemediationPlanCreatePayload {
   tasks: Array<{
     title: string;

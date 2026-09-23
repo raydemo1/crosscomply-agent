@@ -40,6 +40,7 @@ import type {
   RemediationSubmissionApi,
   RemediationSubmissionPayload,
   RemediationTaskApi,
+  RemediationTaskDraftApi,
   RemediationTaskUpdatePayload,
   RevisionProposalApi,
   WorkingDraftApi,
@@ -395,29 +396,11 @@ export interface CreateCaseInput {
   materialText: string;
   materialSource?: string | null;
   intake: CaseIntake;
-  rerankMode: 'off' | 'embedding';
-  file?: File | null;
 }
 
 export async function createCase(input: CreateCaseInput): Promise<CaseDetailApi> {
   if (!input.question.trim()) throw new ApiError(0, '请输入审查问题。', '/api/cases');
-  if (!input.file && !input.materialText.trim()) throw new ApiError(0, '请输入待审查材料。', '/api/cases');
-  if (input.file) validateUploadFile(input.file);
-
-  if (input.file) {
-    const formData = new FormData();
-    formData.append('question', input.question);
-    formData.append('material_text', input.materialText);
-    formData.append('material_source', input.file.name);
-    formData.append('intake_json', JSON.stringify(input.intake));
-    formData.append('rerank_mode', input.rerankMode);
-    formData.append('file', input.file);
-    return request<CaseDetailApi>('/api/cases', {
-      method: 'POST',
-      body: formData,
-      timeoutMs: REVIEW_TIMEOUT_MS,
-    });
-  }
+  if (!input.materialText.trim()) throw new ApiError(0, '请输入待审查材料。', '/api/cases');
   return request<CaseDetailApi>('/api/cases', {
     method: 'POST',
     body: JSON.stringify({
@@ -426,8 +409,27 @@ export async function createCase(input: CreateCaseInput): Promise<CaseDetailApi>
       material_text: input.materialText,
       material_source: input.materialSource ?? null,
       intake: input.intake,
-      rerank_mode: input.rerankMode,
+      rerank_mode: 'off',
     }),
+  });
+}
+
+export interface IntakeExtractionApi {
+  intake: CaseIntake;
+  missing: Array<{ key: string; reason: string }>;
+}
+
+/** Read the material before the case exists, so the user answers only what blocks a conclusion. */
+export async function extractIntake(question: string, materialText: string, files: File[]): Promise<IntakeExtractionApi> {
+  files.forEach(validateUploadFile);
+  const formData = new FormData();
+  formData.append('question', question);
+  formData.append('material_text', materialText);
+  files.forEach((file) => formData.append('files', file));
+  return request<IntakeExtractionApi>('/api/intake-extraction', {
+    method: 'POST',
+    body: formData,
+    timeoutMs: REVIEW_TIMEOUT_MS,
   });
 }
 
@@ -541,11 +543,10 @@ export async function answerReviewTask(
   taskId: string,
   gateId: string,
   answer: string,
-  decision?: 'approve' | 'revise',
 ): Promise<ReviewTaskApi> {
   return request<ReviewTaskApi>(`/api/tasks/${encodeURIComponent(taskId)}/answer`, {
     method: 'POST',
-    body: JSON.stringify({ gate_id: gateId, answer, decision, changes_frozen_facts: false }),
+    body: JSON.stringify({ gate_id: gateId, answer, changes_frozen_facts: false }),
   });
 }
 
@@ -584,6 +585,10 @@ export async function createRemediationPlan(caseId: string, payload: Remediation
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+export async function draftRemediationTasks(caseId: string): Promise<{ items: RemediationTaskDraftApi[]; total: number }> {
+  return request<{ items: RemediationTaskDraftApi[]; total: number }>(`/api/cases/${encodeURIComponent(caseId)}/remediation-task-drafts`, { method: 'POST' });
 }
 
 export async function activateRemediationPlan(planId: string): Promise<RemediationPlanApi> {

@@ -16,6 +16,7 @@ import {
   activateRemediationPlan,
   answerRemediationAssessment,
   createRemediationPlan,
+  draftRemediationTasks,
   getRemediationTask,
   getRemediationPlan,
   listAssignableUsers,
@@ -235,6 +236,7 @@ function RemediationPlanOverview({ plan }: { plan: RemediationPlanApi }): JSX.El
 function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, onCreated, onCancel }: { caseId: string; user: WorkbenchUser; recommendations: string[]; issues: ReviewIssue[]; assignableUsers: RemediationAssigneeApi[]; onCreated: (plan: RemediationPlanApi) => void; onCancel: () => void }): JSX.Element {
   const [drafts, setDrafts] = useState<DraftTask[]>([{ ...EMPTY_DRAFT }]);
   const [saving, setSaving] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const updateDraft = (index: number, patch: Partial<DraftTask>): void => setDrafts((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
   const addDraft = (): void => setDrafts((items) => [...items, { ...EMPTY_DRAFT }]);
@@ -243,6 +245,26 @@ function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, o
     const issue = issues.find((item) => item.id === issueId);
     if (!issue) { updateDraft(index, { source_issue_id: null }); return; }
     updateDraft(index, { source_issue_id: issue.id, title: issue.title, acceptance_criteria: issue.recommended_action || '' });
+  };
+  const draftWithAgent = async (): Promise<void> => {
+    setDrafting(true); setError(null);
+    try {
+      const result = await draftRemediationTasks(caseId);
+      if (result.items.length === 0) { setError('Agent 没有从当前审查结论中提出可交接的整改任务。'); return; }
+      const today = Date.now();
+      setDrafts(result.items.map((item) => ({
+        title: item.title,
+        description: item.description,
+        acceptance_criteria: item.acceptance_criteria,
+        source_recommendation_index: item.source_recommendation_index,
+        source_issue_id: item.source_issue_id,
+        priority: item.priority,
+        assignee_id: assignableUsers.find((candidate) => candidate.role === item.suggested_assignee_role)?.id ?? '',
+        due_date: new Date(today + item.suggested_due_days * 86400000).toISOString().slice(0, 10),
+      })));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '无法让 Agent 起草整改任务');
+    } finally { setDrafting(false); }
   };
   const save = async (): Promise<void> => {
     if (drafts.some((draft) => !draft.title.trim() || !draft.assignee_id || !draft.due_date)) { setError('每项整改任务都需要填写名称、负责人和截止日期。'); return; }
@@ -253,7 +275,8 @@ function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, o
   return (
     <div className="card remediation-builder">
       <div className="remediation-section-heading"><div><span className="remediation-kicker">审核人操作</span><h2>把审查问题变成可交接任务</h2></div><button type="button" className="remediation-close" onClick={onCancel}>取消</button></div>
-      <p className="remediation-builder__intro">只有你明确选择并补齐负责人、期限的事项，才会进入整改计划；审查问题不会自动变成任务。</p>
+      <p className="remediation-builder__intro">可以先让 Agent 按审查结论起草任务，再逐项确认负责人和期限；只有你确认后建立的事项才会进入整改计划，审查问题不会自动变成任务。</p>
+      <div className="remediation-builder__draft-action"><button type="button" className="remediation-button" disabled={drafting} onClick={() => void draftWithAgent()}>{drafting ? '正在起草…' : '让 Agent 起草任务'}</button><span className="remediation-muted">起草结果会覆盖下方草稿，仍可自由修改或删除。</span></div>
       {drafts.map((draft, index) => (
         <div className="remediation-builder__item" key={index}>
           <div className="remediation-builder__item-head"><strong>任务 {index + 1}</strong>{drafts.length > 1 ? <button type="button" className="remediation-text-button" onClick={() => removeDraft(index)}>移除</button> : null}</div>

@@ -6,7 +6,7 @@ import type { Page } from './components/Sidebar';
 import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
 import LoginPage from './components/LoginPage';
-import { ApiError, createCase, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
+import { ApiError, createCase, extractIntake, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
 import { EMPTY_INTAKE, openCase, refreshCases, useCaseStore } from './store/caseStore';
 
 const GovernanceConsolePage = lazy(() => import('./components/GovernanceConsolePage'));
@@ -55,9 +55,12 @@ function toComplianceFacts(intake: CaseIntake): ComplianceFactsApi {
   };
 }
 
-function materialOriginal(material: string, file?: File | null): File {
-  if (file) return file;
+function materialOriginal(material: string): File {
   return new File([material], 'case-material.txt', { type: 'text/plain;charset=utf-8' });
+}
+
+function materialFallback(files: File[]): string {
+  return files.length ? `材料以附件形式提供：${files.map((file) => file.name).join('、')}` : '';
 }
 
 function linkedCaseId(): string | null {
@@ -80,8 +83,9 @@ export default function App(): JSX.Element {
   const [question, setQuestion] = useState('');
   const [material, setMaterial] = useState('');
   const [intake, setIntake] = useState<CaseIntake>({ ...EMPTY_INTAKE });
-  const [rerankMode, setRerankMode] = useState<'off' | 'embedding'>('off');
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [missingFactKeys, setMissingFactKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummaryApi | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -168,7 +172,23 @@ export default function App(): JSX.Element {
     setPage('governance');
   }, [user]);
 
-  const handleSubmit = useCallback(async (q: string, m: string, confirmedIntake: CaseIntake, file?: File | null): Promise<void> => {
+  const handleAnalyze = useCallback(async (q: string, m: string, files: File[]): Promise<boolean> => {
+    setAnalyzing(true);
+    setError(null);
+    try {
+      const result = await extractIntake(q, m, files);
+      setIntake((current) => ({ ...current, ...result.intake, data_types: [...result.intake.data_types] }));
+      setMissingFactKeys(result.missing.map((item) => item.key));
+      return true;
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'Agent 无法读取材料，请检查文件后重试');
+      return false;
+    } finally {
+      setAnalyzing(false);
+    }
+  }, []);
+
+  const handleSubmit = useCallback(async (q: string, m: string, confirmedIntake: CaseIntake, files: File[]): Promise<void> => {
     if (!user) return;
     setLoading(true);
     setError(null);
@@ -176,21 +196,21 @@ export default function App(): JSX.Element {
       const saved = editingCaseId
         ? await updateCase(editingCaseId, {
           question: q,
-          material_text: m,
+          material_text: m || materialFallback(files),
           intake: confirmedIntake,
         })
-        : await createCase({ question: q, materialText: m, intake: confirmedIntake, rerankMode, file });
+        : await createCase({ question: q, materialText: m || materialFallback(files), intake: confirmedIntake });
       setEditingCaseId(null);
       setActiveCaseId(saved.case.id);
       setPage('case-detail');
-      const version = await uploadMaterial(
-        saved.case.id,
-        'review_material',
-        materialOriginal(m, file),
-      );
+      const uploads = files.length ? files : [materialOriginal(m)];
+      const versions = [];
+      for (const item of uploads) {
+        versions.push(await uploadMaterial(saved.case.id, 'review_material', item));
+      }
       const frozen = await freezeMaterialSnapshot(
         saved.case.id,
-        [version.id],
+        versions.map((item) => item.id),
         toComplianceFacts(confirmedIntake),
       );
       if (frozen.rule_decision.determination.needs_info.length > 0) {
@@ -206,7 +226,7 @@ export default function App(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [editingCaseId, rerankMode, user]);
+  }, [editingCaseId, user]);
 
   const handleOpenCase = useCallback(async (caseId: string): Promise<void> => {
     setError(null);
@@ -229,10 +249,10 @@ export default function App(): JSX.Element {
     setQuestion(template.question);
     setMaterial('');
     setIntake({ ...EMPTY_INTAKE, ...template.intake, data_types: [...(template.intake.data_types ?? [])] });
-    setRerankMode(template.rerank_mode);
     setEditingCaseId(null);
     setActiveCaseId(null);
     setError(null);
+    setMissingFactKeys([]);
     setPage('workbench');
   }, []);
 
@@ -250,6 +270,7 @@ export default function App(): JSX.Element {
     setIntake({ ...saved.intake, data_types: [...saved.intake.data_types] });
     setEditingCaseId(saved.id);
     setError(null);
+    setMissingFactKeys([]);
     setPage('workbench');
   }, []);
 
@@ -259,6 +280,7 @@ export default function App(): JSX.Element {
     setIntake({ ...EMPTY_INTAKE });
     setEditingCaseId(null);
     setActiveCaseId(null);
+    setMissingFactKeys([]);
     setPage('workbench');
   }, []);
 
@@ -290,8 +312,8 @@ export default function App(): JSX.Element {
         {page === 'my-remediations' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载我的整改…</div></div>}><MyRemediationsPage user={user} /></Suspense> : null}
         {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} issues={remediationIssues} /></Suspense> : null}
         {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} canEdit={user.role === 'requester'} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} /></Suspense> : null}
-        {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage onUseTemplate={handleUseTemplate} /></Suspense> : null}
-        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} rerankMode={rerankMode} editingCaseId={editingCaseId} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onRerankModeChange={setRerankMode} onSubmit={(q, m, confirmedIntake, file) => void handleSubmit(q, m, confirmedIntake, file)} loading={loading} error={error} historyCount={cases.length} summary={dashboardSummary} /> : null}
+        {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage user={user} onUseTemplate={handleUseTemplate} /></Suspense> : null}
+        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} editingCaseId={editingCaseId} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onAnalyze={handleAnalyze} onSubmit={(q, m, confirmedIntake, files) => void handleSubmit(q, m, confirmedIntake, files)} loading={loading} analyzing={analyzing} error={error} missingFactKeys={missingFactKeys} historyCount={cases.length} summary={dashboardSummary} /> : null}
         {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从最近案件中选择一个案件。</p></div> : null}
       </main>
     </div>

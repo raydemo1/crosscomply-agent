@@ -17,10 +17,12 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from law_agent.config import load_llm_config
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
+from law_agent.review.facts import extract_facts_with_deepseek
 from law_agent.review.http.schemas import (
     AgentInputRequest,
     CaseCreateRequest,
@@ -30,6 +32,8 @@ from law_agent.review.http.schemas import (
     MaterialSnapshotRequest,
 )
 from law_agent.review.object_store import MaterialObjectStore
+from law_agent.review.rules import ComplianceFacts
+from law_agent.review.schemas import ReviewFacts
 from law_agent.review.workflow import CaseStatus, validate_case_transition
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -63,6 +67,30 @@ def _file_parse_hint(filename: str, exc: BaseException) -> str:
     ):
         return f"{filename} 无法加载：文件为空、损坏或受密码保护。"
     return f"无法解析文件 {filename}：{message}"
+
+
+def _intake_from_extraction(facts: ReviewFacts) -> IntakePayload:
+    """Prefill what the Agent read from the material; anything unread stays unknown."""
+
+    return IntakePayload(
+        business_activity=facts.business_activity or "",
+        data_types=list(facts.data_types),
+        sensitive_personal_info=facts.sensitive_personal_info,
+        cross_border_transfer=facts.cross_border_transfer,
+        overseas_recipient=facts.overseas_recipient or "",
+        processing_purpose=facts.processing_purpose or "",
+        legal_basis_or_consent=facts.legal_basis_or_consent or "",
+    )
+
+
+def _facts_from_extraction(facts: ReviewFacts) -> ComplianceFacts:
+    """Mirror the intake screen's fact mapping so the preview matches submission."""
+
+    return ComplianceFacts(
+        cross_border_transfer=facts.cross_border_transfer,
+        contains_personal_information=True if facts.data_types else None,
+        contains_sensitive_personal_information=facts.sensitive_personal_info,
+    )
 
 
 async def material_from_upload(file: UploadFile) -> tuple[str, str]:
@@ -121,6 +149,60 @@ def register_case_routes(
 ) -> None:
     router = APIRouter()
 
+    def queue_review(
+        identifier: str,
+        user: UserRecord,
+        case: dict[str, Any],
+        material_snapshot: Any,
+        rule_snapshot: Any,
+    ) -> dict[str, Any]:
+        """Validate frozen inputs, queue the Agent task and move the case into review."""
+        versions = [
+            enterprise().get_material_version(version_id)
+            for version_id in material_snapshot.version_ids
+        ]
+        if any(
+            version is None
+            or version.parse_status != "ready"
+            or not (version.parsed_text or "").strip()
+            for version in versions
+        ):
+            raise HTTPException(status_code=409, detail="快照中存在尚未完成通用解析的材料")
+        llm_config = load_llm_config()
+        task = enterprise().enqueue_review_task(
+            case_id=identifier,
+            material_snapshot_id=material_snapshot.id,
+            rule_snapshot_id=rule_snapshot.id,
+            model_id=llm_config.model or "not-configured",
+            data_boundary_summary={
+                "base_url": llm_config.base_url,
+                "deployment": os.getenv(
+                    "CROSSCOMPLY_MODEL_BOUNDARY",
+                    "enterprise-approved-api",
+                ),
+            },
+        )
+        if task.status not in {"queued", "running", "waiting_input"}:
+            raise HTTPException(
+                status_code=409,
+                detail="当前冻结输入已有终态任务；请生成新的材料与规则快照后重新运行",
+            )
+        validate_case_transition(
+            current=case["status"],
+            target="review_running",
+            authority="local",
+        )
+        store().update_case(identifier, owner_id=user.id, status="review_running")
+        store().add_event(
+            identifier,
+            user.id,
+            event_type="review_queued",
+            from_status=case["status"],
+            to_status="review_running",
+            payload={"task_id": task.id, "material_snapshot_id": material_snapshot.id},
+        )
+        return {"task_id": task.id, "status": task.status}
+
     @router.post("/api/cases")
     async def create_case_endpoint(
         request: Request,
@@ -170,6 +252,60 @@ def register_case_routes(
         )
         store().add_event(item["id"], user.id, event_type="case_created", to_status="draft")
         return case_payload(item)
+
+    @router.post("/api/intake-extraction")
+    async def extract_intake(
+        question: str = Form(default=""),
+        material_text: str = Form(default=""),
+        files: list[UploadFile] = File(default=[]),
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        """Read the material before a case exists, so the user answers only what blocks a conclusion."""
+
+        texts = [material_text.strip()] if material_text.strip() else []
+        for upload in files:
+            filename = Path(upload.filename or "uploaded-material").name
+            suffix = Path(filename).suffix.lower()
+            if suffix not in ALLOWED_UPLOAD_SUFFIXES:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "unsupported_file_type", "filename": filename},
+                )
+            raw = await upload.read()
+            if not raw or len(raw) > MAX_UPLOAD_BYTES:
+                code = "empty_file" if not raw else "file_too_large"
+                raise HTTPException(status_code=422, detail={"code": code, "filename": filename})
+            with tempfile.TemporaryDirectory() as tmpdir:
+                path = Path(tmpdir) / filename
+                path.write_bytes(raw)
+                try:
+                    from law_agent.review.materials import material_from_file
+
+                    parsed = material_from_file(path)
+                except (FileNotFoundError, RuntimeError, ValueError) as exc:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "code": "parse_failed",
+                            "filename": filename,
+                            "message": _file_parse_hint(filename, exc),
+                        },
+                    ) from exc
+            if not (parsed.material_text or "").strip():
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "empty_parsed_text", "filename": filename},
+                )
+            texts.append(parsed.material_text)
+        combined = "\n\n".join(texts).strip()
+        if not combined:
+            raise HTTPException(status_code=422, detail="请先提供待审查材料")
+        facts = await run_in_threadpool(extract_facts_with_deepseek, combined, question or None)
+        decision = evaluate_national_path(_facts_from_extraction(facts))
+        return {
+            "intake": _intake_from_extraction(facts).model_dump(mode="json"),
+            "missing": [item.model_dump(mode="json") for item in decision.needs_info],
+        }
 
     @router.post("/api/cases/{identifier}/materials")
     async def upload_material(
@@ -413,6 +549,10 @@ def register_case_routes(
             to_status=payload.status,
             payload={"note": payload.note},
         )
+        if payload.status == "pending_review":
+            # 提交即进入审查队列：申请人不需要再等审核人手动启动。
+            queue_review(identifier, user, updated, snapshot, rule)
+            updated = store().get_case(identifier) or updated
         return case_payload(updated)
 
     @router.post("/api/cases/{identifier}/run")
@@ -455,54 +595,8 @@ def register_case_routes(
                 status_code=409,
                 detail="当前冻结输入已完成调查；请补充事实并生成新的规则快照后重新运行",
             )
-        versions = [
-            enterprise().get_material_version(version_id)
-            for version_id in material_snapshot.version_ids
-        ]
-        if any(
-            version is None
-            or version.parse_status != "ready"
-            or not (version.parsed_text or "").strip()
-            for version in versions
-        ):
-            raise HTTPException(status_code=409, detail="快照中存在尚未完成通用解析的材料")
-        llm_config = load_llm_config()
-        task = enterprise().enqueue_review_task(
-            case_id=identifier,
-            material_snapshot_id=material_snapshot.id,
-            rule_snapshot_id=rule_snapshot.id,
-            model_id=llm_config.model or "not-configured",
-            data_boundary_summary={
-                "base_url": llm_config.base_url,
-                "deployment": os.getenv(
-                    "CROSSCOMPLY_MODEL_BOUNDARY",
-                    "enterprise-approved-api",
-                ),
-            },
-        )
-        if task.status not in {"queued", "running", "waiting_input"}:
-            raise HTTPException(
-                status_code=409,
-                detail="当前冻结输入已有终态任务；请生成新的材料与规则快照后重新运行",
-            )
-        validate_case_transition(
-            current=case["status"],
-            target="review_running",
-            authority="local",
-        )
-        store().update_case(identifier, owner_id=user.id, status="review_running")
-        store().add_event(
-            identifier,
-            user.id,
-            event_type="review_queued",
-            from_status=case["status"],
-            to_status="review_running",
-            payload={"task_id": task.id, "material_snapshot_id": material_snapshot.id},
-        )
-        return JSONResponse(
-            status_code=202,
-            content={"task_id": task.id, "status": task.status},
-        )
+        queued = queue_review(identifier, user, case, material_snapshot, rule_snapshot)
+        return JSONResponse(status_code=202, content=queued)
 
     @router.get("/api/tasks/{task_id}")
     async def get_review_task(
@@ -539,15 +633,11 @@ def register_case_routes(
             )
         if task.agent_state is None:
             raise HTTPException(status_code=409, detail="任务没有可恢复的 Agent 状态")
-        is_plan_gate = payload.gate_id.startswith("plan_")
-        if is_plan_gate and payload.decision is None:
-            raise HTTPException(status_code=422, detail="计划确认必须选择批准或要求调整")
         try:
             state = answer_agent(
                 AgentState.model_validate(task.agent_state),
                 gate_id=payload.gate_id,
                 answer=payload.answer,
-                approve_plan=payload.decision != "revise",
             )
             resumed = enterprise().resume_task(
                 task_id, state=state.model_dump(mode="json")

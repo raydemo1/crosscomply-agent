@@ -33,6 +33,7 @@ from law_agent.review.http.schemas import (
     RemediationTaskUpdateRequest,
 )
 from law_agent.review.ids import make_id
+from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.object_store import MaterialObjectStore
 from law_agent.review.remediation import (
     InMemoryRemediationAssessmentStore,
@@ -40,11 +41,13 @@ from law_agent.review.remediation import (
     RereviewAttachment,
     RereviewPacket,
     build_rereview_packet,
+    draft_remediation_tasks,
     execute_rereview,
 )
 from law_agent.review.revisions import InMemoryRevisionStore, PostgresRevisionStore
 
 RereviewRunner = Callable[..., AgentState]
+TaskDrafter = Callable[..., list[dict[str, Any]]]
 
 
 class RemediationAssessmentInputRequest(BaseModel):
@@ -66,6 +69,7 @@ def register_remediation_routes(
     case_summary: Callable[[dict[str, Any]], dict[str, Any]],
     can_view: Callable[[UserRecord, dict[str, Any]], bool],
     rereview: RereviewRunner = execute_rereview,
+    task_drafter: TaskDrafter = draft_remediation_tasks,
 ) -> None:
     router = APIRouter()
 
@@ -318,6 +322,36 @@ def register_remediation_routes(
             question=None,
             agent_state_json=result.model_dump(mode="json"),
         )
+
+    @router.post("/api/cases/{identifier}/remediation-task-drafts")
+    async def draft_case_remediation_tasks(
+        identifier: str,
+        user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        """Let the Agent propose task drafts; the reviewer still creates the plan."""
+
+        reviewer_only(user)
+        case = store().get_case(identifier)
+        if case is None:
+            raise HTTPException(status_code=404, detail="案件不存在")
+        review_result = (case.get("response") or {}).get("review_result") or {}
+        if not review_result.get("issues") and not review_result.get("recommended_actions"):
+            raise HTTPException(status_code=409, detail="案件还没有可用的审查结论，无法起草整改任务")
+        review_task = enterprise().get_latest_task(identifier)
+        model_id = (
+            review_task.model_id
+            if review_task is not None
+            else (require_llm_config().model or "not-configured")
+        )
+        try:
+            items = await run_in_threadpool(task_drafter, review_result, model_id=model_id)
+        except ReviewWorkflowFailed as exc:
+            raise HTTPException(
+                status_code=502, detail=f"Agent 起草整改任务失败：{exc.message}"
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {"items": items, "total": len(items)}
 
     @router.post("/api/cases/{identifier}/remediation-plan")
     async def create_remediation_plan(

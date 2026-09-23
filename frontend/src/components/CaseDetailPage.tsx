@@ -120,7 +120,7 @@ export default function CaseDetailPage({
 }: CaseDetailPageProps): JSX.Element {
   const [workflowOperation, setWorkflowOperation] = useState<string | null>(null);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
-  const [detailView, setDetailView] = useState<'document' | 'report' | 'records'>('document');
+  const [detailView, setDetailView] = useState<'document' | 'report' | 'records'>(viewerRole === 'requester' ? 'report' : 'document');
   const [revisionTarget, setRevisionTarget] = useState<RevisionSelection | null>(null);
   const [pendingAnnotations, setPendingAnnotations] = useState(0);
   const response = saved.response;
@@ -141,6 +141,7 @@ export default function CaseDetailPage({
         saved={completedSaved}
         onBack={onBack}
         onRerun={() => onRerun(completedSaved.question, completedSaved.materialText)}
+        onEditMaterial={() => onEdit(completedSaved)}
         canManageActions={canManageActions}
         workflowOperation={workflowOperation}
         workflowError={workflowError}
@@ -218,7 +219,7 @@ function DraftCaseView({
     <div className="case-detail">
       <header className="case-header card">
         <div className="case-header__top">
-          <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回新建案件</button>
+          <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回案件列表</button>
           <div className="case-header__actions">
             <button type="button" className="case-header__action-btn" onClick={() => setShareOpen(true)}>分享案件</button>
           </div>
@@ -228,7 +229,7 @@ function DraftCaseView({
         <div className="case-header__meta"><span className={'status-chip status-chip--' + saved.status}>{statusLabel(saved.status)}</span><span>{saved.savedAt.replace('T', ' ').slice(0, 16)}</span></div>
       </header>
       <HeroCaseProgress saved={saved} />
-      <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} />
+      <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => onEdit(saved)} />
       <section className="card draft-case-card">
         <div className="section-title">提交前检查</div>
         <div className="draft-case-card__grid">
@@ -365,6 +366,8 @@ interface CaseWorkflowActionsProps {
   error: string | null;
   setOperation: (value: string | null) => void;
   setError: (value: string | null) => void;
+  /** Opens the material editing flow so the user can answer by uploading or updating materials. */
+  onEditMaterial?: () => void;
   compact?: boolean;
 }
 
@@ -375,6 +378,7 @@ function CaseWorkflowActions({
   error,
   setOperation,
   setError,
+  onEditMaterial,
   compact = false,
 }: CaseWorkflowActionsProps): JSX.Element | null {
   const [agentAnswer, setAgentAnswer] = useState('');
@@ -423,15 +427,12 @@ function CaseWorkflowActions({
     });
   };
 
-  const resumeAgent = (decision?: 'approve' | 'revise'): void => {
+  const resumeAgent = (): void => {
     const task = saved.reviewTask;
     const gateId = task?.agent_state?.gate_id;
-    const isPlanGate = Boolean(gateId?.startsWith('plan_'));
-    if (!task || !gateId || (!isPlanGate && !agentAnswer.trim())) return;
-    if (decision === 'revise' && !agentAnswer.trim()) return;
+    if (!task || !gateId || !agentAnswer.trim()) return;
     void execute('answer', async () => {
-      const answer = agentAnswer.trim() || '批准该调查计划';
-      const resumed = await answerReviewTask(task.id, gateId, answer, decision);
+      const resumed = await answerReviewTask(task.id, gateId, agentAnswer.trim());
       setAgentAnswer('');
       await openCase(saved.id);
       await waitForReviewTask(resumed.id, async () => {
@@ -452,10 +453,10 @@ function CaseWorkflowActions({
   const controls = (
     <div className="workflow-actions__controls">
       {saved.status === 'pending_review' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '审查运行中…' : '启动证据化审查'}</button> : null}
-      {saved.status === 'needs_info' && !activeTask ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '调查启动中…' : '按最新冻结材料重新调查'}</button> : null}
+      {saved.status === 'needs_info' && !activeTask ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '调查启动中…' : '按最新材料重新调查'}</button> : null}
       {saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? '重新运行中…' : '重试失败任务'}</button> : null}
       {saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
-      {saved.reviewTask?.status === 'waiting_input' ? <div className="enterprise-callout enterprise-callout--warning"><strong>{saved.reviewTask.agent_state?.pending_question || 'Agent 需要补充信息'}</strong><textarea value={agentAnswer} onChange={(event) => setAgentAnswer(event.target.value)} placeholder={saved.reviewTask.agent_state?.gate_id?.startsWith('plan_') ? '如需调整计划，请说明调整要求' : '仅补充调查线索；如会改变冻结事实，请先更新材料并生成新快照'} rows={3} />{saved.reviewTask.agent_state?.gate_id?.startsWith('plan_') ? <div className="workflow-actions__controls"><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={() => resumeAgent('approve')}>{operation === 'answer' ? '正在恢复…' : '确认计划并继续'}</button><button type="button" className="case-header__action-btn" disabled={operation !== null || !agentAnswer.trim()} onClick={() => resumeAgent('revise')}>要求调整计划</button></div> : <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !agentAnswer.trim()} onClick={() => resumeAgent()}>{operation === 'answer' ? '正在恢复…' : '提交线索并继续'}</button>}<small>这里的输入只用于本次调查，不会修改已冻结的规则事实。</small></div> : null}
+      {saved.reviewTask?.status === 'waiting_input' ? <div className="enterprise-callout enterprise-callout--warning"><strong>{saved.reviewTask.agent_state?.pending_question || 'Agent 需要补充信息'}</strong><textarea value={agentAnswer} onChange={(event) => setAgentAnswer(event.target.value)} placeholder="直接回答 Agent 的问题即可" rows={3} /><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !agentAnswer.trim()} onClick={() => resumeAgent()}>{operation === 'answer' ? '正在提交…' : '直接回答'}</button>{onEditMaterial ? <button type="button" className="case-header__action-btn" disabled={operation !== null} onClick={onEditMaterial}>上传或更新材料</button> : null}</div> : null}
     </div>
   );
 
@@ -477,14 +478,14 @@ function CaseWorkflowActions({
 }
 
 function workflowActionTitle(saved: SavedCase): string {
-  if (saved.status === 'pending_review') return '材料与规则已冻结，可以启动审查';
+  if (saved.status === 'pending_review') return '材料已就绪，可以开始审查';
   if (saved.status === 'run_failed') return '失败记录已保留，可以人工重试';
   if (saved.status === 'pending_feishu_approval') return saved.feishuApproval ? '飞书审批已发起，等待权威回写' : '审查已完成，可以发起飞书审批';
   return '流程状态已更新';
 }
 
 function workflowActionHint(saved: SavedCase): string {
-  if (saved.status === 'pending_review') return '任务将进入 PostgreSQL 队列，由独立 Worker 执行。';
+  if (saved.status === 'pending_review') return '提交后系统会自动完成证据化审查，完成后即可查看结论。';
   if (saved.status === 'run_failed') return `失败节点：${saved.reviewTask?.current_node || '未记录'}；重试不会覆盖历史尝试。`;
   if (saved.status === 'pending_feishu_approval') return '最终通过、退回或撤回状态仅接受飞书验签事件。';
   return '流程状态已更新。';
@@ -709,6 +710,7 @@ interface CaseHeaderProps {
   saved: SavedCaseWithResponse;
   onBack: () => void;
   onRerun: () => void;
+  onEditMaterial: () => void;
   canManageActions: boolean;
   workflowOperation: string | null;
   workflowError: string | null;
@@ -716,7 +718,7 @@ interface CaseHeaderProps {
   setWorkflowError: (value: string | null) => void;
 }
 
-function CaseHeader({ saved, onBack, onRerun, canManageActions, workflowOperation, workflowError, setWorkflowOperation, setWorkflowError }: CaseHeaderProps): JSX.Element {
+function CaseHeader({ saved, onBack, onRerun, onEditMaterial, canManageActions, workflowOperation, workflowError, setWorkflowOperation, setWorkflowError }: CaseHeaderProps): JSX.Element {
   const [shareOpen, setShareOpen] = useState(false);
   const reportReady = Boolean(saved.report);
   const reportCanGenerate = Boolean(
@@ -729,10 +731,10 @@ function CaseHeader({ saved, onBack, onRerun, canManageActions, workflowOperatio
     <header className="case-header card">
       <div className="case-header__top">
         <button type="button" className="btn-link case-header__back" onClick={onBack}>
-          ← 返回新建案件
+          ← 返回案件列表
         </button>
         <div className="case-header__actions">
-          <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} compact />
+          <CaseWorkflowActions saved={saved} canManage={canManageActions} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={onEditMaterial} compact />
           {reportCanGenerate ? (
             <a className="case-header__action-btn case-header__action-btn--accent" href={caseReportDownloadUrl(saved.id)} download>
               {reportReady ? '下载完整报告' : '生成完整报告'}
@@ -1459,7 +1461,7 @@ function AgentExecutionSummary({
   evidenceCount,
 }: AgentExecutionSummaryProps): JSX.Element {
   const steps: Array<{ label: string; detail: string; tone: 'done' | 'warn' | 'neutral' }> = [
-    { label: '计划确认', detail: `${plan.length} 项`, tone: plan.length > 0 ? 'done' : 'neutral' },
+    { label: '执行计划', detail: `${plan.length} 项`, tone: plan.length > 0 ? 'done' : 'neutral' },
     { label: '自主执行', detail: `${turns} 次决策`, tone: turns > 0 ? 'done' : 'neutral' },
     { label: '动态检索', detail: `${searches} 轮`, tone: searches > 0 ? 'done' : 'neutral' },
     { label: '证据归集', detail: `${evidenceCount} 条`, tone: evidenceCount > 0 ? 'done' : 'warn' },

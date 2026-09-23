@@ -171,28 +171,28 @@ def test_reviewer_can_answer_and_resume_waiting_agent(tmp_path: Path) -> None:
         )
         enterprise.claim_next_task(worker_id="worker-agent")
         state = AgentState(
-            goal="确认调查计划",
+            goal="确认接收方地区",
             status="waiting_input",
             plan=["阅读材料", "检索法源"],
             turns=1,
-            pending_question="请确认执行计划",
-            gate_id="plan_1",
+            pending_question="境外接收方位于哪个国家或地区？",
+            gate_id="input_1",
         )
         enterprise.pause_task(task.id, state=state.model_dump(mode="json"))
         case_store.update_case(case_id, status="needs_info")
 
         response = client.post(
             f"/api/tasks/{task.id}/answer",
-            json={"gate_id": "plan_1", "answer": "同意执行", "decision": "approve"},
+            json={"gate_id": "input_1", "answer": "接收方位于新加坡。"},
         )
 
         assert response.status_code == 200, response.text
         assert response.json()["status"] == "queued"
-        assert response.json()["agent_state"]["plan_confirmed"] is True
+        assert response.json()["agent_state"]["steps"][-1]["action"] == "human_input"
         assert case_store.get_case(case_id)["status"] == "review_running"
 
 
-def test_plan_revision_requeues_without_confirming_plan(tmp_path: Path) -> None:
+def test_stale_agent_gate_is_rejected(tmp_path: Path) -> None:
     case_store = InMemoryCaseStore(seed_password="pw")
     enterprise = InMemoryEnterpriseStore()
     chunks = tmp_path / "chunks.jsonl"
@@ -212,28 +212,22 @@ def test_plan_revision_requeues_without_confirming_plan(tmp_path: Path) -> None:
         )
         enterprise.claim_next_task(worker_id="worker-agent")
         state = AgentState(
-            goal="确认调查计划",
+            goal="确认接收方地区",
             status="waiting_input",
             plan=["阅读材料", "检索法源"],
             turns=1,
-            pending_question="请确认执行计划",
-            gate_id="plan_1",
+            pending_question="境外接收方位于哪个国家或地区？",
+            gate_id="input_1",
         )
         enterprise.pause_task(task.id, state=state.model_dump(mode="json"))
         case_store.update_case(case_id, status="review_running")
 
         response = client.post(
             f"/api/tasks/{task.id}/answer",
-            json={
-                "gate_id": "plan_1",
-                "answer": "增加接收方所在地规则检索",
-                "decision": "revise",
-            },
+            json={"gate_id": "input_2", "answer": "接收方位于新加坡。"},
         )
 
-        assert response.status_code == 200, response.text
-        assert response.json()["agent_state"]["plan_confirmed"] is False
-        assert response.json()["agent_state"]["steps"][-1]["action"] == "plan_revision_requested"
+        assert response.status_code == 409, response.text
 
 
 def test_completed_frozen_inputs_cannot_be_run_again(tmp_path: Path) -> None:

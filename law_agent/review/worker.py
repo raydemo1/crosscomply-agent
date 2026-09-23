@@ -161,11 +161,6 @@ def completion_has_missing_information(
     )
 
 
-def is_plan_gate(task: ReviewTask) -> bool:
-    gate_id = (task.agent_state or {}).get("gate_id")
-    return isinstance(gate_id, str) and gate_id.startswith("plan_")
-
-
 def main() -> None:
     """Run the production worker until the container is stopped."""
 
@@ -272,14 +267,13 @@ def main() -> None:
         case = case_store.get_case(task.case_id)
         if case is None:
             return
-        next_status = "review_running" if is_plan_gate(task) else "needs_info"
-        case_store.update_case(task.case_id, status=next_status)
+        case_store.update_case(task.case_id, status="needs_info")
         case_store.add_event(
             task.case_id,
             actor(case),
             event_type="agent_waiting_input",
             from_status="review_running",
-            to_status=next_status,
+            to_status="needs_info",
             payload={
                 "task_id": task.id,
                 "gate_id": (task.agent_state or {}).get("gate_id"),

@@ -51,7 +51,11 @@ from law_agent.review.http.knowledge import (
     register_knowledge_routes,
     shutdown_knowledge_state,
 )
-from law_agent.review.http.remediation import RereviewRunner, register_remediation_routes
+from law_agent.review.http.remediation import (
+    RereviewRunner,
+    TaskDrafter,
+    register_remediation_routes,
+)
 from law_agent.review.http.reports import register_report_routes
 from law_agent.review.http.revisions import register_revision_routes
 from law_agent.review.http.system import register_system_routes
@@ -62,6 +66,7 @@ from law_agent.review.object_store import MaterialObjectStore, material_object_s
 from law_agent.review.remediation import (
     InMemoryRemediationAssessmentStore,
     PostgresRemediationAssessmentStore,
+    draft_remediation_tasks,
     execute_rereview,
 )
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
@@ -400,6 +405,7 @@ def create_app(
     knowledge_job_store: KnowledgeJobStore | None = None,
     knowledge_corpus: Path | str | None = None,
     rereview: RereviewRunner | None = None,
+    task_drafter: TaskDrafter | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
@@ -691,6 +697,7 @@ def create_app(
         case_summary=_case_summary,
         can_view=_can_view,
         rereview=rereview or execute_rereview,
+        task_drafter=task_drafter or draft_remediation_tasks,
     )
 
     def record_remediation_event(

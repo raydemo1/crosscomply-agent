@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus2, Files, LayoutTemplate, LogOut, Search, Scale, ShieldCheck, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus2, LayoutTemplate, LogOut, Search, Scale, ShieldCheck, X } from 'lucide-react';
 import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { relativeTime, truncate } from '../utils/display';
@@ -79,14 +79,8 @@ export default function Sidebar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [showAllCases, setShowAllCases] = useState(false);
   const [casePreview, setCasePreview] = useState<CasePreviewPosition | null>(null);
-  const createPagesActive = currentPage === 'workbench' || currentPage === 'case-templates';
-  const [createMenuOpen, setCreateMenuOpen] = useState(createPagesActive);
   const knowledgePagesActive = currentPage === 'knowledge-legal' || currentPage === 'knowledge-policy';
   const [knowledgeMenuOpen, setKnowledgeMenuOpen] = useState(knowledgePagesActive);
-
-  useEffect(() => {
-    if (createPagesActive) setCreateMenuOpen(true);
-  }, [createPagesActive]);
 
   useEffect(() => {
     if (knowledgePagesActive) setKnowledgeMenuOpen(true);
@@ -127,23 +121,14 @@ export default function Sidebar({
 
       <nav className="sidebar-section" aria-label="主导航">
         <div className="sidebar-nav">
-          <button type="button" className={'sidebar-nav-item sidebar-nav-item--group' + (createPagesActive ? ' is-active' : '')} aria-expanded={createMenuOpen} onClick={() => { setCreateMenuOpen((open) => !open); if (!createPagesActive) onPageChange('workbench'); }}>
-            <span className="sidebar-nav-item-icon" aria-hidden="true"><Files size={18} strokeWidth={1.8} /></span>
+          <button type="button" className={'sidebar-nav-item' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('workbench'); }}>
+            <span className="sidebar-nav-item-icon" aria-hidden="true"><FilePlus2 size={18} strokeWidth={1.8} /></span>
             <span>新建案件</span>
-            <span className="sidebar-nav-item-chevron" aria-hidden="true">{createMenuOpen ? <ChevronDown size={15} strokeWidth={1.8} /> : <ChevronRight size={15} strokeWidth={1.8} />}</span>
           </button>
-          {createMenuOpen ? (
-            <div className="sidebar-nav-submenu">
-              <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('workbench'); }}>
-                <span className="sidebar-nav-subitem-icon" aria-hidden="true"><FilePlus2 size={16} strokeWidth={1.8} /></span>
-                <span>新建案件</span>
-              </button>
-              <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'case-templates' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('case-templates'); }}>
-                <span className="sidebar-nav-subitem-icon" aria-hidden="true"><LayoutTemplate size={16} strokeWidth={1.8} /></span>
-                <span>使用模板</span>
-              </button>
-            </div>
-          ) : null}
+          <button type="button" className={'sidebar-nav-item' + (currentPage === 'case-templates' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('case-templates'); }}>
+            <span className="sidebar-nav-item-icon" aria-hidden="true"><LayoutTemplate size={18} strokeWidth={1.8} /></span>
+            <span>使用模板</span>
+          </button>
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'my-remediations' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('my-remediations'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><ClipboardCheck size={18} strokeWidth={1.8} /></span>
             <span>我的整改</span>

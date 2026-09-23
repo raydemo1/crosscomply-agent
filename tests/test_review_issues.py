@@ -292,7 +292,7 @@ def test_agent_can_retry_after_finalizer_rejects_an_issue() -> None:
         return {"issues": [issue.model_dump(mode="json") for issue in issues]}
 
     state = run_agent(
-        AgentState(goal="审查接入方案", plan_confirmed=True),
+        AgentState(goal="审查接入方案"),
         material=PLAN_TEXT,
         rule={},
         decide=lambda _state, _rule: next(decisions),

@@ -19,10 +19,13 @@ from law_agent.review.remediation import (
     RemediationAssessmentDraft,
     RemediationAssessmentError,
     RemediationDecision,
+    RemediationTaskDraft,
+    RemediationTaskDraftSet,
     RereviewAttachment,
     build_rereview_packet,
     execute_rereview,
     finalize_assessment,
+    validate_task_drafts,
 )
 from law_agent.review.schemas import RetrievalQuery
 
@@ -399,6 +402,64 @@ def test_rereview_loop_can_request_input_and_resume_the_same_run() -> None:
     assert final.result["status"] == "insufficient_evidence"
 
 
+# --- Agent-drafted remediation tasks ------------------------------------------
+
+
+def _draftable_result() -> dict[str, Any]:
+    return {
+        **_review_result(),
+        "recommended_actions": ["补充合同用途条款限制。", "留存供应商确认邮件。"],
+    }
+
+
+def _task_draft(**overrides: Any) -> RemediationTaskDraft:
+    payload: dict[str, Any] = {
+        "title": "确认训练用途状态",
+        "description": "确认供应商未使用客户数据训练模型。",
+        "acceptance_criteria": "能确认生产环境训练功能已关闭。",
+        "source_issue_id": "issue_1",
+    }
+    payload.update(overrides)
+    return RemediationTaskDraft(**payload)
+
+
+def test_task_drafts_resolve_real_sources_and_keep_suggestions() -> None:
+    result = validate_task_drafts(
+        RemediationTaskDraftSet(
+            tasks=[
+                _task_draft(),
+                _task_draft(
+                    title="留存供应商确认邮件",
+                    source_issue_id=None,
+                    source_recommendation_index=1,
+                    suggested_assignee_role="reviewer",
+                    suggested_due_days=30,
+                ),
+            ]
+        ),
+        _draftable_result(),
+    )
+    assert [item["source_recommendation"] for item in result] == [None, "留存供应商确认邮件。"]
+    assert result[0]["source_issue_id"] == "issue_1"
+    assert result[1]["suggested_assignee_role"] == "reviewer"
+    assert result[1]["suggested_due_days"] == 30
+
+
+@pytest.mark.parametrize(
+    ("draft", "message"),
+    [
+        (_task_draft(source_issue_id="issue_missing"), "审查问题"),
+        (_task_draft(source_issue_id=None, source_recommendation_index=5), "审查建议"),
+        (_task_draft(source_issue_id=None), "绑定真实的审查问题或审查建议"),
+    ],
+)
+def test_task_drafts_reject_sources_the_case_does_not_have(
+    draft: RemediationTaskDraft, message: str
+) -> None:
+    with pytest.raises(RemediationAssessmentError, match=message):
+        validate_task_drafts(RemediationTaskDraftSet(tasks=[draft]), _draftable_result())
+
+
 # --- HTTP behaviour -----------------------------------------------------------
 
 
@@ -434,6 +495,28 @@ class _FakeRereview:
         return AgentState(goal=goal, status="completed", turns=2, result=self.result)
 
 
+class _FakeTaskDrafter:
+    """Stand-in for ``draft_remediation_tasks`` so HTTP tests need no LLM."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+        self.drafts = RemediationTaskDraftSet(
+            tasks=[
+                _task_draft(
+                    priority="high",
+                    suggested_assignee_role="requester",
+                    suggested_due_days=7,
+                )
+            ]
+        )
+
+    def __call__(
+        self, review_result: dict[str, Any], *, model_id: str
+    ) -> list[dict[str, Any]]:
+        self.calls.append({"review_result": review_result, "model_id": model_id})
+        return validate_task_drafts(self.drafts, review_result)
+
+
 def _completed(**overrides: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "status": "partially_resolved",
@@ -448,7 +531,12 @@ def _completed(**overrides: Any) -> dict[str, Any]:
 
 
 @pytest.fixture
-def workbench(tmp_path: Path):
+def task_drafter() -> _FakeTaskDrafter:
+    return _FakeTaskDrafter()
+
+
+@pytest.fixture
+def workbench(tmp_path: Path, task_drafter: _FakeTaskDrafter):
     chunks = tmp_path / "chunks.jsonl"
     chunks.write_text("", encoding="utf-8")
     runner = _FakeRereview(result=_completed())
@@ -457,6 +545,7 @@ def workbench(tmp_path: Path):
         case_store=InMemoryCaseStore(seed_password="pw"),
         enterprise_store=InMemoryEnterpriseStore(),
         rereview=runner,
+        task_drafter=task_drafter,
     )
     client = TestClient(app)
     client.post("/api/auth/login", json={"username": "reviewer@crosscomply.local", "password": "pw"})
@@ -493,6 +582,50 @@ def workbench(tmp_path: Path):
     assert client.post(f"/api/remediation-plans/{plan.json()['id']}/activate").status_code == 200
     assert client.post(f"/api/remediation-tasks/{task_id}/start").status_code == 200
     return client, app, runner, case_id, task_id
+
+
+def test_reviewer_can_ask_the_agent_to_draft_remediation_tasks(
+    workbench, task_drafter: _FakeTaskDrafter
+) -> None:
+    client, _app, _runner, case_id, _task_id = workbench
+    response = client.post(f"/api/cases/{case_id}/remediation-task-drafts")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["source_issue_id"] == "issue_1"
+    assert body["items"][0]["suggested_due_days"] == 7
+    assert body["items"][0]["source_recommendation"] is None
+    assert task_drafter.calls[0]["review_result"]["issues"][0]["id"] == "issue_1"
+
+
+def test_drafting_tasks_never_creates_a_plan(workbench) -> None:
+    client, _app, _runner, case_id, _task_id = workbench
+    before = client.get(f"/api/cases/{case_id}/remediation-plan").json()
+    assert client.post(f"/api/cases/{case_id}/remediation-task-drafts").status_code == 200
+    after = client.get(f"/api/cases/{case_id}/remediation-plan").json()
+    assert len(after["tasks"]) == len(before["tasks"]) == 1
+
+
+def test_drafting_tasks_rejects_sources_the_case_does_not_have(
+    workbench, task_drafter: _FakeTaskDrafter
+) -> None:
+    client, _app, _runner, case_id, _task_id = workbench
+    task_drafter.drafts = RemediationTaskDraftSet(
+        tasks=[_task_draft(source_issue_id="issue_missing")]
+    )
+    response = client.post(f"/api/cases/{case_id}/remediation-task-drafts")
+    assert response.status_code == 422
+    assert "审查问题" in response.json()["detail"]
+
+
+def test_applicant_cannot_ask_for_task_drafts(workbench) -> None:
+    _client, app, _runner, case_id, _task_id = workbench
+    requester = TestClient(app)
+    requester.post(
+        "/api/auth/login",
+        json={"username": "requester@crosscomply.local", "password": "pw"},
+    )
+    assert requester.post(f"/api/cases/{case_id}/remediation-task-drafts").status_code == 403
 
 
 def test_progress_submission_needs_only_a_note(workbench) -> None:

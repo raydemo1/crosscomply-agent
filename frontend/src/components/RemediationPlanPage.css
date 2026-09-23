@@ -255,6 +255,8 @@
 .remediation-empty-plan h1 { margin-top: 4px; }
 .remediation-empty-plan .remediation-button { margin-top: 20px; }
 .remediation-builder__intro { margin-bottom: 18px; }
+.remediation-builder__draft-action { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.remediation-builder__draft-action .remediation-muted { margin: 0; }
 .remediation-builder__item { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border, #cbd5e1); }
 .remediation-builder__item-head { display: flex; justify-content: space-between; gap: 10px; color: #475569; font-size: 0.82rem; }
 .remediation-builder__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }

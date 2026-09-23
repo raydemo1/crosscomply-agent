@@ -31,7 +31,7 @@ def test_agent_can_finish_without_fixed_intermediate_steps() -> None:
     checkpoints: list[AgentState] = []
 
     state = run_agent(
-        AgentState(goal="审查境外 SaaS 接入", plan_confirmed=True),
+        AgentState(goal="审查境外 SaaS 接入"),
         material="已冻结材料",
         rule={},
         decide=lambda _state, _rule: next(decisions),
@@ -61,7 +61,7 @@ def test_agent_can_choose_multiple_retrieval_batches() -> None:
     ])
     searched: list[str] = []
     state = run_agent(
-        AgentState(goal="审查境外 SaaS 接入", plan_confirmed=True),
+        AgentState(goal="审查境外 SaaS 接入"),
         material="已冻结材料",
         rule={},
         decide=lambda _state, _rule: next(decisions),
@@ -78,7 +78,7 @@ def test_agent_can_choose_multiple_retrieval_batches() -> None:
 
 def test_agent_pauses_and_resumes_from_human_input() -> None:
     waiting = run_agent(
-        AgentState(goal="确认接收方地区", plan_confirmed=True),
+        AgentState(goal="确认接收方地区"),
         material="已冻结材料",
         rule={},
         decide=lambda _state, _rule: AgentDecision(
@@ -102,73 +102,28 @@ def test_agent_pauses_and_resumes_from_human_input() -> None:
     assert resumed.steps[-1].observation["answer"] == "接收方位于新加坡。"
 
 
-def test_agent_requires_confirmation_before_executing_first_planned_action() -> None:
-    state = run_agent(
-        AgentState(goal="审查境外 SaaS 接入"),
-        material="已冻结材料",
-        rule={},
-        decide=lambda _state, _rule: AgentDecision(
+def test_agent_plan_is_visible_without_blocking_the_run() -> None:
+    decisions = iter([
+        AgentDecision(
             action="propose_plan",
             summary="提交调查计划",
             plan=["核对材料", "检索法源", "形成有引用的结论"],
         ),
-        search=lambda _queries, _facts: [],
-        finalize=lambda _draft_value, _state: {},
-        checkpoint=lambda _state: None,
-    )
-
-    assert state.status == "waiting_input"
-    assert state.steps[-1].action == "confirm_plan"
-    resumed = answer_agent(state, gate_id=state.gate_id or "", answer="同意执行")
-    assert resumed.plan_confirmed is True
-    assert resumed.status == "running"
-
-
-def test_agent_rejects_tool_use_before_plan_confirmation() -> None:
-    decisions = iter([
-        AgentDecision(action="read_material", summary="试图提前阅读材料"),
-        AgentDecision(
-            action="propose_plan",
-            summary="提交调查计划",
-            plan=["核对材料", "检索法源"],
-        ),
+        AgentDecision(action="finish", summary="交付当前调查结果", draft=_draft()),
     ])
     state = run_agent(
         AgentState(goal="审查境外 SaaS 接入"),
-        material="不得在确认前返回的材料",
+        material="已冻结材料",
         rule={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: (_ for _ in ()).throw(
-            AssertionError("计划确认前不得执行检索")
-        ),
-        finalize=lambda _draft_value, _state: {},
+        search=lambda _queries, _facts: [],
+        finalize=lambda _draft_value, _state: {"ok": True},
         checkpoint=lambda _state: None,
     )
 
-    assert state.status == "waiting_input"
-    assert [step.action for step in state.steps] == ["policy_rejected", "confirm_plan"]
-
-
-def test_agent_plan_revision_requires_a_new_confirmation() -> None:
-    state = AgentState(
-        goal="审查境外 SaaS 接入",
-        status="waiting_input",
-        plan=["检索一般规则"],
-        gate_id="plan_1",
-        pending_question="请确认计划",
-        turns=1,
-    )
-
-    revised = answer_agent(
-        state,
-        gate_id="plan_1",
-        answer="增加对接收方所在地规则的检索",
-        approve_plan=False,
-    )
-
-    assert revised.status == "running"
-    assert revised.plan_confirmed is False
-    assert revised.steps[-1].action == "plan_revision_requested"
+    assert state.status == "completed"
+    assert state.plan == ["核对材料", "检索法源", "形成有引用的结论"]
+    assert [step.action for step in state.steps] == ["propose_plan", "finish"]
 
 
 def test_agent_model_retries_invalid_decision_json_instead_of_failing_task() -> None:
