@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from law_agent.config import load_service_config
 from law_agent.kb.admin import KnowledgeJobStore
+from law_agent.review.annotations import InMemoryAnnotationStore, PostgresAnnotationStore
 from law_agent.review.case_store import CaseStore, InMemoryCaseStore, PostgresCaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
 from law_agent.review.feishu import (
@@ -35,6 +36,7 @@ from law_agent.review.governance_store import (
     PostgresGovernanceStore,
 )
 from law_agent.review.http.activity import register_activity_routes
+from law_agent.review.http.annotations import register_annotation_routes
 from law_agent.review.http.auth import SESSION_COOKIE, register_auth_routes
 from law_agent.review.http.cases import register_case_routes
 from law_agent.review.http.evaluation import (
@@ -426,6 +428,10 @@ def create_app(
         InMemoryRevisionStore() if isinstance(app.state.case_store, InMemoryCaseStore)
         else PostgresRevisionStore(load_service_config().postgres.dsn)
     )
+    app.state.annotation_store = (
+        InMemoryAnnotationStore() if isinstance(app.state.case_store, InMemoryCaseStore)
+        else PostgresAnnotationStore(load_service_config().postgres.dsn)
+    )
     app.state.enterprise_store = enterprise_store or PostgresEnterpriseStore(
         load_service_config().postgres.dsn
     )
@@ -653,7 +659,13 @@ def create_app(
     register_revision_routes(
         app, current_user=current_user, reviewer_only=reviewer_only,
         store=store, enterprise=enterprise,
-        revisions=lambda: app.state.revision_store, can_view=_can_view,
+        revisions=lambda: app.state.revision_store,
+        annotations=lambda: app.state.annotation_store, can_view=_can_view,
+    )
+    register_annotation_routes(
+        app, current_user=current_user, reviewer_only=reviewer_only,
+        store=store, enterprise=enterprise,
+        annotations=lambda: app.state.annotation_store, can_view=_can_view,
     )
     register_remediation_routes(
         app,

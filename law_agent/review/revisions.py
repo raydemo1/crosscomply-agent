@@ -44,13 +44,23 @@ def locate_target(base_text: str, quote: str) -> tuple[int, int]:
     return start, start + len(quote)
 
 
+def locate_frozen_target(base_text: str, quote: str, original_start: int, base_version: int) -> tuple[int, int]:
+    if base_version == 0 and base_text[original_start:original_start + len(quote)] == quote:
+        return original_start, original_start + len(quote)
+    return locate_target(base_text, quote)
+
+
 def generate_revision_draft(
     *, issue: dict[str, Any], target_quote: str, base_text: str,
+    target_start: int | None = None,
     citations: list[dict[str, Any]] | None = None,
     prior_feedback: list[str] | None = None,
     client: OpenAICompatibleClient | None = None,
 ) -> RevisionDraft:
-    start, end = locate_target(base_text, target_quote)
+    if target_start is not None and base_text[target_start:target_start + len(target_quote)] == target_quote:
+        start, end = target_start, target_start + len(target_quote)
+    else:
+        start, end = locate_target(base_text, target_quote)
     context = base_text[max(0, start - 2500):min(len(base_text), end + 2500)]
     node = StructuredLLMNode(
         node_name="revision_draft", output_model=RevisionDraft,

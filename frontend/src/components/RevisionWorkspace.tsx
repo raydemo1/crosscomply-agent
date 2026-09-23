@@ -75,8 +75,11 @@ export default function RevisionWorkspace({ caseId, selection, canManageActions 
     finally { setBusy(false); }
   };
 
-  const highlightAt = selection && draft && draft.text.split(selection.target.quote).length === 2
-    ? draft.text.indexOf(selection.target.quote) : -1;
+  const highlightAt = selection && draft
+    ? draft.version === 0 && draft.text.slice(selection.target.start_offset, selection.target.end_offset) === selection.target.quote
+      ? selection.target.start_offset
+      : draft.text.split(selection.target.quote).length === 2 ? draft.text.indexOf(selection.target.quote) : -1
+    : -1;
   const pendingCount = proposals.filter((item) => item.status === 'pending').length;
   const acceptedCount = proposals.filter((item) => item.status === 'accepted').length;
 
@@ -106,4 +109,3 @@ export default function RevisionWorkspace({ caseId, selection, canManageActions 
     </div> : null}
   </section>;
 }
-

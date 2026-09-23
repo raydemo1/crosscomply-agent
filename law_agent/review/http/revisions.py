@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from law_agent.review.annotations import InMemoryAnnotationStore, PostgresAnnotationStore
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
 from law_agent.review.revisions import (
@@ -20,7 +21,7 @@ from law_agent.review.revisions import (
     RevisionConflict,
     RevisionError,
     generate_revision_draft,
-    locate_target,
+    locate_frozen_target,
     sha256,
 )
 
@@ -43,6 +44,7 @@ def register_revision_routes(
     reviewer_only: Callable[[UserRecord], None], store: Callable[[], CaseStore],
     enterprise: Callable[[], InMemoryEnterpriseStore | PostgresEnterpriseStore],
     revisions: Callable[[], InMemoryRevisionStore | PostgresRevisionStore],
+    annotations: Callable[[], InMemoryAnnotationStore | PostgresAnnotationStore],
     can_view: Callable[[UserRecord, dict[str, Any]], bool],
 ) -> None:
     router = APIRouter()
@@ -75,6 +77,23 @@ def register_revision_routes(
         case = visible_case(case_id, user)
         result = review_result(case)
         issue = next((item for item in result.get("issues", []) if item.get("id") == issue_id), None)
+        if issue is None:
+            annotation = annotations().get(issue_id)
+            if (annotation and annotation["case_id"] == case_id
+                    and annotation["review_result_id"] == result["review_result_id"]
+                    and annotation["status"] == "confirmed"
+                    and not annotation["insufficient_evidence"]):
+                issue = {
+                    "id": annotation["id"], "kind": "legal_gap", "title": "补充批注",
+                    "finding": annotation["finding"],
+                    "recommended_action": annotation["recommendation"],
+                    "supporting_citation_refs": annotation["citation_refs"],
+                    "material_evidence": [{
+                        "material_version_id": annotation["material_version_id"],
+                        "start_offset": annotation["start_offset"],
+                        "end_offset": annotation["end_offset"], "quote": annotation["quote"],
+                    }],
+                }
         if issue is None:
             raise HTTPException(status_code=404, detail="审查问题不存在")
         if issue.get("kind") == "missing_information":
@@ -116,10 +135,11 @@ def register_revision_routes(
             and proposal.get("decision_note")
         ][-5:]
         try:
-            start, end = locate_target(base_text, quote)
+            start, end = locate_frozen_target(base_text, quote, payload.start_offset, base_version)
             draft = await run_in_threadpool(
                 generate_revision_draft, issue=issue, target_quote=quote,
-                base_text=base_text, citations=citations, prior_feedback=prior_feedback,
+                base_text=base_text, target_start=start,
+                citations=citations, prior_feedback=prior_feedback,
             )
         except RevisionConflict as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc

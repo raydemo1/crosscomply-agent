@@ -666,6 +666,36 @@ export interface MaterialVersionApi {
   created_at: string;
 }
 
+export interface ReviewMaterialApi {
+  id: string;
+  logical_name: string;
+  filename: string;
+  version_number: number;
+  parsed_text: string;
+}
+
+export interface ReviewAnnotationApi {
+  id: string;
+  case_id: string;
+  review_result_id: string;
+  material_version_id: string;
+  start_offset: number;
+  end_offset: number;
+  quote: string;
+  source: 'human' | 'model';
+  question: string;
+  finding: string;
+  recommendation: string;
+  citation_refs: string[];
+  insufficient_evidence: boolean;
+  status: 'pending' | 'confirmed' | 'rejected';
+  version: number;
+  created_by: string;
+  created_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+}
+
 export interface MaterialSnapshotApi {
   id: string;
   case_id: string;

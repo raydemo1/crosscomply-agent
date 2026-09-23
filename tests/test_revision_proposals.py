@@ -11,6 +11,7 @@ from law_agent.review.revisions import (
     RevisionConflict,
     RevisionDraft,
     generate_revision_draft,
+    locate_frozen_target,
     locate_target,
     sha256,
 )
@@ -42,6 +43,16 @@ def test_exact_target_must_be_unique() -> None:
             pass
         else:
             raise AssertionError("non-unique target accepted")
+
+
+def test_frozen_offset_disambiguates_repeated_text() -> None:
+    assert locate_frozen_target("OLD and OLD", "OLD", 8, 0) == (8, 11)
+    try:
+        locate_frozen_target("OLD and OLD", "OLD", 8, 1)
+    except RevisionConflict:
+        pass
+    else:
+        raise AssertionError("changed draft reused a frozen offset ambiguously")
 
 
 def test_accepted_text_keeps_raw_replacement_whitespace() -> None:

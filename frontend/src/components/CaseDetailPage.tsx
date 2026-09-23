@@ -31,6 +31,7 @@ import GroundedClaims, { cssId } from './GroundedClaims';
 import MarkdownText from './MarkdownText';
 import ShareCaseDialog from './ShareCaseDialog';
 import RevisionWorkspace, { type RevisionSelection } from './RevisionWorkspace';
+import DocumentReview from './DocumentReview';
 import { downloadHtml, downloadMarkdown } from '../utils/report';
 import { CASE_STATUS_LABELS, REVIEW_TASK_STATUS_LABELS } from '../utils/workflow';
 import './RemediationPlanPage.css';
@@ -119,11 +120,15 @@ export default function CaseDetailPage({
 }: CaseDetailPageProps): JSX.Element {
   const [workflowOperation, setWorkflowOperation] = useState<string | null>(null);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [detailView, setDetailView] = useState<'document' | 'report' | 'records'>('document');
+  const [revisionTarget, setRevisionTarget] = useState<RevisionSelection | null>(null);
+  const [pendingAnnotations, setPendingAnnotations] = useState(0);
   const response = saved.response;
   if (!response) {
     return <DraftCaseView saved={saved} canEdit={canEdit} onEdit={onEdit} onBack={onBack} canManageActions={canManageActions} workflowOperation={workflowOperation} workflowError={workflowError} setWorkflowOperation={setWorkflowOperation} setWorkflowError={setWorkflowError} />;
   }
   const failed = isReviewFailedResponse(response);
+  const reviewResult = failed ? null : (response as Extract<ReviewApiResponse, { review_case_id: string }>).review_result;
   const completedSaved = saved as SavedCaseWithResponse;
 
   const handleVerdict = (chunkId: string, verdict: CitationVerdict | null) => {
@@ -143,18 +148,43 @@ export default function CaseDetailPage({
         setWorkflowError={setWorkflowError}
       />
 
-      <HeroCaseProgress saved={saved} />
+      {!failed ? <nav className="case-detail-views" aria-label="案件详情视图">
+        <button type="button" className={detailView === 'document' ? 'is-active' : ''} aria-current={detailView === 'document' ? 'page' : undefined} onClick={() => setDetailView('document')}>原文审阅</button>
+        <button type="button" className={detailView === 'report' ? 'is-active' : ''} aria-current={detailView === 'report' ? 'page' : undefined} onClick={() => setDetailView('report')}>审查报告</button>
+        <button type="button" className={detailView === 'records' ? 'is-active' : ''} aria-current={detailView === 'records' ? 'page' : undefined} onClick={() => setDetailView('records')}>案件记录</button>
+      </nav> : null}
+      {failed || detailView === 'records' ? <HeroCaseProgress saved={saved} /> : null}
+      {!failed && detailView === 'document' ? <>
+        <div className="case-next-action" role="status">
+          <div><span>当前下一步</span><strong>{pendingAnnotations > 0 && canManageActions ? `确认 ${pendingAnnotations} 项模型追审批注` : completedSaved.status === 'pending_feishu_approval' && !completedSaved.feishuApproval ? '核对原文批注，再发起飞书审批' : '逐项核对原文中的问题和批注'}</strong></div>
+          <span>{pendingAnnotations > 0 && canManageActions ? `${pendingAnnotations} 项待确认` : `${reviewResult?.issues.length ?? 0} 项问题`}</span>
+        </div>
+        <DocumentReview
+          caseId={completedSaved.id}
+          reviewResultId={reviewResult?.review_result_id ?? ''}
+          issues={reviewResult?.issues ?? []}
+          canManageActions={canManageActions}
+          onPendingChange={setPendingAnnotations}
+          onRevisionTarget={(issue, target) => {
+            setRevisionTarget({ issue, target });
+            setDetailView('report');
+            window.setTimeout(() => document.getElementById('report-revisions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+          }}
+        />
+      </> : null}
       {failed ? (
         <FailedChain response={response} />
-      ) : (
+      ) : detailView !== 'document' ? (
         <ReviewChain
           saved={completedSaved}
+          view={detailView}
+          initialRevisionSelection={revisionTarget}
           onVerdictChange={handleVerdict}
           viewerRole={viewerRole}
           canManageActions={canManageActions}
           onOpenRemediationPlan={onOpenRemediationPlan}
         />
-      )}
+      ) : null}
       {failed ? <RemediationSummary saved={saved} onOpen={onOpenRemediationPlan} /> : null}
       {failed ? <AuditDisclosure saved={saved} /> : null}
     </div>
@@ -785,13 +815,15 @@ function FailedChain({ response }: { response: Extract<ReviewApiResponse, { stat
 
 interface ReviewChainProps {
   saved: SavedCaseWithResponse;
+  view: 'report' | 'records';
+  initialRevisionSelection: RevisionSelection | null;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
   viewerRole: UserRole;
   canManageActions: boolean;
   onOpenRemediationPlan?: () => void;
 }
 
-function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onOpenRemediationPlan }: ReviewChainProps): JSX.Element {
+function ReviewChain({ saved, view, initialRevisionSelection, onVerdictChange, viewerRole, canManageActions, onOpenRemediationPlan }: ReviewChainProps): JSX.Element {
   const response = saved.response as Extract<ReviewApiResponse, { review_case_id: string }>;
   const result = response.review_result;
   const issues = result.issues ?? [];
@@ -808,7 +840,7 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
   const [activeReportSection, setActiveReportSection] = useState('report-conclusion');
   const [reportTocVisible, setReportTocVisible] = useState(false);
   const [reportScrolling, setReportScrolling] = useState(false);
-  const [revisionSelection, setRevisionSelection] = useState<RevisionSelection | null>(null);
+  const [revisionSelection, setRevisionSelection] = useState<RevisionSelection | null>(initialRevisionSelection);
   const highlightTimer = useRef<number | null>(null);
   const reportScrollTimer = useRef<number | null>(null);
 
@@ -836,15 +868,14 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
   const hasReviewGaps = reviewBlockers.length > 0 || manualConfirmations.length > 0;
   const reportSections = useMemo(() => [
     ...(issues.length > 0 ? [{ id: 'report-issues', label: '调查与问题', secondary: false }] : []),
-    ...(issues.length > 0 ? [{ id: 'report-revisions', label: '文书与修改', secondary: false }] : []),
+    ...(issues.length > 0 || revisionSelection ? [{ id: 'report-revisions', label: '文书与修改', secondary: false }] : []),
     { id: 'report-conclusion', label: '审查结论', secondary: false },
     { id: 'report-basis', label: '判断依据', secondary: false },
     ...(riskBoundariesForDisplay.length > 0 ? [{ id: 'report-boundaries', label: '风险边界', secondary: false }] : []),
     ...(hasReviewGaps ? [{ id: 'report-gaps', label: '待补充事实', secondary: false }] : []),
     { id: 'report-next', label: '建议与后续', secondary: false },
     { id: 'report-review', label: viewerRole === 'requester' ? '报告反馈' : '人工复核', secondary: true },
-    { id: 'report-records', label: '报告依据与记录', secondary: true },
-  ], [hasReviewGaps, issues.length, riskBoundariesForDisplay.length, viewerRole]);
+  ], [hasReviewGaps, issues.length, revisionSelection, riskBoundariesForDisplay.length, viewerRole]);
 
   const citations = useMemo(
     () => response.citation_groups.flatMap((group) => group.citations),
@@ -927,7 +958,7 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
         {evidenceAnnouncement}
       </div>
       <div className="review-report-layout">
-        <aside className={'report-toc' + (reportTocVisible ? ' is-visible' : '') + (reportScrolling ? ' is-scrolling' : '')} aria-label="报告目录">
+        {view === 'report' ? <aside className={'report-toc' + (reportTocVisible ? ' is-visible' : '') + (reportScrolling ? ' is-scrolling' : '')} aria-label="报告目录">
           <nav>
             {reportSections.map((item, index) => (
               <div className={item.secondary && !reportSections[index - 1]?.secondary ? 'report-toc__secondary' : undefined} key={item.id}>
@@ -943,8 +974,9 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
               </div>
             ))}
           </nav>
-        </aside>
+        </aside> : null}
         <main className="review-report">
+          {view === 'report' ? <>
           <ReviewIssues
             issues={issues}
             citations={citations}
@@ -952,7 +984,7 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
             onRevisionTarget={(selection) => { setRevisionSelection(selection); window.setTimeout(() => document.getElementById('report-revisions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0); }}
             canManageActions={canManageActions}
           />
-          {issues.length > 0 ? <RevisionWorkspace caseId={saved.id} selection={revisionSelection} canManageActions={canManageActions} /> : null}
+          {issues.length > 0 || revisionSelection ? <RevisionWorkspace caseId={saved.id} selection={revisionSelection} canManageActions={canManageActions} /> : null}
 
           <section className="case-conclusion report-section" id="report-conclusion">
             <div className="case-conclusion__head">
@@ -1045,7 +1077,9 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
             </div>
           </details>
 
-          <details className="card report-disclosure report-records-disclosure" id="report-records">
+          </> : null}
+
+          {view === 'records' ? <details className="card report-disclosure report-records-disclosure" id="report-records" open>
             <summary>报告依据与记录</summary>
             <div className="report-disclosure__body">
               <section className="report-record-group">
@@ -1099,10 +1133,10 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
                 <Timeline events={saved.events} embedded />
               </section>
             </div>
-          </details>
+          </details> : null}
         </main>
 
-        <EvidenceSidebar
+        {view === 'report' ? <EvidenceSidebar
           groups={response.citation_groups}
           evidenceChunks={evidenceChunks}
           claims={result.claims}
@@ -1112,7 +1146,7 @@ function ReviewChain({ saved, onVerdictChange, viewerRole, canManageActions, onO
           onCitationSelect={handleEvidenceSelect}
           onCloseDrawer={() => setEvidenceDrawerOpen(false)}
           viewerRole={viewerRole}
-        />
+        /> : null}
       </div>
     </>
   );

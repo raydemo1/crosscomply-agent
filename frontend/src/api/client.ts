@@ -26,6 +26,8 @@ import type {
   FreezeMaterialSnapshotResponse,
   FeishuApprovalApi,
   MaterialVersionApi,
+  ReviewMaterialApi,
+  ReviewAnnotationApi,
   ManagedUserApi,
   ReviewTaskApi,
   RemediationAssigneeApi,
@@ -68,6 +70,40 @@ export async function decideRevisionProposal(
 
 export async function getWorkingDraft(caseId: string, materialVersionId: string): Promise<WorkingDraftApi> {
   return request<WorkingDraftApi>(`/api/cases/${encodeURIComponent(caseId)}/working-draft?material_version_id=${encodeURIComponent(materialVersionId)}`);
+}
+
+export async function getReviewMaterials(caseId: string): Promise<ReviewMaterialApi[]> {
+  const response = await request<{ items: ReviewMaterialApi[] }>(`/api/cases/${encodeURIComponent(caseId)}/review-materials`);
+  return response.items;
+}
+
+export async function listReviewAnnotations(caseId: string): Promise<ReviewAnnotationApi[]> {
+  const response = await request<{ items: ReviewAnnotationApi[] }>(`/api/cases/${encodeURIComponent(caseId)}/annotations`);
+  return response.items;
+}
+
+export async function saveReviewAnnotation(
+  caseId: string, target: { material_version_id: string; start_offset: number; end_offset: number }, finding: string,
+): Promise<ReviewAnnotationApi> {
+  return request<ReviewAnnotationApi>(`/api/cases/${encodeURIComponent(caseId)}/annotations`, {
+    method: 'POST', body: JSON.stringify({ ...target, finding }),
+  });
+}
+
+export async function followupReviewAnnotation(
+  caseId: string, target: { material_version_id: string; start_offset: number; end_offset: number }, question: string,
+): Promise<ReviewAnnotationApi> {
+  return request<ReviewAnnotationApi>(`/api/cases/${encodeURIComponent(caseId)}/annotation-followups`, {
+    method: 'POST', body: JSON.stringify({ ...target, question }), timeoutMs: REVIEW_TIMEOUT_MS,
+  });
+}
+
+export async function decideReviewAnnotation(
+  id: string, decision: 'confirmed' | 'rejected', expectedVersion: number,
+): Promise<ReviewAnnotationApi> {
+  return request<ReviewAnnotationApi>(`/api/annotations/${encodeURIComponent(id)}/decision`, {
+    method: 'POST', body: JSON.stringify({ decision, expected_version: expectedVersion }),
+  });
 }
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') ?? '';
