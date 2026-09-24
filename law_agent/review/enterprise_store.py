@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -18,12 +18,23 @@ from psycopg.types.json import Jsonb
 from law_agent.review.case_store import utc_now
 
 ParseStatus = Literal["pending", "parsing", "ready", "failed"]
-TaskStatus = Literal["queued", "running", "waiting_input", "succeeded", "failed"]
+TaskStatus = Literal["queued", "running", "waiting_input", "succeeded", "failed", "superseded"]
 DEFAULT_TASK_LEASE_SECONDS = 2 * 60 * 60
 
 
 def _identifier(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex[:16]}"
+
+
+def _reject_multiple_versions_of_one_material(rows: Sequence[Any]) -> None:
+    """A frozen snapshot must never carry two versions of the same logical material."""
+
+    seen: set[str] = set()
+    for row in rows:
+        material_id = row["material_id"] if isinstance(row, Mapping) else row.material_id
+        if material_id in seen:
+            raise ValueError("材料快照不能同时包含同一份逻辑材料的多个版本")
+        seen.add(material_id)
 
 
 def _canonical_hash(value: object) -> str:
@@ -84,7 +95,7 @@ class RuleSnapshot:
 class TaskAttempt:
     attempt_number: int
     worker_id: str
-    status: Literal["running", "waiting_input", "succeeded", "failed"] = "running"
+    status: Literal["running", "waiting_input", "succeeded", "failed", "superseded"] = "running"
     failed_node: str | None = None
     error_category: str | None = None
     error_message: str | None = None
@@ -188,6 +199,7 @@ class InMemoryEnterpriseStore:
                 if version is None or version.case_id != case_id:
                     raise ValueError(f"材料版本不属于案件：{version_id}")
                 versions.append(version)
+            _reject_multiple_versions_of_one_material(versions)
             ordered = tuple(
                 sorted(versions, key=lambda item: (item.logical_name, item.version_number))
             )
@@ -451,6 +463,23 @@ class InMemoryEnterpriseStore:
             matches = [item for item in self.tasks.values() if item.case_id == case_id]
             return max(matches, key=lambda item: (item.created_at, item.id), default=None)
 
+    def supersede_waiting_tasks(self, case_id: str) -> list[str]:
+        """Close paused Agent runs whose question was asked about an older frozen input."""
+
+        with self._lock:
+            superseded: list[str] = []
+            for task in self.tasks.values():
+                if task.case_id != case_id or task.status != "waiting_input":
+                    continue
+                task.status = "superseded"
+                task.lease_expires_at = None
+                task.updated_at = utc_now()
+                if task.attempts and task.attempts[-1].status == "waiting_input":
+                    task.attempts[-1].status = "superseded"
+                    task.attempts[-1].finished_at = utc_now()
+                superseded.append(task.id)
+            return sorted(superseded)
+
     def complete_task(
         self,
         task_id: str,
@@ -632,6 +661,7 @@ class PostgresEnterpriseStore:
                     version_ids[0],
                 )
                 raise ValueError(f"材料版本不属于案件：{invalid}")
+            _reject_multiple_versions_of_one_material(rows)
             ordered = sorted(rows, key=lambda row: (row["logical_name"], row["version_number"]))
             fingerprint = _canonical_hash(
                 [{"version_id": row["id"], "sha256": row["sha256"]} for row in ordered]
@@ -991,6 +1021,33 @@ class PostgresEnterpriseStore:
                 return None
             attempts = self._load_attempts(cur, row["id"])
         return self._review_task(row, attempts)
+
+    def supersede_waiting_tasks(self, case_id: str) -> list[str]:
+        """Close paused Agent runs whose question was asked about an older frozen input."""
+
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE review_tasks
+                SET status = 'superseded', lease_expires_at = NULL,
+                    current_node = 'superseded', updated_at = now()
+                WHERE case_id = %s AND status = 'waiting_input'
+                RETURNING id
+                """,
+                (case_id,),
+            )
+            superseded = sorted(row["id"] for row in cur.fetchall())
+            if superseded:
+                cur.execute(
+                    """
+                    UPDATE review_task_attempts
+                    SET status = 'superseded', finished_at = now()
+                    WHERE task_id = ANY(%s) AND status = 'waiting_input'
+                    """,
+                    (superseded,),
+                )
+            conn.commit()
+        return superseded
 
     def fail_task(
         self,

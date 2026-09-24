@@ -560,6 +560,10 @@ class RemediationTaskDrafter:
                 ),
             ],
             post_validate=lambda drafts: validate_task_drafts(drafts, review_result),
+            post_validation_reason="task_draft_source_validation_failed",
+            post_validation_hint=(
+                "请确保每个整改任务只绑定本案真实存在的审查问题 id 或审查建议下标。"
+            ),
         )
 
 

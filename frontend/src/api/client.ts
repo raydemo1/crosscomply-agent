@@ -74,6 +74,11 @@ export async function getWorkingDraft(caseId: string, materialVersionId: string)
   return request<WorkingDraftApi>(`/api/cases/${encodeURIComponent(caseId)}/working-draft?material_version_id=${encodeURIComponent(materialVersionId)}`);
 }
 
+export async function listMaterialVersions(caseId: string): Promise<MaterialVersionApi[]> {
+  const response = await request<{ items: MaterialVersionApi[] }>(`/api/cases/${encodeURIComponent(caseId)}/materials`);
+  return response.items;
+}
+
 export async function getReviewMaterials(caseId: string): Promise<ReviewMaterialApi[]> {
   const response = await request<{ items: ReviewMaterialApi[] }>(`/api/cases/${encodeURIComponent(caseId)}/review-materials`);
   return response.items;
@@ -215,9 +220,15 @@ async function request<T>(
   }
   if (!response.ok) {
     const detail = extractDetail(parsed);
+    // A 5xx means the server failed, not that the request was malformed. Its raw detail is an
+    // internal string such as "Internal Server Error", which tells the user nothing actionable,
+    // so keep it on the error for diagnostics and show a clear message instead.
+    const message = response.status >= 500
+      ? `CrossComply 服务暂时不可用（${response.status}），请稍后重试。`
+      : detailToString(detail) || `API 请求失败（${response.status}）`;
     throw new ApiError(
       response.status,
-      detailToString(detail) || `API 请求失败（${response.status}）`,
+      message,
       path,
       detail,
     );
@@ -567,7 +578,12 @@ export async function waitForReviewTask(
   while (true) {
     const task = await getReviewTask(taskId);
     await onUpdate?.(task);
-    if (task.status === 'waiting_input' || task.status === 'succeeded' || task.status === 'failed') return task;
+    if (
+      task.status === 'waiting_input'
+      || task.status === 'succeeded'
+      || task.status === 'failed'
+      || task.status === 'superseded'
+    ) return task;
     await new Promise<void>((resolve) => window.setTimeout(resolve, TASK_POLL_INTERVAL_MS));
   }
 }

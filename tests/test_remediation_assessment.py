@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from law_agent.llm.openai_compatible import ChatMessage
 from law_agent.review.agent import AgentState
 from law_agent.review.api import create_app
 from law_agent.review.case_store import InMemoryCaseStore
@@ -20,6 +21,7 @@ from law_agent.review.remediation import (
     RemediationAssessmentError,
     RemediationDecision,
     RemediationTaskDraft,
+    RemediationTaskDrafter,
     RemediationTaskDraftSet,
     RereviewAttachment,
     build_rereview_packet,
@@ -458,6 +460,58 @@ def test_task_drafts_reject_sources_the_case_does_not_have(
 ) -> None:
     with pytest.raises(RemediationAssessmentError, match=message):
         validate_task_drafts(RemediationTaskDraftSet(tasks=[draft]), _draftable_result())
+
+
+class _ScriptedClient:
+    """Replays canned JSON payloads so the retry prompt can be inspected."""
+
+    def __init__(self, outputs: list[dict[str, Any]]):
+        self.outputs = list(outputs)
+        self.calls: list[list[ChatMessage]] = []
+
+    def chat_json(self, messages: list[ChatMessage], **_: Any) -> dict[str, Any]:
+        self.calls.append(list(messages))
+        return self.outputs.pop(0)
+
+
+def test_task_draft_retry_uses_a_generic_hint_and_recovers() -> None:
+    client = _ScriptedClient(
+        [
+            {
+                "tasks": [
+                    {
+                        "title": "确认训练用途状态",
+                        "description": "",
+                        "acceptance_criteria": "",
+                        "source_issue_id": "issue_does_not_exist",
+                    }
+                ],
+                "summary": "",
+            },
+            {
+                "tasks": [
+                    {
+                        "title": "确认训练用途状态",
+                        "description": "确认供应商未使用客户数据训练模型。",
+                        "acceptance_criteria": "能确认生产环境训练功能已关闭。",
+                        "source_issue_id": "issue_1",
+                    }
+                ],
+                "summary": "",
+            },
+        ]
+    )
+    drafter = RemediationTaskDrafter(model_id="test-model", client=client)
+
+    items = drafter(_draftable_result())
+
+    assert [item["source_issue_id"] for item in items] == ["issue_1"]
+    retry_prompt = client.calls[1][-1].content
+    assert "业务校验失败" in retry_prompt
+    assert "审查问题 id 或审查建议下标" in retry_prompt
+    # The retry prompt must not leak the claim-grounding wording from other nodes.
+    assert "claim" not in retry_prompt
+    assert "supporting_chunk_id" not in retry_prompt
 
 
 # --- HTTP behaviour -----------------------------------------------------------

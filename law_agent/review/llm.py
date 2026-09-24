@@ -107,6 +107,7 @@ class StructuredLLMNode(Generic[ModelT]):
         *,
         post_validate: Callable[[ModelT], ModelT] | None = None,
         post_validation_reason: str = "post_validation_failed",
+        post_validation_hint: str = "",
     ) -> ModelT:
         attempts_allowed = self.max_retries + 1
         last_reason = "llm_api_error"
@@ -177,15 +178,15 @@ class StructuredLLMNode(Generic[ModelT]):
                 except ValueError as exc:
                     last_reason = post_validation_reason
                     last_message = str(exc)
+                    hint = f" {post_validation_hint.strip()}" if post_validation_hint.strip() else ""
                     messages = [
                         *messages,
                         ChatMessage(
                             role="user",
                             content=(
-                                "上一轮 JSON 通过了 schema，但 claim grounding 业务校验失败。"
-                                "请只重新输出符合 schema 的 JSON，并确保每个 claim 至少引用一个"
-                                "允许且可作为法条依据的 supporting_chunk_id。"
-                                f" validation_error={exc}"
+                                "上一轮 JSON 通过了 schema，但业务校验失败。"
+                                "请只重新输出符合 schema 的 JSON，不要解释。"
+                                f"{hint} validation_error={exc}"
                             ),
                         ),
                     ]

@@ -18,6 +18,7 @@ export const REVIEW_TASK_STATUS_LABELS: Record<ReviewTaskStatus, string> = {
   waiting_input: '等待补充',
   succeeded: '已完成',
   failed: '运行失败',
+  superseded: '已被新提交取代',
 };
 
 export const TERMINAL_CASE_STATUSES = new Set<CaseStatus>([

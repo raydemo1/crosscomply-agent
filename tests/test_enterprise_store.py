@@ -1,3 +1,5 @@
+import pytest
+
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
 
 
@@ -186,3 +188,107 @@ def test_expired_running_task_is_requeued_with_failed_attempt() -> None:
     assert recovered.status == "queued"
     assert recovered.error_category == "worker_lease_expired"
     assert recovered.attempts[-1].status == "failed"
+
+
+def test_snapshot_rejects_two_versions_of_the_same_material() -> None:
+    store = InMemoryEnterpriseStore()
+    first = store.create_material_version(
+        case_id="case_1",
+        logical_name="vendor_dpa",
+        filename="dpa-v1.pdf",
+        content_type="application/pdf",
+        object_key="cases/case_1/materials/dpa/v1.pdf",
+        sha256="a" * 64,
+        byte_size=100,
+        uploaded_by="user_1",
+    )
+    second = store.create_material_version(
+        case_id="case_1",
+        logical_name="vendor_dpa",
+        filename="dpa-v2.pdf",
+        content_type="application/pdf",
+        object_key="cases/case_1/materials/dpa/v2.pdf",
+        sha256="b" * 64,
+        byte_size=120,
+        uploaded_by="user_1",
+    )
+
+    # A frozen snapshot must describe one state of the case, so it carries at most one version
+    # of each logical material; picking the newest version is the caller's job.
+    with pytest.raises(ValueError, match="同一份逻辑材料"):
+        store.create_material_snapshot(
+            case_id="case_1",
+            version_ids=[first.id, second.id],
+            created_by="user_1",
+        )
+
+    # Distinct materials are still allowed side by side in one frozen snapshot.
+    other = store.create_material_version(
+        case_id="case_1",
+        logical_name="data_inventory",
+        filename="inventory.md",
+        content_type="text/markdown",
+        object_key="cases/case_1/materials/inventory/v1.md",
+        sha256="c" * 64,
+        byte_size=40,
+        uploaded_by="user_1",
+    )
+    multi = store.create_material_snapshot(
+        case_id="case_1",
+        version_ids=[first.id, other.id],
+        created_by="user_1",
+    )
+    assert set(multi.version_ids) == {first.id, other.id}
+
+
+def test_supersede_waiting_tasks_closes_paused_runs() -> None:
+    store = InMemoryEnterpriseStore()
+    version = store.create_material_version(
+        case_id="case_1",
+        logical_name="contract",
+        filename="contract.pdf",
+        content_type="application/pdf",
+        object_key="contract.pdf",
+        sha256="f" * 64,
+        byte_size=10,
+        uploaded_by="user_1",
+    )
+    snapshot = store.create_material_snapshot(
+        case_id="case_1", version_ids=[version.id], created_by="user_1"
+    )
+    rule = store.create_rule_snapshot(
+        case_id="case_1",
+        material_snapshot_id=snapshot.id,
+        ruleset_version="v1",
+        facts={},
+        determination={},
+    )
+    task = store.enqueue_review_task(
+        case_id="case_1",
+        material_snapshot_id=snapshot.id,
+        rule_snapshot_id=rule.id,
+        model_id="model-v1",
+        data_boundary_summary={},
+    )
+    store.claim_next_task(worker_id="worker-1")
+    paused = store.pause_task(task.id, state={"steps": [], "question": "请确认累计出境人数。"})
+    assert paused.status == "waiting_input"
+
+    assert store.supersede_waiting_tasks("case_1") == [task.id]
+    superseded = store.get_task(task.id)
+    assert superseded is not None
+    assert superseded.status == "superseded"
+    assert superseded.attempts[-1].status == "superseded"
+
+    # Already-closed runs are left alone, and a superseded task no longer blocks new work.
+    assert store.supersede_waiting_tasks("case_1") == []
+    assert (
+        store.enqueue_review_task(
+            case_id="case_1",
+            material_snapshot_id=snapshot.id,
+            rule_snapshot_id=rule.id,
+            model_id="model-v2",
+            data_boundary_summary={},
+        ).status
+        == "queued"
+    )

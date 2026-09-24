@@ -75,6 +75,7 @@ def _intake_from_extraction(facts: ReviewFacts) -> IntakePayload:
     return IntakePayload(
         business_activity=facts.business_activity or "",
         data_types=list(facts.data_types),
+        contains_personal_information=facts.contains_personal_information,
         sensitive_personal_info=facts.sensitive_personal_info,
         cross_border_transfer=facts.cross_border_transfer,
         overseas_recipient=facts.overseas_recipient or "",
@@ -88,7 +89,7 @@ def _facts_from_extraction(facts: ReviewFacts) -> ComplianceFacts:
 
     return ComplianceFacts(
         cross_border_transfer=facts.cross_border_transfer,
-        contains_personal_information=True if facts.data_types else None,
+        contains_personal_information=facts.contains_personal_information,
         contains_sensitive_personal_information=facts.sensitive_personal_info,
     )
 
@@ -441,6 +442,15 @@ def register_case_routes(
             facts=payload.facts.model_dump(mode="json"),
             determination=decision.model_dump(mode="json"),
         )
+        # The frozen inputs just changed, so a paused Agent question asked about the previous
+        # snapshot is stale: close it instead of letting it be resumed against old material.
+        for superseded_task_id in enterprise().supersede_waiting_tasks(identifier):
+            store().add_event(
+                identifier,
+                user.id,
+                event_type="review_task_superseded",
+                payload={"task_id": superseded_task_id, "material_snapshot_id": snapshot.id},
+            )
         if decision.needs_info and case["status"] != "needs_info":
             store().update_case(identifier, status="needs_info", facts_confirmed=False)
         store().add_event(
@@ -551,7 +561,25 @@ def register_case_routes(
         )
         if payload.status == "pending_review":
             # 提交即进入审查队列：申请人不需要再等审核人手动启动。
-            queue_review(identifier, user, updated, snapshot, rule)
+            # A failed enqueue must not leave the case looking submitted while it is not queued,
+            # and the audit trail must not show an unexplained successful status change.
+            try:
+                queue_review(identifier, user, updated, snapshot, rule)
+            except (HTTPException, ValueError) as exc:
+                store().update_case(
+                    identifier, status=current, facts_confirmed=case.get("facts_confirmed", False)
+                )
+                store().add_event(
+                    identifier,
+                    user.id,
+                    event_type="status_change_rolled_back",
+                    from_status=payload.status,
+                    to_status=current,
+                    payload={"reason": str(getattr(exc, "detail", exc))},
+                )
+                if isinstance(exc, HTTPException):
+                    raise
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
             updated = store().get_case(identifier) or updated
         return case_payload(updated)
 

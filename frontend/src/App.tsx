@@ -6,8 +6,9 @@ import type { Page } from './components/Sidebar';
 import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
 import LoginPage from './components/LoginPage';
-import { ApiError, createCase, extractIntake, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
+import { ApiError, createCase, extractIntake, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, listMaterialVersions, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
 import { EMPTY_INTAKE, openCase, refreshCases, useCaseStore } from './store/caseStore';
+import { allocateUploadNames, PASTED_MATERIAL_LOGICAL_NAME } from './utils/materialNames';
 
 const GovernanceConsolePage = lazy(() => import('./components/GovernanceConsolePage'));
 const KnowledgeBasePage = lazy(() => import('./components/KnowledgeBasePage'));
@@ -45,7 +46,7 @@ function toComplianceFacts(intake: CaseIntake): ComplianceFactsApi {
       'important',
       'not_important',
     ),
-    contains_personal_information: intake.data_types.length > 0 ? true : null,
+    contains_personal_information: intake.contains_personal_information,
     contains_sensitive_personal_information: intake.sensitive_personal_info,
     cumulative_personal_information_subjects: confirmedCount(intake.annual_non_sensitive_count),
     cumulative_sensitive_personal_information_subjects: confirmedCount(intake.annual_sensitive_count),
@@ -59,8 +60,72 @@ function materialOriginal(material: string): File {
   return new File([material], 'case-material.txt', { type: 'text/plain;charset=utf-8' });
 }
 
+const MATERIAL_FALLBACK_PREFIX = '材料以附件形式提供：';
+
+/** Editing the prose is an update to the pasted material, not a brand new upload. */
+function replacesPastedMaterial(text: string, originalText: string): boolean {
+  return Boolean(text.trim()) && text !== originalText;
+}
+
 function materialFallback(files: File[]): string {
-  return files.length ? `材料以附件形式提供：${files.map((file) => file.name).join('、')}` : '';
+  return files.length ? `${MATERIAL_FALLBACK_PREFIX}${files.map((file) => file.name).join('、')}` : '';
+}
+
+interface MaterialUpload {
+  logicalName: string;
+  file: File;
+}
+
+interface KnownVersion {
+  id: string;
+  logicalName: string;
+  versionNumber: number;
+}
+
+/**
+ * Only the versions already frozen for this case may carry over. Reading every historical
+ * version would silently resurrect superseded drafts and discarded attachments.
+ */
+async function loadFrozenVersions(
+  caseId: string,
+  keptVersionIds: string[],
+): Promise<KnownVersion[]> {
+  if (!keptVersionIds.length) return [];
+  const keptIds = new Set(keptVersionIds);
+  const kept = (await listMaterialVersions(caseId))
+    .filter((version) => keptIds.has(version.id))
+    .map((version) => ({
+      id: version.id,
+      logicalName: version.logical_name,
+      versionNumber: version.version_number,
+    }));
+  if (kept.length !== keptIds.size) {
+    throw new ApiError(0, '本案已有材料发生变化，请刷新页面后重新提交。', '/api/cases');
+  }
+  return kept;
+}
+
+/**
+ * A snapshot holds at most one version per logical material, so a higher version of a frozen
+ * material replaces it instead of freezing both drafts side by side.
+ */
+function frozenVersionIds(versions: KnownVersion[]): string[] {
+  const newest = new Map<string, KnownVersion>();
+  for (const version of versions) {
+    const current = newest.get(version.logicalName);
+    if (!current || version.versionNumber > current.versionNumber) {
+      newest.set(version.logicalName, version);
+    }
+  }
+  return [...newest.values()].map((version) => version.id);
+}
+
+/**
+ * A file-only case stores a filename summary in material_text. Keep it out of the
+ * editable box so it can never be re-submitted as if it were the real material.
+ */
+function editableMaterialText(materialText: string): string {
+  return materialText.startsWith(MATERIAL_FALLBACK_PREFIX) ? '' : materialText;
 }
 
 function linkedCaseId(): string | null {
@@ -80,6 +145,10 @@ export default function App(): JSX.Element {
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [remediationCaseId, setRemediationCaseId] = useState<string | null>(null);
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
+  const [editingVersionIds, setEditingVersionIds] = useState<string[]>([]);
+  /** Names already frozen on the edited case; new uploads are numbered to avoid them. */
+  const [editingMaterialNames, setEditingMaterialNames] = useState<string[]>([]);
+  const [editingMaterialText, setEditingMaterialText] = useState('');
   const [question, setQuestion] = useState('');
   const [material, setMaterial] = useState('');
   const [intake, setIntake] = useState<CaseIntake>({ ...EMPTY_INTAKE });
@@ -91,6 +160,30 @@ export default function App(): JSX.Element {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const cases = useCaseStore();
   const activeCase = useMemo(() => activeCaseId ? cases.find((item) => item.id === activeCaseId) ?? null : null, [cases, activeCaseId]);
+
+  // Numbering of new uploads depends on the names already frozen on the case, so fetch them up
+  // front. Reading them only at submit time would make the preview disagree with what gets frozen.
+  useEffect(() => {
+    if (!editingCaseId || !editingVersionIds.length) {
+      setEditingMaterialNames([]);
+      return;
+    }
+    let cancelled = false;
+    const keptIds = new Set(editingVersionIds);
+    void listMaterialVersions(editingCaseId)
+      .then((versions) => {
+        if (cancelled) return;
+        setEditingMaterialNames(
+          versions.filter((version) => keptIds.has(version.id)).map((version) => version.logical_name),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setEditingMaterialNames([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editingCaseId, editingVersionIds]);
 
   useEffect(() => {
     let mounted = true;
@@ -192,33 +285,62 @@ export default function App(): JSX.Element {
     if (!user) return;
     setLoading(true);
     setError(null);
+    const textMaterial = m.trim();
+    const keptVersionIds = editingCaseId ? editingVersionIds : [];
+    // Only genuinely new material is uploaded. Supplementing facts must never re-upload the
+    // frozen originals, and pasted prose replaces its own previous version instead of adding one.
+    const updatesPastedMaterial = replacesPastedMaterial(textMaterial, editingMaterialText);
+    const clearEditingState = (): void => {
+      setEditingCaseId(null);
+      setEditingVersionIds([]);
+      setEditingMaterialText('');
+    };
     try {
+      if (!keptVersionIds.length && !files.length && !updatesPastedMaterial) {
+        throw new ApiError(0, '请提供至少一份待审查材料。', '/api/cases');
+      }
       const saved = editingCaseId
         ? await updateCase(editingCaseId, {
           question: q,
-          material_text: m || materialFallback(files),
+          ...(updatesPastedMaterial ? { material_text: textMaterial } : {}),
           intake: confirmedIntake,
         })
-        : await createCase({ question: q, materialText: m || materialFallback(files), intake: confirmedIntake });
-      setEditingCaseId(null);
-      setActiveCaseId(saved.case.id);
-      setPage('case-detail');
-      const uploads = files.length ? files : [materialOriginal(m)];
-      const versions = [];
-      for (const item of uploads) {
-        versions.push(await uploadMaterial(saved.case.id, 'review_material', item));
+        : await createCase({ question: q, materialText: textMaterial || materialFallback(files), intake: confirmedIntake });
+      const frozenVersions = await loadFrozenVersions(saved.case.id, keptVersionIds);
+      const fileNames = allocateUploadNames(
+        files.map((file) => file.name),
+        frozenVersions.map((version) => version.logicalName),
+        updatesPastedMaterial,
+      );
+      const uploads: MaterialUpload[] = files.map((file, index) => ({
+        logicalName: fileNames[index],
+        file,
+      }));
+      if (updatesPastedMaterial) {
+        uploads.push({ logicalName: PASTED_MATERIAL_LOGICAL_NAME, file: materialOriginal(textMaterial) });
+      }
+      const uploaded: KnownVersion[] = [];
+      for (const upload of uploads) {
+        const created = await uploadMaterial(saved.case.id, upload.logicalName, upload.file);
+        uploaded.push({
+          id: created.id,
+          logicalName: created.logical_name,
+          versionNumber: created.version_number,
+        });
       }
       const frozen = await freezeMaterialSnapshot(
         saved.case.id,
-        versions.map((item) => item.id),
+        frozenVersionIds([...frozenVersions, ...uploaded]),
         toComplianceFacts(confirmedIntake),
       );
       if (frozen.rule_decision.determination.needs_info.length > 0) {
+        clearEditingState();
         await openCase(saved.case.id);
         setDashboardSummary(await getDashboardSummary());
         return;
       }
       const pending = await updateCaseStatus(saved.case.id, 'pending_review');
+      clearEditingState();
       await openCase(pending.case.id);
       setDashboardSummary(await getDashboardSummary());
     } catch (reason) {
@@ -226,7 +348,7 @@ export default function App(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [editingCaseId, user]);
+  }, [editingCaseId, editingVersionIds, editingMaterialText, user, openCase]);
 
   const handleOpenCase = useCallback(async (caseId: string): Promise<void> => {
     setError(null);
@@ -250,6 +372,8 @@ export default function App(): JSX.Element {
     setMaterial('');
     setIntake({ ...EMPTY_INTAKE, ...template.intake, data_types: [...(template.intake.data_types ?? [])] });
     setEditingCaseId(null);
+    setEditingVersionIds([]);
+    setEditingMaterialText('');
     setActiveCaseId(null);
     setError(null);
     setMissingFactKeys([]);
@@ -265,20 +389,26 @@ export default function App(): JSX.Element {
     : [];
 
   const handleEditCase = useCallback((saved: NonNullable<typeof activeCase>): void => {
+    const editableMaterial = editableMaterialText(saved.materialText);
     setQuestion(saved.question);
-    setMaterial(saved.materialText);
+    setMaterial(editableMaterial);
     setIntake({ ...saved.intake, data_types: [...saved.intake.data_types] });
     setEditingCaseId(saved.id);
+    // Keep the frozen material versions so supplementing facts never replaces them.
+    setEditingVersionIds(saved.materialSnapshot?.version_ids ?? []);
+    setEditingMaterialText(editableMaterial);
     setError(null);
-    setMissingFactKeys([]);
+    setMissingFactKeys(saved.ruleDecision?.determination.needs_info.map((item) => item.key) ?? []);
     setPage('workbench');
   }, []);
 
   const handleRerun = useCallback((q: string, m: string): void => {
     setQuestion(q);
-    setMaterial(m);
+    setMaterial(editableMaterialText(m));
     setIntake({ ...EMPTY_INTAKE });
     setEditingCaseId(null);
+    setEditingVersionIds([]);
+    setEditingMaterialText('');
     setActiveCaseId(null);
     setMissingFactKeys([]);
     setPage('workbench');
@@ -313,7 +443,7 @@ export default function App(): JSX.Element {
         {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载整改计划…</div></div>}><RemediationPlanPage caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} issues={remediationIssues} /></Suspense> : null}
         {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage saved={activeCase} canEdit={user.role === 'requester'} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} /></Suspense> : null}
         {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage user={user} onUseTemplate={handleUseTemplate} /></Suspense> : null}
-        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} editingCaseId={editingCaseId} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onAnalyze={handleAnalyze} onSubmit={(q, m, confirmedIntake, files) => void handleSubmit(q, m, confirmedIntake, files)} loading={loading} analyzing={analyzing} error={error} missingFactKeys={missingFactKeys} historyCount={cases.length} summary={dashboardSummary} /> : null}
+        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} editingCaseId={editingCaseId} existingMaterialNames={editingMaterialNames} reservePastedMaterial={replacesPastedMaterial(material, editingMaterialText)} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onAnalyze={handleAnalyze} onSubmit={(q, m, confirmedIntake, files) => void handleSubmit(q, m, confirmedIntake, files)} loading={loading} analyzing={analyzing} error={error} missingFactKeys={missingFactKeys} historyCount={cases.length} summary={dashboardSummary} /> : null}
         {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从最近案件中选择一个案件。</p></div> : null}
       </main>
     </div>

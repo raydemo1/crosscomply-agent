@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/raydemo1/crosscomply-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/raydemo1/crosscomply-agent/actions/workflows/ci.yml)
 
-CrossComply 是一个面向企业数据出境/跨境数据合规执行的单 Agent 项目。Agent 先提交计划供审核人确认，再根据案件状态自主阅读冻结材料、重复检索法源、请求人工补充或交付带引用的结果；检索不可满足的要求会披露为 evidence gap，而不是交给模型猜测。
+CrossComply 是一个面向企业数据出境/跨境数据合规执行的单 Agent 项目。Agent 根据案件状态自主阅读冻结材料、重复检索法源、请求人工补充或交付带引用的结果；它给出的执行计划只对用户可见，不会暂停运行等待确认。检索不可满足的要求会披露为 evidence gap，而不是交给模型猜测。
 
 在完整部署中，这条审查链路可用作企业数据出境上线前的合规闸门：确定性规则负责硬条件计算，LLM 负责证据化深审，最终决定由飞书审批回写。
 

@@ -17,6 +17,7 @@ import {
   answerRemediationAssessment,
   createRemediationPlan,
   draftRemediationTasks,
+  getCaseDetail,
   getRemediationTask,
   getRemediationPlan,
   listAssignableUsers,
@@ -107,8 +108,42 @@ function canManage(user: WorkbenchUser): boolean {
   return user.role === 'reviewer' || user.role === 'admin';
 }
 
+/** Remediation deadlines are calendar dates in the user's own timezone, never UTC ISO dates. */
+function localDateString(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function todayLocalDate(): string {
+  return localDateString(new Date());
+}
+
+function suggestedDueDate(days: number): string {
+  const due = new Date();
+  due.setDate(due.getDate() + days);
+  return localDateString(due);
+}
+
 function isOverdue(task: RemediationTaskApi): boolean {
-  return Boolean(task.due_date && task.status !== 'completed' && task.due_date < new Date().toISOString().slice(0, 10));
+  return Boolean(task.due_date && task.status !== 'completed' && task.due_date < todayLocalDate());
+}
+
+/**
+ * A role suggestion is only a hint. Prefer the case owner for the requester role,
+ * and auto-select only when the role resolves to exactly one real person.
+ */
+function suggestAssignee(
+  role: 'requester' | 'reviewer' | 'admin',
+  users: RemediationAssigneeApi[],
+  caseOwnerId: string | null,
+): string {
+  const matching = users.filter((candidate) => candidate.role === role);
+  if (role === 'requester' && caseOwnerId) {
+    const owner = matching.find((candidate) => candidate.id === caseOwnerId);
+    if (owner) return owner.id;
+  }
+  return matching.length === 1 ? matching[0].id : '';
 }
 
 function taskAssignee(task: RemediationTaskApi, users: RemediationAssigneeApi[]): RemediationAssigneeApi | null {
@@ -144,6 +179,7 @@ export default function RemediationPlanPage({ caseId, user, initialPlan = null, 
   const [plan, setPlan] = useState<RemediationPlanApi | null>(initialPlan);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialPlan?.tasks[0]?.id ?? null);
   const [assignableUsers, setAssignableUsers] = useState<RemediationAssigneeApi[]>([]);
+  const [caseOwnerId, setCaseOwnerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(initialPlan === undefined);
   const [error, setError] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
@@ -170,7 +206,8 @@ export default function RemediationPlanPage({ caseId, user, initialPlan = null, 
   useEffect(() => {
     if (!canManage(user)) return;
     void listAssignableUsers().then((result) => setAssignableUsers(result.items)).catch(() => setAssignableUsers([]));
-  }, [user]);
+    void getCaseDetail(caseId).then((detail) => setCaseOwnerId(detail.case.owner_id)).catch(() => setCaseOwnerId(null));
+  }, [user, caseId]);
 
   const selectedTask = plan?.tasks.find((task) => task.id === selectedTaskId) ?? null;
   const counts = plan ? planCounts(plan) : null;
@@ -189,7 +226,7 @@ export default function RemediationPlanPage({ caseId, user, initialPlan = null, 
           <p>从审查建议中明确选择需要交接的事项，再分派给具体负责人。审查建议不会自动变成任务。</p>
           {canManage(user) ? <button type="button" className="remediation-button remediation-button--primary" onClick={() => setShowBuilder(true)}>建立整改计划</button> : <span className="remediation-muted">等待审核人建立计划</span>}
         </div>
-        {showBuilder ? <PlanBuilder caseId={caseId} user={user} recommendations={recommendations} issues={issues} assignableUsers={assignableUsers} onCreated={(created) => { setPlan(created); setShowBuilder(false); setSelectedTaskId(created.tasks[0]?.id ?? null); }} onCancel={() => setShowBuilder(false)} /> : null}
+        {showBuilder ? <PlanBuilder caseId={caseId} user={user} recommendations={recommendations} issues={issues} assignableUsers={assignableUsers} caseOwnerId={caseOwnerId} onCreated={(created) => { setPlan(created); setShowBuilder(false); setSelectedTaskId(created.tasks[0]?.id ?? null); }} onCancel={() => setShowBuilder(false)} /> : null}
         {error ? <div className="remediation-error" role="alert">{error}</div> : null}
       </section>
     );
@@ -233,7 +270,7 @@ function RemediationPlanOverview({ plan }: { plan: RemediationPlanApi }): JSX.El
   return <section className="card remediation-overview"><div className="remediation-overview__copy"><span className="remediation-kicker">关联案件</span><h2>{plan.case_title ?? plan.case_id}</h2></div><div className="remediation-progress"><div className="remediation-progress__value"><strong>{progress}%</strong><span>完成进度</span></div><div className="remediation-progress__track"><span style={{ width: `${progress}%` }} /></div><div className="remediation-progress__stats"><span>{counts.completed} 已完成</span><span>{counts.pending_review} 待复核</span><span className={counts.overdue ? 'is-danger' : ''}>{counts.overdue} 已逾期</span></div></div></section>;
 }
 
-function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, onCreated, onCancel }: { caseId: string; user: WorkbenchUser; recommendations: string[]; issues: ReviewIssue[]; assignableUsers: RemediationAssigneeApi[]; onCreated: (plan: RemediationPlanApi) => void; onCancel: () => void }): JSX.Element {
+function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, caseOwnerId, onCreated, onCancel }: { caseId: string; user: WorkbenchUser; recommendations: string[]; issues: ReviewIssue[]; assignableUsers: RemediationAssigneeApi[]; caseOwnerId: string | null; onCreated: (plan: RemediationPlanApi) => void; onCancel: () => void }): JSX.Element {
   const [drafts, setDrafts] = useState<DraftTask[]>([{ ...EMPTY_DRAFT }]);
   const [saving, setSaving] = useState(false);
   const [drafting, setDrafting] = useState(false);
@@ -251,7 +288,6 @@ function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, o
     try {
       const result = await draftRemediationTasks(caseId);
       if (result.items.length === 0) { setError('Agent 没有从当前审查结论中提出可交接的整改任务。'); return; }
-      const today = Date.now();
       setDrafts(result.items.map((item) => ({
         title: item.title,
         description: item.description,
@@ -259,8 +295,8 @@ function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, o
         source_recommendation_index: item.source_recommendation_index,
         source_issue_id: item.source_issue_id,
         priority: item.priority,
-        assignee_id: assignableUsers.find((candidate) => candidate.role === item.suggested_assignee_role)?.id ?? '',
-        due_date: new Date(today + item.suggested_due_days * 86400000).toISOString().slice(0, 10),
+        assignee_id: suggestAssignee(item.suggested_assignee_role, assignableUsers, caseOwnerId),
+        due_date: suggestedDueDate(item.suggested_due_days),
       })));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '无法让 Agent 起草整改任务');
@@ -447,6 +483,7 @@ export function MyRemediationsPage({ user, initialItems }: MyRemediationsPagePro
   const [status, setStatus] = useState<'all' | RemediationTaskStatus>('all');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialItems?.[0]?.id ?? null);
   const [selectedDetail, setSelectedDetail] = useState<RemediationTaskApi | null>(null);
+  const [assignableUsers, setAssignableUsers] = useState<RemediationAssigneeApi[]>([]);
   const [error, setError] = useState<string | null>(null);
   const reviewerView = canManage(user);
   const refresh = useCallback(async (): Promise<void> => {
@@ -466,9 +503,14 @@ export function MyRemediationsPage({ user, initialItems }: MyRemediationsPagePro
     return () => { mounted = false; };
   }, [selectedTaskId, items]);
   const selected = items.find((item) => item.id === selectedTaskId) ?? null;
+  // Reviewers reassign work from the inbox too, so the same user list must be loaded here.
+  useEffect(() => {
+    if (!reviewerView) { setAssignableUsers([]); return; }
+    void listAssignableUsers().then((result) => setAssignableUsers(result.items)).catch(() => setAssignableUsers([]));
+  }, [reviewerView]);
   const counts = useMemo(() => ({ pending: items.filter((item) => item.status === 'pending_review').length, open: items.filter((item) => item.status === 'open' || item.status === 'in_progress').length, done: items.filter((item) => item.status === 'completed').length }), [items]);
   const tabs: Array<['all' | RemediationTaskStatus, string]> = reviewerView
     ? [['all', '全部'], ['open', '待处理'], ['pending_review', '待我复核'], ['completed', '已完成']]
     : [['all', '全部'], ['open', '待处理'], ['in_progress', '处理中'], ['completed', '已完成']];
-  return <section className="remediation-page"><RemediationPageTop title={reviewerView ? '整改复核' : '我的整改'}><span className="remediation-inbox-summary">{counts.open} 待处理{reviewerView ? ` · ${counts.pending} 待复核` : ''}</span></RemediationPageTop><div className="remediation-inbox-tabs" role="tablist" aria-label="整改任务筛选">{tabs.map(([key, label]) => <button type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} key={key} onClick={() => setStatus(key)}>{label}</button>)}</div>{error ? <div className="remediation-error" role="alert">{error}</div> : null}{loading ? <div className="card remediation-state">正在加载任务…</div> : <div className="remediation-workspace remediation-workspace--inbox"><section className="card remediation-inbox-list">{items.length ? items.map((item) => <button type="button" className={'remediation-task-item' + (selectedTaskId === item.id ? ' is-selected' : '')} key={item.id} onClick={() => { setSelectedTaskId(item.id); setSelectedDetail(null); }}><span className={taskStatusClass(item.status)}>{STATUS_LABELS[item.status]}</span><strong>{item.title}</strong><small>{item.case_title ?? item.case_id} · {item.due_date ? `截止 ${item.due_date}` : '未设期限'}</small>{isOverdue(item) ? <em>已逾期</em> : null}</button>) : <div className="remediation-muted">当前没有需要你处理的整改任务。</div>}</section><section className="card remediation-task-detail">{selected ? <RemediationTaskDetail task={selectedDetail ?? selected} user={user} assignableUsers={[]} onChanged={refresh} /> : <div className="remediation-detail-placeholder">选择任务查看详情。</div>}</section></div>}</section>;
+  return <section className="remediation-page"><RemediationPageTop title={reviewerView ? '整改复核' : '我的整改'}><span className="remediation-inbox-summary">{counts.open} 待处理{reviewerView ? ` · ${counts.pending} 待复核` : ''}</span></RemediationPageTop><div className="remediation-inbox-tabs" role="tablist" aria-label="整改任务筛选">{tabs.map(([key, label]) => <button type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} key={key} onClick={() => setStatus(key)}>{label}</button>)}</div>{error ? <div className="remediation-error" role="alert">{error}</div> : null}{loading ? <div className="card remediation-state">正在加载任务…</div> : <div className="remediation-workspace remediation-workspace--inbox"><section className="card remediation-inbox-list">{items.length ? items.map((item) => <button type="button" className={'remediation-task-item' + (selectedTaskId === item.id ? ' is-selected' : '')} key={item.id} onClick={() => { setSelectedTaskId(item.id); setSelectedDetail(null); }}><span className={taskStatusClass(item.status)}>{STATUS_LABELS[item.status]}</span><strong>{item.title}</strong><small>{item.case_title ?? item.case_id} · {item.due_date ? `截止 ${item.due_date}` : '未设期限'}</small>{isOverdue(item) ? <em>已逾期</em> : null}</button>) : <div className="remediation-muted">当前没有需要你处理的整改任务。</div>}</section><section className="card remediation-task-detail">{selected ? <RemediationTaskDetail task={selectedDetail ?? selected} user={user} assignableUsers={assignableUsers} onChanged={refresh} /> : <div className="remediation-detail-placeholder">选择任务查看详情。</div>}</section></div>}</section>;
 }

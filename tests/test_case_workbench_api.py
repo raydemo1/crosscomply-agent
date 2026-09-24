@@ -135,6 +135,7 @@ def test_intake_extraction_prefills_material_and_asks_only_blocking_facts(app, m
         return ReviewFacts(
             business_activity="推荐系统",
             data_types=["手机号", "定位信息"],
+            contains_personal_information=True,
             sensitive_personal_info=True,
             cross_border_transfer=True,
             overseas_recipient="新加坡云服务商",
@@ -339,6 +340,137 @@ def test_remediation_feedback_and_dashboard_are_persisted(app) -> None:
         summary = client.get("/api/dashboard/summary")
         assert summary.status_code == 200
         assert summary.json()["total_cases"] == 1
+
+
+def test_intake_extraction_does_not_infer_personal_information_from_data_types(
+    app, monkeypatch
+) -> None:
+    """A generic data-type label is not evidence that the material contains personal information."""
+
+    def fake_extract(material_text: str, question: str | None = None, **_: object) -> ReviewFacts:
+        return ReviewFacts(
+            business_activity="设备运行分析",
+            data_types=["业务统计数据", "设备运行数据"],
+            cross_border_transfer=True,
+            overseas_recipient="德国分公司",
+        )
+
+    monkeypatch.setattr("law_agent.review.http.cases.extract_facts_with_deepseek", fake_extract)
+
+    with TestClient(app) as client:
+        _login(client, "requester@crosscomply.local")
+        response = client.post(
+            "/api/intake-extraction",
+            data={
+                "question": "这个业务是否需要数据出境备案？",
+                "material_text": "我们将业务统计数据和设备运行数据传输至德国分公司用于分析。",
+            },
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+
+        assert body["intake"]["data_types"] == ["业务统计数据", "设备运行数据"]
+        assert body["intake"]["contains_personal_information"] is None
+        # Personal information stays an open question, so the rules must ask the user for it.
+        assert "contains_personal_information" in {item["key"] for item in body["missing"]}
+
+
+def test_changed_materials_supersede_paused_agent_task_and_queue_replacement(app) -> None:
+    """Editing frozen inputs must retire a paused Agent question instead of blocking resubmit."""
+
+    with TestClient(app) as client:
+        _login(client, "requester@crosscomply.local")
+        case_id = _create_case(client)
+        _freeze_inputs(app, case_id)
+        submitted = client.post(f"/api/cases/{case_id}/status", json={"status": "pending_review"})
+        assert submitted.status_code == 200, submitted.text
+
+        enterprise = app.state.enterprise_store
+        paused_task = enterprise.get_latest_task(case_id)
+        assert paused_task is not None
+        assert enterprise.claim_next_task(worker_id="worker-1") is not None
+        enterprise.pause_task(
+            paused_task.id, state={"steps": [], "question": "请确认累计出境人数。"}
+        )
+        # The worker moves the case back to needs_info while the Agent waits for the user.
+        app.state.case_store.update_case(case_id, status="needs_info")
+
+        replacement_version = enterprise.create_material_version(
+            case_id=case_id,
+            logical_name="vendor_dpa",
+            filename="dpa-v2.txt",
+            content_type="text/plain",
+            object_key=f"cases/{case_id}/dpa-v2.txt",
+            sha256="b" * 64,
+            byte_size=30,
+            uploaded_by="user_test",
+            parse_status="ready",
+            parsed_text="DPA v2",
+        )
+        frozen = client.post(
+            f"/api/cases/{case_id}/material-snapshots",
+            json={"version_ids": [replacement_version.id], "facts": {"cross_border_transfer": False}},
+        )
+        assert frozen.status_code == 200, frozen.text
+        retired = enterprise.get_task(paused_task.id)
+        assert retired is not None
+        assert retired.status == "superseded"
+
+        resubmitted = client.post(
+            f"/api/cases/{case_id}/status", json={"status": "pending_review"}
+        )
+        assert resubmitted.status_code == 200, resubmitted.text
+        queued_task = enterprise.get_latest_task(case_id)
+        assert queued_task is not None
+        assert queued_task.id != paused_task.id
+        assert queued_task.status == "queued"
+
+        events = client.get(f"/api/cases/{case_id}/events").json()["items"]
+        assert "review_task_superseded" in {event["event_type"] for event in events}
+
+
+def test_failed_enqueue_rolls_back_status_and_records_why(app) -> None:
+    """A rejected submission must not leave a successful-looking status change in the audit trail."""
+
+    with TestClient(app) as client:
+        _login(client, "requester@crosscomply.local")
+        case_id = _create_case(client)
+        enterprise = app.state.enterprise_store
+        version = enterprise.create_material_version(
+            case_id=case_id,
+            logical_name="vendor_dpa",
+            filename="dpa.txt",
+            content_type="text/plain",
+            object_key=f"cases/{case_id}/dpa.txt",
+            sha256="c" * 64,
+            byte_size=20,
+            uploaded_by="user_test",
+            parse_status="failed",
+            parsed_text=None,
+        )
+        snapshot = enterprise.create_material_snapshot(
+            case_id=case_id, version_ids=[version.id], created_by="user_test"
+        )
+        enterprise.create_rule_snapshot(
+            case_id=case_id,
+            material_snapshot_id=snapshot.id,
+            ruleset_version="national-cross-border-2024.03-v1",
+            facts={},
+            determination={"status": "determined", "needs_info": []},
+        )
+
+        rejected = client.post(f"/api/cases/{case_id}/status", json={"status": "pending_review"})
+        assert rejected.status_code == 409, rejected.text
+        assert client.get(f"/api/cases/{case_id}").json()["case"]["status"] == "draft"
+
+        events = client.get(f"/api/cases/{case_id}/events").json()["items"]
+        rolled_back = [
+            event for event in events if event["event_type"] == "status_change_rolled_back"
+        ]
+        assert len(rolled_back) == 1
+        assert rolled_back[0]["from_status"] == "pending_review"
+        assert rolled_back[0]["to_status"] == "draft"
+        assert rolled_back[0]["payload"]["reason"]
 
 
 def test_old_response_normalization_preserves_unknown_metadata_and_unique_refs() -> None:

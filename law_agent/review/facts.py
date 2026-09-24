@@ -20,6 +20,7 @@ class LLMReviewFacts(StrictModel):
 
     business_activity: str | None
     data_types: list[str]
+    contains_personal_information: bool | None
     sensitive_personal_info: bool | None
     cross_border_transfer: bool | None
     overseas_recipient: str | None
@@ -39,6 +40,7 @@ def build_fact_extraction_messages(
     json_example = {
         "business_activity": "移动 App 个性化推荐和数据分析",
         "data_types": ["手机号", "定位信息", "设备标识"],
+        "contains_personal_information": True,
         "sensitive_personal_info": True,
         "cross_border_transfer": True,
         "overseas_recipient": "新加坡数据分析服务商",
@@ -56,6 +58,7 @@ def build_fact_extraction_messages(
         "instructions": [
             "只基于用户材料抽取事实，不要推测材料中没有的信息。",
             "问题里的假设或法名不等于材料事实；例如用户问“是否出境/是否触发安全评估”时，除非材料明确说明出境安排，否则 cross_border_transfer 为 null。",
+            "data_types 只是业务描述里的数据名称，不等于个人信息；只有当材料能指向具体个人时 contains_personal_information 才为 true，仅凭 data_types 非空不得推断为 true。",
             "必须输出合法 json object，字段必须与 json_example 完全一致。",
             "未检测到的事实用 null，列表字段用 []。",
             "missing_information 只列出仍需用户补充的事实键。",

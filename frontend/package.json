@@ -4,11 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "node --experimental-strip-types --test src/utils/materialNames.test.ts",
     "preview": "vite preview"
   },
   "devDependencies": {

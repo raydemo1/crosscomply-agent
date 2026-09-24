@@ -43,6 +43,7 @@ class ReviewFacts(StrictModel):
 
     business_activity: str | None = None
     data_types: list[str] = Field(default_factory=list)
+    contains_personal_information: bool | None = None
     sensitive_personal_info: bool | None = None
     cross_border_transfer: bool | None = None
     overseas_recipient: str | None = None

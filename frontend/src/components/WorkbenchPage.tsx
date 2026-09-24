@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import type { CaseIntake, DashboardSummaryApi } from '../types/api';
 import { validateUploadFile } from '../api/client';
+import { allocateUploadNames } from '../utils/materialNames';
 
 interface WorkbenchPageProps {
   question: string;
@@ -19,12 +20,17 @@ interface WorkbenchPageProps {
   error: string | null;
   /** Facts the Agent could not read from the material and that change the conclusion. */
   missingFactKeys: string[];
+  /** Names already frozen on the case being edited; new uploads are numbered to avoid them. */
+  existingMaterialNames: string[];
+  /** Whether the pasted prose is being re-uploaded, which reserves its stable name first. */
+  reservePastedMaterial: boolean;
   historyCount: number;
   summary: DashboardSummaryApi | null;
 }
 
 /** Rule-engine fact keys, in the wording a business user answers them. */
 const FACT_QUESTIONS: Record<string, string> = {
+  cross_border_transfer: '这项活动是否涉及向境外提供数据？',
   important_data: '这批数据里是否包含重要数据？',
   is_ciio: '贵公司是否属于关键信息基础设施运营者？',
   contains_personal_information: '出境的数据是否包含个人信息？',
@@ -34,10 +40,15 @@ const FACT_QUESTIONS: Record<string, string> = {
   exemption_facts_confirmed: '主张的法定豁免情形，构成事实是否已经逐项确认？',
 };
 
+/**
+ * Rule facts map to their own dedicated control. A boolean rule fact must never be
+ * answered through a free-text business description such as ``data_types``.
+ */
 const FACT_FIELDS: Record<string, string> = {
+  cross_border_transfer: 'cross_border_transfer',
   important_data: 'important_data_status',
   is_ciio: 'ciio_status',
-  contains_personal_information: 'data_types',
+  contains_personal_information: 'contains_personal_information',
   contains_sensitive_personal_information: 'sensitive_personal_info',
   cumulative_personal_information_subjects: 'annual_non_sensitive_count',
   cumulative_sensitive_personal_information_subjects: 'annual_sensitive_count',
@@ -45,6 +56,15 @@ const FACT_FIELDS: Record<string, string> = {
 };
 
 const MAX_QUESTIONS = 4;
+
+/** Tri-state answers keep "尚不确定" distinct from a confirmed "否". */
+function triStateValue(value: boolean | null): string {
+  return value === null ? '' : value ? 'yes' : 'no';
+}
+
+function triStateUpdate(value: string): boolean | null {
+  return value === '' ? null : value === 'yes';
+}
 
 function updateIntake(intake: CaseIntake, onChange: (next: CaseIntake) => void, key: keyof CaseIntake, value: string | boolean | null | string[]): void {
   onChange({ ...intake, [key]: value });
@@ -64,6 +84,8 @@ export default function WorkbenchPage({
   analyzing,
   error,
   missingFactKeys,
+  existingMaterialNames,
+  reservePastedMaterial,
   historyCount,
   summary,
 }: WorkbenchPageProps): JSX.Element {
@@ -72,9 +94,15 @@ export default function WorkbenchPage({
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
-  const hasMaterial = Boolean(material.trim() || files.length);
+  const hasMaterial = Boolean(material.trim() || files.length || existingMaterialNames.length);
   const canSubmit = !loading && Boolean(question.trim()) && hasMaterial;
   const busy = loading || analyzing;
+
+  // The same allocation the submit path uses, so the names shown here are the names frozen later.
+  const uploadNames = useMemo(
+    () => allocateUploadNames(files.map((file) => file.name), existingMaterialNames, reservePastedMaterial),
+    [files, existingMaterialNames, reservePastedMaterial],
+  );
 
   const acceptFiles = (incoming: FileList | null): void => {
     if (!incoming || incoming.length === 0) return;
@@ -89,7 +117,9 @@ export default function WorkbenchPage({
       }
     }
     setFileError(null);
-    setFiles((current) => [...current, ...accepted.filter((item) => !current.some((existing) => existing.name === item.name && existing.size === item.size))]);
+    // Every file the user picked is kept, even when two share a name. Same-named uploads are
+    // disambiguated on submit; silently dropping material is not acceptable for evidence.
+    setFiles((current) => [...current, ...accepted]);
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -105,8 +135,16 @@ export default function WorkbenchPage({
 
   const removeFile = (index: number): void => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
 
+  const hasNewMaterialToRead = Boolean(material.trim() || files.length);
+
   const goToStepTwo = async (): Promise<void> => {
     if (!canSubmit) return;
+    // Editing only the facts of an existing case adds no material to read. Asking the
+    // Agent to read again here would demand a re-upload that the case does not need.
+    if (!hasNewMaterialToRead) {
+      setStep(2);
+      return;
+    }
     if (await onAnalyze(question.trim(), material.trim(), files)) setStep(2);
   };
 
@@ -122,8 +160,10 @@ export default function WorkbenchPage({
 
   const fields: Record<string, JSX.Element> = {
     business_activity: <label className="form-field form-field--wide"><span>业务活动</span><input value={intake.business_activity} onChange={(event) => updateIntake(intake, onIntakeChange, 'business_activity', event.target.value)} placeholder="例如：推荐系统、客服平台、人力资源管理" /></label>,
-    data_types: <label className="form-field form-field--wide"><span>数据类型</span><input value={intake.data_types.join('、')} onChange={(event) => updateIntake(intake, onIntakeChange, 'data_types', event.target.value.split(/[、,，]/).map((item) => item.trim()).filter(Boolean))} placeholder="手机号、定位信息" /></label>,
-    sensitive_personal_info: <label className="form-field"><span>敏感个人信息是否涉及</span><select value={intake.sensitive_personal_info === null ? '' : intake.sensitive_personal_info ? 'yes' : 'no'} onChange={(event) => updateIntake(intake, onIntakeChange, 'sensitive_personal_info', event.target.value === '' ? null : event.target.value === 'yes')}><option value="">尚未确认</option><option value="yes">涉及</option><option value="no">不涉及</option></select></label>,
+    data_types: <label className="form-field form-field--wide"><span>数据类型（业务描述）</span><input value={intake.data_types.join('、')} onChange={(event) => updateIntake(intake, onIntakeChange, 'data_types', event.target.value.split(/[、,，]/).map((item) => item.trim()).filter(Boolean))} placeholder="手机号、定位信息" /></label>,
+    cross_border_transfer: <label className="form-field"><span>是否向境外提供数据</span><select value={triStateValue(intake.cross_border_transfer)} onChange={(event) => updateIntake(intake, onIntakeChange, 'cross_border_transfer', triStateUpdate(event.target.value))}><option value="">尚不确定</option><option value="yes">是，涉及出境</option><option value="no">否，不涉及出境</option></select></label>,
+    contains_personal_information: <label className="form-field"><span>出境数据是否包含个人信息</span><select value={triStateValue(intake.contains_personal_information)} onChange={(event) => updateIntake(intake, onIntakeChange, 'contains_personal_information', triStateUpdate(event.target.value))}><option value="">尚不确定</option><option value="yes">是，包含个人信息</option><option value="no">否，不含个人信息</option></select></label>,
+    sensitive_personal_info: <label className="form-field"><span>敏感个人信息是否涉及</span><select value={triStateValue(intake.sensitive_personal_info)} onChange={(event) => updateIntake(intake, onIntakeChange, 'sensitive_personal_info', triStateUpdate(event.target.value))}><option value="">尚未确认</option><option value="yes">涉及</option><option value="no">不涉及</option></select></label>,
     overseas_recipient: <label className="form-field"><span>境外接收方</span><input value={intake.overseas_recipient} onChange={(event) => updateIntake(intake, onIntakeChange, 'overseas_recipient', event.target.value)} placeholder="公司/供应商名称" /></label>,
     destination_region: <label className="form-field"><span>目的地</span><input value={intake.destination_region} onChange={(event) => updateIntake(intake, onIntakeChange, 'destination_region', event.target.value)} placeholder="国家或地区" /></label>,
     important_data_status: <label className="form-field"><span>重要数据识别状态</span><select value={intake.important_data_status} onChange={(event) => updateIntake(intake, onIntakeChange, 'important_data_status', event.target.value as CaseIntake['important_data_status'])}><option value="unknown">尚未判断</option><option value="not_important">已确认不涉及</option><option value="important">已确认涉及</option><option value="under_review">正在评估</option></select></label>,
@@ -177,11 +217,12 @@ export default function WorkbenchPage({
               <input ref={fileInputRef} type="file" accept=".txt,.md,.markdown,.pdf,.docx,.html,.htm,.json,.csv" multiple onChange={handleFileChange} hidden />
               <button type="button" className="btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={busy}>选择文件</button>
             </div>
-            {files.length ? <ul className="material-dropzone__files">{files.map((file, index) => <li key={`${file.name}-${index}`}><span>{file.name}</span><button type="button" className="btn-link" onClick={() => removeFile(index)} disabled={busy}>移除</button></li>)}</ul> : null}
+            {files.length ? <ul className="material-dropzone__files">{files.map((file, index) => <li key={`${file.name}-${index}`}><span>{uploadNames[index]}</span><button type="button" className="btn-link" onClick={() => removeFile(index)} disabled={busy}>移除</button></li>)}</ul> : null}
           </div>
           {fileError ? <div className="form-error">{fileError}</div> : null}
+          {existingMaterialNames.length ? <p className="intake-hint">本案已有 {existingMaterialNames.length} 份材料，会原样保留在下次审查中；这里新加的文件只会追加，不会替换它们。</p> : null}
           <textarea id="wb-material" className="workbench__textarea" value={material} onChange={(event) => onMaterialChange(event.target.value)} placeholder="也可以直接粘贴材料正文；多份材料可以一起拖进来" disabled={busy} rows={10} />
-          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={() => void goToStepTwo()}>{analyzing ? 'Agent 正在读取材料…' : '继续，让 Agent 先读一遍材料 →'}</button></div>
+          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={() => void goToStepTwo()}>{analyzing ? 'Agent 正在读取材料…' : hasNewMaterialToRead ? '继续，让 Agent 先读一遍材料 →' : '继续补充关键信息 →'}</button></div>
         </section>
       ) : (
         <section className="card intake-card">
@@ -201,7 +242,6 @@ export default function WorkbenchPage({
             <summary>其他要素（Agent 已识别，可修改）</summary>
             <div className="intake-group__grid">{otherFields.map((key) => fields[key])}</div>
           </details>
-          <div className="intake-confirmation"><label><input type="checkbox" checked={intake.cross_border_transfer === true} onChange={(event) => updateIntake(intake, onIntakeChange, 'cross_border_transfer', event.target.checked)} /> <strong>我确认材料涉及向境外提供数据</strong></label><span>未确认事实会标为待补充。</span></div>
           <div className="intake-card__footer"><span>提交后 Agent 会自动开始审查。</span><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={submit}>{loading ? '正在提交案件…' : editingCaseId ? '保存补充并重新提交' : '创建案件并提交审查'}</button></div>
         </section>
       )}

@@ -918,6 +918,9 @@ def build_review_result_with_deepseek(
             ),
             post_validate=validate_draft_grounding,
             post_validation_reason="claim_grounding_validation_failed",
+            post_validation_hint=(
+                "请确保每个 claim 至少引用一个允许且可作为法条依据的 supporting_chunk_id。"
+            ),
         )
         # markdown path: sanitize the report text and use it as conclusion.
         # The explicitly labelled action section is also promoted into

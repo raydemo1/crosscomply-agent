@@ -1,1 +1,1 @@
-EXPECTED_SCHEMA_REVISION = "0008_remediation_assessment"
+EXPECTED_SCHEMA_REVISION = "0009_review_task_superseded"

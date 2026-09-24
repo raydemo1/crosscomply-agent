@@ -97,6 +97,7 @@ class EvalJobResponse(BaseModel):
 class IntakePayload(BaseModel):
     business_activity: str = ""
     data_types: list[str] = Field(default_factory=list)
+    contains_personal_information: bool | None = None
     sensitive_personal_info: bool | None = None
     cross_border_transfer: bool | None = None
     important_data_status: Literal["unknown", "not_important", "important", "under_review"] = "unknown"

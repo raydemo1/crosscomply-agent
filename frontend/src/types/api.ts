@@ -92,6 +92,8 @@ export interface ReviewFacts {
   business_activity: string | null;
   /** Data categories referenced by the material (e.g. "personal_info"). */
   data_types: string[];
+  /** Whether the material points to identifiable individuals; not implied by data_types. */
+  contains_personal_information: boolean | null;
   /** Whether sensitive personal information is involved. */
   sensitive_personal_info: boolean | null;
   /** Whether cross-border data transfer is involved. */
@@ -512,7 +514,7 @@ export type CaseStatus =
   | 'rejected'
   | 'run_failed';
 export type ActionStatus = 'open' | 'in_progress' | 'completed';
-export type ReviewTaskStatus = 'queued' | 'running' | 'waiting_input' | 'succeeded' | 'failed';
+export type ReviewTaskStatus = 'queued' | 'running' | 'waiting_input' | 'succeeded' | 'failed' | 'superseded';
 
 /**
  * Independent remediation-plan workflow. These models deliberately stay
@@ -833,7 +835,7 @@ export interface RuleDecisionApi {
 export interface ReviewTaskAttemptApi {
   attempt_number: number;
   worker_id: string;
-  status: 'running' | 'waiting_input' | 'succeeded' | 'failed';
+  status: 'running' | 'waiting_input' | 'succeeded' | 'failed' | 'superseded';
   failed_node: string | null;
   error_category: string | null;
   error_message: string | null;
@@ -920,6 +922,8 @@ export interface ManagedUserApi extends WorkbenchUser {
 export interface CaseIntake {
   business_activity: string;
   data_types: string[];
+  /** Rule-engine hard fact. Never inferred from the free-text data_types field. */
+  contains_personal_information: boolean | null;
   sensitive_personal_info: boolean | null;
   cross_border_transfer: boolean | null;
   important_data_status: 'unknown' | 'not_important' | 'important' | 'under_review';
