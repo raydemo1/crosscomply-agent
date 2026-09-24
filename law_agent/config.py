@@ -275,3 +275,17 @@ def require_service_config() -> ServiceConfig:
     if config.embedding.provider == "sentence_transformers" and not config.embedding.model:
         raise RuntimeError("EMBEDDING_MODEL is required for sentence_transformers provider")
     return config
+
+
+# ---------------------------------------------------------------------------
+# Public web investigation (Exa)
+# ---------------------------------------------------------------------------
+
+# One deployment switch, no tuning knobs: the Agent only reaches the public web
+# when the governed corpus is not enough, and the budgets that bound that
+# investigation are product limits rather than per-deployment settings.
+def load_web_search_api_key() -> str | None:
+    """Return the Exa API key, or None when the capability is not configured."""
+
+    load_env_file()
+    return os.getenv("EXA_API_KEY") or None

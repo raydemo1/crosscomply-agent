@@ -66,7 +66,9 @@ export type RetrieverName =
   | 'vector_mock'
   | 'hybrid'
   | 'elasticsearch'
-  | 'pgvector';
+  | 'pgvector'
+  /** 受控 Web 调查读到的官方网页正文段落。 */
+  | 'web';
 
 /** Evaluation retrieval backend under test. */
 export type EvalRetrievalMode = 'service' | 'local';

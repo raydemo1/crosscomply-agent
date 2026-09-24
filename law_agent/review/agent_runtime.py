@@ -65,6 +65,7 @@ def execute_agent_task(
             },
             decide=AgentModel(model_id=task.model_id),
             search=tools.search,
+            web_search=tools.search_web,
             finalize=lambda draft, current: tools.finalize(
                 draft,
                 current,

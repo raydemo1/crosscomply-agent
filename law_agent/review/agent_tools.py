@@ -7,7 +7,11 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from law_agent.config import RerankMode, load_rerank_config, require_service_config
+from law_agent.config import (
+    RerankMode,
+    load_rerank_config,
+    require_service_config,
+)
 from law_agent.review.agent import AgentState
 from law_agent.review.citations import group_citations
 from law_agent.review.evidence import run_self_check
@@ -42,6 +46,7 @@ from law_agent.review.service import (
     build_source_evidence_packets,
     flatten_source_evidence_packets,
 )
+from law_agent.review.web_research import WebResearch, build_web_search_client
 
 if TYPE_CHECKING:
     from law_agent.review.enterprise_store import MaterialVersion
@@ -171,6 +176,7 @@ class ComplianceAgentTools:
         self._candidate_hits: dict[str, RetrievalHit] = {}
         self._neighbor_hits: dict[str, RetrievalHit] = {}
         self._adapters = build_service_adapters(require_service_config())
+        self._web_research: WebResearch | None = None
 
     def close(self) -> None:
         self._adapters.close()
@@ -231,6 +237,24 @@ class ComplianceAgentTools:
             chunks_by_id=self._chunks_by_id,
         )
         return flatten_source_evidence_packets(packets)
+
+    def search_web(self, queries: list[RetrievalQuery], facts: ReviewFacts) -> list[RetrievalHit]:
+        """Continue the investigation on official public pages.
+
+        Built lazily so a deployment without a search key still runs reviews
+        normally: the Agent only learns the capability is unavailable when it
+        actually asks for it.
+        """
+
+        return self._web().search(queries, facts)
+
+    def _web(self) -> WebResearch:
+        if self._web_research is None:
+            self._web_research = WebResearch(
+                client=build_web_search_client(),
+                corpus_chunks=self._chunks,
+            )
+        return self._web_research
 
     def finalize(
         self,
