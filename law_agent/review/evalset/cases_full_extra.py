@@ -265,7 +265,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         material_text="智能汽车在公共道路测试时采集车外视频、道路标识和行人轨迹，企业想确认汽车数据安全管理依据。",
         expected_sources=[
             "cac_automotive_data_security_provisions_2021",
-            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
         ],
         expected_citation_roles=["conditional_industry_basis"],
         tags=["automotive", "important_data", "mapping"],
@@ -299,7 +299,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="把道路采集数据用于高精地图训练，测绘地理信息安全怎么判断？",
         material_text="自动驾驶测试车辆采集道路影像、交通标志、经纬度轨迹和道路设施信息，用于地图更新和模型训练。",
         expected_sources=[
-            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
             "cac_automotive_data_security_provisions_2021",
         ],
         expected_citation_roles=["conditional_industry_basis"],
@@ -466,7 +466,7 @@ FULL_EXTRA_SCENARIOS: list[EvalScenario] = [
         question="企业注册在上海但业务不在自贸区，能直接适用上海自贸区负面清单吗？",
         material_text="公司注册地在上海市区，业务系统和数据处理活动不在临港新片区或上海自贸试验区内。",
         expected_sources=[
-            "shanghai_free_trade_zone_data_export_negative_list_2024",
+            "shanghai_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         expected_citation_roles=["conditional_local_basis", "primary_legal_basis"],

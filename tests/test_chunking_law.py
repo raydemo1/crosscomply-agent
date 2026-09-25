@@ -33,6 +33,7 @@ def test_chunk_law_document_keeps_chapter_and_section_path() -> None:
         source_site="flk.npc.gov.cn",
         doc_type="law",
         authority="national_law",
+        citation_role="primary_legal_basis",
         law_status="effective",
         topic_tags=["个人信息保护"],
         text=(

@@ -300,11 +300,10 @@ def _merge_isolated_number_lines(lines: list[str]) -> tuple[list[str], int]:
 
     merged_count = 0
     result: list[str] = []
-    skip_next = False
+    skip_until = -1
 
     for index, line in enumerate(lines):
-        if skip_next:
-            skip_next = False
+        if index <= skip_until:
             continue
         stripped = line.strip()
         if ISOLATED_NUMBER_LINE_RE.match(stripped):
@@ -320,7 +319,10 @@ def _merge_isolated_number_lines(lines: list[str]) -> tuple[list[str], int]:
                     heading_match = re.match(r"^(#{1,6})\s+(.+)$", next_stripped)
                     next_title = heading_match.group(2).strip() if heading_match else next_stripped
                     result.append(f"{stripped} {next_title}")
-                    skip_next = True
+                    # Skip every line the merge consumed, blank lines included:
+                    # skipping only the immediately next line would re-emit the
+                    # title whenever the number and its title are separated.
+                    skip_until = lookahead
                     merged_count += 1
                     continue
         result.append(line)

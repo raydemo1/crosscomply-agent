@@ -53,7 +53,7 @@ function factsToMarkdown(facts: ReviewFacts): string {
     ['处理目的', renderText(facts.processing_purpose)],
     ['法律依据/同意', renderText(facts.legal_basis_or_consent)],
     ['行业', renderText(facts.industry)],
-    ['地区', renderText(facts.region)],
+    ['地区', renderList(facts.regions)],
     ['缺失信息', renderList(facts.missing_information)],
   ];
   const header = '| 字段 | 值 |\n| --- | --- |';
@@ -416,7 +416,7 @@ function factsToHtml(facts: ReviewFacts): string {
     ['处理目的', renderText(facts.processing_purpose)],
     ['法律依据/同意', renderText(facts.legal_basis_or_consent)],
     ['行业', renderText(facts.industry)],
-    ['地区', renderText(facts.region)],
+    ['地区', renderList(facts.regions)],
     ['缺失信息', renderList(facts.missing_information)],
   ];
   const body = rows

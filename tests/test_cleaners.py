@@ -1,4 +1,32 @@
-from law_agent.data.cleaners.common import clean_text
+from law_agent.data.cleaners.common import _merge_isolated_number_lines, clean_text
+
+
+def test_merge_isolated_number_lines_keeps_title_once_across_blank_lines() -> None:
+    lines = ["3.2", "", "", "个人信息", "以电子或者其他方式记录的……"]
+
+    merged, count = _merge_isolated_number_lines(lines)
+
+    assert merged == ["3.2 个人信息", "以电子或者其他方式记录的……"]
+    assert merged.count("3.2 个人信息") == 1
+    assert count == 1
+
+
+def test_merge_isolated_number_lines_merges_adjacent_lines() -> None:
+    lines = ["3.2", "## 个人信息", "以电子或者其他方式记录的……"]
+
+    merged, count = _merge_isolated_number_lines(lines)
+
+    assert merged == ["3.2 个人信息", "以电子或者其他方式记录的……"]
+    assert count == 1
+
+
+def test_merge_isolated_number_lines_leaves_stacked_numbers_alone() -> None:
+    lines = ["3", "3.1", "个人信息", "以电子或者其他方式记录的……"]
+
+    merged, count = _merge_isolated_number_lines(lines)
+
+    assert merged == ["3", "3.1 个人信息", "以电子或者其他方式记录的……"]
+    assert count == 1
 
 
 def test_clean_text_removes_mechanical_noise_without_rewriting_articles() -> None:

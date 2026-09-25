@@ -71,6 +71,8 @@ class LLMReviewResultDraft(StrictModel):
     recommended_actions: list[str]
     risk_boundaries: list[str]
     issues: list[ReviewIssueDraft] = Field(default_factory=list)
+    web_impact: Literal["none", "supplement", "execution_detail", "core"] = "none"
+    material_web_urls: list[str] = Field(default_factory=list, max_length=2)
 
     @model_validator(mode="after")
     def claims_required_unless_abstaining(self) -> LLMReviewResultDraft:

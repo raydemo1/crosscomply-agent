@@ -11,6 +11,7 @@ from law_agent.review.agent import AgentModel, AgentState, run_agent
 from law_agent.review.agent_tools import ComplianceAgentTools
 from law_agent.review.enterprise_store import MaterialVersion, ReviewTask
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
+from law_agent.review.web_research import WebFinding
 
 
 class AgentRuntimeStore(Protocol):
@@ -34,6 +35,7 @@ def execute_agent_task(
     material_versions: Sequence[MaterialVersion] = (),
     chunks_path: Path | str = DEFAULT_CHUNKS_PATH,
     rerank_mode: RerankMode = "off",
+    on_web_findings: Any = None,
 ) -> AgentState:
     """Resume the saved state or start a new bounded Agent loop."""
 
@@ -66,6 +68,7 @@ def execute_agent_task(
             decide=AgentModel(model_id=task.model_id),
             search=tools.search,
             web_search=tools.search_web,
+            on_web_findings=on_web_findings,
             finalize=lambda draft, current: tools.finalize(
                 draft,
                 current,

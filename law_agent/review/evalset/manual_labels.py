@@ -97,13 +97,13 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     "eval_automotive_002": (
         [
             "cac_automotive_data_security_provisions_2021",
-            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
         ],
         [],
     ),
     "eval_automotive_003": (
         [
-            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
             "cac_automotive_data_security_provisions_2021",
         ],
         [],
@@ -121,7 +121,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     # ------------------------------------------------------------------
     "eval_shanghai_001": (
         [
-            "shanghai_free_trade_zone_data_export_negative_list_2024",
+            "shanghai_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         ["shanghai_free_trade_zone_data_export_negative_list_qna_2024"],
@@ -340,7 +340,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     "eval_automotive_005": (
         [
             "cac_automotive_data_security_provisions_2021",
-            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
         ],
         [],
     ),
@@ -361,7 +361,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     ),
     "eval_automotive_008": (
         [
-            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
             "cac_automotive_data_security_provisions_2021",
         ],
         [],
@@ -469,7 +469,7 @@ MANUAL_LABELS: dict[str, tuple[list[str], list[str]]] = {
     ),
     "eval_regional_boundary_001": (
         [
-            "shanghai_free_trade_zone_data_export_negative_list_2024",
+            "shanghai_free_trade_zone_data_export_negative_list_2025",
             "cac_cross_border_data_flow_rules_2024",
         ],
         [],

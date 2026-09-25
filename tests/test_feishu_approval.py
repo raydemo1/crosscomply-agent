@@ -76,6 +76,24 @@ def test_subscribe_approval_events_uses_configured_definition() -> None:
     assert calls[1][1].endswith("/approval/v4/approvals/approval-code/subscribe")
 
 
+def test_recheck_notification_sends_text_to_configured_open_id() -> None:
+    calls: list[tuple[str, str, dict[str, Any]]] = []
+
+    def transport(method: str, url: str, **kwargs: Any) -> FakeResponse:
+        calls.append((method, url, kwargs))
+        if url.endswith("tenant_access_token/internal"):
+            return FakeResponse(200, {"code": 0, "tenant_access_token": "token"})
+        return FakeResponse(200, {"code": 0, "data": {"message_id": "om_123"}})
+
+    message_id = FeishuApprovalClient(config(), transport).send_text_message(
+        open_id="ou_reviewer", text="案件待复核",
+    )
+    assert message_id == "om_123"
+    assert calls[1][1].endswith("/im/v1/messages?receive_id_type=open_id")
+    assert calls[1][2]["json"]["receive_id"] == "ou_reviewer"
+    assert json.loads(calls[1][2]["json"]["content"]) == {"text": "案件待复核"}
+
+
 def test_legacy_approval_instance_event_is_supported() -> None:
     body = json.dumps(
         {

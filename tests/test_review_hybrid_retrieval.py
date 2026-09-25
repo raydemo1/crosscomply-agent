@@ -8,6 +8,7 @@ from law_agent.data.io import write_jsonl
 from law_agent.data.schemas import Chunk
 from law_agent.review.retrieval.boosts import (
     CONDITIONAL_INDUSTRY_MISMATCH_WEIGHT,
+    CONDITIONAL_LOCAL_BASIS_BOOST,
     CONDITIONAL_LOCAL_MISMATCH_WEIGHT,
     CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST,
     INTERPRETATION_AUXILIARY_BOOST,
@@ -29,7 +30,7 @@ def stub_llm_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
         "law_agent.review.service.extract_facts_with_deepseek",
         lambda material, question=None: ReviewFacts(
             cross_border_transfer=True if "出境" in material or "新加坡" in material else None,
-            region="上海" if "上海" in material else None,
+            regions=["上海"] if "上海" in material else [],
             data_types=["手机号"] if "手机号" in material else [],
             missing_information=[],
         ),
@@ -144,7 +145,7 @@ def test_conditional_local_basis_boosted_when_region_matches() -> None:
         citation_role="conditional_local_basis",
         applicable_region="CN-SH",
     )
-    facts = ReviewFacts(region="上海")
+    facts = ReviewFacts(regions=["上海"])
 
     boost = compute_boost_for_hit(hit, chunk, facts)
     assert boost > 1.0
@@ -169,7 +170,7 @@ def test_conditional_local_basis_boosted_when_ftz_region_matches_parent() -> Non
         citation_role="conditional_local_basis",
         applicable_region="CN-CQ",
     )
-    facts = ReviewFacts(region="CN-CQ-FTZ")
+    facts = ReviewFacts(regions=["CN-CQ-FTZ"])
 
     boost = compute_boost_for_hit(hit, chunk, facts)
     assert boost > 1.0
@@ -194,10 +195,57 @@ def test_conditional_local_basis_downweighted_when_region_mismatch() -> None:
         citation_role="conditional_local_basis",
         applicable_region="CN-BJ",
     )
-    facts = ReviewFacts(region="上海")
+    facts = ReviewFacts(regions=["上海"])
 
     boost = compute_boost_for_hit(hit, chunk, facts)
     assert boost == pytest.approx(CONDITIONAL_LOCAL_MISMATCH_WEIGHT)
+
+
+def test_multi_region_facts_boost_every_declared_region() -> None:
+    """A Zhejiang-plus-Fujian case must boost each local basis, not just one."""
+
+    def make_hit(chunk_id: str) -> RetrievalHit:
+        return RetrievalHit(
+            chunk_id=chunk_id,
+            doc_id="d1",
+            source_id="s1",
+            title="t",
+            text="x",
+            score=1.0,
+            rank=0,
+            retriever="keyword",
+            citation_role="conditional_local_basis",
+            can_cite_clause=False,
+            source_url="u",
+        )
+
+    facts = ReviewFacts(regions=["浙江", "福建"])
+
+    for chunk_id, applicable_region in (("zj", "CN-ZJ"), ("fj", "CN-FJ")):
+        chunk = _make_chunk(
+            chunk_id=chunk_id,
+            citation_role="conditional_local_basis",
+            applicable_region=applicable_region,
+        )
+        assert compute_boost_for_hit(make_hit(chunk_id), chunk, facts) == pytest.approx(
+            CONDITIONAL_LOCAL_BASIS_BOOST
+        )
+
+    other = _make_chunk(
+        chunk_id="gd",
+        citation_role="conditional_local_basis",
+        applicable_region="CN-GD",
+    )
+    assert compute_boost_for_hit(make_hit("gd"), other, facts) == pytest.approx(
+        CONDITIONAL_LOCAL_MISMATCH_WEIGHT
+    )
+
+
+def test_boosts_summary_lists_every_declared_region() -> None:
+    summary = compute_boosts_summary(ReviewFacts(regions=["浙江", "福建"]), ["legal_issue"])
+
+    assert summary["conditional_local_basis:CN-ZJ"] == CONDITIONAL_LOCAL_BASIS_BOOST
+    assert summary["conditional_local_basis:CN-FJ"] == CONDITIONAL_LOCAL_BASIS_BOOST
 
 
 def test_conditional_industry_basis_boosted_when_industry_matches() -> None:
@@ -273,7 +321,7 @@ def test_conditional_industry_basis_downweighted_when_industry_mismatch() -> Non
 
 
 def test_boosts_summary_records_active_rules() -> None:
-    facts = ReviewFacts(region="上海", industry="汽车")
+    facts = ReviewFacts(regions=["上海"], industry="汽车")
     summary = compute_boosts_summary(facts, ["legal_issue", "missing_information"])
 
     assert "primary_legal_basis" in summary

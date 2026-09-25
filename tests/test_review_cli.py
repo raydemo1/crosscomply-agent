@@ -23,7 +23,7 @@ def stub_llm_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
             overseas_recipient="新加坡" if "新加坡" in material_text else None,
             processing_purpose="推荐优化" if "推荐优化" in material_text else None,
             industry="智能网联汽车" if "汽车" in material_text else None,
-            region="上海" if "上海" in material_text else None,
+            regions=["上海"] if "上海" in material_text else [],
             missing_information=["legal_basis_or_consent"],
         )
 
@@ -46,10 +46,12 @@ def stub_llm_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
                     query_id="q_industry", query_type="industry_condition", text=facts.industry
                 )
             )
-        if facts.region:
+        if facts.regions:
             queries.append(
                 RetrievalQuery(
-                    query_id="q_region", query_type="region_condition", text=facts.region
+                    query_id="q_region",
+                    query_type="region_condition",
+                    text=" ".join(facts.regions),
                 )
             )
         if len(queries) < 3:
@@ -216,14 +218,14 @@ def test_create_review_case_with_automotive_material_extracts_industry(tmp_path:
     assert "industry_condition" in query_types
 
 
-def test_create_review_case_with_regional_material_extracts_region(tmp_path: Path) -> None:
+def test_create_review_case_with_regional_material_extracts_regions(tmp_path: Path) -> None:
     response = create_review_case(
         question="上海数据出境负面清单要求？",
         material_text="公司在上海自贸区开展业务，涉及数据出境。",
         output_dir=tmp_path,
     )
 
-    assert response.review_case.review_facts.region == "上海"
+    assert response.review_case.review_facts.regions == ["上海"]
     query_types = [q.query_type for q in response.trace.queries]
     assert "region_condition" in query_types
 

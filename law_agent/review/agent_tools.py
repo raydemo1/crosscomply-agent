@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -31,6 +32,7 @@ from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
 from law_agent.review.retrieval.neighbors import expand_neighbors
 from law_agent.review.retrieval.rerank import rerank_hits
 from law_agent.review.retrieval.service_backends import build_service_adapters
+from law_agent.review.retrieval.temporal import filter_hits_as_of
 from law_agent.review.schemas import (
     CitationGroup,
     GroundedClaim,
@@ -46,7 +48,12 @@ from law_agent.review.service import (
     build_source_evidence_packets,
     flatten_source_evidence_packets,
 )
-from law_agent.review.web_research import WebResearch, build_web_search_client
+from law_agent.review.web_research import (
+    WebFinding,
+    WebResearch,
+    build_web_search_client,
+    canonical_url,
+)
 
 if TYPE_CHECKING:
     from law_agent.review.enterprise_store import MaterialVersion
@@ -209,6 +216,9 @@ class ComplianceAgentTools:
             self._adapters.vector.search_many(query_pairs, top_k=candidate_top_k),
             top_k=candidate_top_k,
         )
+        as_of = facts.as_of_date or datetime.now(UTC).date()
+        keyword = filter_hits_as_of(keyword, self._chunks_by_id, as_of=as_of)
+        vector = filter_hits_as_of(vector, self._chunks_by_id, as_of=as_of)
         keyword = apply_boosts_to_hits(keyword, self._chunks_by_id, facts)
         vector = apply_boosts_to_hits(vector, self._chunks_by_id, facts)
         fused = rrf_fuse(keyword, vector, top_k=candidate_top_k)
@@ -238,7 +248,7 @@ class ComplianceAgentTools:
         )
         return flatten_source_evidence_packets(packets)
 
-    def search_web(self, queries: list[RetrievalQuery], facts: ReviewFacts) -> list[RetrievalHit]:
+    def search_web(self, queries: list[RetrievalQuery], facts: ReviewFacts) -> list[WebFinding]:
         """Continue the investigation on official public pages.
 
         Built lazily so a deployment without a search key still runs reviews
@@ -264,7 +274,28 @@ class ComplianceAgentTools:
         case_id: str,
         rule_snapshot: dict[str, Any],
     ) -> dict[str, Any]:
-        primary_evidence = [hit for hit in state.evidence if hit.rank >= 0]
+        finding_urls = {
+            canonical_url(item.url) for item in state.web_findings
+            if item.known_source_id is None or item.refresh_needed
+        }
+        if draft.web_impact == "none" and draft.material_web_urls:
+            raise ValueError("web_impact=none 时 material_web_urls 必须为空列表")
+        if draft.web_impact != "none" and not draft.material_web_urls:
+            raise ValueError(
+                "Web 影响判断必须指出新官方材料 URL；若本次 Web 结果全部已入库，"
+                "请填 web_impact=none、material_web_urls=[]"
+            )
+        if any(canonical_url(url) not in finding_urls for url in draft.material_web_urls):
+            eligible = [item.url for item in state.web_findings
+                        if canonical_url(item.url) in finding_urls]
+            raise ValueError(
+                "material_web_urls 只能包含尚未入库或确有更新的官方材料 URL。"
+                f"本次可选 URL：{eligible}。若列表为空，请填 web_impact=none、"
+                "material_web_urls=[]；已入库材料请用正式检索结果引用"
+            )
+        if draft.web_impact == "core" and draft.risk_level != "insufficient_evidence":
+            raise ValueError("可能改变核心法律路径的新法源尚未核验，必须暂缓确定结论")
+        primary_evidence = [hit for hit in state.evidence if hit.rank >= 0 and hit.retriever != "web"]
         representatives = source_aware_fuse(
             primary_evidence,
             top_k=self._top_k,
@@ -276,7 +307,7 @@ class ComplianceAgentTools:
             neighbor_hits=list(self._neighbor_hits.values()),
             chunks_by_id=self._chunks_by_id,
         )
-        result_evidence = flatten_source_evidence_packets(source_packets) or state.evidence
+        result_evidence = flatten_source_evidence_packets(source_packets) or primary_evidence
         self_check = run_self_check(representatives, state.facts, self._chunks_by_id)
         if draft.risk_level != "insufficient_evidence" and self_check.status != "sufficient":
             raise ValueError(
@@ -335,6 +366,10 @@ class ComplianceAgentTools:
                 item.model_dump(mode="json") for item in source_packets
             ],
             "rule_snapshot": rule_snapshot,
+            "web_findings": [item.model_dump(mode="json") for item in state.web_findings],
+            "web_impact": draft.web_impact,
+            "material_web_urls": draft.material_web_urls,
+            "freshness_hold": draft.web_impact == "core",
             "agent": {
                 "plan": state.plan,
                 "turns": state.turns,

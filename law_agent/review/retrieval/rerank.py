@@ -232,8 +232,8 @@ def _build_rerank_query(
     facts_parts: list[str] = []
     if facts.cross_border_transfer is not None:
         facts_parts.append(f"跨境传输={facts.cross_border_transfer}")
-    if facts.region:
-        facts_parts.append(f"地区={facts.region}")
+    if facts.regions:
+        facts_parts.append(f"地区={','.join(facts.regions)}")
     if facts.industry:
         facts_parts.append(f"行业={facts.industry}")
     if facts.data_types:

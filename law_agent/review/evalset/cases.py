@@ -193,7 +193,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         ),
         expected_sources=[
             "cac_automotive_data_security_provisions_2021",
-            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
         ],
         expected_citation_roles=["conditional_industry_basis"],
         should_abstain=False,
@@ -207,7 +207,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
             "算法团队可能用于高精地图和辅助驾驶模型训练。"
         ),
         expected_sources=[
-            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
             "cac_automotive_data_security_provisions_2021",
         ],
         expected_citation_roles=["conditional_industry_basis"],
@@ -238,7 +238,7 @@ BASE_SCENARIOS: list[EvalScenario] = [
         question="临港业务的数据能不能自由传到境外，上海这边要先看哪张清单？",
         material_text=("公司在上海自贸区开展业务，涉及用户数据出境，需要了解负面清单管理要求。"),
         expected_sources=[
-            "shanghai_free_trade_zone_data_export_negative_list_2024",
+            "shanghai_free_trade_zone_data_export_negative_list_2025",
             "shanghai_free_trade_zone_data_export_negative_list_qna_2024",
             "cac_cross_border_data_flow_rules_2024",
         ],

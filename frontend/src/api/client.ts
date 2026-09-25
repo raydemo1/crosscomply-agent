@@ -19,6 +19,8 @@ import type {
   KnowledgeDeletePreviewApi,
   KnowledgeImportPreviewApi,
   KnowledgeJobApi,
+  KnowledgeEnrichmentJobApi,
+  CaseKnowledgeRecheckApi,
   KnowledgeLibraryKind,
   KnowledgeSourceApi,
   KnowledgeSourceDetailApi,
@@ -301,6 +303,32 @@ export async function resetManagedUserPassword(userId: string, password: string)
 // ---------------------------------------------------------------------------
 // Knowledge-base administration
 // ---------------------------------------------------------------------------
+
+export async function listKnowledgeEnrichmentJobs(): Promise<KnowledgeEnrichmentJobApi[]> {
+  const response = await request<{ items: KnowledgeEnrichmentJobApi[] }>('/api/admin/knowledge-enrichment-jobs');
+  return response.items;
+}
+
+export async function getCaseKnowledgeRechecks(caseId: string): Promise<CaseKnowledgeRecheckApi[]> {
+  const response = await request<{ items: CaseKnowledgeRecheckApi[] }>(
+    `/api/cases/${encodeURIComponent(caseId)}/knowledge-rechecks`,
+  );
+  return response.items;
+}
+
+export async function approveKnowledgeEnrichmentJob(id: string, source: Record<string, unknown>): Promise<void> {
+  await request(`/api/admin/knowledge-enrichment-jobs/${encodeURIComponent(id)}/approve`, {
+    method: 'POST', body: JSON.stringify(source),
+  });
+}
+
+export async function rejectKnowledgeEnrichmentJob(id: string): Promise<void> {
+  await request(`/api/admin/knowledge-enrichment-jobs/${encodeURIComponent(id)}/reject`, { method: 'POST' });
+}
+
+export async function retryKnowledgeEnrichmentJob(id: string): Promise<void> {
+  await request(`/api/admin/knowledge-enrichment-jobs/${encodeURIComponent(id)}/retry`, { method: 'POST' });
+}
 
 export async function listKnowledgeSources(
   libraryKind: KnowledgeLibraryKind,

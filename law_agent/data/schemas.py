@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -13,6 +14,7 @@ DocType = Literal[
     "policy",
     "faq",
     "guideline",
+    "judicial_interpretation",
     "privacy_policy",
     "internal_policy",
     "case",
@@ -22,6 +24,7 @@ DocType = Literal[
 Authority = Literal[
     "national_law",
     "administrative_regulation",
+    "departmental_rule",
     "ministry_policy",
     "local_regulation",
     "judicial_interpretation",
@@ -94,9 +97,12 @@ class SourceRecord(StrictModel):
     source_site: str
     doc_type: DocType
     authority: Authority = "unknown"
+    citation_role: ClauseCitationRole = "interpretation_auxiliary"
     law_status: LawStatus = "unknown"
     publish_date: str | None = None
     effective_date: str | None = None
+    valid_to: str | None = None
+    instrument_key: str | None = None
     issuing_body: str | None = None
     owning_department: str | None = None
     internal_status: InternalPolicyStatus | None = None
@@ -135,6 +141,16 @@ class SourceRecord(StrictModel):
     def parse_internal_status(cls, value: Any) -> Any:
         return None if value in (None, "") else value
 
+    @field_validator("publish_date", "effective_date", "valid_to", mode="before")
+    @classmethod
+    def validate_iso_date(cls, value: Any) -> str | None:
+        if value in (None, ""):
+            return None
+        if not isinstance(value, str):
+            raise TypeError("法源日期必须为 YYYY-MM-DD")
+        date.fromisoformat(value)
+        return value
+
 
 class Attachment(StrictModel):
     """A linked attachment discovered during ingestion."""
@@ -165,9 +181,12 @@ class Document(StrictModel):
     source_site: str
     doc_type: DocType
     authority: Authority = "unknown"
+    citation_role: ClauseCitationRole = "interpretation_auxiliary"
     law_status: LawStatus = "unknown"
     publish_date: str | None = None
     effective_date: str | None = None
+    valid_to: str | None = None
+    instrument_key: str | None = None
     issuing_body: str | None = None
     owning_department: str | None = None
     internal_status: InternalPolicyStatus | None = None
@@ -246,6 +265,8 @@ class Chunk(StrictModel):
     law_status: LawStatus = "unknown"
     publish_date: str | None = None
     effective_date: str | None = None
+    valid_to: str | None = None
+    instrument_key: str | None = None
     source_url: str
     applicable_region: str = "CN"
     issuing_body: str | None = None

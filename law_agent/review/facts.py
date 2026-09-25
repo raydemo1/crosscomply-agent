@@ -12,7 +12,7 @@ from law_agent.review.llm import StructuredLLMNode
 from law_agent.review.schemas import ReviewFacts
 
 FactsExtractor = Callable[[str, str | None], ReviewFacts]
-_LLM_PROMPT_VERSION = "0.1.0"
+_LLM_PROMPT_VERSION = "0.2.0"
 
 
 class LLMReviewFacts(StrictModel):
@@ -27,7 +27,7 @@ class LLMReviewFacts(StrictModel):
     processing_purpose: str | None
     legal_basis_or_consent: str | None
     industry: str | None
-    region: str | None
+    regions: list[str]
     missing_information: list[str]
 
 
@@ -47,7 +47,7 @@ def build_fact_extraction_messages(
         "processing_purpose": "推荐优化和行为分析",
         "legal_basis_or_consent": None,
         "industry": None,
-        "region": "CN",
+        "regions": ["上海"],
         "missing_information": ["legal_basis_or_consent", "data_volume_threshold"],
     }
     user_payload = {
@@ -59,6 +59,11 @@ def build_fact_extraction_messages(
             "只基于用户材料抽取事实，不要推测材料中没有的信息。",
             "问题里的假设或法名不等于材料事实；例如用户问“是否出境/是否触发安全评估”时，除非材料明确说明出境安排，否则 cross_border_transfer 为 null。",
             "data_types 只是业务描述里的数据名称，不等于个人信息；只有当材料能指向具体个人时 contains_personal_information 才为 true，仅凭 data_types 非空不得推断为 true。",
+            'regions 只填材料明确写出的中国境内具体地区，用省级/直辖市简称：单地区 ["上海"]，多地区 ["浙江", "福建"]。',
+            '材料只泛称“某自贸区”、只描述全国业务、或没有明确具体地区时，regions 为 []。',
+            '禁止输出 "CN"、"中国"、"全国" 作为地区事实。',
+            "境外接收方所在地不属于 regions，只能出现在 overseas_recipient。",
+            "不得根据公司名称、注册地暗示等材料未明确写出的内容推断地区。",
             "必须输出合法 json object，字段必须与 json_example 完全一致。",
             "未检测到的事实用 null，列表字段用 []。",
             "missing_information 只列出仍需用户补充的事实键。",

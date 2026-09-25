@@ -167,21 +167,23 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     document = prepare_document_for_ingest(file_path, parser=args.parser)
     corpus = Path(args.corpus)
     local_kb = KnowledgeBase(corpus, index=InMemoryIndex())
+    source = _load_metadata(Path(args.metadata)) if args.metadata else None
+    if source is not None and args.as_new and source.source_id in {
+        item.source_id for item in local_kb._read_sources()
+    }:
+        raise RuntimeError("--as-new 的 metadata source_id 必须是尚未使用的新 ID")
     exact = local_kb.exact_matches(document.text)
-    if exact and not args.as_new:
+    exact_ids = {item.source_id for item in exact}
+    # 正文相同的已有来源默认视为重复；但当 --metadata 明确指向其中一个来源时，
+    # 这是一次元数据更正，必须继续走到 ingest_prepared 才会落盘。
+    if exact_ids and not args.as_new and (source is None or source.source_id not in exact_ids):
         print("跳过重复内容：")
-        for source in exact:
-            print(f"  {source.title} ({source.source_id})")
+        for item in exact:
+            print(f"  {item.title} ({item.source_id})")
         print("如需作为独立来源保留，请加 --as-new。")
         return 0
 
-    if args.metadata:
-        source = _load_metadata(Path(args.metadata))
-        if args.as_new and source.source_id in {
-            item.source_id for item in local_kb._read_sources()
-        }:
-            raise RuntimeError("--as-new 的 metadata source_id 必须是尚未使用的新 ID")
-    else:
+    if source is None:
         if args.non_interactive:
             raise RuntimeError(
                 "--non-interactive requires --metadata when the file is not a duplicate"
@@ -224,6 +226,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
                 "source_site": source.source_site,
                 "doc_type": source.doc_type,
                 "authority": source.authority,
+                "citation_role": source.citation_role,
                 "law_status": source.law_status,
                 "publish_date": source.publish_date,
                 "effective_date": source.effective_date,

@@ -63,18 +63,6 @@ def max_retries_for_node(node_name: str, default: int = 3) -> int:
     return max(retries, 0)
 
 
-def model_for_node(node_name: str) -> str | None:
-    """Return optional per-node model override."""
-
-    env_by_node = {
-        "fact_extraction": "LAWAGENT_LLM_FACT_MODEL",
-        "query_planning": "LAWAGENT_LLM_QUERY_MODEL",
-        "evidence_check": "LAWAGENT_LLM_EVIDENCE_MODEL",
-        "result_generation": "LAWAGENT_LLM_RESULT_MODEL",
-    }
-    return os.getenv(env_by_node.get(node_name, ""))
-
-
 class StructuredLLMNode(Generic[ModelT]):
     """Run one DeepSeek JSON node with strict Pydantic validation and retry."""
 
@@ -94,7 +82,6 @@ class StructuredLLMNode(Generic[ModelT]):
         self.max_retries = (
             max_retries if max_retries is not None else max_retries_for_node(node_name)
         )
-        self.model = model_for_node(node_name)
         self.trace_id = trace_id
         # Per-node override for structured output mode. None falls back to
         # client config. result_generation sets "json_object" so the LLM can
@@ -120,7 +107,6 @@ class StructuredLLMNode(Generic[ModelT]):
                     list(messages),
                     output_model=self.output_model,
                     tool_name=self.node_name,
-                    model=self.model,
                     structured_output_mode=self.structured_output_mode,
                 )
                 parsed = self.output_model.model_validate(raw, strict=True)

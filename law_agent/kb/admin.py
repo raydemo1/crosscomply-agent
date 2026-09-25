@@ -11,11 +11,14 @@ from __future__ import annotations
 import json
 import shutil
 import threading
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, Protocol
 from uuid import uuid4
+
+import psycopg
 
 from law_agent.config import require_service_config
 from law_agent.data.chunking.pipeline import chunk_document
@@ -32,6 +35,16 @@ from law_agent.llm.embeddings import build_embeddings_provider
 
 LibraryKind = Literal["legal", "internal_policy"]
 JobStatus = Literal["queued", "running", "succeeded", "partially_succeeded", "failed"]
+
+
+@contextmanager
+def corpus_mutation_lock():
+    """Serialize corpus generation changes across API and worker processes."""
+    config = require_service_config()
+    with psycopg.connect(config.postgres.dsn) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(7574902603)")
+        yield
 
 
 def utc_now() -> str:
@@ -169,7 +182,7 @@ class KnowledgeBaseAdminService:
     def ingest_file(self, source: SourceRecord, file_path: Path, *, parser: str = "auto") -> dict[str, Any]:
         if self.read_only:
             raise RuntimeError("知识库当前为只读挂载")
-        with self._mutation_lock:
+        with self._mutation_lock, corpus_mutation_lock():
             document = prepare_document_for_ingest(file_path, parser=parser)
             final_document = document.model_copy(
                 update={
@@ -181,9 +194,12 @@ class KnowledgeBaseAdminService:
                     "source_site": source.source_site,
                     "doc_type": source.doc_type,
                     "authority": source.authority,
+                    "citation_role": source.citation_role,
                     "law_status": source.law_status,
                     "publish_date": source.publish_date,
                     "effective_date": source.effective_date,
+                    "valid_to": source.valid_to,
+                    "instrument_key": source.instrument_key,
                     "issuing_body": source.issuing_body,
                     "owning_department": source.owning_department,
                     "internal_status": source.internal_status,
@@ -223,10 +239,44 @@ class KnowledgeBaseAdminService:
                 "cached_chunks": result.cached_chunks,
             }
 
+    def update_source_metadata(self, source: SourceRecord) -> dict[str, Any]:
+        """Republish one source under corrected metadata without re-parsing it.
+
+        A metadata edit (provenance, dates, law status, citation role) does not
+        touch the body: the stored chunks keep their identity and their cached
+        vectors, so this must not go through ``ingest_file``.
+        """
+        if self.read_only:
+            raise RuntimeError("知识库当前为只读挂载")
+        with self._mutation_lock, corpus_mutation_lock():
+            config = require_service_config()
+            index = ServiceGenerationIndex(config)
+            try:
+                embeddings = build_embeddings_provider(config.embedding)
+                kb = KnowledgeBase(
+                    self.corpus,
+                    index=index,
+                    signature=processing_signature(
+                        embedding_model=config.embedding.model,
+                        embedding_dimension=config.embedding.dimension,
+                    ),
+                    embed_texts=embeddings.embed_texts,
+                )
+                result = kb.update_source_metadata(source)
+            finally:
+                index.close()
+            return {
+                "action": result.action,
+                "source_id": result.source_id,
+                "generation_id": result.generation_id,
+                "embedded_chunks": result.embedded_chunks,
+                "cached_chunks": result.cached_chunks,
+            }
+
     def trash_source(self, source_id: str) -> TrashRecord:
         if self.read_only:
             raise RuntimeError("知识库当前为只读挂载")
-        with self._mutation_lock:
+        with self._mutation_lock, corpus_mutation_lock():
             detail = self.get_source(source_id)
             source = SourceRecord.model_validate(detail["source"])
             raw_path = Path(detail["raw_path"]) if detail.get("raw_path") else None

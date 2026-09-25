@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from law_agent.config import load_llm_config
+from law_agent.kb.enrichment import PostgresEnrichmentStore
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
 from law_agent.review.facts import extract_facts_with_deepseek
@@ -484,6 +485,17 @@ def register_case_routes(
             raise HTTPException(status_code=404, detail="案件不存在或无权访问")
         return case_payload(case)
 
+    @router.get("/api/cases/{identifier}/knowledge-rechecks")
+    async def get_case_knowledge_rechecks(
+        identifier: str, user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        case = store().get_case(identifier)
+        if case is None or not can_view(user, case):
+            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        from law_agent.config import load_service_config
+        items = PostgresEnrichmentStore(load_service_config().postgres.dsn).case_rechecks(identifier)
+        return {"items": items}
+
     @router.patch("/api/cases/{identifier}")
     async def update_case(
         identifier: str,
@@ -601,7 +613,7 @@ def register_case_routes(
                     status_code=202,
                     content={"task_id": active_task.id, "status": active_task.status},
                 )
-        if case["status"] not in {"pending_review", "needs_info"}:
+        if case["status"] not in {"pending_review", "needs_info", "pending_source_verification"}:
             raise HTTPException(status_code=409, detail="案件必须处于待审查或待补充信息状态")
         material_snapshot = enterprise().get_latest_material_snapshot(identifier)
         if material_snapshot is None:

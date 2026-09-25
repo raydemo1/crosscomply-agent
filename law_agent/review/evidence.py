@@ -14,7 +14,7 @@ Self-check triggers:
 
 Second retrieval:
 - Expand queries with legal terminology
-- Add fact keywords (data_types, overseas_recipient, industry, region)
+- Add fact keywords (data_types, overseas_recipient, industry, regions)
 - Increase top_k
 - Apply stronger region/industry boost
 - Never loops more than once
@@ -105,29 +105,44 @@ def _check_primary_legal_basis(hits: list[RetrievalHit]) -> EvidenceIssue | None
 def _check_region_match(
     hits: list[RetrievalHit], facts: ReviewFacts, chunks_by_id: dict[str, Chunk]
 ) -> EvidenceIssue | None:
-    """Check if region facts have matching local evidence."""
+    """Check that every explicit region fact has matching local evidence.
 
-    if not facts.region:
+    One matching region is not enough: each declared region has to be backed
+    by its own local basis, so a Zhejiang-plus-Fujian case cannot pass the
+    check on Zhejiang evidence alone.
+    """
+
+    from law_agent.review.retrieval.boosts import (
+        _is_specific_region,
+        _normalize_region,
+        _region_matches,
+    )
+
+    declared: list[str] = []
+    missing: list[str] = []
+    chunk_regions = [
+        _normalize_region(chunk.applicable_region)
+        for chunk in (chunks_by_id.get(hit.chunk_id) for hit in hits)
+        if chunk is not None
+    ]
+    for value in facts.regions:
+        code = _normalize_region(value)
+        if not _is_specific_region(code):
+            continue
+        declared.append(value)
+        if not any(_region_matches(chunk_region, value) for chunk_region in chunk_regions):
+            missing.append(value)
+
+    if not missing:
         return None
 
-    from law_agent.review.retrieval.boosts import _REGION_CODE_MAP
-
-    region_code = _REGION_CODE_MAP.get(facts.region, facts.region)
-    has_local = False
-    for hit in hits:
-        chunk = chunks_by_id.get(hit.chunk_id)
-        if chunk and (
-            chunk.applicable_region == region_code or chunk.applicable_region == facts.region
-        ):
-            has_local = True
-            break
-
-    if not has_local:
-        return EvidenceIssue(
-            issue_type="region_mismatch",
-            description=f"审查事实涉及地区「{facts.region}」，但检索结果中无匹配的地区性依据",
-        )
-    return None
+    absent = "、".join(dict.fromkeys(missing))
+    if len(declared) == len(missing):
+        description = f"审查事实涉及地区「{absent}」，但检索结果中无匹配的地区性依据"
+    else:
+        present = "、".join(dict.fromkeys(declared))
+        description = f"审查事实涉及{present}，但缺少{absent}匹配的地区性依据"
+    return EvidenceIssue(issue_type="region_mismatch", description=description)
 
 
 def _check_industry_match(
@@ -306,7 +321,7 @@ def needs_llm_self_check(*, question: str, material_text: str, facts: ReviewFact
         facts.cross_border_transfer,
         facts.processing_purpose,
         facts.industry,
-        facts.region,
+        facts.regions,
     )
     return not any(value not in (None, "", []) for value in substantive_facts)
 
@@ -550,7 +565,7 @@ def build_second_retrieval_plan(
         or "only_auxiliary_evidence" in triggered_reasons
     ):
         expansion_terms.extend(["数据出境", "安全评估", "个人信息"])
-    if "region_mismatch" in triggered_reasons and facts.region:
+    if "region_mismatch" in triggered_reasons and facts.regions:
         expansion_terms.extend(["负面清单", "自贸区"])
     if "industry_mismatch" in triggered_reasons and facts.industry:
         expansion_terms.append(facts.industry)
@@ -577,8 +592,7 @@ def build_second_retrieval_plan(
         fact_terms.append(facts.overseas_recipient)
     if facts.industry:
         fact_terms.append(facts.industry)
-    if facts.region:
-        fact_terms.append(facts.region)
+    fact_terms.extend(facts.regions)
 
     if fact_terms:
         expanded.append(

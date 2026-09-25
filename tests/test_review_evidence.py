@@ -82,7 +82,7 @@ def test_no_primary_legal_basis_triggers_second_retrieval() -> None:
 
 def test_region_mismatch_triggers_second_retrieval() -> None:
     hits = [_hit(chunk_id="c1", citation_role="primary_legal_basis")]
-    facts = ReviewFacts(cross_border_transfer=True, region="上海")
+    facts = ReviewFacts(cross_border_transfer=True, regions=["上海"])
     chunks_by_id = {
         "c1": _make_chunk(chunk_id="c1", applicable_region="CN-BJ"),
     }
@@ -95,7 +95,7 @@ def test_region_mismatch_triggers_second_retrieval() -> None:
 
 def test_region_match_does_not_trigger() -> None:
     hits = [_hit(chunk_id="c1", citation_role="primary_legal_basis")]
-    facts = ReviewFacts(cross_border_transfer=True, region="上海")
+    facts = ReviewFacts(cross_border_transfer=True, regions=["上海"])
     chunks_by_id = {
         "c1": _make_chunk(chunk_id="c1", applicable_region="CN-SH"),
     }
@@ -104,6 +104,41 @@ def test_region_match_does_not_trigger() -> None:
 
     assert "region_mismatch" not in check.triggered_reasons
     assert check.status == "sufficient"
+
+
+def test_partial_region_evidence_names_the_missing_region() -> None:
+    """Zhejiang evidence must not satisfy a Zhejiang-plus-Fujian case."""
+
+    hits = [_hit(chunk_id="c1", citation_role="primary_legal_basis")]
+    facts = ReviewFacts(cross_border_transfer=True, regions=["浙江", "福建"])
+    chunks_by_id = {
+        "c1": _make_chunk(chunk_id="c1", applicable_region="CN-ZJ"),
+    }
+
+    check = run_self_check(hits, facts, chunks_by_id)
+
+    assert "region_mismatch" in check.triggered_reasons
+    description = next(
+        issue.description for issue in check.issues if issue.issue_type == "region_mismatch"
+    )
+    assert "浙江" in description
+    assert "福建" in description
+
+
+def test_all_declared_regions_covered_does_not_trigger() -> None:
+    hits = [
+        _hit(chunk_id="c1", citation_role="primary_legal_basis"),
+        _hit(chunk_id="c2", citation_role="conditional_local_basis"),
+    ]
+    facts = ReviewFacts(cross_border_transfer=True, regions=["浙江", "福建"])
+    chunks_by_id = {
+        "c1": _make_chunk(chunk_id="c1", applicable_region="CN-ZJ"),
+        "c2": _make_chunk(chunk_id="c2", applicable_region="CN-FJ"),
+    }
+
+    check = run_self_check(hits, facts, chunks_by_id)
+
+    assert "region_mismatch" not in check.triggered_reasons
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +264,7 @@ def test_second_retrieval_plan_includes_expansions() -> None:
             description="no primary legal basis",
         )
     ]
-    facts = ReviewFacts(cross_border_transfer=True, region="上海", industry="汽车")
+    facts = ReviewFacts(cross_border_transfer=True, regions=["上海"], industry="汽车")
 
     plan = build_second_retrieval_plan(issues, facts, ["no_primary_legal_basis"])
 
@@ -250,7 +285,7 @@ def test_second_retrieval_plan_includes_fact_keywords() -> None:
     ]
     facts = ReviewFacts(
         cross_border_transfer=True,
-        region="上海",
+        regions=["上海"],
         data_types=["手机号"],
         overseas_recipient="新加坡",
     )

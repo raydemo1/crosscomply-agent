@@ -120,6 +120,7 @@ def test_chunk_document_splits_negative_list_table_rows_under_limit() -> None:
     )
     document = _document(
         source_id="guangxi_free_trade_zone_data_export_negative_list_2025",
+        citation_role="conditional_local_basis",
         doc_id="guangxi_free_trade_zone_data_export_negative_list_2025",
         title="中国（广西）自由贸易试验区数据出境管理清单（负面清单）（2025版）",
         text="行业领域一：地理信息与气象数据服务\n<table>" + row * 20 + "</table>",
@@ -137,6 +138,46 @@ def test_chunk_document_splits_negative_list_table_rows_under_limit() -> None:
     ]
     assert "个人信息" in table_chunk.text
     assert table_chunk.citation_role == "conditional_local_basis"
+
+
+def test_chunk_document_treats_bracketed_sentence_items_as_body() -> None:
+    document = _document(
+        title="个人信息保护合规审计指引",
+        text=(
+            "二、对个人信息处理活动的合法性基础进行合规审计的，应当重点审查下列事项：\n"
+            "（一）基于个人同意处理个人信息的，是否取得个人同意；\n"
+            "（二）基于个人同意处理个人信息的，是否重新取得个人同意。\n"
+            "三、对个人信息处理规则进行合规审计的，应当重点审查下列事项：\n"
+            "（一）是否真实、准确、完整地告知个人信息处理者的名称或者姓名和联系方式。\n"
+        ),
+    )
+
+    chunks = chunk_document(document)
+
+    assert [chunk.heading_path[-1] for chunk in chunks] == [
+        "二、对个人信息处理活动的合法性基础进行合规审计的，应当重点审查下列事项：",
+        "三、对个人信息处理规则进行合规审计的，应当重点审查下列事项：",
+    ]
+    assert "（一）基于个人同意处理个人信息的，是否取得个人同意；" in chunks[0].text
+    assert "（二）基于个人同意处理个人信息的，是否重新取得个人同意。" in chunks[0].text
+
+
+def test_chunk_document_keeps_bodyless_section_heading_text() -> None:
+    document = _document(
+        title="个人信息保护合规审计指引",
+        text=(
+            "一、本指引根据《中华人民共和国个人信息保护法》、《网络数据安全管理条例》"
+            "等法律、行政法规制定。\n"
+            "二、对个人信息处理活动的合法性基础进行合规审计的，应当重点审查下列事项：\n"
+            "（一）基于个人同意处理个人信息的，是否取得个人同意；\n"
+        ),
+    )
+
+    chunks = chunk_document(document)
+
+    texts = [chunk.text for chunk in chunks]
+    assert any("本指引根据《中华人民共和国个人信息保护法》" in text for text in texts)
+    assert any("（一）基于个人同意处理个人信息的，是否取得个人同意；" in text for text in texts)
 
 
 def test_chunk_document_detects_bold_markdown_law_articles_in_policy() -> None:

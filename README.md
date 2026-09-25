@@ -43,6 +43,8 @@ pip install -e ".[service]"
 - `OPENAI_COMPATIBLE_API_KEY`
 - `EMBEDDING_API_KEY`
 - 飞书集成时填入 `CROSSCOMPLY_FEISHU_APP_ID`、`CROSSCOMPLY_FEISHU_APP_SECRET`、`CROSSCOMPLY_FEISHU_APPROVAL_CODE`、`CROSSCOMPLY_FEISHU_INITIATOR_OPEN_ID`、`CROSSCOMPLY_FEISHU_VERIFICATION_TOKEN`、`CROSSCOMPLY_FEISHU_ENCRYPT_KEY`，并将 `CROSSCOMPLY_PUBLIC_BASE_URL` 设为审批人可访问的工作台地址
+- 新法源入库后的待复核飞书提醒另填 `CROSSCOMPLY_FEISHU_RECHECK_OPEN_ID`；未配置收件人时，案件内待复核状态和通知记录保留，待配置后由 worker 补发。
+- 新法源补库由 Compose 中独立的 `knowledge-worker` 处理，不领取案件审查任务；更新服务前先运行数据库迁移。
 - 如不使用默认本地服务，再调整 `ES_URL`、`PG_DSN`、`ES_INDEX`、`PG_TABLE`
 
 ### 2. 启动服务栈
@@ -166,15 +168,11 @@ Copy-Item .env.example .env
 ```text
 OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com
 OPENAI_COMPATIBLE_API_KEY=sk-your-deepseek-api-key
-OPENAI_COMPATIBLE_MODEL=deepseek-v4-flash
+OPENAI_COMPATIBLE_MODEL=deepseek-flash
 OPENAI_COMPATIBLE_BETA_BASE_URL=https://api.deepseek.com/beta
 OPENAI_COMPATIBLE_STRUCTURED_OUTPUT=strict_tool
 OPENAI_COMPATIBLE_REASONING_EFFORT=none
 LAWAGENT_LLM_MAX_RETRIES=3
-LAWAGENT_LLM_FACT_MODEL=deepseek-v4-flash
-LAWAGENT_LLM_QUERY_MODEL=deepseek-v4-flash
-LAWAGENT_LLM_EVIDENCE_MODEL=deepseek-v4-flash
-LAWAGENT_LLM_RESULT_MODEL=deepseek-v4-flash
 ```
 
 配置后验证：
@@ -240,15 +238,11 @@ Copy-Item .env.example .env
 # LLM（DeepSeek 或其他 OpenAI 兼容服务）
 OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com
 OPENAI_COMPATIBLE_API_KEY=sk-your-deepseek-api-key
-OPENAI_COMPATIBLE_MODEL=deepseek-v4-flash
+OPENAI_COMPATIBLE_MODEL=deepseek-flash
 OPENAI_COMPATIBLE_BETA_BASE_URL=https://api.deepseek.com/beta
 OPENAI_COMPATIBLE_STRUCTURED_OUTPUT=strict_tool
 OPENAI_COMPATIBLE_REASONING_EFFORT=none
 LAWAGENT_LLM_MAX_RETRIES=3
-LAWAGENT_LLM_FACT_MODEL=deepseek-v4-flash
-LAWAGENT_LLM_QUERY_MODEL=deepseek-v4-flash
-LAWAGENT_LLM_EVIDENCE_MODEL=deepseek-v4-flash
-LAWAGENT_LLM_RESULT_MODEL=deepseek-v4-flash
 
 # Embedding（硅基流动 SiliconCloud，OpenAI 兼容）
 EMBEDDING_PROVIDER=openai_compatible

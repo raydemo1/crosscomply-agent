@@ -156,6 +156,31 @@ services:
     restart: unless-stopped
     networks: [backend]
 
+  knowledge-worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file:
+      - path: ${CROSSCOMPLY_ENV_FILE:-.env}
+        required: false
+    environment: *backend-environment
+    volumes:
+      - ${CROSSCOMPLY_CORPUS_DIR:-./data/corpus/legal_docs_20260702}:/app/data/corpus/legal_docs_20260702:rw
+    command: ["python", "-m", "law_agent.kb.enrichment_worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks: [backend]
+
   frontend:
     build:
       context: .

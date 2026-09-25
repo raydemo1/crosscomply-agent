@@ -231,7 +231,7 @@ def chunk_law_document(document: Document) -> list[Chunk]:
         ]
     units = [unit for article in article_sections for unit in split_law_units(article)]
     chunks: list[Chunk] = []
-    citation_role = citation_role_for_source(document.source_id)
+    citation_role = citation_role_for_source(document)
     for index, unit in enumerate(units):
         chunk_id = f"{document.doc_id}:{index:04d}"
         heading_path = [document.title, *unit.heading_path]
@@ -254,7 +254,7 @@ def chunk_law_document(document: Document) -> list[Chunk]:
                 item_no=unit.item_no,
                 citation_label=citation_label,
                 citation_role=citation_role,
-                can_cite_clause=can_cite_clause_chunk(document.source_id, article_no),
+                can_cite_clause=can_cite_clause_chunk(document, article_no),
                 prev_chunk_id=f"{document.doc_id}:{index - 1:04d}" if index > 0 else None,
                 next_chunk_id=(
                     f"{document.doc_id}:{index + 1:04d}" if index + 1 < len(units) else None

@@ -18,12 +18,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CaseStatus, Citation, CitationGroup, RetrievalHit, ReviewApiResponse, ReviewFacts, ReviewIssue, UserRole } from '../types/api';
+import type { CaseKnowledgeRecheckApi, CaseStatus, Citation, CitationGroup, RetrievalHit, ReviewApiResponse, ReviewFacts, ReviewIssue, UserRole } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
 import { setCitationVerdict } from '../store/caseStore';
 import { openCase } from '../store/caseStore';
-import { answerReviewTask, caseReportDownloadUrl, createFeishuApproval, retryReviewTask, runCase, waitForReviewTask } from '../api/client';
+import { answerReviewTask, caseReportDownloadUrl, createFeishuApproval, getCaseKnowledgeRechecks, retryReviewTask, runCase, waitForReviewTask } from '../api/client';
 import RiskBadge from './RiskBadge';
 import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
@@ -81,8 +81,9 @@ const FACT_FIELDS: Array<{ key: string; label: string; render: (f: ReviewFacts) 
   { key: 'sensitive_personal_info', label: '敏感个人信息', render: (f) => renderBool(f.sensitive_personal_info) },
   { key: 'processing_purpose', label: '处理目的', render: (f) => renderText(f.processing_purpose) },
   { key: 'legal_basis', label: '法律依据/同意', render: (f) => renderText(f.legal_basis_or_consent) },
-  { key: 'region', label: '地区', render: (f) => renderText(f.region) },
+  { key: 'regions', label: '地区', render: (f) => renderList(f.regions) },
   { key: 'industry', label: '行业', render: (f) => renderText(f.industry) },
+  { key: 'as_of_date', label: '法源适用日期', render: (f) => f.as_of_date || '审查当天' },
   { key: 'missing_information', label: '缺失信息', render: (f) => renderList(f.missing_information) },
 ];
 
@@ -123,12 +124,18 @@ export default function CaseDetailPage({
   const [detailView, setDetailView] = useState<'document' | 'report' | 'records'>(viewerRole === 'requester' ? 'report' : 'document');
   const [revisionTarget, setRevisionTarget] = useState<RevisionSelection | null>(null);
   const [pendingAnnotations, setPendingAnnotations] = useState(0);
+  const [knowledgeRechecks, setKnowledgeRechecks] = useState<CaseKnowledgeRecheckApi[]>([]);
+  useEffect(() => {
+    if (saved.status !== 'pending_source_verification') return;
+    void getCaseKnowledgeRechecks(saved.id).then(setKnowledgeRechecks).catch(() => setKnowledgeRechecks([]));
+  }, [saved.id, saved.status, saved.events.length]);
   const response = saved.response;
   if (!response) {
     return <DraftCaseView saved={saved} canEdit={canEdit} onEdit={onEdit} onBack={onBack} canManageActions={canManageActions} workflowOperation={workflowOperation} workflowError={workflowError} setWorkflowOperation={setWorkflowOperation} setWorkflowError={setWorkflowError} />;
   }
   const failed = isReviewFailedResponse(response);
   const reviewResult = failed ? null : (response as Extract<ReviewApiResponse, { review_case_id: string }>).review_result;
+  const webFindings = failed ? [] : (response as Extract<ReviewApiResponse, { review_case_id: string }>).web_findings ?? [];
   const completedSaved = saved as SavedCaseWithResponse;
 
   const handleVerdict = (chunkId: string, verdict: CitationVerdict | null) => {
@@ -148,6 +155,8 @@ export default function CaseDetailPage({
         setWorkflowOperation={setWorkflowOperation}
         setWorkflowError={setWorkflowError}
       />
+
+      {webFindings.some((item) => !item.known_source_id || item.refresh_needed) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>最新官方材料</strong><ul>{webFindings.filter((item) => !item.known_source_id || item.refresh_needed).map((item) => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {knowledgeRechecks.some((recheck) => recheck.url === item.url && recheck.recheck_status === 'pending') ? '已入库，案件待复核' : item.status === 'read' ? '已阅读网页摘录，暂不作为正式条款依据' : '已发现来源，正文待核验'}</span></li>)}</ul></div> : null}
 
       {!failed ? <nav className="case-detail-views" aria-label="案件详情视图">
         <button type="button" className={detailView === 'document' ? 'is-active' : ''} aria-current={detailView === 'document' ? 'page' : undefined} onClick={() => setDetailView('document')}>原文审阅</button>
@@ -266,6 +275,7 @@ function currentHeroStep(saved: SavedCase): number {
   return {
     draft: 1,
     needs_info: saved.reviewTask ? 5 : 2,
+    pending_source_verification: 5,
     pending_review: 3,
     review_running: 4,
     pending_feishu_approval: 6,
@@ -446,6 +456,7 @@ function CaseWorkflowActions({
   const hasAction = saved.status === 'pending_review'
     || (saved.status === 'needs_info' && !activeTask)
     || saved.status === 'run_failed'
+    || saved.status === 'pending_source_verification'
     || saved.status === 'pending_feishu_approval'
     || saved.reviewTask?.status === 'waiting_input';
   if (!hasAction && !error) return null;
@@ -454,6 +465,7 @@ function CaseWorkflowActions({
     <div className="workflow-actions__controls">
       {saved.status === 'pending_review' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '审查运行中…' : '启动证据化审查'}</button> : null}
       {saved.status === 'needs_info' && !activeTask ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '调查启动中…' : '按最新材料重新调查'}</button> : null}
+      {saved.status === 'pending_source_verification' ? <span>{saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '新法源已入库，案件待人工复核；原结论未自动改写' : '发现可能影响结论的新官方法源，正在核验；原结论不会自动改写'}</span> : null}
       {saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? '重新运行中…' : '重试失败任务'}</button> : null}
       {saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
       {saved.reviewTask?.status === 'waiting_input' ? <div className="enterprise-callout enterprise-callout--warning"><strong>{saved.reviewTask.agent_state?.pending_question || 'Agent 需要补充信息'}</strong><textarea value={agentAnswer} onChange={(event) => setAgentAnswer(event.target.value)} placeholder="直接回答 Agent 的问题即可" rows={3} /><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !agentAnswer.trim()} onClick={() => resumeAgent()}>{operation === 'answer' ? '正在提交…' : '直接回答'}</button>{onEditMaterial ? <button type="button" className="case-header__action-btn" disabled={operation !== null} onClick={onEditMaterial}>上传或更新材料</button> : null}</div> : null}
@@ -478,6 +490,7 @@ function CaseWorkflowActions({
 }
 
 function workflowActionTitle(saved: SavedCase): string {
+  if (saved.status === 'pending_source_verification') return '最新官方法源核验与案件复核';
   if (saved.status === 'pending_review') return '材料已就绪，可以开始审查';
   if (saved.status === 'run_failed') return '失败记录已保留，可以人工重试';
   if (saved.status === 'pending_feishu_approval') return saved.feishuApproval ? '飞书审批已发起，等待权威回写' : '审查已完成，可以发起飞书审批';
@@ -485,6 +498,7 @@ function workflowActionTitle(saved: SavedCase): string {
 }
 
 function workflowActionHint(saved: SavedCase): string {
+  if (saved.status === 'pending_source_verification') return saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '新法源已发布，待负责人复核当前案件。' : '核验期间不发起最终审批。';
   if (saved.status === 'pending_review') return '提交后系统会自动完成证据化审查，完成后即可查看结论。';
   if (saved.status === 'run_failed') return `失败节点：${saved.reviewTask?.current_node || '未记录'}；重试不会覆盖历史尝试。`;
   if (saved.status === 'pending_feishu_approval') return '最终通过、退回或撤回状态仅接受飞书验签事件。';
@@ -680,6 +694,7 @@ function eventLabel(event: string): string {
     review_started: '开始证据化审查',
     review_completed: '生成审查结果',
     review_failed: '审查运行失败',
+    knowledge_recheck_pending: '新法源已入库，案件待复核',
     action_created: '创建整改任务',
     action_updated: '更新整改任务',
     remediation_plan_created: '建立整改计划',

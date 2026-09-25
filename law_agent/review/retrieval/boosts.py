@@ -7,9 +7,10 @@ without hard-filtering other roles, per the implementation plan: "检索阶段
 
 Boost rules:
 - ``primary_legal_basis``: always slightly boosted (national law priority)
-- ``conditional_local_basis``: boosted when ``ReviewFacts.region`` matches
-  the chunk's ``applicable_region``; lightly demoted when another explicit
-  local region is known not to match
+- ``conditional_local_basis``: boosted when any explicit ``ReviewFacts.regions``
+  value matches the chunk's ``applicable_region``; lightly demoted when the
+  chunk sits in another explicit local region. Chunks scoped nationally are
+  left to the national rules, neither boosted nor demoted.
 - ``conditional_industry_basis``: boosted when ``ReviewFacts.industry``
   matches the chunk's ``applicable_subjects`` or ``topic_tags``; lightly
   demoted when another explicit industry is known not to match
@@ -20,7 +21,6 @@ Boost rules:
 
 from __future__ import annotations
 
-from law_agent.data.citation_policy import IMPLEMENTATION_REFERENCE_SOURCE_IDS
 from law_agent.data.schemas import Chunk
 from law_agent.review.schemas import RetrievalHit, RetrievalQueryType, ReviewFacts
 
@@ -97,25 +97,20 @@ def compute_boost_for_hit(
     role = hit.citation_role
 
     # Primary legal basis: always slightly elevated.
-    # Filing guide + standard contract template (in IMPLEMENTATION_REFERENCE_SOURCE_IDS)
-    # are implementation documents demoted from CLAUSE_CITABLE_SOURCE_IDS for citation
-    # governance only (can_cite_clause=False). Their *retrievability* must stay
-    # identical to primary law — so they are treated as primary-like for boosts.
-    is_primary_like = (
-        role == "primary_legal_basis" or hit.source_id in IMPLEMENTATION_REFERENCE_SOURCE_IDS
-    )
-    if is_primary_like:
+    if role == "primary_legal_basis":
         boost *= PRIMARY_LEGAL_BASIS_BOOST
         if facts.cross_border_transfer and _chunk_mentions_any(chunk, _CROSS_BORDER_TERMS):
             boost *= CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST
 
-    # Conditional local basis: boost when region matches
-    if role == "conditional_local_basis" and facts.region:
-        region_code = _normalize_region(facts.region)
-        if _region_matches(chunk.applicable_region, region_code):
-            boost *= CONDITIONAL_LOCAL_BASIS_BOOST
-        elif _is_specific_region(region_code):
-            boost *= CONDITIONAL_LOCAL_MISMATCH_WEIGHT
+    # Conditional local basis: boost when any explicit region matches
+    if role == "conditional_local_basis":
+        fact_regions = _specific_regions(facts.regions)
+        chunk_region = _normalize_region(chunk.applicable_region)
+        if fact_regions and _is_specific_region(chunk_region):
+            if any(_region_matches(chunk_region, region) for region in fact_regions):
+                boost *= CONDITIONAL_LOCAL_BASIS_BOOST
+            else:
+                boost *= CONDITIONAL_LOCAL_MISMATCH_WEIGHT
 
     # Conditional industry basis: boost when industry matches
     if role == "conditional_industry_basis" and facts.industry:
@@ -160,11 +155,11 @@ def compute_boosts_summary(
     if facts.cross_border_transfer:
         summary["primary_legal_basis:cross_border"] = CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST
 
-    if facts.region:
-        region_code = _normalize_region(facts.region)
-        summary[f"conditional_local_basis:{region_code}"] = CONDITIONAL_LOCAL_BASIS_BOOST
-        if _is_specific_region(region_code):
-            summary["conditional_local_basis:mismatch"] = CONDITIONAL_LOCAL_MISMATCH_WEIGHT
+    fact_regions = _specific_regions(facts.regions)
+    if fact_regions:
+        for region in fact_regions:
+            summary[f"conditional_local_basis:{region}"] = CONDITIONAL_LOCAL_BASIS_BOOST
+        summary["conditional_local_basis:mismatch"] = CONDITIONAL_LOCAL_MISMATCH_WEIGHT
 
     if facts.industry:
         summary[f"conditional_industry_basis:{facts.industry}"] = CONDITIONAL_INDUSTRY_BASIS_BOOST
@@ -234,6 +229,17 @@ def _region_matches(chunk_region: str, fact_region: str) -> bool:
     # LLMs often emit free-trade-zone scoped codes such as CN-CQ-FTZ,
     # while corpus metadata stores the province/municipality code.
     return fact_value.startswith(f"{chunk_value}-") or chunk_value.startswith(f"{fact_value}-")
+
+
+def _specific_regions(regions: list[str]) -> list[str]:
+    """Normalized codes of the fact regions that name a local jurisdiction."""
+
+    codes: list[str] = []
+    for value in regions:
+        code = _normalize_region(value)
+        if _is_specific_region(code) and code not in codes:
+            codes.append(code)
+    return codes
 
 
 def _industry_matches(chunk: Chunk, industry: str) -> bool:

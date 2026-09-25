@@ -133,6 +133,22 @@ class FeishuApprovalClient:
             request_id=request_id if isinstance(request_id, str) else None,
         )
 
+    def send_text_message(self, *, open_id: str, text: str) -> str:
+        token = self._tenant_access_token()
+        response = self._transport(
+            "POST",
+            f"{self._config.base_url}/im/v1/messages?receive_id_type=open_id",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json; charset=utf-8"},
+            json={"receive_id": open_id, "msg_type": "text", "content": json.dumps({"text": text}, ensure_ascii=False)},
+            timeout=self._config.timeout_seconds,
+        )
+        body = _response_body(response, operation="发送飞书消息")
+        data = body.get("data")
+        message_id = data.get("message_id") if isinstance(data, Mapping) else None
+        if not isinstance(message_id, str) or not message_id:
+            raise FeishuApiError("发送飞书消息的响应缺少 message_id")
+        return message_id
+
     def subscribe_approval_events(self) -> None:
         """Enable event delivery for the configured approval definition."""
 

@@ -4713,6 +4713,10 @@ body {
 .knowledge-preview__row strong { color: var(--color-primary); font-size: 0.8125rem; }
 .knowledge-preview__row small { margin-top: 2px; color: var(--color-muted-foreground); font-size: 0.75rem; }
 .knowledge-preview__row em { grid-column: 2 / -1; color: #991b1b; font-size: 0.75rem; font-style: normal; }
+.knowledge-enrichment-review { padding: 18px 22px; }
+.knowledge-enrichment-review .knowledge-preview__row { grid-template-columns: minmax(0, 1fr) auto; }
+.knowledge-enrichment-review .knowledge-form { margin: 18px 0 0; }
+.knowledge-preview__text { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background); font-size: 0.8125rem; line-height: 1.6; }
 .knowledge-action { padding: 3px 7px; border-radius: var(--radius-pill); font-size: 0.75rem; }
 .knowledge-action--add { background: #ecfdf5; color: #047857; }
 .knowledge-action--replace { background: #eff6ff; color: #1d4ed8; }

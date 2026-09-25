@@ -17,12 +17,18 @@
     "source_site": { "type": "string" },
     "doc_type": {
       "type": "string",
-      "enum": ["law", "regulation", "policy", "faq", "guideline", "privacy_policy", "internal_policy", "case", "contract"]
+      "enum": ["law", "regulation", "policy", "faq", "guideline", "judicial_interpretation", "privacy_policy", "internal_policy", "case", "contract"]
     },
     "authority": { "type": "string" },
+    "citation_role": {
+      "type": "string",
+      "enum": ["primary_legal_basis", "conditional_local_basis", "conditional_industry_basis", "implementation_reference", "interpretation_auxiliary"]
+    },
     "law_status": { "type": "string" },
     "publish_date": { "type": ["string", "null"] },
     "effective_date": { "type": ["string", "null"] },
+    "valid_to": { "type": ["string", "null"] },
+    "instrument_key": { "type": ["string", "null"] },
     "issuing_body": { "type": ["string", "null"] },
     "applicable_region": { "type": "string" },
     "legal_domain": { "type": ["string", "array"] },

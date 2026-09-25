@@ -34,6 +34,7 @@ from law_agent.kb.admin import (
     KnowledgeJobStore,
     source_summary_payload,
 )
+from law_agent.kb.enrichment import PostgresEnrichmentStore
 from law_agent.kb.ingestion import prepare_document_for_ingest
 from law_agent.kb.service import normalized_content_hash
 from law_agent.review.case_store import UserRecord
@@ -96,6 +97,61 @@ def register_knowledge_routes(
 
     router = APIRouter(prefix="/api/admin")
 
+    def enrichment_store() -> PostgresEnrichmentStore:
+        from law_agent.config import load_service_config
+        return PostgresEnrichmentStore(load_service_config().postgres.dsn)
+
+    @router.get("/knowledge-enrichment-jobs")
+    async def list_enrichment_jobs(
+        status: str | None = None, user: UserRecord = Depends(current_user),
+    ) -> dict[str, Any]:
+        admin_only(user)
+        return {"items": enrichment_store().list_jobs(status=status)}
+
+    @router.get("/knowledge-enrichment-jobs/{job_id}/raw")
+    async def download_enrichment_raw(
+        job_id: str, user: UserRecord = Depends(current_user),
+    ) -> FileResponse:
+        admin_only(user)
+        try:
+            path = enrichment_store().raw_file(job_id, corpus=app.state.knowledge_corpus)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="待审原件不存在") from exc
+        return FileResponse(path, filename=path.name)
+
+    @router.post("/knowledge-enrichment-jobs/{job_id}/approve")
+    async def approve_enrichment_job(
+        job_id: str, source: SourceRecord, user: UserRecord = Depends(current_user),
+    ) -> dict[str, str]:
+        admin_only(user)
+        try:
+            enrichment_store().approve(job_id, source)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"status": "approved"}
+
+    @router.post("/knowledge-enrichment-jobs/{job_id}/reject")
+    async def reject_enrichment_job(
+        job_id: str, user: UserRecord = Depends(current_user),
+    ) -> dict[str, str]:
+        admin_only(user)
+        try:
+            enrichment_store().reject(job_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"status": "rejected"}
+
+    @router.post("/knowledge-enrichment-jobs/{job_id}/retry")
+    async def retry_enrichment_job(
+        job_id: str, user: UserRecord = Depends(current_user),
+    ) -> dict[str, str]:
+        admin_only(user)
+        try:
+            enrichment_store().retry(job_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"status": "queued"}
+
     def knowledge_job_payload(job: Any) -> dict[str, Any]:
         return asdict(job)
 
@@ -139,6 +195,7 @@ def register_knowledge_routes(
             source_site=str(metadata.get("source_site") or "local_import"),
             doc_type=doc_type,
             authority=metadata.get("authority", "unknown"),
+            citation_role=metadata.get("citation_role", "interpretation_auxiliary"),
             law_status=metadata.get("law_status", "unknown"),
             publish_date=metadata.get("publish_date"),
             effective_date=metadata.get("effective_date"),
@@ -165,9 +222,11 @@ def register_knowledge_routes(
                 for entry in entries:
                     try:
                         source = SourceRecord.model_validate(entry["source"])
-                        path_key = "temp_path" if job.job_type == "import" else "raw_path"
-                        raw_path = Path(entry[path_key])
-                        result = service.ingest_file(source, raw_path)
+                        if job.job_type == "metadata":
+                            # A metadata edit never re-parses the stored body.
+                            result = service.update_source_metadata(source)
+                        else:
+                            result = service.ingest_file(source, Path(entry["temp_path"]))
                         results.append({"source_id": source.source_id, "status": "succeeded", **result})
                     except Exception as exc:  # noqa: BLE001 - persist per-source failure
                         failures += 1
@@ -406,13 +465,10 @@ def register_knowledge_routes(
         values = payload.model_dump(exclude_unset=True)
         if not values:
             raise HTTPException(status_code=422, detail="至少提供一项元数据修改")
-        source = SourceRecord.model_validate(detail["source"]).model_copy(update=values)
-        raw_path = detail.get("raw_path")
-        if not raw_path:
-            raise HTTPException(status_code=409, detail="来源没有可重新解析的原文件")
+        source = SourceRecord.model_validate({**detail["source"], **values})
         job = enqueue_knowledge_job(
             "metadata",
-            {"entries": [{"source": source.model_dump(mode="json"), "raw_path": raw_path}]},
+            {"entries": [{"source": source.model_dump(mode="json")}]},
             user,
         )
         return {"job": knowledge_job_payload(job)}

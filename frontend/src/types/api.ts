@@ -108,10 +108,11 @@ export interface ReviewFacts {
   legal_basis_or_consent: string | null;
   /** Industry context (e.g. "finance", "healthcare"). */
   industry: string | null;
-  /** Geographic region context (e.g. "CN", "EU"). */
-  region: string | null;
+  /** Local jurisdictions the material states explicitly (e.g. ["上海"]). */
+  regions: string[];
   /** Facts that could not be determined and should be requested from the user. */
   missing_information: string[];
+  as_of_date?: string | null;
 }
 
 /**
@@ -367,6 +368,17 @@ export interface ReviewResponse {
   evidence_chunks: RetrievalHit[];
   /** Source-level evidence packets with representative/supporting/neighbor chunks. */
   source_evidence_packets: SourceEvidencePacket[];
+  web_findings?: Array<{
+    title: string;
+    url: string;
+    published_date: string | null;
+    excerpt: string;
+    status: 'read' | 'discovered';
+    known_source_id: string | null;
+    refresh_needed: boolean;
+  }>;
+  web_impact?: 'none' | 'supplement' | 'execution_detail' | 'core';
+  freshness_hold?: boolean;
   /**
    * Runtime summary produced by the single autonomous compliance Agent.
    *
@@ -430,9 +442,12 @@ export interface KnowledgeSourceRecordApi {
   source_site: string;
   doc_type: string;
   authority: string;
+  citation_role: ClauseCitationRole;
   law_status: KnowledgeLawStatus;
   publish_date: string | null;
   effective_date: string | null;
+  valid_to: string | null;
+  instrument_key: string | null;
   issuing_body: string | null;
   owning_department: string | null;
   internal_status: KnowledgeInternalStatus | null;
@@ -488,6 +503,33 @@ export interface KnowledgeJobApi {
   updated_at?: string;
 }
 
+export interface KnowledgeEnrichmentJobApi {
+  id: string;
+  url: string;
+  title: string;
+  status: 'queued' | 'running' | 'awaiting_review' | 'approved' | 'published' | 'rejected' | 'failed';
+  source_json: KnowledgeSourceRecordApi | null;
+  source_id: string | null;
+  raw_sha256: string | null;
+  parsed_excerpt: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseKnowledgeRecheckApi {
+  job_id: string;
+  title: string;
+  url: string;
+  source_id: string | null;
+  source_status: string;
+  material: boolean;
+  recheck_status: 'not_required' | 'waiting_source' | 'pending' | 'done';
+  notification_status: string;
+  notification_message_id: string | null;
+  created_at: string;
+}
+
 export interface KnowledgeDeletePreviewApi {
   token: string;
   items: KnowledgeSourceApi[];
@@ -508,6 +550,7 @@ export interface KnowledgeTrashRecordApi {
 export type CaseStatus =
   | 'draft'
   | 'needs_info'
+  | 'pending_source_verification'
   | 'pending_review'
   | 'review_running'
   | 'pending_feishu_approval'

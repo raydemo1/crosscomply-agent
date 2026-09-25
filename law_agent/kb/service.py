@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 from uuid import uuid4
 
+from law_agent.data.chunking.pipeline import republish_source_metadata
 from law_agent.data.io import read_jsonl, read_manifest, write_jsonl, write_manifest
 from law_agent.data.schemas import Chunk, SourceRecord
 from law_agent.review.retrieval.text import normalize_text
@@ -51,6 +52,36 @@ def processing_signature(
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
+
+
+def _record_fingerprint(source: SourceRecord) -> str:
+    """Fingerprint a source the way the manifest round-trip preserves it.
+
+    ``write_manifest`` stores a missing optional value as an empty field, so a
+    record read back from the manifest legitimately carries ``""`` where the
+    candidate carries ``None``. Normalizing both sides keeps duplicate
+    detection stable while any real metadata change (URL, site, dates, status
+    or citation role) still forces an update.
+    """
+
+    payload = {
+        key: "" if value is None else value for key, value in source.model_dump(mode="json").items()
+    }
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def _chunks_fingerprint(stable_chunks: Sequence[Chunk]) -> str:
+    """Fingerprint the chunk layout a source would be published with.
+
+    A body can stay byte-identical while its chunking changes (a structural
+    fix, a new ``chunking_version``). Comparing chunk identities keeps such a
+    change from being mistaken for a duplicate: unchanged chunks keep their
+    identity and therefore their cached vector, while only shifted chunks are
+    embedded again.
+    """
+
+    material = "\x1f".join(chunk.chunk_id for chunk in stable_chunks)
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def _chunk_locator(chunk: Chunk) -> str:
@@ -214,14 +245,72 @@ class KnowledgeBase:
         body_hash = normalized_content_hash(normalized_text)
         state = self._read_state()
         source_state = state["sources"].get(source.source_id)
+        existing_source = next(
+            (record for record in self._read_sources() if record.source_id == source.source_id),
+            None,
+        )
+        stable_chunks = make_stable_chunks(chunks, source, signature=self.signature)
         if (
             source_state
+            and existing_source is not None
             and source_state["content_hash"] == body_hash
             and source_state["signature"] == self.signature
+            and source_state.get("chunks_hash") == _chunks_fingerprint(stable_chunks)
+            and _record_fingerprint(existing_source) == _record_fingerprint(source)
         ):
             return IngestResult("skipped_duplicate", source.source_id, None, 0, len(chunks))
 
-        stable_chunks = make_stable_chunks(chunks, source, signature=self.signature)
+        return self._republish(
+            source,
+            body_hash,
+            chunks,
+            raw_file=raw_file,
+            state=state,
+            stable_chunks=stable_chunks,
+        )
+
+    def update_source_metadata(self, source: SourceRecord) -> IngestResult:
+        """Republish the stored chunks of one source under corrected metadata.
+
+        A provenance repair does not change the body, so the stored content
+        hash, every chunk identity and every cached embedding stay exactly as
+        they are while the manifest, chunk artifacts and retrieval stores pick
+        up the corrected source metadata.
+        """
+
+        source_state = self._read_state()["sources"].get(source.source_id)
+        if source_state is None:
+            raise RuntimeError(f"未找到来源：{source.source_id}")
+        chunks = [
+            chunk
+            for chunk in read_jsonl(self.chunks_path, Chunk)
+            if chunk.source_id == source.source_id
+        ]
+        if not chunks:
+            raise RuntimeError(f"来源没有可复用的 chunk：{source.source_id}")
+        return self._republish(
+            source,
+            str(source_state["content_hash"]),
+            republish_source_metadata(source, chunks),
+        )
+
+    def _republish(
+        self,
+        source: SourceRecord,
+        body_hash: str,
+        chunks: list[Chunk],
+        *,
+        raw_file: Path | None = None,
+        state: dict[str, dict] | None = None,
+        stable_chunks: list[Chunk] | None = None,
+    ) -> IngestResult:
+        """Stage, verify and switch one source generation from prepared chunks."""
+
+        state = state if state is not None else self._read_state()
+        source_state = state["sources"].get(source.source_id)
+        if stable_chunks is None:
+            stable_chunks = make_stable_chunks(chunks, source, signature=self.signature)
+        chunks_hash = _chunks_fingerprint(stable_chunks)
         generation_id = uuid4().hex
         self.root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix=".ingest-backup-", dir=self.root) as temporary_dir:
@@ -263,6 +352,7 @@ class KnowledgeBase:
                 state["sources"][source.source_id] = {
                     "content_hash": body_hash,
                     "signature": self.signature,
+                    "chunks_hash": chunks_hash,
                     "generation_id": generation_id,
                     "status": "ready",
                 }

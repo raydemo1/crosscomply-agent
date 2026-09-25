@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
@@ -50,8 +51,16 @@ class ReviewFacts(StrictModel):
     processing_purpose: str | None = None
     legal_basis_or_consent: str | None = None
     industry: str | None = None
-    region: str | None = None
+    regions: list[str] = Field(default_factory=list)
     missing_information: list[str] = Field(default_factory=list)
+    as_of_date: date | None = None
+
+    @field_validator("as_of_date", mode="before")
+    @classmethod
+    def parse_as_of_date(cls, value: object) -> object:
+        if isinstance(value, str):
+            return date.fromisoformat(value)
+        return value
 
     @field_validator(
         "business_activity",
@@ -59,7 +68,6 @@ class ReviewFacts(StrictModel):
         "processing_purpose",
         "legal_basis_or_consent",
         "industry",
-        "region",
         mode="before",
     )
     @classmethod
@@ -67,6 +75,24 @@ class ReviewFacts(StrictModel):
         if isinstance(value, str) and value.strip().casefold() in _SEMANTIC_NULL_STRINGS:
             return None
         return value
+
+    @field_validator("regions", mode="before")
+    @classmethod
+    def normalize_regions(cls, value: object) -> object:
+        # Drop blank entries and duplicates, but keep whatever the extractor
+        # emitted: a national value such as "CN" must stay visible so that
+        # extraction quality stays measurable downstream.
+        if not isinstance(value, list):
+            return value
+        cleaned: list[object] = []
+        for item in value:
+            if isinstance(item, str):
+                item = item.strip()
+                if not item:
+                    continue
+            if item not in cleaned:
+                cleaned.append(item)
+        return cleaned
 
 
 class UploadedFileMeta(StrictModel):

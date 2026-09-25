@@ -69,60 +69,35 @@ def test_filter_chunks_by_legal_metadata() -> None:
 
 
 def test_citation_policy_marks_only_primary_sources_clause_citable() -> None:
-    assert can_cite_clause("flk_npc_ff8081817b6472a3017b656cc2040044") is True
-    assert citation_role_for_source("flk_npc_ff8081817b6472a3017b656cc2040044") == (
-        "primary_legal_basis"
+    primary = SourceRecord(
+        source_id="new_official_regulation",
+        title="新规",
+        source_url="https://example.gov.cn/rule",
+        source_site="example.gov.cn",
+        doc_type="regulation",
+        citation_role="primary_legal_basis",
     )
+    auxiliary = primary.model_copy(update={"citation_role": "interpretation_auxiliary"})
+    conditional = primary.model_copy(update={"citation_role": "conditional_industry_basis"})
 
-    assert can_cite_clause("cac_data_export_assessment_qna_2022") is False
-    assert citation_role_for_source("cac_data_export_assessment_qna_2022") == (
-        "interpretation_auxiliary"
-    )
-
-    assert can_cite_clause("tc260_gbt_35273_2020_pip_security_spec") is False
-    assert citation_role_for_source("tc260_gbt_35273_2020_pip_security_spec") == (
-        "implementation_reference"
-    )
-
-    assert (
-        citation_role_for_source("cac_data_export_security_assessment_filing_guide_v3_2025")
-        == "primary_legal_basis"
-    )
-    assert citation_role_for_source("shenzhen_data_regulation_2021") == "conditional_local_basis"
-    assert (
-        citation_role_for_source("cac_automotive_data_security_provisions_2021")
-        == "conditional_industry_basis"
-    )
-    assert can_cite_clause("cac_automotive_data_security_provisions_2021") is False
-    assert (
-        can_cite_clause_chunk("cac_automotive_data_security_provisions_2021", "第十三条") is False
-    )
-    assert (
-        citation_role_for_source("cac_automotive_data_export_security_guide_2026")
-        == "conditional_industry_basis"
-    )
-    assert can_cite_clause("cac_automotive_data_export_security_guide_2026") is False
-    assert (
-        citation_role_for_source(
-            "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022"
-        )
-        == "conditional_industry_basis"
-    )
-    assert (
-        citation_role_for_source("cac_financial_information_service_data_classification_guide_2026")
-        == "conditional_industry_basis"
-    )
-    assert (
-        citation_role_for_source("shanghai_free_trade_zone_data_export_negative_list_qna_2024")
-        == "interpretation_auxiliary"
-    )
+    assert citation_role_for_source(primary) == "primary_legal_basis"
+    assert can_cite_clause(primary) is True
+    assert can_cite_clause_chunk(primary, "第一条") is True
+    assert can_cite_clause_chunk(primary, None) is False
+    assert can_cite_clause(auxiliary) is False
+    assert can_cite_clause_chunk(conditional, "第一条") is False
+    assert can_cite_clause(primary.model_copy(update={"library_kind": "internal_policy"})) is False
 
 
 def test_frontend_and_default_retrieval_policy_are_separate() -> None:
-    assert (
-        default_retrievable_for_source("cac_data_export_security_assessment_filing_guide_v3_2025")
-        is True
+    source = SourceRecord(
+        source_id="cac_data_export_security_assessment_filing_guide_v3_2025",
+        title="备案指南",
+        source_url="https://www.cac.gov.cn/guide",
+        source_site="cac.gov.cn",
+        doc_type="guideline",
     )
+    assert default_retrievable_for_source(source) is True
     assert (
         frontend_direct_reference_for_source(
             "cac_data_export_security_assessment_filing_guide_v3_2025"
@@ -130,7 +105,7 @@ def test_frontend_and_default_retrieval_policy_are_separate() -> None:
         is True
     )
 
-    assert default_retrievable_for_source("cac_cross_border_data_flow_rules_2024") is True
+    assert default_retrievable_for_source(source.model_copy(update={"source_id": "other"})) is True
     assert frontend_direct_reference_for_source("cac_cross_border_data_flow_rules_2024") is False
 
 

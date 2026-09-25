@@ -31,20 +31,10 @@ class KnowledgeMetadataUpdateRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=240)
     source_url: str | None = None
     source_site: str | None = None
-    doc_type: Literal[
-        "law",
-        "regulation",
-        "policy",
-        "faq",
-        "guideline",
-        "privacy_policy",
-        "internal_policy",
-        "case",
-        "contract",
-    ] | None = None
     authority: Literal[
         "national_law",
         "administrative_regulation",
+        "departmental_rule",
         "ministry_policy",
         "local_regulation",
         "judicial_interpretation",
@@ -53,9 +43,18 @@ class KnowledgeMetadataUpdateRequest(BaseModel):
         "simulated_internal_policy",
         "unknown",
     ] | None = None
+    citation_role: Literal[
+        "primary_legal_basis",
+        "conditional_local_basis",
+        "conditional_industry_basis",
+        "implementation_reference",
+        "interpretation_auxiliary",
+    ] | None = None
     law_status: Literal["effective", "not_yet_effective", "amended", "repealed", "unknown"] | None = None
     publish_date: str | None = None
     effective_date: str | None = None
+    valid_to: str | None = None
+    instrument_key: str | None = None
     issuing_body: str | None = None
     owning_department: str | None = None
     internal_status: InternalPolicyStatus | None = None

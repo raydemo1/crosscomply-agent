@@ -158,6 +158,7 @@ def completion_has_missing_information(
         or determination.get("status") != "determined"
         or determination.get("needs_info")
         or review_result.get("missing_information")
+        or (task.result or {}).get("freshness_hold")
     )
 
 
@@ -165,6 +166,7 @@ def main() -> None:
     """Run the production worker until the container is stopped."""
 
     from law_agent.config import load_service_config
+    from law_agent.kb.enrichment import PostgresEnrichmentStore
     from law_agent.review.agent_runtime import execute_agent_task
     from law_agent.review.api import create_app
     from law_agent.review.case_store import PostgresCaseStore
@@ -174,6 +176,7 @@ def main() -> None:
     config = load_service_config()
     case_store = PostgresCaseStore(config.postgres.dsn)
     queue = PostgresEnterpriseStore(config.postgres.dsn)
+    enrichment_store = PostgresEnrichmentStore(config.postgres.dsn)
     app = create_app(case_store=case_store)
     case_store.initialize()
 
@@ -200,6 +203,10 @@ def main() -> None:
             material_versions=frozen_versions,
             chunks_path=app.state.chunks_path,
             rerank_mode=case["rerank_mode"],
+            on_web_findings=lambda findings: [
+                enrichment_store.enqueue(finding, case_id=task.case_id, review_task_id=task.id)
+                for finding in findings[:2]
+            ],
         )
 
     def actor(case: dict[str, Any]) -> str:
@@ -225,9 +232,17 @@ def main() -> None:
         if case is None or task.result is None:
             return
         review_result = task.result.get("review_result") or {}
+        if task.result.get("web_impact") in {"execution_detail", "core"}:
+            enrichment_store.mark_impact(
+                case_id=task.case_id, review_task_id=task.id,
+                urls=task.result.get("material_web_urls") or [],
+            )
         rule_snapshot = queue.get_rule_snapshot(task.rule_snapshot_id)
-        final_status = next_status_after_review(
-            has_missing_information=completion_has_missing_information(task, rule_snapshot)
+        final_status = (
+            "pending_source_verification" if task.result.get("freshness_hold")
+            else next_status_after_review(
+                has_missing_information=completion_has_missing_information(task, rule_snapshot)
+            )
         )
         case_store.update_case(
             task.case_id,

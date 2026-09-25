@@ -295,7 +295,7 @@ def _is_reference_unit(unit: StructuredUnit) -> bool:
 
 def _chunks_from_units(document: Document, units: list[StructuredUnit]) -> list[Chunk]:
     chunks: list[Chunk] = []
-    citation_role = citation_role_for_source(document.source_id)
+    citation_role = citation_role_for_source(document)
 
     kept_units = [
         unit
@@ -404,9 +404,19 @@ def _heading_from_line(line: str) -> tuple[int, str] | None:
         level = numeric.group(1).count(".") + 1
         return min(level, 6), f"{numeric.group(1)} {numeric_title}"
     if re.match(r"^[一二三四五六七八九十]+、.{1,80}$", stripped):
-        return 1, stripped
+        # An item that ends with sentence punctuation states a requirement in
+        # its own right: it is body text under its section, not a heading. Same
+        # rule as the bracket and numeric list-item guards below.
+        if not stripped.endswith(("；", "。")):
+            return 1, stripped
+        return None
     if re.match(r"^（[一二三四五六七八九十]+）.{1,80}$", stripped):
-        return 2, stripped
+        # A bracketed item ending with sentence punctuation states a requirement
+        # in its own right: it is content under its section, not an enumerator
+        # heading. Same rule as the numeric list-item guard above.
+        if not stripped.endswith(("；", "。")):
+            return 2, stripped
+        return None
     if stripped.startswith("行业领域") and len(stripped) <= 80:
         return 1, stripped
     return None

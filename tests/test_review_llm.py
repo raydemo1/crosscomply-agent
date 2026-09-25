@@ -13,7 +13,7 @@ from law_agent.review.facts import (
     build_fact_extraction_messages,
     extract_facts_with_deepseek,
 )
-from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode, model_for_node
+from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
 from law_agent.review.query_planner import (
     build_query_planning_messages,
     plan_queries_with_deepseek,
@@ -56,7 +56,7 @@ def _valid_facts_payload() -> dict:
         "processing_purpose": "推荐优化",
         "legal_basis_or_consent": None,
         "industry": None,
-        "region": "CN",
+        "regions": ["CN"],
         "missing_information": ["legal_basis_or_consent"],
     }
 
@@ -189,13 +189,13 @@ def test_structured_node_retries_validation_failure() -> None:
 
 def test_strict_tool_argument_loader_repairs_malformed_json() -> None:
     payload = (
-        '{"region": CN, "cross_border_transfer": true, '
+        '{"regions": [CN], "cross_border_transfer": true, '
         '"industry": null, "missing_information": []} trailing text'
     )
 
     parsed = _loads_tool_arguments(payload)
 
-    assert parsed["region"] == "CN"
+    assert parsed["regions"] == ["CN"]
     assert parsed["cross_border_transfer"] is True
     assert parsed["industry"] is None
 
@@ -205,8 +205,10 @@ def test_strict_tool_argument_loader_requires_json_object() -> None:
         _loads_tool_arguments("[1, 2, 3]")
 
 
-def test_structured_node_uses_per_node_model_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LAWAGENT_LLM_FACT_MODEL", "deepseek-v4-flash")
+def test_structured_node_leaves_model_to_the_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The whole workflow shares one configured model; nodes must not pick
+    # their own, so the client's config.model decides.
+    monkeypatch.setenv("LAWAGENT_LLM_FACT_MODEL", "some-other-model")
     client = FakeClient(outputs=[_valid_facts_payload()])
     node = StructuredLLMNode(
         node_name="fact_extraction",
@@ -217,8 +219,7 @@ def test_structured_node_uses_per_node_model_override(monkeypatch: pytest.Monkey
 
     node.run([ChatMessage(role="user", content="json")])
 
-    assert model_for_node("fact_extraction") == "deepseek-v4-flash"
-    assert client.kwargs[0]["model"] == "deepseek-v4-flash"
+    assert "model" not in client.kwargs[0]
 
 
 def test_structured_node_exhaustion_returns_review_failed() -> None:

@@ -22,7 +22,7 @@ def test_eval_inputs_round_trip(tmp_path: Path) -> None:
         '"data_types":[],"sensitive_personal_info":null,'
         '"cross_border_transfer":true,"overseas_recipient":null,'
         '"processing_purpose":null,"legal_basis_or_consent":null,'
-        '"industry":null,"region":null,"missing_information":[]},'
+        '"industry":null,"regions":[],"missing_information":[]},'
         '"queries":[{"query_id":"q_1","query_type":"legal_issue",'
         '"text":"数据出境"}]}\n',
         encoding="utf-8",
