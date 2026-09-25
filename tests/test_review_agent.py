@@ -33,7 +33,7 @@ def test_agent_can_finish_without_fixed_intermediate_steps() -> None:
     state = run_agent(
         AgentState(goal="审查境外 SaaS 接入"),
         material="已冻结材料",
-        rule={},
+        intake={},
         decide=lambda _state, _rule: next(decisions),
         search=lambda _queries, _facts: [],
         web_search=lambda _queries, _facts: [],
@@ -64,7 +64,7 @@ def test_agent_can_choose_multiple_retrieval_batches() -> None:
     state = run_agent(
         AgentState(goal="审查境外 SaaS 接入"),
         material="已冻结材料",
-        rule={},
+        intake={},
         decide=lambda _state, _rule: next(decisions),
         search=lambda queries, _facts: searched.extend(item.text for item in queries) or [],
         web_search=lambda _queries, _facts: [],
@@ -82,7 +82,7 @@ def test_agent_pauses_and_resumes_from_human_input() -> None:
     waiting = run_agent(
         AgentState(goal="确认接收方地区"),
         material="已冻结材料",
-        rule={},
+        intake={},
         decide=lambda _state, _rule: AgentDecision(
             action="request_input",
             summary="需要确认接收方地区",
@@ -117,7 +117,7 @@ def test_agent_plan_is_visible_without_blocking_the_run() -> None:
     state = run_agent(
         AgentState(goal="审查境外 SaaS 接入"),
         material="已冻结材料",
-        rule={},
+        intake={},
         decide=lambda _state, _rule: next(decisions),
         search=lambda _queries, _facts: [],
         web_search=lambda _queries, _facts: [],

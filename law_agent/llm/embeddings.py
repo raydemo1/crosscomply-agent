@@ -5,7 +5,6 @@ callables, so the concrete embedding source stays swappable:
 
 * ``OpenAICompatibleEmbeddings``  -- any ``/embeddings`` OpenAI-compatible host.
 * ``LocalSentenceTransformerEmbeddings`` -- local model via ``sentence-transformers``.
-* ``MockEmbeddings`` -- deterministic hash-based vectors for tests / dry runs.
 
 DeepSeek (the project's chat provider) does not expose an embeddings endpoint,
 which is why this module is intentionally separate from ``openai_compatible.py``
@@ -14,9 +13,7 @@ and configured via ``EmbeddingConfig``.
 
 from __future__ import annotations
 
-import hashlib
 import json
-import math
 import time
 import urllib.error
 import urllib.request
@@ -142,34 +139,6 @@ class LocalSentenceTransformerEmbeddings(EmbeddingsProvider):
         return self.embed_texts([query])[0]
 
 
-class MockEmbeddings(EmbeddingsProvider):
-    """Deterministic hash-based embeddings for tests and dry runs.
-
-    Not semantically meaningful: identical text always yields the same vector,
-    which is enough to exercise the pgvector pipeline end-to-end without an API
-    key or a local model.
-    """
-
-    def __init__(self, dimension: int) -> None:
-        self.dimension = dimension
-
-    def _vector(self, text: str) -> list[float]:
-        digest = hashlib.sha256(text.encode("utf-8")).digest()
-        # Expand the 32-byte digest to fill ``dimension`` floats.
-        raw = bytearray()
-        while len(raw) < self.dimension:
-            raw.extend(digest)
-        values = [raw[i] for i in range(self.dimension)]
-        norm = math.sqrt(sum(v * v for v in values)) or 1.0
-        return [v / norm for v in values]
-
-    def embed_texts(self, texts: Sequence[str]) -> list[list[float]]:
-        return [self._vector(text) for text in texts]
-
-    def embed_query(self, query: str) -> list[float]:
-        return self._vector(query)
-
-
 def build_embeddings_provider(config: EmbeddingConfig) -> EmbeddingsProvider:
     """Construct the embedding provider selected by ``EmbeddingConfig``."""
 
@@ -177,6 +146,4 @@ def build_embeddings_provider(config: EmbeddingConfig) -> EmbeddingsProvider:
         return OpenAICompatibleEmbeddings(config)
     if config.provider == "sentence_transformers":
         return LocalSentenceTransformerEmbeddings(config)
-    if config.provider == "mock":
-        return MockEmbeddings(dimension=config.dimension)
     raise RuntimeError(f"unsupported embedding provider: {config.provider!r}")

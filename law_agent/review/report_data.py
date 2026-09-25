@@ -108,9 +108,7 @@ def _title_order(value: str) -> int:
     return 9
 
 
-def build_legal_sources(
-    case: dict[str, Any], determination: dict[str, Any], selected_path: str
-) -> tuple[LegalSource, ...]:
+def build_legal_sources(case: dict[str, Any]) -> tuple[LegalSource, ...]:
     response = case.get("response")
     if not isinstance(response, dict):
         response = {}
@@ -138,6 +136,8 @@ def build_legal_sources(
             claim_order.setdefault(ref, index)
             if claim_text and claim_text not in applications.setdefault(ref, []):
                 applications[ref].append(claim_text)
+    if not claim_order:
+        return ()
 
     role_rank = {"legal_basis": 0, "conditional_basis": 1, "implementation_reference": 2}
     candidates: list[tuple[LegalSource, int, int, int]] = []
@@ -159,11 +159,9 @@ def build_legal_sources(
             continue
         seen.add(key)
         citation_ref = str(citation.get("citation_ref") or "")
+        if citation_ref not in claim_order:
+            continue
         application = "；".join(applications.get(citation_ref, ()))
-        if not application and selected_path and "标准合同" in title and "标准合同" in selected_path:
-            application = (
-                f"本案选择“{selected_path}”，该材料用于支撑该路径下的合同订立、备案或持续履行要求。"
-            )
         source = LegalSource(
             title=title,
             locator=str(citation.get("source_url") or citation.get("citation_label") or ""),
@@ -188,36 +186,12 @@ def build_legal_sources(
             supported = [item for item in group if item[2] < 99]
             if supported:
                 selected.extend(item[0] for item in supported[:3])
-            elif selected_path and "标准合同" in title and "标准合同" in selected_path:
-                selected.extend(item[0] for item in group[:2])
             if len(selected) >= 6:
                 break
-        if len(selected) < 6:
-            for source, *_ in candidates:
-                if source not in selected:
-                    selected.append(source)
-                if len(selected) >= 6:
-                    break
         selected.sort(key=lambda source: (_title_order(source.title), _article_order(source.article)))
         return tuple(selected[:6])
 
-    fallback: list[LegalSource] = []
-    for item in determination.get("official_bases") or []:
-        if not isinstance(item, dict):
-            continue
-        title = _compact_text(item.get("title"), limit=120)
-        article = _compact_text(item.get("article"), limit=100)
-        if title:
-            fallback.append(
-                LegalSource(
-                    title=title,
-                    locator=str(item.get("source_url") or ""),
-                    article=article,
-                    role="legal_basis",
-                )
-            )
-    fallback.sort(key=lambda source: (_title_order(source.title), _article_order(source.article)))
-    return tuple(fallback[:6])
+    return ()
 
 
 def build_remediation_details(actions: list[dict[str, Any]]) -> tuple[RemediationDetail, ...]:
@@ -240,15 +214,3 @@ def build_remediation_details(actions: list[dict[str, Any]]) -> tuple[Remediatio
             )
         )
     return tuple(details)
-
-
-def selected_path_for_report(determination: dict[str, Any]) -> str:
-    for item in determination.get("candidate_paths") or []:
-        if isinstance(item, dict) and item.get("confidence") == "determined":
-            return str(item.get("label") or item.get("code") or "")
-    return ""
-
-
-def manual_confirmations_for_report(determination: dict[str, Any]) -> tuple[str, ...]:
-    values = determination.get("manual_confirmation_reasons") or determination.get("manual_confirmation_required") or []
-    return _text_items(values, limit=240)

@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Self
 
+from law_agent.review.http.schemas import IntakePayload
+
 import pytest
 
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
@@ -60,7 +62,7 @@ def _task_row(*, status: str = "queued", attempt_count: int = 0) -> dict[str, An
         "id": "review_task_1",
         "case_id": "case_1",
         "material_snapshot_id": "material_snapshot_1",
-        "rule_snapshot_id": "rule_snapshot_1",
+        "intake_snapshot_id": "intake_snapshot_1",
         "idempotency_key": "e" * 64,
         "model_id": "approved-model-v1",
         "data_boundary_summary_json": {"deployment": "intranet"},
@@ -280,17 +282,11 @@ def test_in_memory_complete_task_matches_persistent_interface() -> None:
     snapshot = store.create_material_snapshot(
         case_id="case_1", version_ids=[version.id], created_by="user_1"
     )
-    rule = store.create_rule_snapshot(
-        case_id="case_1",
-        material_snapshot_id=snapshot.id,
-        ruleset_version="v1",
-        facts={},
-        determination={},
-    )
+    rule = store.create_intake_snapshot(case_id="case_1", material_snapshot_id=snapshot.id, intake=IntakePayload().model_dump(mode="json"), created_by="user_test")
     task = store.enqueue_review_task(
         case_id="case_1",
         material_snapshot_id=snapshot.id,
-        rule_snapshot_id=rule.id,
+        intake_snapshot_id=rule.id,
         model_id="model-v1",
         data_boundary_summary={},
     )

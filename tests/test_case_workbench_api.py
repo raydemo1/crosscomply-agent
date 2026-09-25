@@ -1,4 +1,6 @@
 """Behavior tests for the CrossComply case workbench API."""
+from law_agent.review.http.schemas import IntakePayload
+
 
 from pathlib import Path
 
@@ -98,16 +100,8 @@ def _freeze_inputs(app, case_id: str, *, needs_info: bool = False) -> None:
     snapshot = enterprise.create_material_snapshot(
         case_id=case_id, version_ids=[version.id], created_by="user_test"
     )
-    enterprise.create_rule_snapshot(
-        case_id=case_id,
-        material_snapshot_id=snapshot.id,
-        ruleset_version="national-cross-border-2024.03-v1",
-        facts={},
-        determination={
-            "status": "needs_info" if needs_info else "determined",
-            "needs_info": [{"key": "important_data"}] if needs_info else [],
-        },
-    )
+    intake = IntakePayload.model_validate(app.state.case_store.get_case(case_id)["intake"]).model_dump(mode="json")
+    enterprise.create_intake_snapshot(case_id=case_id, material_snapshot_id=snapshot.id, intake=intake, created_by="user_test")
 
 
 def test_login_creates_session_and_persists_case(app) -> None:
@@ -164,13 +158,7 @@ def test_intake_extraction_prefills_material_and_asks_only_blocking_facts(app, m
 
         # Only facts that block a conclusion come back, and each carries a reason.
         keys = [item["key"] for item in body["missing"]]
-        assert keys == [
-            "important_data",
-            "is_ciio",
-            "cumulative_personal_information_subjects",
-            "cumulative_sensitive_personal_information_subjects",
-        ]
-        assert all(item["reason"] for item in body["missing"])
+        assert keys == []
 
         # Reading material must never create a case as a side effect.
         assert client.get("/api/cases").json()["total"] == 0
@@ -371,8 +359,7 @@ def test_intake_extraction_does_not_infer_personal_information_from_data_types(
 
         assert body["intake"]["data_types"] == ["业务统计数据", "设备运行数据"]
         assert body["intake"]["contains_personal_information"] is None
-        # Personal information stays an open question, so the rules must ask the user for it.
-        assert "contains_personal_information" in {item["key"] for item in body["missing"]}
+        assert body["intake"]["contains_personal_information"] is None
 
 
 def test_changed_materials_supersede_paused_agent_task_and_queue_replacement(app) -> None:
@@ -451,13 +438,8 @@ def test_failed_enqueue_rolls_back_status_and_records_why(app) -> None:
         snapshot = enterprise.create_material_snapshot(
             case_id=case_id, version_ids=[version.id], created_by="user_test"
         )
-        enterprise.create_rule_snapshot(
-            case_id=case_id,
-            material_snapshot_id=snapshot.id,
-            ruleset_version="national-cross-border-2024.03-v1",
-            facts={},
-            determination={"status": "determined", "needs_info": []},
-        )
+        intake = IntakePayload.model_validate(app.state.case_store.get_case(case_id)["intake"]).model_dump(mode="json")
+        enterprise.create_intake_snapshot(case_id=case_id, material_snapshot_id=snapshot.id, intake=intake, created_by="user_test")
 
         rejected = client.post(f"/api/cases/{case_id}/status", json={"status": "pending_review"})
         assert rejected.status_code == 409, rejected.text

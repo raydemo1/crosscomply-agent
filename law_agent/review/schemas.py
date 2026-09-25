@@ -295,6 +295,7 @@ class ReviewResult(StrictModel):
     trace_id: str
     risk_level: RiskLevel
     decision_summary: str = Field(min_length=40, max_length=240)
+    legal_path: str | None = None
     conclusion: str
     review_facts: ReviewFacts
     trigger_reasons: list[str] = Field(default_factory=list)

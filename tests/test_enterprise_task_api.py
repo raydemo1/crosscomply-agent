@@ -1,4 +1,6 @@
 """API contract tests for durable asynchronous review tasks."""
+from law_agent.review.http.schemas import IntakePayload
+
 
 import hashlib
 import json
@@ -72,17 +74,7 @@ def _freeze_inputs(store: InMemoryEnterpriseStore, case_id: str, *, needs_info: 
     snapshot = store.create_material_snapshot(
         case_id=case_id, version_ids=[version.id], created_by="user_test"
     )
-    rule = store.create_rule_snapshot(
-        case_id=case_id,
-        material_snapshot_id=snapshot.id,
-        ruleset_version="national-cross-border-2024.03-v1",
-        facts={"is_ciio": False},
-        determination={
-            "status": "needs_info" if needs_info else "determined",
-            "needs_info": [{"key": "important_data"}] if needs_info else [],
-            "candidate_paths": [] if needs_info else ["标准合同"],
-        },
-    )
+    rule = store.create_intake_snapshot(case_id=case_id, material_snapshot_id=snapshot.id, intake={"is_ciio": False}, created_by="user_test")
     return snapshot, rule
 
 
@@ -109,7 +101,7 @@ def test_run_enqueues_idempotent_task_and_exposes_polling(tmp_path: Path) -> Non
         assert task.status_code == 200
         assert task.json()["status"] == "queued"
         assert task.json()["material_snapshot_id"]
-        assert task.json()["rule_snapshot_id"]
+        assert task.json()["intake_snapshot_id"]
 
 
 def test_case_cannot_be_submitted_without_frozen_rule_inputs(tmp_path: Path) -> None:
@@ -148,7 +140,7 @@ def test_missing_critical_facts_can_enqueue_agent_investigation(tmp_path: Path) 
         assert response.status_code == 202
         task = enterprise.get_task(response.json()["task_id"])
         assert task is not None
-        assert task.rule_snapshot_id
+        assert task.intake_snapshot_id
 
 
 def test_reviewer_can_answer_and_resume_waiting_agent(tmp_path: Path) -> None:
@@ -165,7 +157,7 @@ def test_reviewer_can_answer_and_resume_waiting_agent(tmp_path: Path) -> None:
         task = enterprise.enqueue_review_task(
             case_id=case_id,
             material_snapshot_id=snapshot.id,
-            rule_snapshot_id=rule.id,
+            intake_snapshot_id=rule.id,
             model_id="approved-model",
             data_boundary_summary={},
         )
@@ -206,7 +198,7 @@ def test_stale_agent_gate_is_rejected(tmp_path: Path) -> None:
         task = enterprise.enqueue_review_task(
             case_id=case_id,
             material_snapshot_id=snapshot.id,
-            rule_snapshot_id=rule.id,
+            intake_snapshot_id=rule.id,
             model_id="approved-model",
             data_boundary_summary={},
         )
@@ -244,7 +236,7 @@ def test_completed_frozen_inputs_cannot_be_run_again(tmp_path: Path) -> None:
         task = enterprise.enqueue_review_task(
             case_id=case_id,
             material_snapshot_id=snapshot.id,
-            rule_snapshot_id=rule.id,
+            intake_snapshot_id=rule.id,
             model_id="approved-model",
             data_boundary_summary={},
         )
@@ -303,7 +295,7 @@ def test_upload_freeze_and_download_preserve_original_hash(tmp_path: Path) -> No
         )
         assert frozen.status_code == 200, frozen.text
         assert frozen.json()["material_snapshot"]["fingerprint"]
-        assert frozen.json()["rule_decision"]["ruleset_version"]
+        assert frozen.json()["intake_snapshot"]["fingerprint"]
 
         downloaded = client.get(f"/api/materials/{version['id']}/download")
         assert downloaded.status_code == 200
@@ -329,7 +321,7 @@ def test_failed_task_retry_cannot_reopen_terminal_case(tmp_path: Path) -> None:
         task = enterprise.enqueue_review_task(
             case_id=case_id,
             material_snapshot_id=snapshot.id,
-            rule_snapshot_id=rule.id,
+            intake_snapshot_id=rule.id,
             model_id="approved-model",
             data_boundary_summary={},
         )
@@ -446,7 +438,7 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         task = enterprise.enqueue_review_task(
             case_id=case_id,
             material_snapshot_id=snapshot.id,
-            rule_snapshot_id=rule.id,
+            intake_snapshot_id=rule.id,
             model_id="approved-model",
             data_boundary_summary={"deployment": "intranet"},
         )
@@ -491,7 +483,7 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         assert created.status_code == 200, created.text
         assert created.json()["instance_id"] == "instance-hero"
         form = {item["id"]: item["value"] for item in fake_feishu.created["form"]}
-        assert form["decision_summary"].startswith("风险：中｜候选路径：标准合同｜审批摘要：")
+        assert form["decision_summary"].startswith("风险：中｜审批摘要：")
         assert "当前材料支持采用标准合同路径" in form["decision_summary"]
         assert form["key_actions"] == "完成个人信息保护影响评估；上线前完成跨境合同归档"
         assert form["case_url"] == f"https://crosscomply.example.com/?case={case_id}"
@@ -560,13 +552,7 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
             version_ids=[later_version.id],
             created_by="user_test",
         )
-        enterprise.create_rule_snapshot(
-            case_id=case_id,
-            material_snapshot_id=later_snapshot.id,
-            ruleset_version="unapproved-rule-version",
-            facts={},
-            determination={},
-        )
+        enterprise.create_intake_snapshot(case_id=case_id, material_snapshot_id=later_snapshot.id, intake=IntakePayload().model_dump(mode="json"), created_by="user_test")
         downloaded = client.get(f"/api/cases/{case_id}/reports/download")
         assert downloaded.status_code == 200
         assert downloaded.headers["content-disposition"].endswith(f'"{case_store.get_case(case_id)["case_number"]}.pdf"')
@@ -574,7 +560,7 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         report = detail.json()["report"]
         assert report is not None
         assert report["metadata"]["material_snapshot_id"] == snapshot.id
-        assert report["metadata"]["rule_version"] == rule.ruleset_version
+        assert report["metadata"]["intake_snapshot_id"] == rule.id
         assert hashlib.sha256(downloaded.content).hexdigest() == report["sha256"]
         repeated_download = client.get(f"/api/reports/{report['id']}/download")
         assert repeated_download.status_code == 200
@@ -623,7 +609,7 @@ def test_feishu_network_failure_is_persisted_and_can_be_retried(tmp_path: Path) 
         task = enterprise.enqueue_review_task(
             case_id=case_id,
             material_snapshot_id=snapshot.id,
-            rule_snapshot_id=rule.id,
+            intake_snapshot_id=rule.id,
             model_id="approved-model",
             data_boundary_summary={},
         )

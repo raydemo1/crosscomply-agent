@@ -64,6 +64,7 @@ class LLMReviewResultDraft(StrictModel):
 
     risk_level: RiskLevel
     decision_summary: str = Field(min_length=40, max_length=240)
+    legal_path: str | None = None
     conclusion: str
     claims: list[GroundedClaim] = Field(default_factory=list)
     trigger_reasons: list[str]
@@ -95,6 +96,7 @@ class MarkdownReviewDraft(StrictModel):
 
     risk_level: RiskLevel
     decision_summary: str = Field(min_length=40, max_length=240)
+    legal_path: str | None = None
     report: str
     claims: list[GroundedClaim] = Field(default_factory=list)
     trigger_reasons: list[str]
@@ -110,37 +112,20 @@ def validate_grounded_claims(
     claims: list[GroundedClaim],
     evidence_hits: list[RetrievalHit],
 ) -> list[GroundedClaim]:
-    """Ensure every claim support id points at a citable evidence chunk.
-
-    Two-level validation:
-
-    1. The chunk_id must exist in the current evidence set (anti-hallucination).
-    2. The referenced chunk must be ``can_cite_clause=True`` — i.e. a
-       concrete legal article from a primary source. Guide/template/Q&A
-       and other non-citable chunks are silently dropped from claim
-       references; they remain in the evidence panel as auxiliary evidence
-       but cannot be inlined as clause citations in the conclusion.
-
-    Claims that only restate material facts may legitimately have no legal
-    chunk support, so they are omitted from the grounded-claim rail. When
-    every emitted claim loses support the result degrades to an empty
-    claim list (the workflow still produces a conclusion with risk level
-    and citations) rather than crashing the entire review.
-    """
+    """Reject references that are absent from this run or lack clause authority."""
 
     allowed_ids = {hit.chunk_id for hit in evidence_hits}
     citable_ids = {hit.chunk_id for hit in evidence_hits if hit.can_cite_clause}
-    if not citable_ids:
-        return []
-    cleaned: list[GroundedClaim] = []
     for claim in claims:
-        valid_ids = [
-            cid for cid in claim.supporting_chunk_ids if cid in allowed_ids and cid in citable_ids
-        ]
-        if not valid_ids:
-            continue
-        cleaned.append(claim.model_copy(update={"supporting_chunk_ids": valid_ids}))
-    return cleaned
+        unknown = set(claim.supporting_chunk_ids) - allowed_ids
+        uncitable = set(claim.supporting_chunk_ids) - citable_ids
+        if unknown:
+            raise ValueError(f"法律主张引用了未检索到的法条：{sorted(unknown)}")
+        if uncitable:
+            raise ValueError(f"法律主张引用了不可作为正式法条的材料：{sorted(uncitable)}")
+        if not claim.supporting_chunk_ids:
+            raise ValueError("法律主张必须引用至少一条正式法条")
+    return claims
 
 
 def attach_citation_refs(

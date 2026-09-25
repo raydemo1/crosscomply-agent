@@ -38,7 +38,6 @@ class DecisionReportData:
     case_number: str
     decision: str
     material_hashes: tuple[str, ...]
-    rule_version: str
     legal_sources: tuple[LegalSource, ...]
     remediation_items: tuple[str, ...]
     approver: str
@@ -515,7 +514,6 @@ def _cover_page(data, styles, colors, page_width, body_font, bold_font):
     if data.selected_path:
         scope_rows.append([_p("判定路径", styles["table_head"]), _p(data.selected_path, styles["table_body"])])
     scope_rows.extend([
-        [_p("适用规则", styles["table_head"]), _p(data.rule_version, styles["table_mono"])],
         [_p("主要法源", styles["table_head"]), _p(source_names, styles["table_body"])],
         [_p("材料状态", styles["table_head"]), _p(f"{len(data.material_hashes)} 份材料已冻结并纳入本次审查", styles["table_body"])],
         [_p("整改状态", styles["table_head"]), _p(remediation, styles["table_body"])],

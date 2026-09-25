@@ -424,7 +424,7 @@ def test_result_generation_prompt_receives_trace_context() -> None:
     assert "手机号发送给新加坡服务商" in prompt
 
 
-def test_result_generation_degrades_when_all_claims_ungrounded() -> None:
+def test_result_generation_rejects_all_claims_ungrounded() -> None:
     client = FakeClient(
         outputs=[
             {
@@ -445,7 +445,8 @@ def test_result_generation_degrades_when_all_claims_ungrounded() -> None:
         ]
     )
 
-    result = build_review_result_with_deepseek(
+    with pytest.raises(ReviewWorkflowFailed, match="未检索到的法条"):
+        build_review_result_with_deepseek(
         review_result_id="result_1",
         review_case_id="review_1",
         trace_id="trace_1",
@@ -456,16 +457,10 @@ def test_result_generation_degrades_when_all_claims_ungrounded() -> None:
         max_retries=0,
     )
 
-    # All claims referenced unknown chunks → claims silently dropped to []
-    # instead of crashing the workflow.
-    assert result.claims == []
-    assert result.risk_level == "medium"
     assert len(client.calls) == 1
 
 
-def test_result_generation_no_retry_on_all_claims_ungrounded() -> None:
-    """When all claims lose grounding support, the workflow degrades to
-    empty claims without retrying — graceful degradation replaces crash."""
+def test_result_generation_retries_invalid_grounding() -> None:
     reset_telemetry()
     invalid = {
         "risk_level": "medium",
@@ -484,7 +479,8 @@ def test_result_generation_no_retry_on_all_claims_ungrounded() -> None:
     }
     client = FakeClient(outputs=[invalid])
 
-    result = build_review_result_with_deepseek(
+    with pytest.raises(ReviewWorkflowFailed):
+        build_review_result_with_deepseek(
         review_result_id="result_1",
         review_case_id="review_1",
         trace_id="trace_1",
@@ -495,12 +491,10 @@ def test_result_generation_no_retry_on_all_claims_ungrounded() -> None:
         max_retries=1,
     )
 
-    # No retry — claims silently dropped, workflow still produces a result.
-    assert result.claims == []
-    assert len(client.calls) == 1
+    assert len(client.calls) == 2
 
 
-def test_result_generation_drops_ungrounded_material_fact_claim() -> None:
+def test_result_generation_rejects_ungrounded_material_fact_claim() -> None:
     client = FakeClient(
         outputs=[
             {
@@ -525,7 +519,8 @@ def test_result_generation_drops_ungrounded_material_fact_claim() -> None:
         ]
     )
 
-    result = build_review_result_with_deepseek(
+    with pytest.raises(ReviewWorkflowFailed, match="未检索到的法条"):
+        build_review_result_with_deepseek(
         review_result_id="result_1",
         review_case_id="review_1",
         trace_id="trace_1",
@@ -536,11 +531,9 @@ def test_result_generation_drops_ungrounded_material_fact_claim() -> None:
         max_retries=0,
     )
 
-    assert [claim.text for claim in result.claims] == ["数据出境义务需要依据适用法规核验。"]
-    assert result.claims[0].supporting_chunk_ids == ["c1"]
 
 
-def test_result_generation_allows_empty_claim_rail_without_citable_evidence() -> None:
+def test_result_generation_rejects_uncitable_claim() -> None:
     auxiliary_hit = _hit().model_copy(
         update={
             "can_cite_clause": False,
@@ -567,7 +560,8 @@ def test_result_generation_allows_empty_claim_rail_without_citable_evidence() ->
         ]
     )
 
-    result = build_review_result_with_deepseek(
+    with pytest.raises(ReviewWorkflowFailed, match="不可作为正式法条"):
+        build_review_result_with_deepseek(
         review_result_id="result_1",
         review_case_id="review_1",
         trace_id="trace_1",
@@ -578,9 +572,6 @@ def test_result_generation_allows_empty_claim_rail_without_citable_evidence() ->
         max_retries=0,
     )
 
-    assert result.claims == []
-    assert result.applicable_evidence
-    assert result.applicable_evidence[0].usage == "implementation_reference"
 
 
 def test_insufficient_evidence_allows_empty_claims_with_irrelevant_citable_hits() -> None:

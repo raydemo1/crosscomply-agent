@@ -1,3 +1,4 @@
+from law_agent.review.http.schemas import IntakePayload
 import json
 from pathlib import Path
 
@@ -58,10 +59,9 @@ def test_annotation_permissions_span_and_decision(tmp_path: Path, monkeypatch) -
         parse_status="ready", parsed_text="AA OLD BB OLD",
     )
     snapshot = enterprise.create_material_snapshot(case_id=case["id"], version_ids=[material.id], created_by=reviewer.id)
-    rule = enterprise.create_rule_snapshot(case_id=case["id"], material_snapshot_id=snapshot.id,
-                                           ruleset_version="test", facts={}, determination={})
+    rule = enterprise.create_intake_snapshot(case_id=case["id"], material_snapshot_id=snapshot.id, intake=IntakePayload().model_dump(mode="json"), created_by="user_test")
     enterprise.enqueue_review_task(case_id=case["id"], material_snapshot_id=snapshot.id,
-                                   rule_snapshot_id=rule.id, model_id="test", data_boundary_summary={})
+                                   intake_snapshot_id=rule.id, model_id="test", data_boundary_summary={})
     cases.update_case(case["id"], response_json={"review_result": {
         "review_result_id": "result_1", "issues": [],
     }, "citation_groups": [{"citations": [{"citation_ref": "法源-01", "title": "测试法",

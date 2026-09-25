@@ -108,6 +108,7 @@ class StructuredLLMNode(Generic[ModelT]):
                     output_model=self.output_model,
                     tool_name=self.node_name,
                     structured_output_mode=self.structured_output_mode,
+                    **({"model": self.model} if getattr(self, "model", None) else {}),
                 )
                 parsed = self.output_model.model_validate(raw, strict=True)
             except ValidationError as exc:

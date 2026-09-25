@@ -36,7 +36,7 @@ class KnowledgeEnrichmentWorker:
                     message_id = self.notification_client.send_text_message(
                         open_id=self.notification_open_id,
                         text=(
-                            f"案件 {notice['case_id']} 有新官方法源完成核验，待复核原结论。"
+                            f"案件 {notice['case_id']} 的官方法源已完成核验，待复核原结论。"
                             f"\n{notice['title']}\n{notice['url']}"
                         ),
                     )

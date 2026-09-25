@@ -12,7 +12,7 @@ import type {
   MaterialSnapshotApi,
   ReportRecordApi,
   ReviewTaskApi,
-  RuleDecisionApi,
+  IntakeSnapshotApi,
   RemediationPlanApi,
   SignedDecisionApi,
 } from './api';
@@ -60,7 +60,7 @@ export interface SavedCase {
   events: CaseEvent[];
   feedback: CaseFeedback | null;
   materialSnapshot: MaterialSnapshotApi | null;
-  ruleDecision: RuleDecisionApi | null;
+  intakeSnapshot: IntakeSnapshotApi | null;
   reviewTask: ReviewTaskApi | null;
   feishuApproval: FeishuApprovalApi | null;
   signedDecision: SignedDecisionApi | null;

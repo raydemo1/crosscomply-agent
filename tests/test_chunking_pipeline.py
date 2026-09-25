@@ -211,3 +211,28 @@ def test_chunk_document_detects_bold_markdown_law_articles_in_policy() -> None:
     assert "（一）数据处理者向境外提供重要数据" in fourth.text
     assert "（四）国家网信部门规定的其他需要申报" in fourth.text
     assert "**第五条**" not in fourth.text
+
+
+def test_chunk_document_keeps_short_trailing_article_standalone() -> None:
+    document = _document(
+        doc_id="cac_cross_border_data_flow_rules_2024",
+        source_id="cac_cross_border_data_flow_rules_2024",
+        title="促进和规范数据跨境流动规定",
+        doc_type="policy",
+        authority="ministry_policy",
+        library_kind="legal",
+        citation_role="primary_legal_basis",
+        text=(
+            "**第一条** 为了促进数据依法有序自由流动，制定本规定。\n\n"
+            "**第二条** 数据处理者向境外提供个人信息，应当遵守本规定。\n\n"
+            "**第三条** 本规定自公布之日起施行。"
+        ),
+    )
+
+    chunks = chunk_document(document)
+
+    assert [chunk.article_no for chunk in chunks] == ["第一条", "第二条", "第三条"]
+    last = chunks[-1]
+    assert last.text == "第三条 本规定自公布之日起施行。"
+    assert last.can_cite_clause is True
+    assert "本规定自公布之日起施行" not in chunks[-2].text

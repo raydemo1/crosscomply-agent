@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field, field_validator
 from law_agent.config import RerankMode
 from law_agent.data.schemas import InternalPolicyStatus, LibraryKind
 from law_agent.review.evalset.cases import EvalSuite
-from law_agent.review.rules import ComplianceFacts
 from law_agent.review.user_admin import UserRole
 
 
@@ -103,6 +102,7 @@ class IntakePayload(BaseModel):
     ciio_status: Literal["unknown", "not_ciio", "ciio", "under_review"] = "unknown"
     annual_non_sensitive_count: str = ""
     annual_sensitive_count: str = ""
+    count_period: Literal["unknown", "current_year_cumulative", "annual_estimate", "other"] = "unknown"
     overseas_recipient: str = ""
     destination_region: str = ""
     processing_purpose: str = ""
@@ -155,7 +155,6 @@ class CaseStatusRequest(BaseModel):
 
 class MaterialSnapshotRequest(BaseModel):
     version_ids: list[str] = Field(..., min_length=1)
-    facts: ComplianceFacts
 
 
 class AgentInputRequest(BaseModel):

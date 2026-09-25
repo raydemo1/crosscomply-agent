@@ -23,7 +23,7 @@ class AgentRuntimeStore(Protocol):
         expected_attempt: int | None = None,
     ) -> ReviewTask: ...
 
-    def get_rule_snapshot(self, rule_snapshot_id: str): ...
+    def get_intake_snapshot(self, intake_snapshot_id: str): ...
 
 
 def execute_agent_task(
@@ -39,9 +39,9 @@ def execute_agent_task(
 ) -> AgentState:
     """Resume the saved state or start a new bounded Agent loop."""
 
-    rule_snapshot = store.get_rule_snapshot(task.rule_snapshot_id)
-    if rule_snapshot is None or rule_snapshot.case_id != task.case_id:
-        raise RuntimeError("审查任务绑定的规则快照不存在")
+    intake_snapshot = store.get_intake_snapshot(task.intake_snapshot_id)
+    if intake_snapshot is None or intake_snapshot.case_id != task.case_id:
+        raise RuntimeError("审查任务绑定的事实快照不存在")
     state = (
         AgentState.model_validate(task.agent_state)
         if task.agent_state is not None
@@ -53,18 +53,14 @@ def execute_agent_task(
         material_text=material,
         material_versions=material_versions,
         rerank_mode=rerank_mode,
+        model_id=task.model_id,
     )
     claimed_attempt = task.attempt_count
     try:
         return run_agent(
             state,
             material=material,
-            rule={
-                "id": rule_snapshot.id,
-                "ruleset_version": rule_snapshot.ruleset_version,
-                "facts": rule_snapshot.facts,
-                "determination": rule_snapshot.determination,
-            },
+            intake={"id": intake_snapshot.id, "facts": intake_snapshot.intake},
             decide=AgentModel(model_id=task.model_id),
             search=tools.search,
             web_search=tools.search_web,
@@ -73,12 +69,14 @@ def execute_agent_task(
                 draft,
                 current,
                 case_id=task.case_id,
-                rule_snapshot={
-                    "id": rule_snapshot.id,
-                    "ruleset_version": rule_snapshot.ruleset_version,
-                    "facts": rule_snapshot.facts,
-                    "determination": rule_snapshot.determination,
-                },
+                intake_snapshot={"id": intake_snapshot.id, "facts": intake_snapshot.intake},
+            ),
+            abstain=lambda draft, current: tools.finalize(
+                draft,
+                current,
+                case_id=task.case_id,
+                intake_snapshot={"id": intake_snapshot.id, "facts": intake_snapshot.intake},
+                system_abstention=True,
             ),
             checkpoint=lambda current: store.checkpoint_agent(
                 task.id,

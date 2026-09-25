@@ -82,7 +82,11 @@ def _normalize_tiny_chunks(document: Document, chunks: list[Chunk]) -> list[Chun
     index = 0
     while index < len(chunks):
         chunk = chunks[index]
-        if chunk.char_count < MIN_STANDALONE_CHUNK_CHARS:
+        # An article-bearing chunk is a citation unit. Merging a short article
+        # into a neighbour keeps the neighbour's article number while its text
+        # now carries this article's body — the citation quotes the wrong
+        # article and the article itself stops being citable.
+        if chunk.char_count < MIN_STANDALONE_CHUNK_CHARS and not chunk.article_no:
             if index + 1 < len(chunks):
                 next_chunk = chunks[index + 1]
                 merged_text = f"{chunk.text.strip()}\n{next_chunk.text.strip()}".strip()

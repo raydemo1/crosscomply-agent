@@ -20,6 +20,7 @@ from law_agent.data.chunking.law import split_law_article_sections
 from law_agent.data.schemas import SourceRecord
 from law_agent.kb.admin import KnowledgeBaseAdminService
 from law_agent.kb.ingestion import prepare_document_for_ingest
+from law_agent.kb.service import normalized_content_hash
 from law_agent.review.web_research import (
     WebFinding,
     canonical_url,
@@ -66,14 +67,13 @@ def verified_auto_source(title: str, text: str, url: str) -> SourceRecord | None
     else:
         return None
     digest = hashlib.sha256((canonical_url(url) + "\x1f" + text).encode("utf-8")).hexdigest()[:20]
-    instrument_key = hashlib.sha256(title.strip().encode("utf-8")).hexdigest()[:20]
     return SourceRecord(
         source_id=f"legal_{digest}", title=title, source_url=url,
         source_site=host, doc_type=doc_type, authority=authority,
         citation_role="primary_legal_basis",
         law_status="effective" if effective <= datetime.now(UTC).date() else "not_yet_effective",
         effective_date=effective.isoformat(), issuing_body=issuer,
-        instrument_key=instrument_key,
+        instrument_key=title.strip(),
         file_format=Path(urlsplit(url).path).suffix.lstrip(".") or "html",
     )
 
@@ -83,11 +83,12 @@ class PostgresEnrichmentStore:
         self.dsn = dsn
 
     def enqueue(self, finding: WebFinding, *, case_id: str, review_task_id: str) -> str | None:
-        if finding.known_source_id or not is_trusted_official_url(finding.url):
+        if not is_trusted_official_url(finding.url) or (finding.known_source_id and not finding.refresh_needed):
             return None
         key = canonical_url(finding.url)
         candidate_hash = hashlib.sha256(
-            (finding.title + "\x1f" + finding.excerpt).encode("utf-8")
+            (finding.title + "\x1f" + (finding.published_date or "") + "\x1f"
+             + (finding.known_source_id or "") + "\x1f" + finding.excerpt).encode("utf-8")
         ).hexdigest()
         with psycopg.connect(self.dsn) as conn, conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
@@ -114,8 +115,8 @@ class PostgresEnrichmentStore:
         with psycopg.connect(self.dsn) as conn, conn.cursor() as cur:
             cur.execute(
                 """UPDATE knowledge_enrichment_cases ec SET material = true,
-                       recheck_status = CASE WHEN j.status = 'published' THEN 'pending' ELSE 'waiting_source' END,
-                       notification_status = CASE WHEN j.status = 'published' THEN 'pending' ELSE 'not_required' END
+                       recheck_status = CASE WHEN j.status IN ('published', 'unchanged') THEN 'pending' ELSE 'waiting_source' END,
+                       notification_status = CASE WHEN j.status IN ('published', 'unchanged') THEN 'pending' ELSE 'not_required' END
                    FROM knowledge_enrichment_jobs j
                    WHERE ec.job_id = j.id AND ec.case_id = %s AND ec.review_task_id = %s
                      AND ec.recheck_status IN ('not_required', 'waiting_source')
@@ -166,7 +167,7 @@ class PostgresEnrichmentStore:
                 (status, Jsonb(source.model_dump(mode="json")) if source else None,
                  source.source_id if source else None, error, retry, job_id),
             )
-            if status == "published":
+            if status in {"published", "unchanged"}:
                 cur.execute(
                     """UPDATE knowledge_enrichment_cases SET recheck_status='pending',
                        notification_status='pending'
@@ -376,6 +377,19 @@ def process_enrichment_job(
         store.record_raw(
             job["id"], path=path, sha256=raw_hash, parsed_excerpt=document.text,
         )
+        existing = [
+            item.source for item in service.list_sources()
+            if item.source.library_kind == "legal"
+            and canonical_url(item.source.source_url) == canonical_url(job["url"])
+        ]
+        content_hash = normalized_content_hash(document.text)
+        matching = next(
+            (item for item in existing if service.get_source(item.source_id).get("content_hash") == content_hash),
+            None,
+        )
+        if matching is not None:
+            store.transition(job["id"], status="unchanged", source=matching)
+            return
         source = (
             SourceRecord.model_validate(job["source_json"])
             if job.get("source_json") else
@@ -389,6 +403,24 @@ def process_enrichment_job(
         if source is None:
             store.transition(job["id"], status="awaiting_review")
             return
+        if existing:
+            latest = max(existing, key=lambda item: item.effective_date or "")
+            source = source.model_copy(update={
+                "instrument_key": latest.instrument_key or latest.title.strip(),
+            })
+            overlapping = source.citation_role == "primary_legal_basis" and any(
+                item.citation_role == "primary_legal_basis"
+                and (not source.effective_date or not item.effective_date
+                     or source.effective_date <= item.effective_date)
+                and (not item.valid_to or not source.effective_date or item.valid_to > source.effective_date)
+                for item in existing
+            )
+            if overlapping:
+                store.transition(
+                    job["id"], status="awaiting_review",
+                    error="同一法源的新版生效时间未晚于旧版；请核实版本日期，并先为旧版设置失效时间",
+                )
+                return
         if source.citation_role == "primary_legal_basis" and (
             len(document.text) < 500 or len(split_law_article_sections(document.text)) < 3
         ):

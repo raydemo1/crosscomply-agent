@@ -15,8 +15,6 @@ from law_agent.review.report_data import (
     build_ai_review,
     build_legal_sources,
     build_remediation_details,
-    manual_confirmations_for_report,
-    selected_path_for_report,
 )
 from law_agent.review.reports import DecisionReportData, generate_decision_report
 
@@ -34,7 +32,7 @@ def ensure_decision_report(
     """Return the report for the signed decision, creating it once if needed.
 
     The approval record is the source of truth for both the decision and the
-    material/rule task it approved.  This keeps automatic webhook generation
+    frozen task it approved.  This keeps automatic webhook generation
     and the reviewer retry endpoint on exactly the same snapshot.
     """
 
@@ -51,9 +49,9 @@ def ensure_decision_report(
     if approved_task is None:
         raise ValueError("审批记录绑定的审查任务不存在")
     snapshot = enterprise_store.get_material_snapshot(approved_task.material_snapshot_id)
-    rule = enterprise_store.get_rule_snapshot(approved_task.rule_snapshot_id)
-    if snapshot is None or rule is None:
-        raise ValueError("审批任务绑定的材料或规则快照不存在")
+    intake_snapshot = enterprise_store.get_intake_snapshot(approved_task.intake_snapshot_id)
+    if snapshot is None or intake_snapshot is None:
+        raise ValueError("审批任务绑定的材料或事实快照不存在")
 
     versions = [
         enterprise_store.get_material_version(version_id) for version_id in snapshot.version_ids
@@ -64,20 +62,19 @@ def ensure_decision_report(
         if isinstance(snapshot_actions, list)
         else case_store.list_actions(case_id)
     )
-    determination = dict(rule.determination)
-    selected_path = selected_path_for_report(determination)
+    review_result = dict((approved_task.result or {}).get("review_result") or {})
+    selected_path = str(review_result.get("legal_path") or "")
     report_data = DecisionReportData(
         case_number=case["case_number"],
         decision=approval.status,
         material_hashes=tuple(item.sha256 for item in versions if item is not None),
-        rule_version=rule.ruleset_version,
-        legal_sources=build_legal_sources(case, determination, selected_path),
+        legal_sources=build_legal_sources(case),
         remediation_items=tuple(item["title"] for item in actions),
         approver=approval.approver_name or "未记录审批人",
         approved_at=approval.decided_at or approval.updated_at,
         case_title=case.get("title", ""),
         selected_path=selected_path,
-        manual_confirmation_items=manual_confirmations_for_report(determination),
+        manual_confirmation_items=tuple(review_result.get("missing_information") or ()),
         ai_review=build_ai_review(case),
         remediation_details=build_remediation_details(actions),
     )
@@ -96,7 +93,7 @@ def ensure_decision_report(
         sha256=artifact.sha256,
         metadata={
             "case_number": case["case_number"],
-            "rule_version": rule.ruleset_version,
+            "intake_snapshot_id": intake_snapshot.id,
             "material_snapshot_id": snapshot.id,
         },
     )

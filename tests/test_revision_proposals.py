@@ -1,3 +1,4 @@
+from law_agent.review.http.schemas import IntakePayload
 import json
 from pathlib import Path
 
@@ -139,12 +140,9 @@ def test_revision_proposal_accepts_only_grounded_span_and_keeps_original(
             parse_status="ready", parsed_text="ABC OLD XYZ",
         )
         snapshot = enterprise.create_material_snapshot(case_id=case["id"], version_ids=[material.id], created_by=user.id)
-        rule = enterprise.create_rule_snapshot(
-            case_id=case["id"], material_snapshot_id=snapshot.id, ruleset_version="test",
-            facts={}, determination={},
-        )
+        rule = enterprise.create_intake_snapshot(case_id=case["id"], material_snapshot_id=snapshot.id, intake=IntakePayload().model_dump(mode="json"), created_by="user_test")
         enterprise.enqueue_review_task(
-            case_id=case["id"], material_snapshot_id=snapshot.id, rule_snapshot_id=rule.id,
+            case_id=case["id"], material_snapshot_id=snapshot.id, intake_snapshot_id=rule.id,
             model_id="test", data_boundary_summary={},
         )
         cases.update_case(case["id"], response_json={"review_result": {

@@ -81,13 +81,13 @@ class MaterialSnapshot:
 
 
 @dataclass(frozen=True)
-class RuleSnapshot:
+class IntakeSnapshot:
     id: str
     case_id: str
     material_snapshot_id: str
-    ruleset_version: str
-    facts: dict[str, Any]
-    determination: dict[str, Any]
+    fingerprint: str
+    intake: dict[str, Any]
+    created_by: str
     created_at: str = field(default_factory=utc_now)
 
 
@@ -108,7 +108,7 @@ class ReviewTask:
     id: str
     case_id: str
     material_snapshot_id: str
-    rule_snapshot_id: str
+    intake_snapshot_id: str
     idempotency_key: str
     model_id: str
     data_boundary_summary: dict[str, Any]
@@ -135,7 +135,7 @@ class InMemoryEnterpriseStore:
         self.material_ids: dict[tuple[str, str], str] = {}
         self.snapshots: dict[str, MaterialSnapshot] = {}
         self.snapshot_by_fingerprint: dict[tuple[str, str], str] = {}
-        self.rule_snapshots: dict[str, RuleSnapshot] = {}
+        self.intake_snapshots: dict[str, IntakeSnapshot] = {}
         self.tasks: dict[str, ReviewTask] = {}
         self.task_by_key: dict[str, str] = {}
 
@@ -231,29 +231,32 @@ class InMemoryEnterpriseStore:
                 key=lambda item: (item.logical_name, item.version_number),
             )
 
-    def create_rule_snapshot(
+    def create_intake_snapshot(
         self,
         *,
         case_id: str,
         material_snapshot_id: str,
-        ruleset_version: str,
-        facts: dict[str, Any],
-        determination: dict[str, Any],
-    ) -> RuleSnapshot:
+        intake: dict[str, Any],
+        created_by: str,
+    ) -> IntakeSnapshot:
         with self._lock:
             snapshot = self.snapshots.get(material_snapshot_id)
             if snapshot is None or snapshot.case_id != case_id:
-                raise ValueError("规则快照必须绑定本案件的材料快照")
-            rule_snapshot = RuleSnapshot(
-                id=_identifier("rule_snapshot"),
+                raise ValueError("事实快照必须绑定本案件的材料快照")
+            fingerprint = _canonical_hash({"material": snapshot.fingerprint, "intake": intake})
+            for existing in self.intake_snapshots.values():
+                if existing.case_id == case_id and existing.fingerprint == fingerprint:
+                    return existing
+            intake_snapshot = IntakeSnapshot(
+                id=_identifier("intake_snapshot"),
                 case_id=case_id,
                 material_snapshot_id=material_snapshot_id,
-                ruleset_version=ruleset_version,
-                facts=json.loads(json.dumps(facts)),
-                determination=json.loads(json.dumps(determination)),
+                fingerprint=fingerprint,
+                intake=_json_copy(intake),
+                created_by=created_by,
             )
-            self.rule_snapshots[rule_snapshot.id] = rule_snapshot
-            return rule_snapshot
+            self.intake_snapshots[intake_snapshot.id] = intake_snapshot
+            return intake_snapshot
 
     def get_latest_material_snapshot(self, case_id: str) -> MaterialSnapshot | None:
         with self._lock:
@@ -264,43 +267,43 @@ class InMemoryEnterpriseStore:
         with self._lock:
             return self.snapshots.get(snapshot_id)
 
-    def get_latest_rule_snapshot(
+    def get_latest_intake_snapshot(
         self, *, case_id: str, material_snapshot_id: str
-    ) -> RuleSnapshot | None:
+    ) -> IntakeSnapshot | None:
         with self._lock:
             matches = [
                 item
-                for item in self.rule_snapshots.values()
+                for item in self.intake_snapshots.values()
                 if item.case_id == case_id and item.material_snapshot_id == material_snapshot_id
             ]
             return max(matches, key=lambda item: (item.created_at, item.id), default=None)
 
-    def get_rule_snapshot(self, rule_snapshot_id: str) -> RuleSnapshot | None:
+    def get_intake_snapshot(self, intake_snapshot_id: str) -> IntakeSnapshot | None:
         with self._lock:
-            return self.rule_snapshots.get(rule_snapshot_id)
+            return self.intake_snapshots.get(intake_snapshot_id)
 
     def enqueue_review_task(
         self,
         *,
         case_id: str,
         material_snapshot_id: str,
-        rule_snapshot_id: str,
+        intake_snapshot_id: str,
         model_id: str,
         data_boundary_summary: dict[str, Any],
     ) -> ReviewTask:
         with self._lock:
-            rule_snapshot = self.rule_snapshots.get(rule_snapshot_id)
+            intake_snapshot = self.intake_snapshots.get(intake_snapshot_id)
             if (
-                rule_snapshot is None
-                or rule_snapshot.case_id != case_id
-                or rule_snapshot.material_snapshot_id != material_snapshot_id
+                intake_snapshot is None
+                or intake_snapshot.case_id != case_id
+                or intake_snapshot.material_snapshot_id != material_snapshot_id
             ):
-                raise ValueError("审查任务的案件、材料快照与规则快照必须一致")
+                raise ValueError("审查任务的案件、材料快照与事实快照必须一致")
             idempotency_key = _canonical_hash(
                 {
                     "case_id": case_id,
                     "material_snapshot_id": material_snapshot_id,
-                    "rule_snapshot_id": rule_snapshot_id,
+                    "intake_snapshot_id": intake_snapshot_id,
                     "model_id": model_id,
                     "data_boundary_summary": data_boundary_summary,
                 }
@@ -317,7 +320,7 @@ class InMemoryEnterpriseStore:
                 id=_identifier("review_task"),
                 case_id=case_id,
                 material_snapshot_id=material_snapshot_id,
-                rule_snapshot_id=rule_snapshot_id,
+                intake_snapshot_id=intake_snapshot_id,
                 idempotency_key=idempotency_key,
                 model_id=model_id,
                 data_boundary_summary=json.loads(json.dumps(data_boundary_summary)),
@@ -732,52 +735,45 @@ class PostgresEnterpriseStore:
             for row in rows
         ]
 
-    def create_rule_snapshot(
+    def create_intake_snapshot(
         self,
         *,
         case_id: str,
         material_snapshot_id: str,
-        ruleset_version: str,
-        facts: dict[str, Any],
-        determination: dict[str, Any],
-    ) -> RuleSnapshot:
+        intake: dict[str, Any],
+        created_by: str,
+    ) -> IntakeSnapshot:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
-                "SELECT case_id FROM material_snapshots WHERE id = %s",
+                "SELECT case_id, fingerprint FROM material_snapshots WHERE id = %s",
                 (material_snapshot_id,),
             )
             snapshot = cur.fetchone()
             if snapshot is None or snapshot["case_id"] != case_id:
-                raise ValueError("规则快照必须绑定本案件的材料快照")
+                raise ValueError("事实快照必须绑定本案件的材料快照")
+            fingerprint = _canonical_hash({"material": snapshot["fingerprint"], "intake": intake})
             cur.execute(
                 """
-                INSERT INTO rule_snapshots (
-                    id, case_id, material_snapshot_id, ruleset_version,
-                    facts_json, determination_json
+                INSERT INTO intake_snapshots (
+                    id, case_id, material_snapshot_id, fingerprint, intake_json, created_by
                 ) VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (case_id, fingerprint) DO UPDATE
+                SET fingerprint = EXCLUDED.fingerprint
                 RETURNING *
                 """,
                 (
-                    _identifier("rule_snapshot"),
+                    _identifier("intake_snapshot"),
                     case_id,
                     material_snapshot_id,
-                    ruleset_version,
-                    Jsonb(facts),
-                    Jsonb(determination),
+                    fingerprint,
+                    Jsonb(intake),
+                    created_by,
                 ),
             )
             row = cur.fetchone()
             assert row is not None
             conn.commit()
-        return RuleSnapshot(
-            id=row["id"],
-            case_id=row["case_id"],
-            material_snapshot_id=row["material_snapshot_id"],
-            ruleset_version=row["ruleset_version"],
-            facts=_json_copy(row["facts_json"]),
-            determination=_json_copy(row["determination_json"]),
-            created_at=_timestamp(row["created_at"]),
-        )
+        return self._intake_snapshot(row)
 
     def get_latest_material_snapshot(self, case_id: str) -> MaterialSnapshot | None:
         with self._connect() as conn, conn.cursor() as cur:
@@ -837,13 +833,13 @@ class PostgresEnterpriseStore:
             created_at=_timestamp(row["created_at"]),
         )
 
-    def get_latest_rule_snapshot(
+    def get_latest_intake_snapshot(
         self, *, case_id: str, material_snapshot_id: str
-    ) -> RuleSnapshot | None:
+    ) -> IntakeSnapshot | None:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT * FROM rule_snapshots
+                SELECT * FROM intake_snapshots
                 WHERE case_id = %s AND material_snapshot_id = %s
                 ORDER BY created_at DESC, id DESC
                 LIMIT 1
@@ -853,38 +849,22 @@ class PostgresEnterpriseStore:
             row = cur.fetchone()
         if row is None:
             return None
-        return RuleSnapshot(
-            id=row["id"],
-            case_id=row["case_id"],
-            material_snapshot_id=row["material_snapshot_id"],
-            ruleset_version=row["ruleset_version"],
-            facts=_json_copy(row["facts_json"]),
-            determination=_json_copy(row["determination_json"]),
-            created_at=_timestamp(row["created_at"]),
-        )
+        return self._intake_snapshot(row)
 
-    def get_rule_snapshot(self, rule_snapshot_id: str) -> RuleSnapshot | None:
+    def get_intake_snapshot(self, intake_snapshot_id: str) -> IntakeSnapshot | None:
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT * FROM rule_snapshots WHERE id = %s", (rule_snapshot_id,))
+            cur.execute("SELECT * FROM intake_snapshots WHERE id = %s", (intake_snapshot_id,))
             row = cur.fetchone()
         if row is None:
             return None
-        return RuleSnapshot(
-            id=row["id"],
-            case_id=row["case_id"],
-            material_snapshot_id=row["material_snapshot_id"],
-            ruleset_version=row["ruleset_version"],
-            facts=_json_copy(row["facts_json"]),
-            determination=_json_copy(row["determination_json"]),
-            created_at=_timestamp(row["created_at"]),
-        )
+        return self._intake_snapshot(row)
 
     def enqueue_review_task(
         self,
         *,
         case_id: str,
         material_snapshot_id: str,
-        rule_snapshot_id: str,
+        intake_snapshot_id: str,
         model_id: str,
         data_boundary_summary: dict[str, Any],
     ) -> ReviewTask:
@@ -892,7 +872,7 @@ class PostgresEnterpriseStore:
             {
                 "case_id": case_id,
                 "material_snapshot_id": material_snapshot_id,
-                "rule_snapshot_id": rule_snapshot_id,
+                "intake_snapshot_id": intake_snapshot_id,
                 "model_id": model_id,
                 "data_boundary_summary": data_boundary_summary,
             }
@@ -904,18 +884,18 @@ class PostgresEnterpriseStore:
             cur.execute(
                 """
                 SELECT case_id, material_snapshot_id
-                FROM rule_snapshots
+                FROM intake_snapshots
                 WHERE id = %s
                 """,
-                (rule_snapshot_id,),
+                (intake_snapshot_id,),
             )
-            rule = cur.fetchone()
+            intake_snapshot = cur.fetchone()
             if (
-                rule is None
-                or rule["case_id"] != case_id
-                or rule["material_snapshot_id"] != material_snapshot_id
+                intake_snapshot is None
+                or intake_snapshot["case_id"] != case_id
+                or intake_snapshot["material_snapshot_id"] != material_snapshot_id
             ):
-                raise ValueError("审查任务的案件、材料快照与规则快照必须一致")
+                raise ValueError("审查任务的案件、材料快照与事实快照必须一致")
             cur.execute(
                 """
                 SELECT id FROM review_tasks
@@ -930,7 +910,7 @@ class PostgresEnterpriseStore:
             cur.execute(
                 """
                 INSERT INTO review_tasks (
-                    id, case_id, material_snapshot_id, rule_snapshot_id,
+                    id, case_id, material_snapshot_id, intake_snapshot_id,
                     idempotency_key, model_id, data_boundary_summary_json
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (idempotency_key) DO UPDATE
@@ -941,7 +921,7 @@ class PostgresEnterpriseStore:
                     _identifier("review_task"),
                     case_id,
                     material_snapshot_id,
-                    rule_snapshot_id,
+                    intake_snapshot_id,
                     idempotency_key,
                     model_id,
                     Jsonb(data_boundary_summary),
@@ -1357,12 +1337,24 @@ class PostgresEnterpriseStore:
         )
 
     @staticmethod
+    def _intake_snapshot(row: dict[str, Any]) -> IntakeSnapshot:
+        return IntakeSnapshot(
+            id=row["id"],
+            case_id=row["case_id"],
+            material_snapshot_id=row["material_snapshot_id"],
+            fingerprint=row["fingerprint"],
+            intake=_json_copy(row["intake_json"]),
+            created_by=row["created_by"],
+            created_at=_timestamp(row["created_at"]),
+        )
+
+    @staticmethod
     def _review_task(row: dict[str, Any], attempts: list[TaskAttempt]) -> ReviewTask:
         return ReviewTask(
             id=row["id"],
             case_id=row["case_id"],
             material_snapshot_id=row["material_snapshot_id"],
-            rule_snapshot_id=row["rule_snapshot_id"],
+            intake_snapshot_id=row["intake_snapshot_id"],
             idempotency_key=row["idempotency_key"],
             model_id=row["model_id"],
             data_boundary_summary=_json_copy(row["data_boundary_summary_json"] or {}),

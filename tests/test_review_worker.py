@@ -1,6 +1,7 @@
 """Tests for the persistent review worker boundary."""
+from law_agent.review.http.schemas import IntakePayload
 
-from dataclasses import replace
+
 
 from law_agent.review.agent import AgentState
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
@@ -22,17 +23,11 @@ def _queued_task(store: InMemoryEnterpriseStore):
     snapshot = store.create_material_snapshot(
         case_id="case_001", version_ids=[version.id], created_by="user_001"
     )
-    rules = store.create_rule_snapshot(
-        case_id="case_001",
-        material_snapshot_id=snapshot.id,
-        ruleset_version="2026.08",
-        facts={},
-        determination={"candidate_paths": ["standard_contract_or_certification"]},
-    )
+    rules = store.create_intake_snapshot(case_id="case_001", material_snapshot_id=snapshot.id, intake=IntakePayload().model_dump(mode="json"), created_by="user_test")
     return store.enqueue_review_task(
         case_id="case_001",
         material_snapshot_id=snapshot.id,
-        rule_snapshot_id=rules.id,
+        intake_snapshot_id=rules.id,
         model_id="approved-model",
         data_boundary_summary={"deployment": "intranet"},
     )
@@ -141,29 +136,17 @@ def test_worker_persists_agent_pause_and_resume() -> None:
     assert resumed.status == "queued"
 
 
-def test_unresolved_rule_snapshot_blocks_approval_even_when_report_has_no_gaps() -> None:
+def test_insufficient_agent_result_blocks_approval() -> None:
     store = InMemoryEnterpriseStore()
     queued = _queued_task(store)
-    rule = store.get_rule_snapshot(queued.rule_snapshot_id)
-    assert rule is not None
-    rule = replace(
-        rule,
-        determination={
-            "status": "needs_info",
-            "needs_info": [{"key": "important_data"}],
-        },
-    )
-    queued.result = {"review_result": {"missing_information": []}}
+    queued.result = {"review_result": {"risk_level": "insufficient_evidence", "missing_information": []}}
 
-    assert completion_has_missing_information(queued, rule) is True
+    assert completion_has_missing_information(queued) is True
 
 
-def test_determined_rule_and_complete_report_can_continue_to_approval() -> None:
+def test_grounded_agent_result_can_continue_to_approval() -> None:
     store = InMemoryEnterpriseStore()
     queued = _queued_task(store)
-    rule = store.get_rule_snapshot(queued.rule_snapshot_id)
-    assert rule is not None
-    rule = replace(rule, determination={"status": "determined", "needs_info": []})
-    queued.result = {"review_result": {"missing_information": []}}
+    queued.result = {"review_result": {"risk_level": "medium", "missing_information": []}}
 
-    assert completion_has_missing_information(queued, rule) is False
+    assert completion_has_missing_information(queued) is False

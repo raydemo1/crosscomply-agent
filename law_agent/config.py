@@ -85,7 +85,7 @@ def require_llm_config() -> LLMConfig:
 # Service retrieval configuration (Elasticsearch + pgvector + embeddings)
 # ---------------------------------------------------------------------------
 
-EmbeddingProvider = Literal["openai_compatible", "sentence_transformers", "mock"]
+EmbeddingProvider = Literal["openai_compatible", "sentence_transformers"]
 RerankMode = Literal["off", "embedding"]
 DEFAULT_RERANK_WINDOW = 50
 
@@ -96,8 +96,7 @@ class EmbeddingConfig:
 
     Kept separate from ``LLMConfig`` because the chat provider (DeepSeek) does
     not expose an embeddings endpoint; embeddings may come from a different
-    OpenAI-compatible host, a local sentence-transformers model, or a
-    deterministic mock for tests.
+    OpenAI-compatible host or a local sentence-transformers model.
     """
 
     provider: EmbeddingProvider
@@ -151,10 +150,10 @@ class ServiceConfig:
 def _load_embedding_config() -> EmbeddingConfig:
     load_env_file()
     provider = os.getenv("EMBEDDING_PROVIDER", "openai_compatible")
-    if provider not in ("openai_compatible", "sentence_transformers", "mock"):
+    if provider not in ("openai_compatible", "sentence_transformers"):
         raise RuntimeError(
             f"EMBEDDING_PROVIDER={provider!r} is not supported; "
-            "use openai_compatible, sentence_transformers, or mock"
+            "use openai_compatible or sentence_transformers"
         )
     return EmbeddingConfig(
         provider=provider,

@@ -294,7 +294,7 @@ def test_agent_can_retry_after_finalizer_rejects_an_issue() -> None:
     state = run_agent(
         AgentState(goal="审查接入方案"),
         material=PLAN_TEXT,
-        rule={},
+        intake={},
         decide=lambda _state, _rule: next(decisions),
         search=lambda _queries, _facts: [],
         web_search=lambda _queries, _facts: [],

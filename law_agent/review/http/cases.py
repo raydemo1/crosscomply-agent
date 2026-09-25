@@ -33,7 +33,6 @@ from law_agent.review.http.schemas import (
     MaterialSnapshotRequest,
 )
 from law_agent.review.object_store import MaterialObjectStore
-from law_agent.review.rules import ComplianceFacts
 from law_agent.review.schemas import ReviewFacts
 from law_agent.review.workflow import CaseStatus, validate_case_transition
 
@@ -82,16 +81,6 @@ def _intake_from_extraction(facts: ReviewFacts) -> IntakePayload:
         overseas_recipient=facts.overseas_recipient or "",
         processing_purpose=facts.processing_purpose or "",
         legal_basis_or_consent=facts.legal_basis_or_consent or "",
-    )
-
-
-def _facts_from_extraction(facts: ReviewFacts) -> ComplianceFacts:
-    """Mirror the intake screen's fact mapping so the preview matches submission."""
-
-    return ComplianceFacts(
-        cross_border_transfer=facts.cross_border_transfer,
-        contains_personal_information=facts.contains_personal_information,
-        contains_sensitive_personal_information=facts.sensitive_personal_info,
     )
 
 
@@ -147,7 +136,6 @@ def register_case_routes(
     case_payload: Callable[[dict[str, Any]], dict[str, Any]],
     case_summary: Callable[[dict[str, Any]], dict[str, Any]],
     can_view: Callable[[UserRecord, dict[str, Any]], bool],
-    evaluate_national_path: Callable[..., Any],
 ) -> None:
     router = APIRouter()
 
@@ -156,7 +144,7 @@ def register_case_routes(
         user: UserRecord,
         case: dict[str, Any],
         material_snapshot: Any,
-        rule_snapshot: Any,
+        intake_snapshot: Any,
     ) -> dict[str, Any]:
         """Validate frozen inputs, queue the Agent task and move the case into review."""
         versions = [
@@ -174,7 +162,7 @@ def register_case_routes(
         task = enterprise().enqueue_review_task(
             case_id=identifier,
             material_snapshot_id=material_snapshot.id,
-            rule_snapshot_id=rule_snapshot.id,
+            intake_snapshot_id=intake_snapshot.id,
             model_id=llm_config.model or "not-configured",
             data_boundary_summary={
                 "base_url": llm_config.base_url,
@@ -187,7 +175,7 @@ def register_case_routes(
         if task.status not in {"queued", "running", "waiting_input"}:
             raise HTTPException(
                 status_code=409,
-                detail="当前冻结输入已有终态任务；请生成新的材料与规则快照后重新运行",
+                detail="当前冻结输入已有终态任务；请更新材料或申请人事实后重新运行",
             )
         validate_case_transition(
             current=case["status"],
@@ -303,10 +291,9 @@ def register_case_routes(
         if not combined:
             raise HTTPException(status_code=422, detail="请先提供待审查材料")
         facts = await run_in_threadpool(extract_facts_with_deepseek, combined, question or None)
-        decision = evaluate_national_path(_facts_from_extraction(facts))
         return {
             "intake": _intake_from_extraction(facts).model_dump(mode="json"),
-            "missing": [item.model_dump(mode="json") for item in decision.needs_info],
+            "missing": [{"key": "material_fact", "reason": item} for item in facts.missing_information],
         }
 
     @router.post("/api/cases/{identifier}/materials")
@@ -435,13 +422,12 @@ def register_case_routes(
             version_ids=payload.version_ids,
             created_by=user.id,
         )
-        decision = evaluate_national_path(payload.facts)
-        rule = enterprise().create_rule_snapshot(
+        intake = IntakePayload.model_validate(case.get("intake") or {}).model_dump(mode="json")
+        intake_snapshot = enterprise().create_intake_snapshot(
             case_id=identifier,
             material_snapshot_id=snapshot.id,
-            ruleset_version=decision.rule_version,
-            facts=payload.facts.model_dump(mode="json"),
-            determination=decision.model_dump(mode="json"),
+            intake=intake,
+            created_by=user.id,
         )
         # The frozen inputs just changed, so a paused Agent question asked about the previous
         # snapshot is stale: close it instead of letting it be resumed against old material.
@@ -452,8 +438,6 @@ def register_case_routes(
                 event_type="review_task_superseded",
                 payload={"task_id": superseded_task_id, "material_snapshot_id": snapshot.id},
             )
-        if decision.needs_info and case["status"] != "needs_info":
-            store().update_case(identifier, status="needs_info", facts_confirmed=False)
         store().add_event(
             identifier,
             user.id,
@@ -461,11 +445,11 @@ def register_case_routes(
             payload={
                 "material_snapshot_id": snapshot.id,
                 "fingerprint": snapshot.fingerprint,
-                "rule_snapshot_id": rule.id,
-                "rule_version": rule.ruleset_version,
+                "intake_snapshot_id": intake_snapshot.id,
+                "intake_fingerprint": intake_snapshot.fingerprint,
             },
         )
-        return {"material_snapshot": asdict(snapshot), "rule_decision": asdict(rule)}
+        return {"material_snapshot": asdict(snapshot), "intake_snapshot": asdict(intake_snapshot)}
 
     @router.get("/api/cases")
     async def list_cases(
@@ -543,18 +527,18 @@ def register_case_routes(
             reviewer_only(user)
         if payload.status == "pending_review":
             snapshot = enterprise().get_latest_material_snapshot(identifier)
-            rule = (
-                enterprise().get_latest_rule_snapshot(
+            intake_snapshot = (
+                enterprise().get_latest_intake_snapshot(
                     case_id=identifier,
                     material_snapshot_id=snapshot.id,
                 )
                 if snapshot is not None
                 else None
             )
-            if snapshot is None or rule is None:
-                raise HTTPException(status_code=409, detail="提交前必须冻结材料并完成规则判定")
-            if rule.determination.get("needs_info"):
-                raise HTTPException(status_code=409, detail="仍有关键事实缺失，不得提交审查")
+            if snapshot is None or intake_snapshot is None:
+                raise HTTPException(status_code=409, detail="提交前必须冻结材料与申请人事实")
+            if intake_snapshot.intake != IntakePayload.model_validate(case.get("intake") or {}).model_dump(mode="json"):
+                raise HTTPException(status_code=409, detail="申请人事实已变化，请重新冻结快照")
         try:
             validate_case_transition(current=current, target=payload.status, authority="local")
         except ValueError as exc:
@@ -576,7 +560,7 @@ def register_case_routes(
             # A failed enqueue must not leave the case looking submitted while it is not queued,
             # and the audit trail must not show an unexplained successful status change.
             try:
-                queue_review(identifier, user, updated, snapshot, rule)
+                queue_review(identifier, user, updated, snapshot, intake_snapshot)
             except (HTTPException, ValueError) as exc:
                 store().update_case(
                     identifier, status=current, facts_confirmed=case.get("facts_confirmed", False)
@@ -618,24 +602,24 @@ def register_case_routes(
         material_snapshot = enterprise().get_latest_material_snapshot(identifier)
         if material_snapshot is None:
             raise HTTPException(status_code=409, detail="案件尚未生成不可变材料快照")
-        rule_snapshot = enterprise().get_latest_rule_snapshot(
+        intake_snapshot = enterprise().get_latest_intake_snapshot(
             case_id=identifier,
             material_snapshot_id=material_snapshot.id,
         )
-        if rule_snapshot is None:
-            raise HTTPException(status_code=409, detail="当前材料快照尚未完成全国主路径判定")
+        if intake_snapshot is None:
+            raise HTTPException(status_code=409, detail="当前材料尚未冻结申请人事实")
         latest_task = enterprise().get_latest_task(identifier)
         if (
             latest_task is not None
             and latest_task.status == "succeeded"
             and latest_task.material_snapshot_id == material_snapshot.id
-            and latest_task.rule_snapshot_id == rule_snapshot.id
+            and latest_task.intake_snapshot_id == intake_snapshot.id
         ):
             raise HTTPException(
                 status_code=409,
-                detail="当前冻结输入已完成调查；请补充事实并生成新的规则快照后重新运行",
+                detail="当前冻结输入已完成调查；请补充材料或事实后重新运行",
             )
-        queued = queue_review(identifier, user, case, material_snapshot, rule_snapshot)
+        queued = queue_review(identifier, user, case, material_snapshot, intake_snapshot)
         return JSONResponse(status_code=202, content=queued)
 
     @router.get("/api/tasks/{task_id}")
@@ -669,7 +653,7 @@ def register_case_routes(
         if payload.changes_frozen_facts:
             raise HTTPException(
                 status_code=409,
-                detail="该补充会改变冻结规则事实，请生成新材料与规则快照后重新提交",
+                detail="该补充会改变申请人确认事实，请重新冻结事实与材料后提交",
             )
         if task.agent_state is None:
             raise HTTPException(status_code=409, detail="任务没有可恢复的 Agent 状态")
@@ -709,8 +693,8 @@ def register_case_routes(
             raise HTTPException(status_code=404, detail="案件不存在")
         latest_task = enterprise().get_latest_task(task.case_id)
         latest_snapshot = enterprise().get_latest_material_snapshot(task.case_id)
-        latest_rule = (
-            enterprise().get_latest_rule_snapshot(
+        latest_intake = (
+            enterprise().get_latest_intake_snapshot(
                 case_id=task.case_id,
                 material_snapshot_id=latest_snapshot.id,
             )
@@ -723,11 +707,11 @@ def register_case_routes(
             raise HTTPException(status_code=409, detail="只能重试案件当前的审查任务")
         if (
             latest_snapshot is None
-            or latest_rule is None
+            or latest_intake is None
             or latest_snapshot.id != task.material_snapshot_id
-            or latest_rule.id != task.rule_snapshot_id
+            or latest_intake.id != task.intake_snapshot_id
         ):
-            raise HTTPException(status_code=409, detail="案件材料或规则快照已变化，请重新提交审查")
+            raise HTTPException(status_code=409, detail="案件材料或事实快照已变化，请重新提交审查")
         try:
             retried = enterprise().retry_task(task_id)
         except ValueError as exc:

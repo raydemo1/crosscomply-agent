@@ -34,3 +34,12 @@ def test_latest_effective_version_is_selected_without_deleting_history() -> None
 def test_explicit_valid_to_excludes_expired_version() -> None:
     old, hit = pair("old", "2020-01-01", valid_to="2024-01-01")
     assert filter_hits_as_of([hit], {"old": old}, as_of=date(2024, 1, 1)) == []
+
+
+def test_new_version_shares_legacy_title_group() -> None:
+    old, old_hit = pair("old", "2020-01-01")
+    new, new_hit = pair("new", "2026-10-01")
+    new = new.model_copy(update={"instrument_key": "示例法"})
+    chunks = {"old": old, "new": new}
+    assert filter_hits_as_of([old_hit, new_hit], chunks, as_of=date(2026, 9, 25)) == [old_hit]
+    assert filter_hits_as_of([old_hit, new_hit], chunks, as_of=date(2026, 10, 2)) == [new_hit]

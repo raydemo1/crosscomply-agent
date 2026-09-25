@@ -36,6 +36,8 @@ class WebFinding(StrictModel):
     url: str
     excerpt: str = ""
     known_source_id: str | None = None
+    published_date: str | None = None
+    refresh_needed: bool = False
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,7 @@ class WebSearchResult:
     url: str
     title: str = ""
     text: str = ""
+    published_date: str | None = None
 
 
 class WebSearchClient(Protocol):
@@ -82,6 +85,7 @@ class ExaSearchClient:
             WebSearchResult(
                 url=str(item["url"]), title=str(item.get("title") or ""),
                 text=str(item.get("text") or "")[:MAX_EXCERPT_CHARACTERS],
+                published_date=str(item["publishedDate"])[:10] if item.get("publishedDate") else None,
             )
             for item in results if isinstance(item, dict) and item.get("url")
         ]
@@ -98,10 +102,13 @@ def host_of(url: str) -> str:
 
 
 def is_trusted_official_url(url: str, domains: Sequence[str] = TRUSTED_SEARCH_DOMAINS) -> bool:
-    parts = urlsplit(url.strip())
+    try:
+        parts = urlsplit(url.strip())
+        host = (parts.hostname or "").lower()
+    except ValueError:
+        return False
     if parts.scheme not in {"http", "https"} or parts.username or parts.password:
         return False
-    host = (parts.hostname or "").lower()
     return any(host == domain or host == domain.removeprefix("www.") for domain in domains)
 
 
@@ -111,11 +118,16 @@ class WebResearch:
     ) -> None:
         self._client = client
         self._known: dict[str, str] = {}
+        self._known_dates: dict[str, str] = {}
+        self._known_text: dict[str, list[str]] = {}
         for chunk in corpus_chunks:
             if not chunk.source_url:
                 continue
             key = canonical_url(chunk.source_url)
             self._known[key] = chunk.source_id
+            if chunk.publish_date:
+                self._known_dates[key] = max(self._known_dates.get(key, ""), chunk.publish_date)
+            self._known_text.setdefault(key, []).append(chunk.text)
 
     def search(
         self, queries: Sequence[RetrievalQuery], facts: ReviewFacts | None = None,
@@ -135,14 +147,21 @@ class WebResearch:
             for item in results:
                 if len(findings) >= MAX_FINDINGS:
                     break
+                if not is_trusted_official_url(item.url):
+                    continue
                 key = canonical_url(item.url)
                 if key in seen:
                     continue
                 seen.add(key)
+                known_id = self._known.get(key)
+                excerpt = item.text.strip()[:MAX_EXCERPT_CHARACTERS]
+                newer_date = bool(item.published_date and item.published_date > self._known_dates.get(key, ""))
+                changed_excerpt = bool(excerpt and excerpt not in "\n".join(self._known_text.get(key, [])))
                 findings.append(WebFinding(
                     title=item.title or item.url, url=item.url,
-                    excerpt=item.text.strip()[:MAX_EXCERPT_CHARACTERS],
-                    known_source_id=self._known.get(key),
+                    excerpt=excerpt, known_source_id=known_id,
+                    published_date=item.published_date,
+                    refresh_needed=bool(known_id and (newer_date or changed_excerpt)),
                 ))
         if not findings and provider_error is not None:
             raise provider_error

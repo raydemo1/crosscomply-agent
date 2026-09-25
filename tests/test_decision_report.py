@@ -21,7 +21,6 @@ def report_data() -> DecisionReportData:
         case_number="CASE-2026-001",
         decision="附条件通过",
         material_hashes=("a" * 64, "b" * 64),
-        rule_version="national-path-2026.08",
         legal_sources=(
             LegalSource("个人信息保护法", "第三十八条"),
             LegalSource("Data Export Rules", "Article 5"),
@@ -52,7 +51,6 @@ def test_report_contains_required_audit_fields(tmp_path) -> None:
     assert "CASE-2026-001" in text
     assert "a" * 64 not in text
     assert "sha256" not in text.lower()
-    assert "national-path-2026.08" in text
     assert "个人信息保护法" in text
     assert "第三十八条" in text
     assert "签署标准合同" in text
@@ -66,7 +64,6 @@ def test_report_surfaces_case_specific_ai_review_and_action_details(tmp_path) ->
         case_title="NimbusCRM 境外 SaaS 上线前审查",
         decision="附条件通过",
         material_hashes=("c" * 64,),
-        rule_version="national-path-2026.08",
         selected_path="个人信息出境标准合同路径",
         manual_confirmation_items=("法务确认标准合同与影响评估均已完成",),
         legal_sources=(LegalSource("个人信息保护法", "第三十八条"),),
@@ -121,7 +118,6 @@ def test_report_renders_markdown_review_without_literal_markup_or_forced_wraps(t
         case_number="CASE-2026-003",
         decision="附条件通过",
         material_hashes=("d" * 64,),
-        rule_version="national-path-2026.08",
         legal_sources=(LegalSource("促进和规范数据跨境流动规定", "第八条"),),
         remediation_items=(),
         ai_review=AIReviewSummary(
@@ -175,7 +171,6 @@ def test_long_review_conclusion_can_span_pages_without_losing_the_end(tmp_path) 
         case_number="CASE-2026-LONG",
         decision="附条件通过",
         material_hashes=(),
-        rule_version="national-path-2026.08",
         legal_sources=(),
         remediation_items=(),
         ai_review=AIReviewSummary(risk_level="medium", conclusion=conclusion),

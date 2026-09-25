@@ -1,3 +1,4 @@
+from law_agent.review.http.schemas import IntakePayload
 import pytest
 
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
@@ -68,25 +69,19 @@ def test_review_task_enqueue_is_idempotent_for_same_frozen_inputs() -> None:
         version_ids=[version.id],
         created_by="user_1",
     )
-    rule = store.create_rule_snapshot(
-        case_id="case_1",
-        material_snapshot_id=snapshot.id,
-        ruleset_version="cn-cross-border-2026.08",
-        facts={"ciio": False},
-        determination={"candidate_paths": ["standard_contract_or_certification"]},
-    )
+    rule = store.create_intake_snapshot(case_id="case_1", material_snapshot_id=snapshot.id, intake={"ciio": False}, created_by="user_test")
 
     first = store.enqueue_review_task(
         case_id="case_1",
         material_snapshot_id=snapshot.id,
-        rule_snapshot_id=rule.id,
+        intake_snapshot_id=rule.id,
         model_id="approved-model-v1",
         data_boundary_summary={"deployment": "intranet"},
     )
     second = store.enqueue_review_task(
         case_id="case_1",
         material_snapshot_id=snapshot.id,
-        rule_snapshot_id=rule.id,
+        intake_snapshot_id=rule.id,
         model_id="approved-model-v1",
         data_boundary_summary={"deployment": "intranet"},
     )
@@ -112,17 +107,11 @@ def test_failed_task_preserves_attempt_and_can_be_retried() -> None:
         version_ids=[version.id],
         created_by="user_1",
     )
-    rule = store.create_rule_snapshot(
-        case_id="case_1",
-        material_snapshot_id=snapshot.id,
-        ruleset_version="v1",
-        facts={},
-        determination={},
-    )
+    rule = store.create_intake_snapshot(case_id="case_1", material_snapshot_id=snapshot.id, intake=IntakePayload().model_dump(mode="json"), created_by="user_test")
     task = store.enqueue_review_task(
         case_id="case_1",
         material_snapshot_id=snapshot.id,
-        rule_snapshot_id=rule.id,
+        intake_snapshot_id=rule.id,
         model_id="model-v1",
         data_boundary_summary={},
     )
@@ -165,17 +154,11 @@ def test_expired_running_task_is_requeued_with_failed_attempt() -> None:
     snapshot = store.create_material_snapshot(
         case_id="case_lease", version_ids=[version.id], created_by="user_1"
     )
-    rule = store.create_rule_snapshot(
-        case_id="case_lease",
-        material_snapshot_id=snapshot.id,
-        ruleset_version="v1",
-        facts={},
-        determination={},
-    )
+    rule = store.create_intake_snapshot(case_id="case_lease", material_snapshot_id=snapshot.id, intake=IntakePayload().model_dump(mode="json"), created_by="user_test")
     task = store.enqueue_review_task(
         case_id="case_lease",
         material_snapshot_id=snapshot.id,
-        rule_snapshot_id=rule.id,
+        intake_snapshot_id=rule.id,
         model_id="model-v1",
         data_boundary_summary={},
     )
@@ -256,17 +239,11 @@ def test_supersede_waiting_tasks_closes_paused_runs() -> None:
     snapshot = store.create_material_snapshot(
         case_id="case_1", version_ids=[version.id], created_by="user_1"
     )
-    rule = store.create_rule_snapshot(
-        case_id="case_1",
-        material_snapshot_id=snapshot.id,
-        ruleset_version="v1",
-        facts={},
-        determination={},
-    )
+    rule = store.create_intake_snapshot(case_id="case_1", material_snapshot_id=snapshot.id, intake=IntakePayload().model_dump(mode="json"), created_by="user_test")
     task = store.enqueue_review_task(
         case_id="case_1",
         material_snapshot_id=snapshot.id,
-        rule_snapshot_id=rule.id,
+        intake_snapshot_id=rule.id,
         model_id="model-v1",
         data_boundary_summary={},
     )
@@ -286,7 +263,7 @@ def test_supersede_waiting_tasks_closes_paused_runs() -> None:
         store.enqueue_review_task(
             case_id="case_1",
             material_snapshot_id=snapshot.id,
-            rule_snapshot_id=rule.id,
+            intake_snapshot_id=rule.id,
             model_id="model-v2",
             data_boundary_summary={},
         ).status

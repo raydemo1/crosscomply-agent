@@ -63,7 +63,6 @@ export type RetrievalQueryType =
 /** Retriever name used to produce a hit. */
 export type RetrieverName =
   | 'keyword'
-  | 'vector_mock'
   | 'hybrid'
   | 'elasticsearch'
   | 'pgvector';
@@ -336,6 +335,7 @@ export interface ReviewResult {
   trace_id: string;
   risk_level: RiskLevel;
   decision_summary: string;
+  legal_path: string | null;
   conclusion: string;
   review_facts: ReviewFacts;
   trigger_reasons: string[];
@@ -357,6 +357,11 @@ export interface ReviewResponse {
   review_facts: ReviewFacts;
   review_result: ReviewResult;
   evidence_self_check: EvidenceSelfCheck;
+  semantic_grounding?: {
+    status: 'supported' | 'unsupported' | 'uncertain';
+    conclusion_reason: string;
+    missing_facts: string[];
+  };
   /** Same value as `review_result.applicable_evidence`, surfaced for convenience. */
   citation_groups: CitationGroup[];
   second_retrieval_triggered: boolean;
@@ -371,6 +376,8 @@ export interface ReviewResponse {
     url: string;
     excerpt: string;
     known_source_id: string | null;
+    published_date?: string | null;
+    refresh_needed?: boolean;
   }>;
   web_impact?: 'none' | 'supplement' | 'execution_detail' | 'core';
   freshness_hold?: boolean;
@@ -502,7 +509,7 @@ export interface KnowledgeEnrichmentJobApi {
   id: string;
   url: string;
   title: string;
-  status: 'queued' | 'running' | 'awaiting_review' | 'approved' | 'published' | 'rejected' | 'failed';
+  status: 'queued' | 'running' | 'awaiting_review' | 'approved' | 'published' | 'unchanged' | 'rejected' | 'failed';
   source_json: KnowledgeSourceRecordApi | null;
   source_id: string | null;
   raw_sha256: string | null;
@@ -812,63 +819,18 @@ export interface MaterialSnapshotApi {
   created_at: string;
 }
 
-export interface CandidateCompliancePathApi {
-  code: string;
-  label: string;
-  confidence: 'determined' | 'possible';
-  reason: string;
-}
-
 export interface MissingFactApi {
   key: string;
   reason: string;
 }
 
-export interface RuleHitApi {
-  rule_id: string;
-  summary: string;
-  basis_ids: string[];
-}
-
-export interface OfficialBasisApi {
-  basis_id: string;
-  title: string;
-  article: string;
-  issuing_body: string;
-  source_url: string;
-}
-
-export interface ComplianceDecisionApi {
-  status: 'determined' | 'needs_info';
-  rule_version: string;
-  candidate_paths: CandidateCompliancePathApi[];
-  needs_info: MissingFactApi[];
-  rule_hits: RuleHitApi[];
-  official_bases: OfficialBasisApi[];
-  requires_rag_human_confirmation: boolean;
-  manual_confirmation_reasons: string[];
-}
-
-export interface ComplianceFactsApi {
-  cross_border_transfer: boolean | null;
-  is_ciio: boolean | null;
-  important_data: boolean | null;
-  contains_personal_information: boolean | null;
-  contains_sensitive_personal_information: boolean | null;
-  cumulative_personal_information_subjects: number | null;
-  cumulative_sensitive_personal_information_subjects: number | null;
-  claimed_exemption: 'overseas_data_transit' | 'individual_contract' | 'hr_management' | 'emergency' | null;
-  exemption_facts_confirmed: boolean | null;
-  special_regimes: Array<'free_trade_zone' | 'greater_bay_area' | 'industry_specific'>;
-}
-
-export interface RuleDecisionApi {
+export interface IntakeSnapshotApi {
   id: string;
   case_id: string;
   material_snapshot_id: string;
-  ruleset_version: string;
-  facts: ComplianceFactsApi;
-  determination: ComplianceDecisionApi;
+  fingerprint: string;
+  intake: CaseIntake;
+  created_by: string;
   created_at: string;
 }
 
@@ -887,7 +849,7 @@ export interface ReviewTaskApi {
   id: string;
   case_id: string;
   material_snapshot_id: string;
-  rule_snapshot_id: string;
+  intake_snapshot_id: string;
   idempotency_key: string;
   status: ReviewTaskStatus;
   current_node: string | null;
@@ -943,7 +905,7 @@ export interface ReportRecordApi {
 
 export interface FreezeMaterialSnapshotResponse {
   material_snapshot: MaterialSnapshotApi;
-  rule_decision: RuleDecisionApi;
+  intake_snapshot: IntakeSnapshotApi;
 }
 
 export interface WorkbenchUser {
@@ -962,7 +924,7 @@ export interface ManagedUserApi extends WorkbenchUser {
 export interface CaseIntake {
   business_activity: string;
   data_types: string[];
-  /** Rule-engine hard fact. Never inferred from the free-text data_types field. */
+  /** Applicant confirmed fact; never inferred from the free-text data_types field. */
   contains_personal_information: boolean | null;
   sensitive_personal_info: boolean | null;
   cross_border_transfer: boolean | null;
@@ -970,6 +932,7 @@ export interface CaseIntake {
   ciio_status: 'unknown' | 'not_ciio' | 'ciio' | 'under_review';
   annual_non_sensitive_count: string;
   annual_sensitive_count: string;
+  count_period: 'unknown' | 'current_year_cumulative' | 'annual_estimate' | 'other';
   overseas_recipient: string;
   destination_region: string;
   processing_purpose: string;
@@ -1068,7 +1031,7 @@ export interface CaseDetailApi {
   events: CaseEvent[];
   feedback: CaseFeedbackApi | null;
   material_snapshot: MaterialSnapshotApi | null;
-  rule_decision: RuleDecisionApi | null;
+  intake_snapshot: IntakeSnapshotApi | null;
   review_task: ReviewTaskApi | null;
   feishu_approval: FeishuApprovalApi | null;
   signed_decision: SignedDecisionApi | null;

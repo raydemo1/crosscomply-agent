@@ -9,7 +9,6 @@ import type {
   CaseTemplateApi,
   CaseTemplatePayload,
   CaseStatus,
-  ComplianceFactsApi,
   DashboardSummaryApi,
   EvalJobResponse,
   EvalRerankMode,
@@ -545,13 +544,12 @@ export async function uploadMaterial(
 export async function freezeMaterialSnapshot(
   caseId: string,
   versionIds: string[],
-  facts: ComplianceFactsApi,
 ): Promise<FreezeMaterialSnapshotResponse> {
   return request<FreezeMaterialSnapshotResponse>(
     `/api/cases/${encodeURIComponent(caseId)}/material-snapshots`,
     {
       method: 'POST',
-      body: JSON.stringify({ version_ids: versionIds, facts }),
+      body: JSON.stringify({ version_ids: versionIds }),
     },
   );
 }

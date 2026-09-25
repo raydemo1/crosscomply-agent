@@ -44,7 +44,6 @@ import {
   ISSUE_KIND_LABELS,
   citationDisplayLabel,
   DOC_TYPE_LABELS,
-  legalBasisLabel,
   QUERY_TYPE_LABELS,
   USAGE_LABELS,
   formatTime,
@@ -156,7 +155,14 @@ export default function CaseDetailPage({
         setWorkflowError={setWorkflowError}
       />
 
-      {webFindings.some((item) => !item.known_source_id) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>最新官方材料</strong><ul>{webFindings.filter((item) => !item.known_source_id).map((item) => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {knowledgeRechecks.some((recheck) => recheck.url === item.url && recheck.recheck_status === 'pending') ? '已入库，案件待复核' : item.excerpt ? '已有搜索摘录，尚待治理核验' : '已发现来源，尚待治理核验'}</span></li>)}</ul></div> : null}
+      {webFindings.some((item) => !item.known_source_id || item.refresh_needed) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>最新官方材料</strong><ul>{webFindings.filter((item) => !item.known_source_id || item.refresh_needed).map((item) => {
+        const recheck = knowledgeRechecks.find((entry) => entry.url === item.url);
+        const status = recheck?.recheck_status === 'pending'
+          ? (recheck.source_status === 'unchanged' ? '官方正文未变化，案件待复核' : '新版已入库，案件待复核')
+          : item.known_source_id ? '发现更新迹象，正在核对官方原件'
+            : item.excerpt ? '已有搜索摘录，尚待治理核验' : '已发现来源，尚待治理核验';
+        return <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {status}</span></li>;
+      })}</ul></div> : null}
 
       {!failed ? <nav className="case-detail-views" aria-label="案件详情视图">
         <button type="button" className={detailView === 'document' ? 'is-active' : ''} aria-current={detailView === 'document' ? 'page' : undefined} onClick={() => setDetailView('document')}>原文审阅</button>
@@ -247,9 +253,6 @@ function DraftCaseView({
           <div><span>境外接收方</span><strong>{saved.intake.overseas_recipient || '待补充'}</strong></div>
           <div><span>材料长度</span><strong>{saved.materialText.length.toLocaleString()} 字符</strong></div>
         </div>
-        {saved.ruleDecision?.determination.needs_info.length ? (
-          <div className="case-operations__blockers"><strong>送审前必须确认</strong><ul>{saved.ruleDecision.determination.needs_info.map((item) => <li key={item.key}>{item.reason}</li>)}</ul></div>
-        ) : null}
         <p className="draft-case-card__hint">确认材料和关键事实后提交。</p>
         {canEdit && saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onEdit(saved)}>编辑并补充</button> : null}
       </section>
@@ -264,8 +267,8 @@ const HERO_STEPS = [
   ['采购申请', '境外 SaaS 场景'],
   ['材料立卷', '原件与版本哈希'],
   ['事实确认', '关键事实不推测'],
-  ['全国路径', '确定性规则判定'],
-  ['证据深审', '法源与例外说明'],
+  ['自主调查', '材料、法源与例外'],
+  ['证据校验', '主张与法条核对'],
   ['补件整改', '缺口闭环'],
   ['飞书审批', '企业最终决定'],
   ['决策归档', '报告与审计留痕'],
@@ -311,8 +314,8 @@ function HeroCaseProgress({ saved }: { saved: SavedCase }): JSX.Element {
 }
 
 function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = false }: { saved: SavedCase; includeMaterial?: boolean; embedded?: boolean }): JSX.Element | null {
-  const { materialSnapshot, ruleDecision, reviewTask, feishuApproval, signedDecision, report } = saved;
-  if (!(includeMaterial && materialSnapshot) && !ruleDecision && !reviewTask && !feishuApproval && !signedDecision && !report) return null;
+  const { materialSnapshot, intakeSnapshot, reviewTask, feishuApproval, signedDecision, report } = saved;
+  if (!(includeMaterial && materialSnapshot) && !intakeSnapshot && !reviewTask && !feishuApproval && !signedDecision && !report) return null;
 
   return (
     <section className={'enterprise-chain' + (embedded ? ' enterprise-chain--embedded' : '')} aria-label="企业决策证据链">
@@ -331,15 +334,11 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
         </article>
       ) : null}
 
-      {ruleDecision ? (
+      {intakeSnapshot ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record enterprise-record--rules'}>
-          <div className="enterprise-record__heading"><div><span>02</span><h2>全国主路径判定</h2></div><code>{ruleDecision.ruleset_version}</code></div>
-          <div className="enterprise-paths">
-            {ruleDecision.determination.candidate_paths.map((path) => <div key={path.code} className={path.confidence === 'determined' ? 'is-determined' : 'is-possible'}><strong>{path.label}</strong><span>{path.reason}</span></div>)}
-          </div>
-          {ruleDecision.determination.needs_info.length > 0 ? <div className="enterprise-callout enterprise-callout--warning"><strong>送审前必须确认</strong><ul>{ruleDecision.determination.needs_info.map((fact) => <li key={fact.key}>{fact.reason}</li>)}</ul></div> : null}
-          {ruleDecision.determination.requires_rag_human_confirmation ? <div className="enterprise-callout"><strong>需要检索与人工确认</strong><span>{ruleDecision.determination.manual_confirmation_reasons.join('；')}</span></div> : null}
-          {ruleDecision.determination.official_bases.length > 0 ? <div className="enterprise-bases">{ruleDecision.determination.official_bases.map((basis) => <a key={basis.basis_id} href={basis.source_url} target="_blank" rel="noreferrer"><strong>{legalBasisLabel(basis.title, basis.article)}</strong><span>{basis.issuing_body} ↗</span></a>)}</div> : null}
+          <div className="enterprise-record__heading"><div><span>02</span><h2>申请人确认事实</h2></div><code title={intakeSnapshot.fingerprint}>{intakeSnapshot.fingerprint.slice(0, 12)}</code></div>
+          <p>本次审查绑定不可变事实快照，法律路径由 Agent 结合材料和正式法源独立判断。</p>
+          <div className="enterprise-record__facts"><div><span>业务活动</span><strong>{intakeSnapshot.intake.business_activity || '未确认'}</strong></div><div><span>人数统计口径</span><strong>{intakeSnapshot.intake.count_period || 'unknown'}</strong></div></div>
         </article>
       ) : null}
 
@@ -465,7 +464,7 @@ function CaseWorkflowActions({
     <div className="workflow-actions__controls">
       {saved.status === 'pending_review' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '审查运行中…' : '启动证据化审查'}</button> : null}
       {saved.status === 'needs_info' && !activeTask ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '调查启动中…' : '按最新材料重新调查'}</button> : null}
-      {saved.status === 'pending_source_verification' ? <span>{saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '新法源已入库，案件待人工复核；原结论未自动改写' : '发现可能影响结论的新官方法源，正在核验；原结论不会自动改写'}</span> : null}
+      {saved.status === 'pending_source_verification' ? <span>{saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '官方法源已完成核验，案件待人工复核；原结论未自动改写' : '发现可能影响结论的新官方法源，正在核验；原结论不会自动改写'}</span> : null}
       {saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? '重新运行中…' : '重试失败任务'}</button> : null}
       {saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
       {saved.reviewTask?.status === 'waiting_input' ? <div className="enterprise-callout enterprise-callout--warning"><strong>{saved.reviewTask.agent_state?.pending_question || 'Agent 需要补充信息'}</strong><textarea value={agentAnswer} onChange={(event) => setAgentAnswer(event.target.value)} placeholder="直接回答 Agent 的问题即可" rows={3} /><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !agentAnswer.trim()} onClick={() => resumeAgent()}>{operation === 'answer' ? '正在提交…' : '直接回答'}</button>{onEditMaterial ? <button type="button" className="case-header__action-btn" disabled={operation !== null} onClick={onEditMaterial}>上传或更新材料</button> : null}</div> : null}
@@ -498,7 +497,7 @@ function workflowActionTitle(saved: SavedCase): string {
 }
 
 function workflowActionHint(saved: SavedCase): string {
-  if (saved.status === 'pending_source_verification') return saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '新法源已发布，待负责人复核当前案件。' : '核验期间不发起最终审批。';
+  if (saved.status === 'pending_source_verification') return saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '官方法源已完成核验，待负责人复核当前案件。' : '核验期间不发起最终审批。';
   if (saved.status === 'pending_review') return '提交后系统会自动完成证据化审查，完成后即可查看结论。';
   if (saved.status === 'run_failed') return `失败节点：${saved.reviewTask?.current_node || '未记录'}；重试不会覆盖历史尝试。`;
   if (saved.status === 'pending_feishu_approval') return '最终通过、退回或撤回状态仅接受飞书验签事件。';
@@ -694,7 +693,7 @@ function eventLabel(event: string): string {
     review_started: '开始证据化审查',
     review_completed: '生成审查结果',
     review_failed: '审查运行失败',
-    knowledge_recheck_pending: '新法源已入库，案件待复核',
+    knowledge_recheck_pending: '官方法源已核验，案件待复核',
     action_created: '创建整改任务',
     action_updated: '更新整改任务',
     remediation_plan_created: '建立整改计划',
@@ -878,10 +877,8 @@ function ReviewChain({ saved, view, initialRevisionSelection, onVerdictChange, v
     () => cleanConclusionForDisplay(result.conclusion, hasRiskBoundaryDisclaimer),
     [result.conclusion, hasRiskBoundaryDisclaimer],
   );
-  const reviewBlockers = saved.ruleDecision?.determination.needs_info.length
-    ? saved.ruleDecision.determination.needs_info.map((item) => item.reason)
-    : result.missing_information;
-  const manualConfirmations = saved.ruleDecision?.determination.manual_confirmation_reasons ?? [];
+  const reviewBlockers = result.missing_information;
+  const manualConfirmations: string[] = [];
   const hasReviewGaps = reviewBlockers.length > 0 || manualConfirmations.length > 0;
   const reportSections = useMemo(() => [
     ...(issues.length > 0 ? [{ id: 'report-issues', label: '调查与问题', secondary: false }] : []),
@@ -1007,13 +1004,14 @@ function ReviewChain({ saved, view, initialRevisionSelection, onVerdictChange, v
             <div className="case-conclusion__head">
               <RiskBadge level={result.risk_level} />
               <span className="case-conclusion__evidence">
-                证据自检：
-                <strong>{EVIDENCE_STATUS_LABELS[selfCheck.status]}</strong>
+                语义证据校验：
+                <strong>{response.semantic_grounding?.status === 'supported' ? '已通过' : EVIDENCE_STATUS_LABELS[selfCheck.status]}</strong>
                 {response.second_retrieval_triggered ? (
                   <span className="case-conclusion__second">· 已触发二次检索</span>
                 ) : null}
               </span>
             </div>
+            {result.legal_path ? <p className="case-conclusion__path">当前适用路径：{result.legal_path}</p> : null}
             <div className="decision-summary" aria-label="审批摘要">
               <span className="decision-summary__label">审批摘要</span>
               <p>{result.decision_summary}</p>

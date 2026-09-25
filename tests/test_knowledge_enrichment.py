@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+from types import SimpleNamespace
 
 from law_agent.data.schemas import SourceRecord
 from law_agent.kb import enrichment
 from law_agent.kb.enrichment import process_enrichment_job, verified_auto_source
 from law_agent.kb.enrichment_worker import KnowledgeEnrichmentWorker
+from law_agent.kb.service import normalized_content_hash
 
 
 def test_national_law_requires_official_url_title_and_effective_date() -> None:
@@ -95,6 +97,9 @@ def test_official_law_is_parsed_staged_and_sent_to_kb(monkeypatch, tmp_path) -> 
         corpus = tmp_path
         ingested = None
 
+        def list_sources(self):
+            return []
+
         def ingest_file(self, source, path):
             self.ingested = (source, path.read_bytes())
 
@@ -139,6 +144,9 @@ def test_guideline_waits_for_approval_and_uses_staged_original(monkeypatch, tmp_
         corpus = tmp_path
         ingested = None
 
+        def list_sources(self):
+            return []
+
         def ingest_file(self, source, path):
             self.ingested = (source, path.read_bytes())
 
@@ -169,3 +177,131 @@ def test_guideline_waits_for_approval_and_uses_staged_original(monkeypatch, tmp_
     assert service.ingested[1] == raw
     assert store.transitions[-1][0] == "published"
     assert store.transitions[-1][1].citation_role == "implementation_reference"
+
+
+def test_same_official_body_does_not_create_version(monkeypatch, tmp_path) -> None:
+    title = "中华人民共和国示例法"
+    body = f"{title}\n第一条 旧版正文。\n本法自2020年1月1日起施行。"
+    existing = SourceRecord(
+        source_id="old", title=title, source_url="https://flk.npc.gov.cn/law",
+        source_site="flk.npc.gov.cn", doc_type="law", authority="national_law",
+        effective_date="2020-01-01", instrument_key=None,
+    )
+
+    class Store:
+        status = None
+        source = None
+
+        def record_raw(self, *_args, **_kwargs):
+            pass
+
+        def transition(self, _job_id, *, status, source=None, **_kwargs):
+            self.status = status
+            self.source = source
+
+    class Service:
+        corpus = tmp_path
+
+        def list_sources(self):
+            return [SimpleNamespace(source=existing)]
+
+        def get_source(self, _source_id):
+            return {"content_hash": normalized_content_hash(body)}
+
+        def ingest_file(self, *_args):
+            raise AssertionError("unchanged body must not be ingested")
+
+    monkeypatch.setattr(enrichment, "_download", lambda _url, path: path.write_text(body, encoding="utf-8"))
+    store = Store()
+    process_enrichment_job({
+        "id": "enrich_same", "title": title, "url": existing.source_url,
+        "raw_path": None, "raw_sha256": None, "source_json": None, "attempt_count": 1,
+    }, store=store, service=Service())
+    assert store.status == "unchanged"
+    assert store.source.source_id == "old"
+
+
+def test_changed_same_url_with_same_effective_date_waits_for_review(monkeypatch, tmp_path) -> None:
+    title = "中华人民共和国示例法"
+    body = (f"{title}\n" + "第一条 新规定。" * 40 + "\n"
+            + "第二条 新条件。" * 40 + "\n" + "第三条 新要求。" * 40
+            + "\n本法自2020年1月1日起施行。")
+    old = SourceRecord(
+        source_id="old", title=title, source_url="https://flk.npc.gov.cn/law",
+        source_site="flk.npc.gov.cn", doc_type="law", authority="national_law",
+        effective_date="2020-01-01", citation_role="primary_legal_basis",
+    )
+
+    class Store:
+        status = None
+
+        def record_raw(self, *_args, **_kwargs):
+            pass
+
+        def transition(self, _job_id, *, status, **_kwargs):
+            self.status = status
+
+    class Service:
+        corpus = tmp_path
+
+        def list_sources(self):
+            return [SimpleNamespace(source=old)]
+
+        def get_source(self, _source_id):
+            return {"content_hash": normalized_content_hash("旧版正文")}
+
+        def ingest_file(self, *_args):
+            raise AssertionError("same effective date needs manual review")
+
+    monkeypatch.setattr(enrichment, "_download", lambda _url, path: path.write_text(body, encoding="utf-8"))
+    store = Store()
+    process_enrichment_job({
+        "id": "enrich_changed", "title": title, "url": old.source_url,
+        "raw_path": None, "raw_sha256": None, "source_json": None, "attempt_count": 1,
+    }, store=store, service=Service())
+    assert store.status == "awaiting_review"
+
+
+def test_newer_same_url_law_keeps_legacy_instrument_group(monkeypatch, tmp_path) -> None:
+    title = "中华人民共和国示例法"
+    body = (f"{title}\n" + "第一条 新规定。" * 40 + "\n"
+            + "第二条 新条件。" * 40 + "\n" + "第三条 新要求。" * 40
+            + "\n本法自2026年10月1日起施行。")
+    old = SourceRecord(
+        source_id="old", title=title, source_url="https://flk.npc.gov.cn/law",
+        source_site="flk.npc.gov.cn", doc_type="law", authority="national_law",
+        effective_date="2020-01-01", citation_role="primary_legal_basis",
+    )
+
+    class Store:
+        status = None
+        source = None
+
+        def record_raw(self, *_args, **_kwargs):
+            pass
+
+        def transition(self, _job_id, *, status, source=None, **_kwargs):
+            self.status, self.source = status, source
+
+    class Service:
+        corpus = tmp_path
+        ingested = None
+
+        def list_sources(self):
+            return [SimpleNamespace(source=old)]
+
+        def get_source(self, _source_id):
+            return {"content_hash": normalized_content_hash("旧版正文")}
+
+        def ingest_file(self, source, _path):
+            self.ingested = source
+
+    monkeypatch.setattr(enrichment, "_download", lambda _url, path: path.write_text(body, encoding="utf-8"))
+    store, service = Store(), Service()
+    process_enrichment_job({
+        "id": "enrich_newer", "title": title, "url": old.source_url,
+        "raw_path": None, "raw_sha256": None, "source_json": None, "attempt_count": 1,
+    }, store=store, service=service)
+    assert store.status == "published"
+    assert store.source.source_id != old.source_id
+    assert service.ingested.instrument_key == old.title

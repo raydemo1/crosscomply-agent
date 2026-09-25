@@ -618,7 +618,7 @@ def execute_rereview(
         return run_agent(
             state or AgentState(goal=goal),
             material=packet.text,
-            rule={},
+            intake={},
             decide=decide or RemediationAgentModel(model_id=model_id),
             search=search,
             web_search=no_web_search,

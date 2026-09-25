@@ -15,15 +15,16 @@ from law_agent.config import (
 )
 from law_agent.review.agent import AgentState, web_findings_from_steps
 from law_agent.review.citations import group_citations
-from law_agent.review.evidence import run_self_check
 from law_agent.review.ids import make_id
 from law_agent.review.result_builder import (
     LLMReviewResultDraft,
     MaterialEvidenceDraft,
     ReviewIssueDraft,
     attach_citation_refs,
-    validate_decision_summary,
     validate_grounded_claims,
+)
+from law_agent.review.semantic_grounding import (
+    SemanticGroundingRejected, SemanticGroundingVerifier, SemanticVerdict,
 )
 from law_agent.review.retrieval.boosts import apply_boosts_to_hits
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
@@ -35,6 +36,7 @@ from law_agent.review.retrieval.service_backends import build_service_adapters
 from law_agent.review.retrieval.temporal import filter_hits_as_of
 from law_agent.review.schemas import (
     CitationGroup,
+    EvidenceSelfCheck,
     GroundedClaim,
     MaterialEvidenceRef,
     RetrievalHit,
@@ -135,7 +137,7 @@ def finalize_issues(
                 )
             ],
             evidence,
-        )
+        ) if draft.supporting_chunk_ids else []
         if draft.kind == "legal_gap" and (not material_evidence or not grounded_claims):
             raise ValueError("legal_gap 必须同时具备材料事实和可引用法条支持")
         grounded_claims = attach_citation_refs(grounded_claims, citation_groups)
@@ -171,6 +173,7 @@ class ComplianceAgentTools:
         material_text: str = "",
         material_versions: Sequence[MaterialVersion] = (),
         rerank_mode: RerankMode = "off",
+        model_id: str | None = None,
     ):
         self._chunks = load_corpus(chunks_path)
         self._chunks_by_id = {chunk.chunk_id: chunk for chunk in self._chunks}
@@ -184,6 +187,7 @@ class ComplianceAgentTools:
         self._neighbor_hits: dict[str, RetrievalHit] = {}
         self._adapters = build_service_adapters(require_service_config())
         self._web_research: WebResearch | None = None
+        self._semantic_verifier = SemanticGroundingVerifier(model_id=model_id) if model_id else None
 
     def close(self) -> None:
         self._adapters.close()
@@ -272,29 +276,32 @@ class ComplianceAgentTools:
         state: AgentState,
         *,
         case_id: str,
-        rule_snapshot: dict[str, Any],
+        intake_snapshot: dict[str, Any],
+        system_abstention: bool = False,
     ) -> dict[str, Any]:
         finding_urls = {
             canonical_url(item.url) for item in web_findings_from_steps(state)
-            if item.known_source_id is None
+            if item.known_source_id is None or item.refresh_needed
         }
         if draft.web_impact == "none" and draft.material_web_urls:
             raise ValueError("web_impact=none 时 material_web_urls 必须为空列表")
         if draft.web_impact != "none" and not draft.material_web_urls:
             raise ValueError(
-                "Web 影响判断必须指出新官方材料 URL；若本次 Web 结果全部已入库，"
+                "Web 影响判断必须指出新官方材料 URL；若本次 Web 结果均无更新迹象，"
                 "请填 web_impact=none、material_web_urls=[]"
             )
         if any(canonical_url(url) not in finding_urls for url in draft.material_web_urls):
             eligible = [item.url for item in web_findings_from_steps(state)
                         if canonical_url(item.url) in finding_urls]
             raise ValueError(
-                "material_web_urls 只能包含尚未入库的官方材料 URL。"
+                "material_web_urls 只能包含新官方材料或有更新迹象的已入库 URL。"
                 f"本次可选 URL：{eligible}。若列表为空，请填 web_impact=none、"
                 "material_web_urls=[]；已入库材料请用正式检索结果引用"
             )
         if draft.web_impact == "core" and draft.risk_level != "insufficient_evidence":
             raise ValueError("可能改变核心法律路径的新法源尚未核验，必须暂缓确定结论")
+        if draft.risk_level == "insufficient_evidence" and draft.legal_path is not None:
+            raise ValueError("证据不足时不能确定法律路径")
         primary_evidence = [hit for hit in state.evidence if hit.rank >= 0]
         representatives = source_aware_fuse(
             primary_evidence,
@@ -308,32 +315,44 @@ class ComplianceAgentTools:
             chunks_by_id=self._chunks_by_id,
         )
         result_evidence = flatten_source_evidence_packets(source_packets) or primary_evidence
-        self_check = run_self_check(representatives, state.facts, self._chunks_by_id)
-        if draft.risk_level != "insufficient_evidence" and self_check.status != "sufficient":
-            raise ValueError(
-                "确定性证据门禁未通过；请继续检索，或以证据不足结论明确停止"
-            )
         claims = validate_grounded_claims(draft.claims, result_evidence)
         if draft.risk_level != "insufficient_evidence" and not claims:
             raise ValueError("正式风险结论至少需要一条可引用法条支持")
         citation_groups, _ = group_citations(
             result_evidence, state.facts, self._chunks_by_id
         )
+        full_articles = {
+            citation.chunk_id: citation.full_article_text
+            for group in citation_groups for citation in group.citations
+            if citation.full_article_text
+        }
+        verifier_evidence = [
+            hit.model_copy(update={"full_article_text": full_articles[hit.chunk_id]})
+            if hit.chunk_id in full_articles else hit
+            for hit in result_evidence
+        ]
         claims = attach_citation_refs(claims, citation_groups)
         citations = [citation for group in citation_groups for citation in group.citations]
         issues = self._finalize_issues(draft.issues, result_evidence, citation_groups)
-        supported_summary_text = "\n".join(
-            [
-                draft.conclusion,
-                json.dumps(state.facts.model_dump(mode="json"), ensure_ascii=False),
-                json.dumps(rule_snapshot, ensure_ascii=False),
-                *[f"{hit.title}\n{hit.text}" for hit in result_evidence],
-            ]
-        )
-        decision_summary = validate_decision_summary(
-            draft.decision_summary,
-            supported_text=supported_summary_text,
-        )
+        decision_summary = draft.decision_summary.strip()
+        if any(char in decision_summary for char in "\n\r#*_`"):
+            raise ValueError("decision_summary 必须为纯文本段落")
+        if self._semantic_verifier is None:
+            raise RuntimeError("正式报告缺少独立语义证据校验器")
+        if system_abstention:
+            if draft.risk_level != "insufficient_evidence" or draft.claims or draft.legal_path is not None:
+                raise ValueError("预算耗尽时只能生成无确定法律结论的证据不足报告")
+            verdict = SemanticVerdict(status="supported", claim_checks=[], conclusion_reason="证据不足且未提出确定法律路径")
+        else:
+            verdict = self._semantic_verifier(
+                draft=draft,
+                confirmed_intake=intake_snapshot["facts"],
+                extracted_facts=state.facts,
+                material=self._material_text,
+                evidence=verifier_evidence,
+            )
+        if verdict.status != "supported":
+            raise SemanticGroundingRejected(verdict)
         trace_id = make_id("trace")
         result = ReviewResult(
             review_result_id=make_id("result"),
@@ -341,6 +360,7 @@ class ComplianceAgentTools:
             trace_id=trace_id,
             risk_level=draft.risk_level,
             decision_summary=decision_summary,
+            legal_path=draft.legal_path,
             conclusion=draft.conclusion.rstrip(),
             review_facts=state.facts,
             trigger_reasons=draft.trigger_reasons,
@@ -357,7 +377,10 @@ class ComplianceAgentTools:
             "trace_id": trace_id,
             "review_facts": state.facts.model_dump(mode="json"),
             "review_result": result.model_dump(mode="json"),
-            "evidence_self_check": self_check.model_dump(mode="json"),
+            "semantic_grounding": verdict.model_dump(mode="json"),
+            "evidence_self_check": EvidenceSelfCheck(
+                status="insufficient" if draft.risk_level == "insufficient_evidence" else "sufficient",
+            ).model_dump(mode="json"),
             "citation_groups": [item.model_dump(mode="json") for item in citation_groups],
             "second_retrieval_triggered": False,
             "retrieval_queries": [item.model_dump(mode="json") for item in state.queries],
@@ -365,7 +388,7 @@ class ComplianceAgentTools:
             "source_evidence_packets": [
                 item.model_dump(mode="json") for item in source_packets
             ],
-            "rule_snapshot": rule_snapshot,
+            "intake_snapshot": intake_snapshot,
             "web_findings": [item.model_dump(mode="json") for item in web_findings_from_steps(state)],
             "web_impact": draft.web_impact,
             "material_web_urls": draft.material_web_urls,

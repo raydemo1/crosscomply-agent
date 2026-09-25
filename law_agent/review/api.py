@@ -71,7 +71,6 @@ from law_agent.review.remediation import (
 )
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.revisions import InMemoryRevisionStore, PostgresRevisionStore
-from law_agent.review.rules import evaluate_national_path
 from law_agent.review.schemas import (
     CitationGroup,
     EvidenceSelfCheck,
@@ -115,6 +114,7 @@ def _intake_context(intake: dict[str, Any]) -> str:
         "ciio_status": "关键信息基础设施运营者状态",
         "annual_non_sensitive_count": "非敏感个人信息数量区间",
         "annual_sensitive_count": "敏感个人信息数量区间",
+        "count_period": "人数统计口径",
         "overseas_recipient": "境外接收方",
         "destination_region": "目的地",
         "processing_purpose": "处理目的",
@@ -278,33 +278,10 @@ def _compact_approval_text(value: Any, *, limit: int) -> str:
     return f"{text[: limit - 1].rstrip()}…"
 
 
-def _candidate_path_labels(determination: dict[str, Any]) -> list[str]:
-    labels: list[str] = []
-    for item in determination.get("candidate_paths") or []:
-        if isinstance(item, str):
-            label = item
-        elif isinstance(item, dict):
-            label = next(
-                (
-                    str(item[key])
-                    for key in ("label", "name", "path", "code")
-                    if item.get(key)
-                ),
-                "",
-            )
-        else:
-            label = ""
-        label = _compact_approval_text(label, limit=80)
-        if label and label not in labels:
-            labels.append(label)
-    return labels[:2]
-
-
 def _feishu_approval_form(
     *,
     case: dict[str, Any],
     task: Any,
-    rule_determination: dict[str, Any],
     remediation_plan: dict[str, Any] | None,
     public_base_url: str,
 ) -> list[dict[str, str]]:
@@ -317,11 +294,8 @@ def _feishu_approval_form(
         "insufficient_evidence": "待核验",
     }
     risk = risk_labels.get(str(review_result.get("risk_level", "")).lower(), "待核验")
-    paths = _candidate_path_labels(rule_determination)
     decision_summary = _compact_approval_text(review_result.get("decision_summary"), limit=240)
     summary_parts = [f"风险：{risk}"]
-    if paths:
-        summary_parts.append(f"候选路径：{'、'.join(paths)}")
     if decision_summary:
         summary_parts.append(f"审批摘要：{decision_summary}")
 
@@ -548,9 +522,9 @@ def create_app(
         client, config = configured_feishu()
         running = governance().begin_approval_attempt(delivery.id)
         try:
-            rule = enterprise().get_rule_snapshot(task.rule_snapshot_id)
-            if rule is None:
-                raise RuntimeError("审批任务绑定的规则快照不存在")
+            intake_snapshot = enterprise().get_intake_snapshot(task.intake_snapshot_id)
+            if intake_snapshot is None:
+                raise RuntimeError("审批任务绑定的事实快照不存在")
             remediation_plan = store().get_remediation_plan(case["id"])
             instance = client.create_instance(
                 open_id=config.initiator_open_id,
@@ -558,7 +532,6 @@ def create_app(
                 form=_feishu_approval_form(
                     case=case,
                     task=task,
-                    rule_determination=dict(rule.determination),
                     remediation_plan=remediation_plan,
                     public_base_url=config.public_base_url,
                 ),
@@ -604,8 +577,8 @@ def create_app(
     def case_payload(case: dict[str, Any]) -> dict[str, Any]:
         payload = _case_payload(store(), case)
         snapshot = enterprise().get_latest_material_snapshot(case["id"])
-        rule = (
-            enterprise().get_latest_rule_snapshot(
+        intake_snapshot = (
+            enterprise().get_latest_intake_snapshot(
                 case_id=case["id"], material_snapshot_id=snapshot.id
             )
             if snapshot is not None
@@ -617,7 +590,7 @@ def create_app(
         payload.update(
             {
                 "material_snapshot": asdict(snapshot) if snapshot else None,
-                "rule_decision": asdict(rule) if rule else None,
+                "intake_snapshot": asdict(intake_snapshot) if intake_snapshot else None,
                 "review_task": asdict(task) if task else None,
                 "feishu_approval": asdict(approval) if approval else None,
                 "signed_decision": (
@@ -671,7 +644,6 @@ def create_app(
         case_payload=case_payload,
         case_summary=_case_summary,
         can_view=_can_view,
-        evaluate_national_path=evaluate_national_path,
     )
     register_revision_routes(
         app, current_user=current_user, reviewer_only=reviewer_only,

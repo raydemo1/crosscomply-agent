@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import Any, Protocol
 
 from law_agent.review.agent import AgentState
-from law_agent.review.enterprise_store import ReviewTask, RuleSnapshot
+from law_agent.review.enterprise_store import ReviewTask
 from law_agent.review.llm import ReviewWorkflowFailed
 
 
@@ -145,18 +145,12 @@ class ReviewWorker:
         return failed
 
 
-def completion_has_missing_information(
-    task: ReviewTask,
-    rule_snapshot: RuleSnapshot | None,
-) -> bool:
-    """Keep unresolved frozen rules from being promoted to approval."""
+def completion_has_missing_information(task: ReviewTask) -> bool:
+    """Keep unresolved Agent conclusions from being promoted to approval."""
 
-    determination = rule_snapshot.determination if rule_snapshot is not None else {}
     review_result = (task.result or {}).get("review_result") or {}
     return bool(
-        rule_snapshot is None
-        or determination.get("status") != "determined"
-        or determination.get("needs_info")
+        review_result.get("risk_level") == "insufficient_evidence"
         or review_result.get("missing_information")
         or (task.result or {}).get("freshness_hold")
     )
@@ -237,11 +231,10 @@ def main() -> None:
                 case_id=task.case_id, review_task_id=task.id,
                 urls=task.result.get("material_web_urls") or [],
             )
-        rule_snapshot = queue.get_rule_snapshot(task.rule_snapshot_id)
         final_status = (
             "pending_source_verification" if task.result.get("freshness_hold")
             else next_status_after_review(
-                has_missing_information=completion_has_missing_information(task, rule_snapshot)
+                has_missing_information=completion_has_missing_information(task)
             )
         )
         case_store.update_case(
