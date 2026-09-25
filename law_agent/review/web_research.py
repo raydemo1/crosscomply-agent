@@ -7,7 +7,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
 from law_agent.config import load_web_search_api_key
@@ -15,8 +15,8 @@ from law_agent.data.schemas import Chunk, StrictModel
 from law_agent.review.schemas import RetrievalQuery, ReviewFacts
 
 MAX_QUERIES_PER_SEARCH = 3
-DEFAULT_MAX_PAGES = 3
-MAX_WEB_TEXT_CHARACTERS = 6000
+MAX_FINDINGS = 3
+MAX_EXCERPT_CHARACTERS = 1200
 REQUEST_TIMEOUT_SECONDS = 20
 EXA_BASE_URL = "https://api.exa.ai"
 TRUSTED_SEARCH_DOMAINS = (
@@ -34,11 +34,8 @@ class WebSearchUnavailable(RuntimeError):
 class WebFinding(StrictModel):
     title: str
     url: str
-    published_date: str | None = None
     excerpt: str = ""
     known_source_id: str | None = None
-    refresh_needed: bool = False
-    status: Literal["read", "discovered"] = "discovered"
 
 
 @dataclass(frozen=True)
@@ -46,7 +43,6 @@ class WebSearchResult:
     url: str
     title: str = ""
     text: str = ""
-    published_date: str | None = None
 
 
 class WebSearchClient(Protocol):
@@ -57,20 +53,17 @@ class ExaSearchClient:
     def __init__(
         self, *, api_key: str, base_url: str = EXA_BASE_URL,
         timeout_seconds: int = REQUEST_TIMEOUT_SECONDS,
-        include_domains: Sequence[str] = TRUSTED_SEARCH_DOMAINS,
     ) -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
-        self.include_domains = tuple(include_domains)
 
     def search(self, query: str, *, max_results: int) -> list[WebSearchResult]:
         payload = {
             "query": query, "numResults": max_results, "type": "auto",
-            "contents": {"text": {"maxCharacters": MAX_WEB_TEXT_CHARACTERS}},
+            "contents": {"text": {"maxCharacters": MAX_EXCERPT_CHARACTERS}},
+            "includeDomains": list(TRUSTED_SEARCH_DOMAINS),
         }
-        if self.include_domains:
-            payload["includeDomains"] = list(self.include_domains)
         request = urllib.request.Request(
             f"{self.base_url}/search",
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -88,8 +81,7 @@ class ExaSearchClient:
         return [
             WebSearchResult(
                 url=str(item["url"]), title=str(item.get("title") or ""),
-                text=str(item.get("text") or "")[:MAX_WEB_TEXT_CHARACTERS],
-                published_date=item.get("publishedDate"),
+                text=str(item.get("text") or "")[:MAX_EXCERPT_CHARACTERS],
             )
             for item in results if isinstance(item, dict) and item.get("url")
         ]
@@ -116,18 +108,14 @@ def is_trusted_official_url(url: str, domains: Sequence[str] = TRUSTED_SEARCH_DO
 class WebResearch:
     def __init__(
         self, *, client: WebSearchClient, corpus_chunks: Sequence[Chunk] = (),
-        max_pages: int = DEFAULT_MAX_PAGES,
     ) -> None:
         self._client = client
-        self._max_pages = max_pages
-        self._known: dict[str, tuple[str, str | None]] = {}
+        self._known: dict[str, str] = {}
         for chunk in corpus_chunks:
             if not chunk.source_url:
                 continue
             key = canonical_url(chunk.source_url)
-            previous = self._known.get(key)
-            if previous is None or (chunk.publish_date or "") > (previous[1] or ""):
-                self._known[key] = (chunk.source_id, chunk.publish_date)
+            self._known[key] = chunk.source_id
 
     def search(
         self, queries: Sequence[RetrievalQuery], facts: ReviewFacts | None = None,
@@ -137,33 +125,24 @@ class WebResearch:
         seen: set[str] = set()
         provider_error: WebSearchUnavailable | None = None
         for query in list(queries)[:MAX_QUERIES_PER_SEARCH]:
-            if len(findings) >= self._max_pages:
+            if len(findings) >= MAX_FINDINGS:
                 break
             try:
-                results = self._client.search(query.text, max_results=self._max_pages)
+                results = self._client.search(query.text, max_results=MAX_FINDINGS)
             except WebSearchUnavailable as exc:
                 provider_error = exc
                 continue
             for item in results:
-                if len(findings) >= self._max_pages:
+                if len(findings) >= MAX_FINDINGS:
                     break
                 key = canonical_url(item.url)
-                if key in seen or not is_trusted_official_url(item.url):
+                if key in seen:
                     continue
                 seen.add(key)
-                excerpt = item.text.strip()[:MAX_WEB_TEXT_CHARACTERS]
                 findings.append(WebFinding(
                     title=item.title or item.url, url=item.url,
-                    published_date=item.published_date, excerpt=excerpt,
-                    known_source_id=self._known[key][0] if key in self._known else None,
-                    refresh_needed=bool(
-                        key in self._known and item.published_date
-                        and (
-                            not self._known[key][1]
-                            or item.published_date[:10] > self._known[key][1][:10]
-                        )
-                    ),
-                    status="read" if excerpt else "discovered",
+                    excerpt=item.text.strip()[:MAX_EXCERPT_CHARACTERS],
+                    known_source_id=self._known.get(key),
                 ))
         if not findings and provider_error is not None:
             raise provider_error

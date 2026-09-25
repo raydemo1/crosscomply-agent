@@ -36,6 +36,7 @@ def test_agent_can_finish_without_fixed_intermediate_steps() -> None:
         rule={},
         decide=lambda _state, _rule: next(decisions),
         search=lambda _queries, _facts: [],
+        web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"review_result": {"risk_level": "insufficient_evidence"}},
         checkpoint=lambda current: checkpoints.append(current.model_copy(deep=True)),
     )
@@ -66,6 +67,7 @@ def test_agent_can_choose_multiple_retrieval_batches() -> None:
         rule={},
         decide=lambda _state, _rule: next(decisions),
         search=lambda queries, _facts: searched.extend(item.text for item in queries) or [],
+        web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"ok": True},
         checkpoint=lambda _state: None,
     )
@@ -87,6 +89,7 @@ def test_agent_pauses_and_resumes_from_human_input() -> None:
             question="境外接收方位于哪个国家或地区？",
         ),
         search=lambda _queries, _facts: [],
+        web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {},
         checkpoint=lambda _state: None,
     )
@@ -117,6 +120,7 @@ def test_agent_plan_is_visible_without_blocking_the_run() -> None:
         rule={},
         decide=lambda _state, _rule: next(decisions),
         search=lambda _queries, _facts: [],
+        web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"ok": True},
         checkpoint=lambda _state: None,
     )

@@ -156,7 +156,7 @@ export default function CaseDetailPage({
         setWorkflowError={setWorkflowError}
       />
 
-      {webFindings.some((item) => !item.known_source_id || item.refresh_needed) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>最新官方材料</strong><ul>{webFindings.filter((item) => !item.known_source_id || item.refresh_needed).map((item) => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {knowledgeRechecks.some((recheck) => recheck.url === item.url && recheck.recheck_status === 'pending') ? '已入库，案件待复核' : item.status === 'read' ? '已阅读网页摘录，暂不作为正式条款依据' : '已发现来源，正文待核验'}</span></li>)}</ul></div> : null}
+      {webFindings.some((item) => !item.known_source_id) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>最新官方材料</strong><ul>{webFindings.filter((item) => !item.known_source_id).map((item) => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {knowledgeRechecks.some((recheck) => recheck.url === item.url && recheck.recheck_status === 'pending') ? '已入库，案件待复核' : item.excerpt ? '已有搜索摘录，尚待治理核验' : '已发现来源，尚待治理核验'}</span></li>)}</ul></div> : null}
 
       {!failed ? <nav className="case-detail-views" aria-label="案件详情视图">
         <button type="button" className={detailView === 'document' ? 'is-active' : ''} aria-current={detailView === 'document' ? 'page' : undefined} onClick={() => setDetailView('document')}>原文审阅</button>

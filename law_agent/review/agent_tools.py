@@ -13,7 +13,7 @@ from law_agent.config import (
     load_rerank_config,
     require_service_config,
 )
-from law_agent.review.agent import AgentState
+from law_agent.review.agent import AgentState, web_findings_from_steps
 from law_agent.review.citations import group_citations
 from law_agent.review.evidence import run_self_check
 from law_agent.review.ids import make_id
@@ -275,8 +275,8 @@ class ComplianceAgentTools:
         rule_snapshot: dict[str, Any],
     ) -> dict[str, Any]:
         finding_urls = {
-            canonical_url(item.url) for item in state.web_findings
-            if item.known_source_id is None or item.refresh_needed
+            canonical_url(item.url) for item in web_findings_from_steps(state)
+            if item.known_source_id is None
         }
         if draft.web_impact == "none" and draft.material_web_urls:
             raise ValueError("web_impact=none 时 material_web_urls 必须为空列表")
@@ -286,16 +286,16 @@ class ComplianceAgentTools:
                 "请填 web_impact=none、material_web_urls=[]"
             )
         if any(canonical_url(url) not in finding_urls for url in draft.material_web_urls):
-            eligible = [item.url for item in state.web_findings
+            eligible = [item.url for item in web_findings_from_steps(state)
                         if canonical_url(item.url) in finding_urls]
             raise ValueError(
-                "material_web_urls 只能包含尚未入库或确有更新的官方材料 URL。"
+                "material_web_urls 只能包含尚未入库的官方材料 URL。"
                 f"本次可选 URL：{eligible}。若列表为空，请填 web_impact=none、"
                 "material_web_urls=[]；已入库材料请用正式检索结果引用"
             )
         if draft.web_impact == "core" and draft.risk_level != "insufficient_evidence":
             raise ValueError("可能改变核心法律路径的新法源尚未核验，必须暂缓确定结论")
-        primary_evidence = [hit for hit in state.evidence if hit.rank >= 0 and hit.retriever != "web"]
+        primary_evidence = [hit for hit in state.evidence if hit.rank >= 0]
         representatives = source_aware_fuse(
             primary_evidence,
             top_k=self._top_k,
@@ -366,7 +366,7 @@ class ComplianceAgentTools:
                 item.model_dump(mode="json") for item in source_packets
             ],
             "rule_snapshot": rule_snapshot,
-            "web_findings": [item.model_dump(mode="json") for item in state.web_findings],
+            "web_findings": [item.model_dump(mode="json") for item in web_findings_from_steps(state)],
             "web_impact": draft.web_impact,
             "material_web_urls": draft.material_web_urls,
             "freshness_hold": draft.web_impact == "core",

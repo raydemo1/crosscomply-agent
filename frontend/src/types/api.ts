@@ -66,9 +66,7 @@ export type RetrieverName =
   | 'vector_mock'
   | 'hybrid'
   | 'elasticsearch'
-  | 'pgvector'
-  /** 受控 Web 调查读到的官方网页正文段落。 */
-  | 'web';
+  | 'pgvector';
 
 /** Evaluation retrieval backend under test. */
 export type EvalRetrievalMode = 'service' | 'local';
@@ -371,11 +369,8 @@ export interface ReviewResponse {
   web_findings?: Array<{
     title: string;
     url: string;
-    published_date: string | null;
     excerpt: string;
-    status: 'read' | 'discovered';
     known_source_id: string | null;
-    refresh_needed: boolean;
   }>;
   web_impact?: 'none' | 'supplement' | 'execution_detail' | 'core';
   freshness_hold?: boolean;

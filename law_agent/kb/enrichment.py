@@ -83,20 +83,20 @@ class PostgresEnrichmentStore:
         self.dsn = dsn
 
     def enqueue(self, finding: WebFinding, *, case_id: str, review_task_id: str) -> str | None:
-        if (finding.known_source_id and not finding.refresh_needed) or not is_trusted_official_url(finding.url):
+        if finding.known_source_id or not is_trusted_official_url(finding.url):
             return None
         key = canonical_url(finding.url)
         candidate_hash = hashlib.sha256(
-            ((finding.published_date or "") + "\x1f" + finding.excerpt).encode("utf-8")
+            (finding.title + "\x1f" + finding.excerpt).encode("utf-8")
         ).hexdigest()
         with psycopg.connect(self.dsn) as conn, conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 """INSERT INTO knowledge_enrichment_jobs
-                   (id, canonical_url, candidate_hash, url, title, excerpt, published_date)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)
+                   (id, canonical_url, candidate_hash, url, title, excerpt)
+                   VALUES (%s, %s, %s, %s, %s, %s)
                    ON CONFLICT (canonical_url, candidate_hash) DO UPDATE SET updated_at = now()
                    RETURNING id""",
-                (f"enrich_{uuid4().hex}", key, candidate_hash, finding.url, finding.title, finding.excerpt, finding.published_date),
+                (f"enrich_{uuid4().hex}", key, candidate_hash, finding.url, finding.title, finding.excerpt),
             )
             job_id = cur.fetchone()["id"]
             cur.execute(

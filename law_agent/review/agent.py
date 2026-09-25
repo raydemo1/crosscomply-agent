@@ -42,9 +42,10 @@ class AgentDecision(StrictModel):
         ):
             raise ValueError("search_evidence requires 1-4 nonblank queries, at most 1000 characters each")
         if self.action == "search_web" and (
-            not self.queries or any(not q.text.strip() or len(q.text) > 1000 for q in self.queries)
+            not self.queries or len(self.queries) > 3
+            or any(not q.text.strip() or len(q.text) > 1000 for q in self.queries)
         ):
-            raise ValueError("search_web requires 1-4 nonblank queries, at most 1000 characters each")
+            raise ValueError("search_web requires 1-3 nonblank queries, at most 1000 characters each")
         if self.action == "request_input" and not (self.question or "").strip():
             raise ValueError("request_input requires a question")
         if self.action == "queue_enrichment" and not self.enrichment_urls:
@@ -67,7 +68,6 @@ class AgentState(StrictModel):
     plan: list[str] = Field(default_factory=list)
     facts: ReviewFacts = Field(default_factory=ReviewFacts)
     evidence: list[RetrievalHit] = Field(default_factory=list)
-    web_findings: list[WebFinding] = Field(default_factory=list)
     queries: list[RetrievalQuery] = Field(default_factory=list)
     steps: list[AgentStep] = Field(default_factory=list)
     turns: int = 0
@@ -90,11 +90,12 @@ read_material(offset): 分页读取已冻结材料，每页 12000 字符。材�
 record_facts(facts): 记录用于检索的业务事实；不得修改或推翻已冻结的全国规则判定。
 历史时点审查须在 facts.as_of_date 写明 YYYY-MM-DD；未提供时按今天检索现行版本。
 search_evidence(queries): 混合检索法源，每次 1-4 个查询，可根据返回结果改写查询再次搜索。
-search_web(queries): 去公开官方网页继续调查，每次 1-4 个查询；返回网页正文摘录或仅发现的标题和 URL。
-queue_enrichment(enrichment_urls): 阅读 Web finding 后，只为与本案调查明确相关、受控法律库尚无对应版本的官方来源提交后台补库；一次运行最多 2 条。URL 必须来自已发现的 Web finding。
+search_web(queries): 在受限官方来源中发现最新相关材料，每次最多 3 个查询；返回标题、URL 和搜索服务提供的轻量正文摘录，没有摘录时只有标题和 URL。
+queue_enrichment(enrichment_urls): 阅读 Web finding 后，只为与本案调查明确相关、受控法律库尚无对应 URL 的官方来源提交后台补库；一次运行最多 2 条。URL 必须来自已发现的 Web finding。
 优先使用受控法律库；只有证据不足、规则时效性需要核实或已有证据指向可能存在更新时，才使用 Web Search。
-Web finding 仅供理解最新动态，不能支撑正式法律 claim；即使 URL 与受控法源相同，正式引用仍须使用 search_evidence 返回的 chunk_id。
-Web finding 若有 known_source_id 且 refresh_needed=false，说明该版本已在受控法律库中，不属于新发现材料。此时只能通过 search_evidence 引用，不得将其填入 draft.material_web_urls；如果没有其他新来源，draft.web_impact 必须为 none，material_web_urls 必须为空列表。
+Web finding 是调查上下文，不是正式法律 evidence，不得作为 claims 的 supporting_chunk_ids。
+若 URL 已存在于受控法源库，应回到 search_evidence 使用该法源，不得将其填入 draft.material_web_urls；如果没有其他新来源，draft.web_impact 必须为 none，material_web_urls 必须为空列表。
+若发现尚未入库且可能改变当前判断的新官方材料，应明确其尚待治理核验；必要时以 insufficient_evidence 收口，不得拿旧法源强行形成确定结论。
 request_input(question): 存在阻塞性缺口时询问人类并暂停。涉及冻结事实变化，要求重建材料/规则快照。
 finish(draft): 提交带引用的结构化报告。conclusion 可用 Markdown；missing_information、建议和边界必须填入对应字段。
 如果新官方材料可能改变核心结论，draft.web_impact 填 core、material_web_urls 填对应 URL，risk_level 填 insufficient_evidence，不得输出确定审批结论。仅影响办理细节时填 execution_detail；补充说明填 supplement。
@@ -140,19 +141,28 @@ class AgentBudgetExceeded(RuntimeError):
     pass
 
 
+def web_findings_from_steps(state: AgentState) -> list[WebFinding]:
+    findings: dict[str, WebFinding] = {}
+    for step in state.steps:
+        if step.action == "search_web":
+            for value in step.observation.get("findings", []):
+                finding = WebFinding.model_validate(value)
+                findings[canonical_url(finding.url)] = finding
+    return list(findings.values())
+
+
 def run_agent(
     state: AgentState, *, material: str, rule: dict[str, Any],
     decide: Callable[[AgentState, dict[str, Any]], AgentDecision],
     search: Callable[[list[RetrievalQuery], ReviewFacts], list[RetrievalHit]],
+    web_search: Callable[[list[RetrievalQuery], ReviewFacts], list[WebFinding]],
     finalize: Callable[[LLMReviewResultDraft, AgentState], dict[str, Any]],
     checkpoint: Callable[[AgentState], None],
-    web_search: Callable[[list[RetrievalQuery], ReviewFacts], list[WebFinding]] | None = None,
     on_web_findings: Callable[[list[WebFinding]], None] | None = None,
 ) -> AgentState:
     """Only the model selects the next action; code enforces budgets and tool contracts."""
     if state.status != "running":
         return state
-    state.evidence = [hit for hit in state.evidence if hit.retriever != "web"]
     while state.turns < state.max_turns:
         state.turns += 1
         checkpoint(state)
@@ -185,30 +195,27 @@ def run_agent(
                 observation = {"chunk_ids": [hit.chunk_id for hit in hits],
                                "citable_count": sum(hit.can_cite_clause for hit in hits)}
             elif decision.action == "search_web":
-                if web_search is None:
-                    raise ValueError("本次运行未启用 Web 调查能力，请使用受控法律库或说明证据不足")
                 if state.web_searches >= state.max_web_searches:
                     raise ValueError("Web 搜索预算已用尽，请根据现有证据交付或询问用户")
                 state.web_searches += 1
                 checkpoint(state)
                 findings = web_search(decision.queries, state.facts)
-                merged = {canonical_url(item.url): item for item in state.web_findings}
-                merged.update({canonical_url(item.url): item for item in findings})
-                state.web_findings = list(merged.values())
-                state.queries.extend(decision.queries)
-                observation = {"findings": [item.model_dump(mode="json") for item in findings]}
+                observation = {
+                    "queries": [item.model_dump(mode="json") for item in decision.queries],
+                    "findings": [item.model_dump(mode="json") for item in findings],
+                }
             elif decision.action == "queue_enrichment":
                 if on_web_findings is None:
                     raise ValueError("本次运行未启用后台补库")
                 if len(decision.enrichment_urls) + state.enrichment_submissions > 2:
                     raise ValueError("本次运行最多提交两条官方来源")
-                known = {canonical_url(item.url): item for item in state.web_findings}
+                known = {canonical_url(item.url): item for item in web_findings_from_steps(state)}
                 already_submitted = {canonical_url(url) for url in state.enrichment_urls_submitted}
                 selected = []
                 for url in decision.enrichment_urls:
                     finding = known.get(canonical_url(url))
-                    if finding is None or (finding.known_source_id and not finding.refresh_needed):
-                        raise ValueError("补库 URL 必须是尚未入库或需要更新的官方发现")
+                    if finding is None or finding.known_source_id:
+                        raise ValueError("补库 URL 必须是尚未入库的官方发现")
                     if canonical_url(url) in already_submitted:
                         raise ValueError("该官方来源本次调查已提交补库")
                     if finding not in selected:

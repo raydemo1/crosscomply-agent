@@ -297,6 +297,7 @@ def test_agent_can_retry_after_finalizer_rejects_an_issue() -> None:
         rule={},
         decide=lambda _state, _rule: next(decisions),
         search=lambda _queries, _facts: [],
+        web_search=lambda _queries, _facts: [],
         finalize=finalize,
         checkpoint=lambda _state: None,
     )

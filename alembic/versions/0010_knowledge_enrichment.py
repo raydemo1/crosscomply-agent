@@ -9,8 +9,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "0010_knowledge_enrichment"
 down_revision: str | None = "0009_review_task_superseded"
@@ -34,7 +35,6 @@ def upgrade() -> None:
         sa.Column("url", sa.Text(), nullable=False),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("excerpt", sa.Text(), nullable=False, server_default=""),
-        sa.Column("published_date", sa.Text()),
         sa.Column("status", sa.Text(), nullable=False, server_default="queued"),
         sa.Column("source_json", postgresql.JSONB()),
         sa.Column("source_id", sa.Text()),
