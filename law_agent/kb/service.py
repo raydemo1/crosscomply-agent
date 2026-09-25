@@ -19,8 +19,10 @@ from pathlib import Path
 from typing import Literal, Protocol
 from uuid import uuid4
 
-from law_agent.data.chunking.pipeline import republish_source_metadata
+from law_agent.data.chunking.pipeline import CHUNKING_VERSION, republish_source_metadata
+from law_agent.data.cleaners.common import CLEANING_VERSION
 from law_agent.data.io import read_jsonl, read_manifest, write_jsonl, write_manifest
+from law_agent.data.normalize import PARSER_PIPELINE_VERSION
 from law_agent.data.schemas import Chunk, SourceRecord
 from law_agent.review.retrieval.text import normalize_text
 
@@ -35,13 +37,19 @@ def normalized_content_hash(text: str) -> str:
 
 def processing_signature(
     *,
-    parser_version: str = "0.1.0",
-    cleaning_version: str = "legal-cleaning-v2",
-    chunking_version: str = "legal-structure-v2",
+    parser_version: str = PARSER_PIPELINE_VERSION,
+    cleaning_version: str = CLEANING_VERSION,
+    chunking_version: str = CHUNKING_VERSION,
     embedding_model: str = "unknown",
     embedding_dimension: int = 0,
 ) -> str:
-    """Fingerprint the transformations that make cached vectors compatible."""
+    """Fingerprint the transformations that make cached vectors compatible.
+
+    The three defaults are the live pipeline versions rather than private
+    copies, so a change to parsing, cleaning or chunking invalidates every
+    cached vector by construction instead of by remembering to bump a constant
+    here as well.
+    """
 
     payload = {
         "parser": parser_version,

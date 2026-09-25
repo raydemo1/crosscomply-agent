@@ -11,13 +11,15 @@ dependencies = [
   "python-multipart>=0.0.9",
   "pwdlib[argon2]>=0.2",
   "uvicorn[standard]>=0.29",
+  # Reading a PDF's embedded text layer is the first step of every PDF parse,
+  # so it is a runtime dependency rather than a test-only one.
+  "pypdf>=5.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
   "httpx2>=2.0.0",
-  "pypdf>=5.0",
 ]
 service = [
   "alembic>=1.13",

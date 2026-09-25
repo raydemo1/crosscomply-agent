@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from law_agent.data.cleaners.common import CLEANING_VERSION
+
 DocType = Literal[
     "law",
     "regulation",
@@ -162,11 +164,21 @@ class Attachment(StrictModel):
 
 
 class IngestMeta(StrictModel):
-    """Trace metadata for how a document was fetched and parsed."""
+    """Trace metadata for how a document was fetched and parsed.
+
+    ``strategy`` records which route the parser took (embedded text layer, a
+    structured re-parse, or an OCR fallback) so a published body can be traced
+    back to the decision that produced it. ``quality_status`` and
+    ``quality_issues`` carry the ingestion gate's verdict.
+    """
 
     fetched_at: str
     parser: str
     parser_version: str
+    ocr_used: bool = False
+    strategy: str | None = None
+    quality_status: str | None = None
+    quality_issues: list[str] = Field(default_factory=list)
 
 
 class Document(StrictModel):
@@ -209,7 +221,9 @@ class Document(StrictModel):
 class CleanedDocument(Document):
     """Document after deterministic cleaning."""
 
-    cleaning_version: str = "0.1.0"
+    # Shares the cleaner's own version so a cleaned body and the processing
+    # signature can never disagree about which rules produced it.
+    cleaning_version: str = CLEANING_VERSION
     cleaning_rule_hits: dict[str, int] = Field(default_factory=dict)
 
 

@@ -21,9 +21,8 @@ from uuid import uuid4
 import psycopg
 
 from law_agent.config import require_service_config
-from law_agent.data.chunking.pipeline import chunk_document
 from law_agent.data.schemas import SourceRecord
-from law_agent.kb.ingestion import prepare_document_for_ingest
+from law_agent.kb.ingestion import prepare_chunks_for_publish, prepare_document_for_ingest
 from law_agent.kb.service import (
     InMemoryIndex,
     KnowledgeBase,
@@ -209,7 +208,7 @@ class KnowledgeBaseAdminService:
                     "topic_tags": source.topic_tags,
                 }
             )
-            chunks = chunk_document(final_document)
+            chunks = prepare_chunks_for_publish(final_document)
             config = require_service_config()
             index = ServiceGenerationIndex(config)
             try:

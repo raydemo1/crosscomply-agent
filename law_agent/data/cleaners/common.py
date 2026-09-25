@@ -5,6 +5,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+# Bumped whenever a rule below changes the text a source is published with.
+# ``CleanedDocument.cleaning_version`` and the knowledge-base processing
+# signature both read this, so the cache can never claim compatibility with a
+# body this pipeline would no longer produce.
+CLEANING_VERSION = "legal-cleaning-v3"
+
 CONTROL_CHARS_RE = re.compile(r"[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]")
 TRAILING_SPACE_RE = re.compile(r"[ \t]+\n")
 BLANK_LINES_RE = re.compile(r"\n{3,}")
@@ -24,7 +30,25 @@ FRONT_MATTER_BODY_RE = re.compile(r"^(?:#{1,6}\s+)?(前\s*言|引\s*言)\b")
 ISOLATED_NUMBER_LINE_RE = re.compile(r"^\d+(?:\.\d+){0,4}$")
 # PDF character-spacing artifact: "D a t a s e c u r i t y" (single letters spaced out).
 # Captures the preceding boundary char (group 1) + the spaced letter run (group 2).
-SPACED_LATIN_RE = re.compile(r"(^|[^\w])([a-zA-Z](?:\s[a-zA-Z]){4,})")
+# Three consecutive single-letter tokens is already outside English prose, so the
+# run threshold matches the artifact detector in ``law_agent.data.quality``.
+SPACED_LATIN_RE = re.compile(r"(^|[^\w])([a-zA-Z](?:\s[a-zA-Z]){2,})")
+# Digit-spacing artifact: "GB / T 4 3 6 9 7 - 2 0 2 4". A run of three or more
+# single digits separated by spaces is never how a number is written, so the
+# run can be re-joined without guessing at legal meaning.
+SPACED_DIGIT_RUN_RE = re.compile(r"\d(?:[ \u3000]\d){2,}")
+# Identifier slash spacing: "GB / T" and "SAC / TC260". The canonical form has
+# no space around the slash; a space on either side is parser damage.
+IDENTIFIER_SLASH_SPACE_RE = re.compile(
+    r"(?<=[A-Za-z0-9])[ \u3000]+/(?=[A-Za-z0-9])|(?<=[A-Za-z0-9])/[ \u3000]+(?=[A-Za-z0-9])"
+)
+# Chinese punctuation and book-title brackets never carry surrounding spaces;
+# "《 中华人民共和国数据安全法 》" and "， 应当" are Latin spacing applied to CJK
+# text. Full-width dashes are deliberately excluded: they are legitimate word
+# separators in English sentences.
+CJK_PUNCTUATION = "，。、；：？！《》〈〉「」『』【】〔〕（）"
+CJK_PUNCT_LEADING_SPACE_RE = re.compile(rf"[ \u3000]+([{CJK_PUNCTUATION}])")
+CJK_PUNCT_TRAILING_SPACE_RE = re.compile(rf"([{CJK_PUNCTUATION}])[ \u3000]+")
 WEB_BOILERPLATE_PATTERNS = [
     re.compile(pattern)
     for pattern in [
@@ -108,6 +132,10 @@ def _is_toc_line(stripped: str) -> bool:
 def _is_body_start(stripped: str) -> bool:
     """True if a stripped line signals the end of a TOC block (real body).."""
     if not stripped:
+        return False
+    # A contents entry repeats the body heading it points at ("前言 …… Ⅲ"), so
+    # leader characters mean this is still the contents, not the body it names.
+    if DOT_LEADER_BROAD_RE.search(stripped):
         return False
     if FRONT_MATTER_BODY_RE.match(stripped):
         return True
@@ -291,6 +319,15 @@ def _fix_spaced_latin(lines: list[str]) -> tuple[list[str], int]:
     return result, fixed_count
 
 
+def _collapse_spaced_digit_runs(text: str) -> tuple[str, int]:
+    """Re-join digit runs a parser split character by character."""
+
+    def _join(match: re.Match[str]) -> str:
+        return re.sub(r"[ \u3000]", "", match.group(0))
+
+    return SPACED_DIGIT_RUN_RE.subn(_join, text)
+
+
 def _merge_isolated_number_lines(lines: list[str]) -> tuple[list[str], int]:
     """Merge bare clause-number lines (e.g. "3.2") into the following heading line.
 
@@ -368,6 +405,20 @@ def clean_text(text: str, *, title: str | None = None) -> CleanResult:
     lines, count = _fix_spaced_latin(lines)
     hits["spaced_latin"] = count
     text = "\n".join(lines)
+
+    # Narrow typographic repairs for parser/OCR spacing. Deliberately limited
+    # to positions where a space can never carry meaning: around Chinese
+    # punctuation, around an identifier slash, and inside a digit run. Legal
+    # substance is never reinterpreted here — choosing a better parser is the
+    # primary fix, this only stops known damage from reaching the index.
+    text, count = _apply_counted_sub(CJK_PUNCT_LEADING_SPACE_RE, r"\1", text)
+    hits["cjk_punct_leading_space"] = count
+    text, count = _apply_counted_sub(CJK_PUNCT_TRAILING_SPACE_RE, r"\1", text)
+    hits["cjk_punct_trailing_space"] = count
+    text, count = _apply_counted_sub(IDENTIFIER_SLASH_SPACE_RE, "/", text)
+    hits["identifier_slash_space"] = count
+    text, count = _collapse_spaced_digit_runs(text)
+    hits["spaced_digit_runs"] = count
 
     # Merge isolated clause-number lines into following heading lines.
     lines = text.split("\n")

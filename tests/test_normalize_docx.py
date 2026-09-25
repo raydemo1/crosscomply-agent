@@ -87,9 +87,11 @@ def test_auto_parser_routes_pdf_to_docling(tmp_path: Path, monkeypatch) -> None:
     raw_path = tmp_path / "upload_001.pdf"
     raw_path.write_bytes(b"%PDF-1.4")
 
-    def fake_docling(path: Path) -> ParsedText:
+    def fake_docling(path: Path, *, ocr: bool, strategy: str | None = None) -> ParsedText:
         assert path == raw_path
-        return ParsedText("第一条 合同目的。", "docling_parser", "test")
+        # No readable text layer in ``b"%PDF-1.4"``, so OCR is the only read.
+        assert ocr is True
+        return ParsedText("第一条 合同目的。", "docling_parser", "test", ocr_used=ocr)
 
     monkeypatch.setattr(normalize_module, "_docling_to_text", fake_docling)
 
@@ -97,6 +99,7 @@ def test_auto_parser_routes_pdf_to_docling(tmp_path: Path, monkeypatch) -> None:
 
     assert document.text == "第一条 合同目的。"
     assert document.ingest_meta.parser == "docling_parser"
+    assert document.ingest_meta.ocr_used is True
 
 
 def test_mineru_parser_runs_cli_and_reads_markdown(tmp_path: Path, monkeypatch) -> None:

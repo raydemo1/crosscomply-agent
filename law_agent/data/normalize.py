@@ -8,15 +8,16 @@ import re
 import shutil
 import subprocess
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from html import escape, unescape
 from importlib.metadata import PackageNotFoundError, version
 from io import BytesIO
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from xml.etree import ElementTree as ET
 
+from law_agent.data.quality import evaluate_text, is_degraded
 from law_agent.data.schemas import Document, IngestMeta, SourceRecord
 
 HTML_TAG_RE = re.compile(r"<[^>]+>")
@@ -26,9 +27,13 @@ BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
 CELL_OPEN_RE = re.compile(r"<(td|th)[^>]*>", re.IGNORECASE)
 CELL_CLOSE_RE = re.compile(r"</(td|th)\s*>", re.IGNORECASE)
 WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-ParserEngine = Literal["auto", "plain", "docx", "docling", "mineru"]
+ParserEngine = Literal["auto", "plain", "docx", "docling", "mineru", "pdf_text"]
 DOC_PARSER_FORMATS = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 DEFAULT_DOCLING_ARTIFACTS_PATH = Path("data/models/docling")
+# Bumped whenever the routing below changes what a source is parsed from.
+# ``processing_signature`` reads it so a cached vector can never claim
+# compatibility with a body this pipeline would no longer produce.
+PARSER_PIPELINE_VERSION = "auto-text-first-v1"
 
 
 def _html_to_text(raw: str) -> str:
@@ -59,6 +64,8 @@ class ParsedText:
     text: str
     parser: str
     parser_version: str
+    ocr_used: bool = False
+    strategy: str = "direct"
 
 
 def _package_version(*distribution_names: str) -> str:
@@ -77,33 +84,123 @@ def _read_text(
 ) -> ParsedText:
     suffix = path.suffix.lower()
     if parser == "docling":
-        return _docling_to_text(path)
+        return _docling_to_text(path, ocr=True)
     if parser == "mineru":
         return _mineru_to_text(path, parser_output_dir=parser_output_dir)
+    if parser == "pdf_text":
+        if suffix != ".pdf":
+            raise RuntimeError(f"pdf_text parser cannot parse {suffix or 'extensionless'} files")
+        return _pdf_native_text(path)
     if parser == "docx":
         if suffix != ".docx":
             raise RuntimeError(f"docx parser cannot parse {suffix or 'extensionless'} files")
-        return ParsedText(_docx_to_text(path.read_bytes()), "docx_parser", "0.1.0")
+        return ParsedText(_docx_to_text(path.read_bytes()), "docx_parser", "0.1.0", strategy="docx")
     if parser == "plain":
         return ParsedText(
-            path.read_text(encoding="utf-8", errors="replace"), "plain_text_parser", "0.1.0"
+            path.read_text(encoding="utf-8", errors="replace"),
+            "plain_text_parser",
+            "0.1.0",
+            strategy="plain",
         )
     if suffix == ".json":
         data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
-        return ParsedText(_json_to_text(data), "json_parser", "0.1.0")
+        return ParsedText(_json_to_text(data), "json_parser", "0.1.0", strategy="json")
     if suffix == ".docx":
-        return ParsedText(_docx_to_text(path.read_bytes()), "docx_parser", "0.1.0")
+        return ParsedText(_docx_to_text(path.read_bytes()), "docx_parser", "0.1.0", strategy="docx")
     if suffix in {".html", ".htm"}:
         raw = path.read_text(encoding="utf-8", errors="replace")
-        return ParsedText(_html_to_text(raw), "html_text_parser", "0.1.0")
+        return ParsedText(_html_to_text(raw), "html_text_parser", "0.1.0", strategy="html")
+    if suffix == ".pdf":
+        return _pdf_to_text(path)
     if suffix in DOC_PARSER_FORMATS:
-        return _docling_to_text(path)
+        # A raster image has no text layer to prefer: OCR is the only read.
+        return _docling_to_text(path, ocr=True)
     return ParsedText(
-        path.read_text(encoding="utf-8", errors="replace"), "plain_text_parser", "0.1.0"
+        path.read_text(encoding="utf-8", errors="replace"),
+        "plain_text_parser",
+        "0.1.0",
+        strategy="plain",
     )
 
 
-def _docling_to_text(path: Path) -> ParsedText:
+def _pdf_native_text(path: Path) -> ParsedText:
+    """Read a PDF's embedded text layer without layout models or OCR."""
+
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:
+        raise RuntimeError(
+            "Reading a PDF text layer requires pypdf: `pip install pypdf`."
+        ) from exc
+    reader = PdfReader(str(path))
+    pages = [(page.extract_text() or "").strip() for page in reader.pages]
+    return ParsedText(
+        text="\n\n".join(page for page in pages if page),
+        parser="pdf_text_parser",
+        parser_version=_package_version("pypdf"),
+        strategy="native_text",
+    )
+
+
+def _pdf_native_text_or_empty(path: Path) -> ParsedText:
+    """Read the embedded text layer, treating any read failure as "no text".
+
+    A damaged or image-only PDF makes pypdf raise; that is exactly the case
+    where OCR has to take over, so the failure is reported as an empty layer
+    rather than propagated.
+    """
+
+    try:
+        return _pdf_native_text(path)
+    except Exception:  # noqa: BLE001 - an unreadable layer means "use OCR"
+        return ParsedText(
+            text="",
+            parser="pdf_text_parser",
+            parser_version=_package_version("pypdf"),
+            strategy="native_text_unreadable",
+        )
+
+
+def _pdf_to_text(path: Path) -> ParsedText:
+    """Parse a PDF text-first, reaching for OCR only when there is no text.
+
+    Docling's PDF backend re-derives spacing from glyph positions, which turns
+    ``GB/T 43697—2024`` into ``GB / T 4 3 6 9 7 - 2 0 2 4`` even with OCR
+    switched off. The embedded text layer has no such step, so it is the
+    baseline: a structured re-parse is used only when it is not worse, and OCR
+    runs only when the layer is missing or unusable.
+    """
+
+    native = _pdf_native_text_or_empty(path)
+    native_quality = evaluate_text(native.text)
+    if native_quality.status == "fail":
+        return _docling_to_text(path, ocr=True, strategy="docling_ocr")
+
+    if _docling_available():
+        try:
+            structured = _docling_to_text(path, ocr=False, strategy="docling_no_ocr")
+        except Exception:  # noqa: BLE001 - a usable text layer already exists
+            return replace(native, strategy="native_text_fallback")
+        if not is_degraded(evaluate_text(structured.text), native_quality):
+            return structured
+        return replace(native, strategy="native_text_fallback")
+    return native
+
+
+def _docling_available() -> bool:
+    try:
+        import docling  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def _docling_to_text(
+    path: Path,
+    *,
+    ocr: bool,
+    strategy: str | None = None,
+) -> ParsedText:
     try:
         from docling.datamodel.base_models import InputFormat
         from docling.datamodel.pipeline_options import (
@@ -117,21 +214,24 @@ def _docling_to_text(path: Path) -> ParsedText:
             'install with `pip install -e ".[docling]"` or `uv pip install -U docling`.'
         ) from exc
     ocr_engine = _docling_ocr_engine()
-    artifacts_path = _docling_artifacts_path(ocr_engine=ocr_engine)
+    artifacts_path = _docling_artifacts_path(ocr_engine=ocr_engine if ocr else None)
     # Use TableFormerV2 explicitly. docling's default table_structure_options
     # is TableStructureOptions (V1), which expects the legacy
     # ``docling-project--docling-models/model_artifacts/tableformer`` layout.
     # TableFormerV2 (``docling-project--TableFormerV2``) is the current model
     # and the one we ship in the artifacts directory.
-    pipeline_options = PdfPipelineOptions(
-        artifacts_path=artifacts_path,
-        do_ocr=True,
-        ocr_options=_docling_ocr_options(ocr_engine),
-        do_table_structure=_docling_tableformer_available(artifacts_path),
-        table_structure_options=TableStructureV2Options(),
-    )
+    pipeline_kwargs: dict[str, Any] = {
+        "artifacts_path": artifacts_path,
+        "do_ocr": ocr,
+        "do_table_structure": _docling_tableformer_available(artifacts_path),
+        "table_structure_options": TableStructureV2Options(),
+    }
+    if ocr:
+        pipeline_kwargs["ocr_options"] = _docling_ocr_options(ocr_engine)
     converter = DocumentConverter(
-        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=PdfPipelineOptions(**pipeline_kwargs))
+        }
     )
 
     # Docling's converter is configured for the PDF pipeline only. Standalone
@@ -154,6 +254,8 @@ def _docling_to_text(path: Path) -> ParsedText:
         text=result.document.export_to_markdown(),
         parser="docling_parser",
         parser_version=_package_version("docling"),
+        ocr_used=ocr,
+        strategy=strategy or ("docling_ocr" if ocr else "docling_no_ocr"),
     )
 
 
@@ -242,7 +344,12 @@ def _csv_env(name: str, default: list[str]) -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
-def _docling_artifacts_path(ocr_engine: str = "rapidocr") -> Path | None:
+def _docling_artifacts_path(ocr_engine: str | None = "rapidocr") -> Path | None:
+    """Locate the local Docling model directory.
+
+    ``ocr_engine=None`` means the caller runs without OCR, so the RapidOCR
+    bundle is not required and must not veto an otherwise usable directory.
+    """
     configured = os.environ.get("LAWAGENT_DOCLING_ARTIFACTS_PATH")
     if configured is not None:
         configured = configured.strip()
@@ -471,5 +578,7 @@ def normalize_source(
             fetched_at=datetime.now(UTC).isoformat(),
             parser=parsed.parser,
             parser_version=parsed.parser_version,
+            ocr_used=parsed.ocr_used,
+            strategy=parsed.strategy,
         ),
     )

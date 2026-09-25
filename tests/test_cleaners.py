@@ -107,7 +107,10 @@ def test_clean_text_removes_dot_leader_toc_but_keeps_front_matter_body() -> None
     assert "................................................................" not in result.text
     assert "前言\n本文件按照 GB/T 1.1 的规定起草。" in result.text
     assert "引言\n本文件用于指导数据分类分级工作。" in result.text
-    assert result.rule_hits["dot_leader_toc_lines"] == 3
+    # The entries repeat the headings they point at, so the whole block is
+    # consumed here — "前言 …… III" must not read as the body start.
+    assert "目次" not in result.text
+    assert result.rule_hits["contents_table_lines"] == 4
 
 
 def test_clean_text_removes_standard_toc_block_with_table_dividers() -> None:

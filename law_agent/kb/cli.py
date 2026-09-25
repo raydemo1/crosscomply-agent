@@ -11,9 +11,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from law_agent.config import require_service_config
-from law_agent.data.chunking.pipeline import chunk_document
 from law_agent.data.schemas import SourceRecord
-from law_agent.kb.ingestion import prepare_document_for_ingest
+from law_agent.kb.ingestion import prepare_chunks_for_publish, prepare_document_for_ingest
 from law_agent.kb.service import InMemoryIndex, KnowledgeBase, SourceSummary, processing_signature
 from law_agent.kb.service_index import ServiceGenerationIndex
 from law_agent.llm.embeddings import build_embeddings_provider
@@ -233,7 +232,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
                 "issuing_body": source.issuing_body,
             }
         )
-        chunks = chunk_document(final_document)
+        chunks = prepare_chunks_for_publish(final_document)
         result = kb.ingest_prepared(source, final_document.text, chunks, raw_file=file_path)
         print(
             f"{result.action}: {source.title} ({source.source_id}); "

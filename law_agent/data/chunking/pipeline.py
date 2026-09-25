@@ -9,6 +9,10 @@ from law_agent.data.schemas import Chunk, Document, SourceRecord
 
 MIN_STANDALONE_CHUNK_CHARS = 20
 MAX_MERGED_CHUNK_CHARS = 650
+# Bumped whenever the splits below change the chunks a source is published
+# with. ``processing_signature`` reads it so cached vectors cannot outlive the
+# layout they were embedded for.
+CHUNKING_VERSION = "legal-structure-v2"
 
 
 def chunk_document(document: Document) -> list[Chunk]:

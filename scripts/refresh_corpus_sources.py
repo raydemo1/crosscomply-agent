@@ -23,10 +23,9 @@ import sys
 from pathlib import Path
 
 from law_agent.config import require_service_config
-from law_agent.data.chunking.pipeline import chunk_document
 from law_agent.data.io import read_manifest
 from law_agent.data.schemas import SourceRecord
-from law_agent.kb.ingestion import prepare_document_for_ingest
+from law_agent.kb.ingestion import prepare_chunks_for_publish, prepare_document_for_ingest
 from law_agent.kb.service import InMemoryIndex, KnowledgeBase, processing_signature
 from law_agent.kb.service_index import ServiceGenerationIndex
 from law_agent.llm.embeddings import build_embeddings_provider
@@ -125,10 +124,11 @@ def _run_operation(
             "topic_tags": source.topic_tags,
         }
     )
+    chunks = prepare_chunks_for_publish(final_document)
     result = kb.ingest_prepared(
         source,
         final_document.text,
-        chunk_document(final_document),
+        chunks,
         raw_file=raw_path,
     )
     return f"{result.action}: 新增向量 {result.embedded_chunks}，缓存命中 {result.cached_chunks}"
