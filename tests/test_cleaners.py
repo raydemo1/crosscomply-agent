@@ -247,3 +247,16 @@ def test_clean_text_removes_pdf_cover_ocr_fragments() -> None:
     assert "Cyber" not in result.text
     assert "\n委\n" not in result.text
     assert result.rule_hits["pdf_cover_fragment_lines"] == 3
+
+
+def test_clean_text_leaves_spaced_digits_alone() -> None:
+    """Re-joining a digit run guesses at content: ``1 2 3`` is not ``123``."""
+
+    raw = "条款编号 1 2 3\n标准号 GB / T 4 3 6 9 7 - 2 0 2 4\n"
+
+    result = clean_text(raw)
+
+    assert "1 2 3" in result.text
+    assert "4 3 6 9 7 - 2 0 2 4" in result.text
+    assert "123" not in result.text
+    assert "spaced_digit_runs" not in result.rule_hits

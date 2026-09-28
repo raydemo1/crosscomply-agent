@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from law_agent.data.chunking.law import chunk_law_document, split_law_article_sections
+from law_agent.data.chunking.law import chunk_law_document, has_ordered_articles
 from law_agent.data.chunking.structured import chunk_structured_document
 from law_agent.data.citation_policy import can_cite_clause_chunk, citation_role_for_source
 from law_agent.data.schemas import Chunk, Document, SourceRecord
@@ -12,18 +12,37 @@ MAX_MERGED_CHUNK_CHARS = 650
 # Bumped whenever the splits below change the chunks a source is published
 # with. ``processing_signature`` reads it so cached vectors cannot outlive the
 # layout they were embedded for.
-CHUNKING_VERSION = "legal-structure-v2"
+CHUNKING_VERSION = "legal-structure-v3"
+
+# Instruments that are article-based by definition.
+LAW_DOC_TYPES = frozenset({"law", "regulation"})
+# Instruments that look article-based only when the body proves it. A policy
+# notice or interpretation that merely quotes an article is not a statute, and
+# splitting it by article drops everything outside the quotation.
+ARTICLE_STRUCTURE_DOC_TYPES = frozenset({"policy", "judicial_interpretation"})
+
+
+def should_chunk_as_law(document: Document) -> bool:
+    """Whether this body should be split by article instead of by heading."""
+
+    if document.doc_type in LAW_DOC_TYPES:
+        return True
+    if document.doc_type in ARTICLE_STRUCTURE_DOC_TYPES:
+        return has_ordered_articles(document.text)
+    return False
 
 
 def chunk_document(document: Document) -> list[Chunk]:
-    if document.doc_type in {"law", "regulation"}:
+    if should_chunk_as_law(document):
         chunks = _normalize_tiny_chunks(document, chunk_law_document(document))
-        return [chunk.model_copy(update={"valid_to": document.valid_to, "instrument_key": document.instrument_key}) for chunk in chunks]
-    if len(split_law_article_sections(document.text)) >= 3:
-        chunks = _normalize_tiny_chunks(document, chunk_law_document(document))
-        return [chunk.model_copy(update={"valid_to": document.valid_to, "instrument_key": document.instrument_key}) for chunk in chunks]
-    chunks = _normalize_tiny_chunks(document, chunk_structured_document(document))
-    return [chunk.model_copy(update={"valid_to": document.valid_to, "instrument_key": document.instrument_key}) for chunk in chunks]
+    else:
+        chunks = _normalize_tiny_chunks(document, chunk_structured_document(document))
+    return [
+        chunk.model_copy(
+            update={"valid_to": document.valid_to, "instrument_key": document.instrument_key}
+        )
+        for chunk in chunks
+    ]
 
 
 def republish_source_metadata(source: SourceRecord, chunks: list[Chunk]) -> list[Chunk]:

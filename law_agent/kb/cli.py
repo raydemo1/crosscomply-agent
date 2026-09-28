@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from law_agent.config import require_service_config
 from law_agent.data.schemas import SourceRecord
-from law_agent.kb.ingestion import prepare_chunks_for_publish, prepare_document_for_ingest
+from law_agent.kb.ingestion import prepare_bound_document, prepare_document_for_ingest
 from law_agent.kb.service import InMemoryIndex, KnowledgeBase, SourceSummary, processing_signature
 from law_agent.kb.service_index import ServiceGenerationIndex
 from law_agent.llm.embeddings import build_embeddings_provider
@@ -216,24 +216,13 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
             ),
             embed_texts=embeddings.embed_texts,
         )
-        final_document = document.model_copy(
-            update={
-                "doc_id": source.source_id,
-                "source_id": source.source_id,
-                "title": source.title,
-                "source_url": source.source_url,
-                "source_site": source.source_site,
-                "doc_type": source.doc_type,
-                "authority": source.authority,
-                "citation_role": source.citation_role,
-                "law_status": source.law_status,
-                "publish_date": source.publish_date,
-                "effective_date": source.effective_date,
-                "issuing_body": source.issuing_body,
-            }
+        # The identity is chosen above from the parsed title, so the document
+        # is bound to it here rather than re-parsed: one binding, no
+        # hand-maintained field list that can fall behind the schema.
+        prepared = prepare_bound_document(document, source).require_publishable()
+        result = kb.ingest_prepared(
+            source, prepared.document.text, prepared.chunks, raw_file=file_path
         )
-        chunks = prepare_chunks_for_publish(final_document)
-        result = kb.ingest_prepared(source, final_document.text, chunks, raw_file=file_path)
         print(
             f"{result.action}: {source.title} ({source.source_id}); "
             f"新增向量 {result.embedded_chunks}，缓存命中 {result.cached_chunks}。"

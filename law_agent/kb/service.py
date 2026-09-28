@@ -252,20 +252,8 @@ class KnowledgeBase:
 
         body_hash = normalized_content_hash(normalized_text)
         state = self._read_state()
-        source_state = state["sources"].get(source.source_id)
-        existing_source = next(
-            (record for record in self._read_sources() if record.source_id == source.source_id),
-            None,
-        )
         stable_chunks = make_stable_chunks(chunks, source, signature=self.signature)
-        if (
-            source_state
-            and existing_source is not None
-            and source_state["content_hash"] == body_hash
-            and source_state["signature"] == self.signature
-            and source_state.get("chunks_hash") == _chunks_fingerprint(stable_chunks)
-            and _record_fingerprint(existing_source) == _record_fingerprint(source)
-        ):
+        if self._is_current(state, source, body_hash, stable_chunks):
             return IngestResult("skipped_duplicate", source.source_id, None, 0, len(chunks))
 
         return self._republish(
@@ -275,6 +263,45 @@ class KnowledgeBase:
             raw_file=raw_file,
             state=state,
             stable_chunks=stable_chunks,
+        )
+
+    def is_up_to_date(
+        self, source: SourceRecord, normalized_text: str, chunks: list[Chunk]
+    ) -> bool:
+        """Read-only mirror of the duplicate rule ``ingest_prepared`` applies.
+
+        A rebuild plan has to be built from the decision an actual ingest would
+        make, not from a proxy such as a chunk-count or body-length delta: a
+        source whose body is unchanged but whose chunking, processing signature
+        or source metadata moved is *not* current and must be republished.
+        """
+
+        stable_chunks = make_stable_chunks(chunks, source, signature=self.signature)
+        return self._is_current(
+            self._read_state(), source, normalized_content_hash(normalized_text), stable_chunks
+        )
+
+    def _is_current(
+        self,
+        state: dict[str, dict],
+        source: SourceRecord,
+        body_hash: str,
+        stable_chunks: Sequence[Chunk],
+    ) -> bool:
+        source_state = state["sources"].get(source.source_id)
+        if not source_state:
+            return False
+        existing_source = next(
+            (record for record in self._read_sources() if record.source_id == source.source_id),
+            None,
+        )
+        if existing_source is None:
+            return False
+        return (
+            source_state.get("content_hash") == body_hash
+            and source_state.get("signature") == self.signature
+            and source_state.get("chunks_hash") == _chunks_fingerprint(stable_chunks)
+            and _record_fingerprint(existing_source) == _record_fingerprint(source)
         )
 
     def update_source_metadata(self, source: SourceRecord) -> IngestResult:

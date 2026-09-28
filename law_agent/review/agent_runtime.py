@@ -11,7 +11,6 @@ from law_agent.review.agent import AgentModel, AgentState, run_agent
 from law_agent.review.agent_tools import ComplianceAgentTools
 from law_agent.review.enterprise_store import MaterialVersion, ReviewTask
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
-from law_agent.review.web_research import WebFinding
 
 
 class AgentRuntimeStore(Protocol):
@@ -63,6 +62,7 @@ def execute_agent_task(
             intake={"id": intake_snapshot.id, "facts": intake_snapshot.intake},
             decide=AgentModel(model_id=task.model_id),
             search=tools.search,
+            read_evidence=tools.read_evidence,
             web_search=tools.search_web,
             on_web_findings=on_web_findings,
             finalize=lambda draft, current: tools.finalize(

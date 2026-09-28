@@ -1,4 +1,9 @@
-from law_agent.data.chunking.law import chunk_law_document, split_law_articles
+from law_agent.data.chunking.law import (
+    chunk_law_document,
+    has_ordered_articles,
+    split_law_article_sections,
+    split_law_articles,
+)
 from law_agent.data.schemas import Document, IngestMeta
 
 
@@ -236,3 +241,103 @@ def test_chunk_law_document_marks_auxiliary_sources_not_clause_citable() -> None
 
     assert chunks[0].citation_role == "interpretation_auxiliary"
     assert chunks[0].can_cite_clause is False
+
+
+def test_has_ordered_articles_rejects_articles_quoted_inside_a_list() -> None:
+    """A negative list cites articles; it is not built out of them."""
+
+    body = (
+        "行业领域一：地理信息与气象数据服务\n"
+        "属于《促进和规范数据跨境流动规定》第三条、第六条规定情形的，不计入累计数量。\n"
+        "第三条规定的数据出境活动，由数据处理者自行判断。\n"
+        "第六条规定的数据出境活动，不计入累计数量。\n"
+        "第九条规定的数据出境活动，不计入累计数量。\n"
+    )
+
+    assert has_ordered_articles(body) is False
+
+
+def test_has_ordered_articles_accepts_a_real_instrument_split_by_blank_lines() -> None:
+    body = (
+        "第一条 为了规范数据出境活动，制定本办法。\n\n"
+        "第二条 数据处理者向境外提供数据，适用本办法。\n\n"
+        "第三条 数据出境安全评估坚持事前评估和持续监督相结合。\n"
+    )
+
+    assert has_ordered_articles(body) is True
+
+
+def test_has_ordered_articles_accepts_articles_written_over_several_lines() -> None:
+    """A real instrument writes each article over as many lines as it needs."""
+
+    body = (
+        "第一条 定义\n"
+        "在本合同中，除上下文另有规定外：\n"
+        "（一）个人信息处理者，是指自主决定处理目的的组织。\n"
+        "第二条 个人信息处理者的义务和责任\n"
+        "个人信息处理者应当履行下列义务和责任：\n"
+        "（一）按照属地相关法律法规及本合同要求处理个人信息。\n"
+        "第三条 个人信息的处理\n"
+        "个人信息处理者应当遵循合法、正当、必要原则。\n"
+    )
+
+    assert has_ordered_articles(body) is True
+
+
+def test_split_law_article_sections_keeps_preamble_before_the_first_article() -> None:
+    text = (
+        "本清单说明\n"
+        "为促进数据跨境安全有序流动，制定本清单，自发布之日起施行。\n"
+        "第一章 总则\n"
+        "第一条 本清单适用于自由贸易试验区。\n"
+        "第二条 本清单由省级网信部门负责解释。"
+    )
+
+    sections = split_law_article_sections(text)
+
+    assert [section.article_no for section in sections] == ["", "第一条", "第二条"]
+    assert "本清单说明" in sections[0].text
+    assert "自发布之日起施行" in sections[0].text
+
+
+def test_split_law_articles_keeps_cross_reference_inside_current_clause() -> None:
+    sections = split_law_article_sections(
+        "第五条 个人信息主体的权利。\n"
+        "第九条第五项。\n"
+        "上述约定不影响个人信息主体的法定权利。\n"
+        "第六条 救济。"
+    )
+
+    assert [section.article_no for section in sections] == ["第五条", "第六条"]
+    assert "第九条第五项" in sections[0].text
+
+
+def test_chunk_law_document_publishes_preamble_without_inventing_an_article_no() -> None:
+    document = Document(
+        doc_id="guangxi_free_trade_zone_data_export_negative_list_2025",
+        source_id="guangxi_free_trade_zone_data_export_negative_list_2025",
+        title="中国（广西）自由贸易试验区数据出境管理清单（负面清单）",
+        source_url="https://example.test/",
+        source_site="example.test",
+        doc_type="regulation",
+        authority="local_regulation",
+        law_status="effective",
+        text=(
+            "本清单说明\n"
+            "为促进数据跨境安全有序流动，制定本清单，自发布之日起施行。\n"
+            "第一条 本清单适用于自由贸易试验区。\n"
+            "第二条 本清单由省级网信部门负责解释。"
+        ),
+        ingest_meta=IngestMeta(
+            fetched_at="2026-07-01T00:00:00Z",
+            parser="test_parser",
+            parser_version="0.1.0",
+        ),
+    )
+
+    chunks = chunk_law_document(document)
+
+    assert chunks[0].article_no is None
+    assert "本清单说明" in chunks[0].text
+    assert "自发布之日起施行" in chunks[0].text
+    assert [chunk.article_no for chunk in chunks[1:]] == ["第一条", "第二条"]

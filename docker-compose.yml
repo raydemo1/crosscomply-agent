@@ -17,6 +17,12 @@ x-backend-environment: &backend-environment
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    # Published on the loopback interface only: the maintenance CLI and the
+    # review smoke scripts run on the host and reach pgvector directly, so
+    # without this mapping they would need a relay inside the backend network.
+    # The database itself stays unreachable from outside the machine.
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-lawagent}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
@@ -37,6 +43,11 @@ services:
       context: docker
       dockerfile: elasticsearch.Dockerfile
     image: crosscomply-elasticsearch:8.13.0-ik
+    # Loopback-only, for the same reason as postgres: host-side maintenance and
+    # regression scripts query the index directly instead of going through the
+    # backend network. Declared here so the mapping survives a recreate.
+    ports:
+      - "127.0.0.1:9200:9200"
     environment:
       discovery.type: single-node
       xpack.security.enabled: "false"

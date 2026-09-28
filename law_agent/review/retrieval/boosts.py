@@ -12,11 +12,16 @@ Boost rules:
   chunk sits in another explicit local region. Chunks scoped nationally are
   left to the national rules, neither boosted nor demoted.
 - ``conditional_industry_basis``: boosted when ``ReviewFacts.industry``
-  matches the chunk's ``applicable_subjects`` or ``topic_tags``; lightly
-  demoted when another explicit industry is known not to match
-- ``implementation_reference``: boosted for missing_information queries
+  matches the chunk's ``applicable_subjects`` or ``topic_tags``
 - ``interpretation_auxiliary``: always slightly demoted (keep retrievable
   but lower authority)
+
+Rules were kept only where an ablation over the golden set showed a real
+effect on recall (see the delivery notes for this change): the
+industry-mismatch demotion left top-5 recall unchanged while pushing
+expected sources out of the 50-candidate pool, and the
+``implementation_reference`` boost was unreachable because no production
+caller passes ``query_type`` to ``apply_boosts_to_hits``.
 """
 
 from __future__ import annotations
@@ -72,8 +77,6 @@ CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST = 1.25
 CONDITIONAL_LOCAL_BASIS_BOOST = 1.5
 CONDITIONAL_LOCAL_MISMATCH_WEIGHT = 0.45
 CONDITIONAL_INDUSTRY_BASIS_BOOST = 1.4
-CONDITIONAL_INDUSTRY_MISMATCH_WEIGHT = 0.75
-IMPLEMENTATION_REFERENCE_BOOST = 1.15
 INTERPRETATION_AUXILIARY_BOOST = 0.85
 MISSING_INFORMATION_QUERY_WEIGHT = 0.7
 
@@ -113,15 +116,12 @@ def compute_boost_for_hit(
                 boost *= CONDITIONAL_LOCAL_MISMATCH_WEIGHT
 
     # Conditional industry basis: boost when industry matches
-    if role == "conditional_industry_basis" and facts.industry:
-        if _industry_matches(chunk, facts.industry):
-            boost *= CONDITIONAL_INDUSTRY_BASIS_BOOST
-        elif _is_specific_industry(facts.industry):
-            boost *= CONDITIONAL_INDUSTRY_MISMATCH_WEIGHT
-
-    # Implementation reference: boost for missing_information queries
-    if role == "implementation_reference" and query_type == "missing_information":
-        boost *= IMPLEMENTATION_REFERENCE_BOOST
+    if (
+        role == "conditional_industry_basis"
+        and facts.industry
+        and _industry_matches(chunk, facts.industry)
+    ):
+        boost *= CONDITIONAL_INDUSTRY_BASIS_BOOST
 
     # Interpretation auxiliary: always slightly demoted
     if role == "interpretation_auxiliary":
@@ -163,11 +163,8 @@ def compute_boosts_summary(
 
     if facts.industry:
         summary[f"conditional_industry_basis:{facts.industry}"] = CONDITIONAL_INDUSTRY_BASIS_BOOST
-        if _is_specific_industry(facts.industry):
-            summary["conditional_industry_basis:mismatch"] = CONDITIONAL_INDUSTRY_MISMATCH_WEIGHT
 
     if "missing_information" in query_types:
-        summary["implementation_reference:missing_information"] = IMPLEMENTATION_REFERENCE_BOOST
         summary["query_type:missing_information"] = MISSING_INFORMATION_QUERY_WEIGHT
 
     return summary
@@ -246,10 +243,6 @@ def _industry_matches(chunk: Chunk, industry: str) -> bool:
     keywords = _INDUSTRY_KEYWORD_MAP.get(industry, [industry])
     combined = " ".join([*chunk.applicable_subjects, *chunk.topic_tags])
     return any(keyword and keyword in combined for keyword in keywords)
-
-
-def _is_specific_industry(industry: str) -> bool:
-    return industry.strip().lower() not in {"", "null", "none", "unknown", "无"}
 
 
 def _chunk_mentions_any(chunk: Chunk, terms: tuple[str, ...]) -> bool:

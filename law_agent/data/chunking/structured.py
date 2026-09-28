@@ -23,6 +23,9 @@ ROW_RE = re.compile(r"<tr\b.*?</tr>", re.IGNORECASE | re.DOTALL)
 CELL_RE = re.compile(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", re.IGNORECASE | re.DOTALL)
 TAG_RE = re.compile(r"<[^>]+>")
 DECORATIVE_TABLE_LINE_RE = re.compile(r"^\|[-:| \t]+\|?$")
+# Everything a table shard can consist of without holding a single character of
+# text: layout whitespace, pipes, rules and the colons of an alignment row.
+_LAYOUT_ONLY_RE = re.compile(r"[\s|:\-]+")
 # Markdown table: a header row, a separator row (|---|---|), and 1+ data rows.
 # Each row starts and ends with `|`. The separator row only contains `-`, `:`, `|`, spaces.
 MARKDOWN_TABLE_RE = re.compile(
@@ -78,8 +81,11 @@ def split_faq_units(text: str) -> list[StructuredUnit]:
             current_heading = line[:120]
             current_lines = [line]
             continue
-        if current_lines:
-            current_lines.append(line)
+        # Text before the first question is the Q&A's own lead-in — what the
+        # session was about and who answered. It belongs in a chunk like any
+        # other body text, so it accumulates under the "问答" heading instead of
+        # being discarded until the first question appears.
+        current_lines.append(line)
 
     flush()
     if units:
@@ -185,37 +191,76 @@ def split_table_units(table_html: str, heading_path: list[str]) -> list[Structur
     units: list[StructuredUnit] = []
     current: list[str] = []
 
-    def flush(is_first_chunk: bool) -> None:
+    def flush() -> None:
         nonlocal current
         if not current:
             return
-        # Prepend header to every chunk so column context is always present.
-        # This solves the "表头重复 8 次但行级断裂" problem: instead of
-        # the header being a separate noise row, it now serves as context.
-        chunk_rows = current if is_first_chunk else [header, *current]
+        # Prepend the header to every chunk, the first one included. A chunk
+        # has to carry its column names or a retrieval hit on a data row shows
+        # values with no columns; the old first-chunk exemption was the one
+        # place the header was missing.
         units.append(
             StructuredUnit(
-                text="\n".join(chunk_rows),
+                text="\n".join([header, *current]) if header else "\n".join(current),
                 heading_path=heading_path,
                 citation_label=" ".join(heading_path),
             )
         )
         current = []
 
-    is_first = True
     for row in data_rows:
-        projected_len = len("\n".join([header, *current, row])) if current else len(row)
+        projected_len = len("\n".join([header, *current, row]))
         if current and projected_len > GENERIC_HARD_LIMIT_CHARS:
-            flush(is_first)
-            is_first = False
+            flush()
         if len(row) > GENERIC_HARD_LIMIT_CHARS:
-            flush(is_first)
-            is_first = False
-            units.extend(_split_long_text(row, heading_path, " ".join(heading_path)))
+            flush()
+            # A row too long to keep whole still needs its columns, otherwise
+            # the fragments are unreadable values with no header.
+            units.extend(
+                _with_table_header(
+                    header, _split_long_text(row, heading_path, " ".join(heading_path))
+                )
+            )
             continue
         current.append(row)
-    flush(is_first)
+    flush()
     return units
+
+
+def _with_table_header(header: str, units: list[StructuredUnit]) -> list[StructuredUnit]:
+    """Re-attach the column header to fragments split out of one long row."""
+
+    if not header:
+        return units
+    return [
+        StructuredUnit(
+            text=f"{header}\n{unit.text}",
+            heading_path=unit.heading_path,
+            citation_label=unit.citation_label,
+        )
+        for unit in units
+    ]
+
+
+# A heading's own section number states its depth: "4.1" is a subsection of "4"
+# whatever Markdown level the parser flattened it to.
+SECTION_NUMBER_RE = re.compile(r"^([A-Z]?\.?\d+(?:\.\d+){0,4})[\.、]?\s")
+
+
+def _heading_level(value: str, markdown_level: int) -> int:
+    """Depth of a heading, taken from its section number when it has one.
+
+    A parser that renders an outline flat emits "## 4 评估原理" beside
+    "## 4.1 概述". Kept at one level, the second heading truncates the first off
+    every heading path, so a parent heading whose section holds no direct body
+    text vanishes from the document. The number is the outline the Markdown
+    level failed to carry, so it decides when present.
+    """
+
+    number = SECTION_NUMBER_RE.match(value)
+    if number:
+        return min(number.group(1).count(".") + 1, 6)
+    return markdown_level
 
 
 def split_heading_units(text: str) -> list[StructuredUnit]:
@@ -227,11 +272,12 @@ def split_heading_units(text: str) -> list[StructuredUnit]:
 
     def flush() -> None:
         nonlocal current_heading, current_path, current_lines
-        if current_lines and not (
-            len(current_lines) == 1
-            and current_heading
-            and current_lines[0].strip() == current_heading
-        ):
+        # A section that holds nothing but its heading is still document text:
+        # an outline has parents and leaves that carry no direct body. Dropping
+        # that line here loses it twice over, because the next sibling truncates
+        # the heading stack it was sitting on, so it survives neither as chunk
+        # text nor in any later heading path. It is published as its own unit.
+        if current_lines:
             citation = " ".join(current_path) if current_path else None
             units.extend(_split_long_text("\n".join(current_lines), current_path, citation))
         current_heading = None
@@ -266,22 +312,15 @@ def split_plain_units(text: str, heading_path: list[str]) -> list[StructuredUnit
     return _split_long_text("\n".join(_meaningful_lines(_strip_tags(text))), heading_path, None)
 
 
-def _is_decorative_table_shard(text: str) -> bool:
-    """Detect pipe-prefixed decoration shards split off from wide tables.
+def _is_layout_shard(text: str) -> bool:
+    """True when a shard holds no text at all, only pipes and rules.
 
-    docling sometimes emits table header/separator lines (e.g.
-    ``| 个人信息保护政策模版``, ``| 判定规则``, ``|\\n|``) that are too short
-    to carry retrieval value on their own and cannot be merged into adjacent
-    chunks. Drop them so they don't pollute the chunk index.
+    The previous test also dropped anything under 30 characters, which threw
+    away real table cells such as ``| 判定规则 |``. Length is no evidence of
+    decoration; containing no character at all is.
     """
-    stripped = text.strip()
-    if not stripped.startswith("|"):
-        return False
-    # TableFormer may preserve a visually wide one-cell header as
-    # ``| 编写要求                  |``. Its raw character count is large,
-    # but it still contains no retrievable content once layout whitespace is
-    # ignored.
-    return len(re.sub(r"\s+", "", stripped)) < 30
+
+    return not _LAYOUT_ONLY_RE.sub("", text)
 
 
 def _is_reference_unit(unit: StructuredUnit) -> bool:
@@ -301,7 +340,7 @@ def _chunks_from_units(document: Document, units: list[StructuredUnit]) -> list[
         unit
         for unit in units
         if unit.text.strip()
-        and not _is_decorative_table_shard(unit.text)
+        and not _is_layout_shard(unit.text)
         and not _is_reference_unit(unit)
     ]
     for index, unit in enumerate(kept_units):
@@ -389,7 +428,8 @@ def _heading_from_line(line: str) -> tuple[int, str] | None:
         return 1, value
     markdown = MARKDOWN_HEADING_RE.match(stripped)
     if markdown:
-        return min(len(markdown.group(1)), 6), markdown.group(2).strip()
+        value = markdown.group(2).strip()
+        return _heading_level(value, min(len(markdown.group(1)), 6)), value
     appendix_subheading = APPENDIX_SUBHEADING_RE.match(stripped)
     if appendix_subheading:
         level = appendix_subheading.group(2).count(".") + 2
@@ -397,12 +437,22 @@ def _heading_from_line(line: str) -> tuple[int, str] | None:
         return min(level, 6), value
     numeric = NUMERIC_HEADING_RE.match(stripped)
     numeric_title = numeric.group(2).strip() if numeric else ""
-    is_list_item = bool(re.match(r"^(?:[a-zA-Z]|\d+)\)", numeric_title)) or numeric_title.endswith(
-        ("；", "。", ":", "：")
+    # A title with a sentence mark inside it is a sentence: a numbered table row
+    # or a wrapped body line ("4 不满 1 万人敏感个人信息。视频、图像…") starts
+    # with a digit just as a heading does. Headings are noun phrases, so only a
+    # mark at the very end can be a heading's own punctuation.
+    is_list_item = (
+        bool(re.match(r"^(?:[a-zA-Z]|\d+)\)", numeric_title))
+        or numeric_title.endswith((":", "："))
+        or bool(re.search(r"[。；]", numeric_title))
     )
     if numeric and not is_list_item:
+        # The line is published as it was written. Rebuilding it from the number
+        # and the title dropped the separator the source put between them, and
+        # the coverage check then read a body line as lost because every chunk
+        # held a version without its `.`.
         level = numeric.group(1).count(".") + 1
-        return min(level, 6), f"{numeric.group(1)} {numeric_title}"
+        return min(level, 6), stripped
     if re.match(r"^[一二三四五六七八九十]+、.{1,80}$", stripped):
         # An item that ends with sentence punctuation states a requirement in
         # its own right: it is body text under its section, not a heading. Same
@@ -444,8 +494,18 @@ def _last_context_heading(text: str, fallback: list[str]) -> list[str]:
 
 
 def _table_row_text(row_html: str) -> str:
+    """Render one table row, keeping empty cells so column positions survive.
+
+    Dropping empty cells shifted every later value one column to the left, which
+    silently re-attributed a data item to the wrong category — the columns are
+    legal meaning here, so an empty cell is kept as an empty cell rather than
+    inferred away. A row where every cell is empty is layout, not content, and
+    renders as "" for the caller to drop.
+    """
+
     cells = [_strip_tags(cell.group(1)) for cell in CELL_RE.finditer(row_html)]
-    cells = [cell for cell in cells if cell]
+    if not any(cells):
+        return ""
     return " | ".join(cells)
 
 

@@ -16,10 +16,13 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from law_agent.data.chunking.law import split_law_article_sections
 from law_agent.data.schemas import SourceRecord
 from law_agent.kb.admin import KnowledgeBaseAdminService
-from law_agent.kb.ingestion import prepare_document_for_ingest
+from law_agent.kb.ingestion import (
+    PreparedSource,
+    prepare_bound_document,
+    prepare_document_for_ingest,
+)
 from law_agent.kb.service import normalized_content_hash
 from law_agent.review.web_research import (
     WebFinding,
@@ -345,6 +348,18 @@ def _download(url: str, path: Path) -> None:
     path.write_bytes(data)
 
 
+def _has_clause_structure(prepared: PreparedSource) -> bool:
+    """Whether a formal instrument yields real clause structure when chunked.
+
+    The old gate counted article headings in the raw text and required 500
+    characters. That rejected short genuine instruments and, worse, described
+    nothing about what would actually reach the index. A clause number on a
+    published chunk is the same evidence ingestion and citation governance use.
+    """
+
+    return any(chunk.article_no for chunk in prepared.chunks)
+
+
 def process_enrichment_job(
     job: dict[str, Any], *, store: PostgresEnrichmentStore,
     service: KnowledgeBaseAdminService,
@@ -388,18 +403,24 @@ def process_enrichment_job(
             None,
         )
         if matching is not None:
-            store.transition(job["id"], status="unchanged", source=matching)
-            return
+            # An identical body does not make the published source current:
+            # the chunking, the processing signature and the source metadata are
+            # part of the same duplicate rule. Asking that rule keeps a source
+            # that merely matches the stored hash from being reported as
+            # unchanged while its index is stale, and republishes it instead.
+            candidate = prepare_bound_document(document, matching)
+            if service.is_up_to_date(matching, document.text, candidate.chunks):
+                store.transition(job["id"], status="unchanged", source=matching)
+                return
         source = (
             SourceRecord.model_validate(job["source_json"])
             if job.get("source_json") else
             verified_auto_source(job["title"], document.text, job["url"])
         )
-        if (
-            source is not None and not job.get("source_json")
-            and (len(document.text) < 500 or len(split_law_article_sections(document.text)) < 3)
-        ):
-            source = None
+        if source is not None and not job.get("source_json"):
+            candidate = prepare_bound_document(document, source)
+            if candidate.blocks_publish or not _has_clause_structure(candidate):
+                source = None
         if source is None:
             store.transition(job["id"], status="awaiting_review")
             return
@@ -421,10 +442,10 @@ def process_enrichment_job(
                     error="同一法源的新版生效时间未晚于旧版；请核实版本日期，并先为旧版设置失效时间",
                 )
                 return
-        if source.citation_role == "primary_legal_basis" and (
-            len(document.text) < 500 or len(split_law_article_sections(document.text)) < 3
-        ):
-            raise ValueError("正式法源缺少可核对的完整条款结构")
+        prepared = prepare_bound_document(document, source)
+        prepared.require_publishable()
+        if source.citation_role == "primary_legal_basis" and not _has_clause_structure(prepared):
+            raise ValueError("正式法源缺少可核对的条款结构")
         source = source.model_copy(update={"file_format": path.suffix.lstrip(".")})
         service.ingest_file(source, path)
         store.transition(job["id"], status="published", source=source)

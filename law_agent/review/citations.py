@@ -7,11 +7,17 @@ evidence, and group citations by usage category:
 - ``implementation_reference``: implementation_reference (TC260/GB/T etc.)
 - ``policy_explanation``: interpretation_auxiliary (official Q&A etc.)
 
-Local and industry evidence includes scope wording to make applicability
-explicit.
+``can_cite_clause`` is decided by the instrument's own nature (see
+:mod:`law_agent.data.citation_policy`), not by the citation role alone, so a
+verified local regulation or industry rule keeps its clause-level effect while
+guidelines, standards, policy Q&A and negative lists stay references. Whether a
+basis *applies* to this case is not a citation gate: the group and its scope
+note carry that boundary, and retrieval boosts only re-rank.
 """
 
 from __future__ import annotations
+
+from collections.abc import Sequence
 
 from law_agent.data.schemas import Chunk
 from law_agent.review.schemas import (
@@ -151,18 +157,69 @@ def _full_article_text(
     return "\n".join(texts) or None
 
 
-def _build_scope_note(usage: CitationUsage, facts: ReviewFacts, chunk: Chunk | None) -> str | None:
-    """Build scope wording for conditional basis citations."""
+# What a non-normative material *is*, so a demoted citation still states its
+# real nature instead of being flattened into a generic "参考材料".
+_REFERENCE_NATURE: dict[str, str] = {
+    "guideline": "实施指南/管理清单",
+    "standard": "标准文本",
+    "faq": "政策问答口径",
+    "policy": "政策文件",
+    "contract": "合同范本",
+}
 
-    if usage == "conditional_basis" and chunk is not None:
-        if chunk.applicable_region and chunk.applicable_region != "CN":
-            return f"仅适用于地区：{chunk.applicable_region}"
-        if chunk.applicable_subjects:
-            return f"仅适用于：{', '.join(chunk.applicable_subjects[:3])}"
+
+def _applicability_note(chunks: Sequence[Chunk]) -> str | None:
+    """The applicability boundary (适用性) the evidence in one group carries.
+
+    Read over the whole group, never the first chunk: a group holding a Beijing
+    list and a Shanghai list showed "仅适用于地区：北京" while the Shanghai list
+    was grouped under the very same note. When part of the group carries no
+    boundary at all — a nationwide rule beside a district list — the note says
+    so, instead of reading as if the whole group were restricted.
+    """
+
+    regions = sorted(
+        {
+            chunk.applicable_region
+            for chunk in chunks
+            if chunk.applicable_region and chunk.applicable_region != "CN"
+        }
+    )
+    if regions:
+        note = f"仅适用于地区：{'、'.join(regions)}"
+        unrestricted = any(
+            not chunk.applicable_region or chunk.applicable_region == "CN" for chunk in chunks
+        )
+        return f"组内部分证据{note}" if unrestricted else note
+    subjects = sorted({subject for chunk in chunks for subject in chunk.applicable_subjects})
+    if subjects:
+        shown = "、".join(subjects[:3])
+        return f"仅适用于：{shown}" + (f" 等 {len(subjects)} 类" if len(subjects) > 3 else "")
+    return None
+
+
+def _build_scope_note(
+    usage: CitationUsage, facts: ReviewFacts, chunks: Sequence[Chunk]
+) -> str | None:
+    """State the material nature and applicability boundary of a citation group.
+
+    ``conditional_basis`` already conveys the boundary. A group demoted out of
+    the clause-level ones keeps both the nature of its material (指南/标准/
+    问答/清单…) and that boundary, so the reader sees what the evidence is and
+    where it applies rather than a bare "not usable" disclaimer.
+    """
+
+    scope = _applicability_note(chunks)
+
+    if usage == "conditional_basis":
+        return scope
     if usage == "implementation_reference":
-        return "参考标准/实施指南，不作为条款级法律依据"
+        natures = sorted({_REFERENCE_NATURE.get(chunk.doc_type, "参考材料") for chunk in chunks})
+        note = f"{'、'.join(natures or ['参考材料'])}，不作为条款级法律依据"
+        return f"{note}；{scope}" if scope else note
     if usage == "policy_explanation":
-        return "政策口径补充，不作为条款级法律依据"
+        note = "政策问答口径，不作为条款级法律依据"
+        return f"{note}；{scope}" if scope else note
     return None
 
 
@@ -232,13 +289,17 @@ def group_citations(
         if not citations:
             continue
 
-        # Build scope note from first citation's chunk
-        scope_note = None
-        if citations:
-            first_hit = next((h for h, u in hits_with_usage if u == usage), None)
-            if first_hit:
-                chunk = chunks_by_id.get(first_hit.chunk_id)
-                scope_note = _build_scope_note(usage, facts, chunk)
+        # The note describes the whole group, so it is built from every chunk
+        # the group holds, not from whichever one happened to be first.
+        scope_note = _build_scope_note(
+            usage,
+            facts,
+            [
+                chunks_by_id[hit.chunk_id]
+                for hit, hit_usage in hits_with_usage
+                if hit_usage == usage and hit.chunk_id in chunks_by_id
+            ],
+        )
 
         result_groups.append(
             CitationGroup(

@@ -193,7 +193,7 @@ def test_legal_gap_needs_material_fact_and_citable_chunk() -> None:
 
 def test_legal_gap_without_material_fact_is_rejected() -> None:
     draft = _legal_gap_draft(["c1"]).model_copy(update={"material_evidence": []})
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="missing_information"):
         finalize_issues(
             [draft],
             evidence=[_hit("c1")],

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -13,7 +12,8 @@ from law_agent.config import (
     load_rerank_config,
     require_service_config,
 )
-from law_agent.review.agent import AgentState, web_findings_from_steps
+from law_agent.data.chunking.law import article_ordinal
+from law_agent.review.agent import AgentState, EvidenceRead, web_findings_from_steps
 from law_agent.review.citations import group_citations
 from law_agent.review.ids import make_id
 from law_agent.review.result_builder import (
@@ -23,14 +23,11 @@ from law_agent.review.result_builder import (
     attach_citation_refs,
     validate_grounded_claims,
 )
-from law_agent.review.semantic_grounding import (
-    SemanticGroundingRejected, SemanticGroundingVerifier, SemanticVerdict,
-)
 from law_agent.review.retrieval.boosts import apply_boosts_to_hits
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
 from law_agent.review.retrieval.fusion import rrf_fuse, source_aware_fuse
 from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
-from law_agent.review.retrieval.neighbors import expand_neighbors
+from law_agent.review.retrieval.neighbors import expand_neighbors, hit_from_chunk
 from law_agent.review.retrieval.rerank import rerank_hits
 from law_agent.review.retrieval.service_backends import build_service_adapters
 from law_agent.review.retrieval.temporal import filter_hits_as_of
@@ -46,6 +43,11 @@ from law_agent.review.schemas import (
     ReviewResult,
     SourceEvidencePacket,
 )
+from law_agent.review.semantic_grounding import (
+    SemanticGroundingRejected,
+    SemanticGroundingVerifier,
+    SemanticVerdict,
+)
 from law_agent.review.service import (
     build_source_evidence_packets,
     flatten_source_evidence_packets,
@@ -59,6 +61,32 @@ from law_agent.review.web_research import (
 
 if TYPE_CHECKING:
     from law_agent.review.enterprise_store import MaterialVersion
+
+
+# How many chunks one explicit read may return, and how far above the retrieval
+# scores an explicitly requested clause is placed. The Agent asks for a clause
+# after reading the first round of evidence, so that clause has to reach the
+# final evidence set instead of being re-ranked away as one more candidate.
+MAX_READ_CHUNKS = 5
+EXPLICIT_READ_SCORE_MARGIN = 1.0
+
+
+def _is_requested_article(chunk_article: str | None, requested: str) -> bool:
+    """Whether a chunk's article label is the clause the Agent asked for.
+
+    The library stores the label the instrument uses ("第十三条") while the
+    Agent may ask for "第13条" or with a stray space, so the labels are
+    compared by the clause number they denote.
+    """
+
+    if not chunk_article:
+        return False
+    if chunk_article == requested:
+        return True
+    if "".join(chunk_article.split()) == "".join(requested.split()):
+        return True
+    ordinal = article_ordinal(requested)
+    return ordinal is not None and article_ordinal(chunk_article) == ordinal
 
 
 def _ground_material_evidence(
@@ -77,7 +105,11 @@ def _ground_material_evidence(
     for draft in drafts:
         version = material_versions_by_id.get(draft.material_version_id)
         if version is None:
-            raise ValueError(f"材料引用不属于本次冻结材料：{draft.material_version_id}")
+            raise ValueError(
+                f"材料引用不属于本次冻结材料：{draft.material_version_id}。"
+                f"material_version_id 只能使用材料头部的版本编号："
+                f"{list(material_versions_by_id)}；不能使用事实快照编号"
+            )
         quote = draft.quote
         if not quote.strip():
             raise ValueError("材料引用必须包含非空原文")
@@ -138,8 +170,19 @@ def finalize_issues(
             ],
             evidence,
         ) if draft.supporting_chunk_ids else []
-        if draft.kind == "legal_gap" and (not material_evidence or not grounded_claims):
-            raise ValueError("legal_gap 必须同时具备材料事实和可引用法条支持")
+        if draft.kind == "legal_gap":
+            if not material_evidence:
+                raise ValueError(
+                    f"legal_gap「{draft.title}」缺少有效的材料原文证据；"
+                    "如果只是待确认事实，请改为 missing_information 并填写 unknowns。"
+                    "只有材料原文与正式法条共同支持的具体问题才能标为 legal_gap。"
+                )
+            if not grounded_claims:
+                raise ValueError(
+                    f"legal_gap「{draft.title}」缺少可引用的正式法条 chunk；"
+                    "请补充 can_cite_clause=true 的 supporting_chunk_ids，"
+                    "或改为 missing_information。"
+                )
         grounded_claims = attach_citation_refs(grounded_claims, citation_groups)
         issues.append(
             ReviewIssue(
@@ -177,6 +220,9 @@ class ComplianceAgentTools:
     ):
         self._chunks = load_corpus(chunks_path)
         self._chunks_by_id = {chunk.chunk_id: chunk for chunk in self._chunks}
+        self._sources_with_articles = {
+            chunk.source_id for chunk in self._chunks if chunk.article_no
+        }
         self._top_k = top_k
         self._question = question
         self._material_text = material_text
@@ -250,7 +296,101 @@ class ComplianceAgentTools:
             neighbor_hits=neighbors,
             chunks_by_id=self._chunks_by_id,
         )
-        return flatten_source_evidence_packets(packets)
+        return [
+            hit.model_copy(update={
+                "source_has_articles": hit.source_id in self._sources_with_articles,
+            })
+            for hit in flatten_source_evidence_packets(packets)
+        ]
+
+    def read_evidence(
+        self,
+        source_id: str,
+        article_no: str | None,
+        chunk_id: str | None,
+        facts: ReviewFacts,
+        offset: int = 0,
+    ) -> EvidenceRead:
+        """Read one clause, or the paragraphs around one chunk, of a known source.
+
+        The first search returns a few fused chunks per source, which is not
+        enough to check every parallel condition, exception and exemption in a
+        clause. This lets the Agent continue inside a source it has already
+        found — and only there: the read is answered from the same controlled
+        corpus, so no path, URL or file handle reaches it, and the returned
+        chunks are ordinary hits that go through the same citation validation
+        and semantic verification as a search result.
+
+        A clause longer than one read is returned as a slice with the offset the
+        next read resumes at, never as the whole clause: a silently cut list of
+        parallel conditions reads exactly like a complete one.
+        """
+
+        source_chunks = sorted(
+            (chunk for chunk in self._chunks if chunk.source_id == source_id),
+            key=lambda chunk: chunk.chunk_index,
+        )
+        if not source_chunks:
+            raise ValueError(f"受控法律库中没有来源 {source_id}")
+
+        next_offset: int | None = None
+        previous_chunk_id: str | None = None
+        following_chunk_id: str | None = None
+        if chunk_id:
+            if offset:
+                raise ValueError("按 chunk_id 读取不使用 offset；请改用相邻 chunk_id 继续读取")
+            anchor = self._chunks_by_id.get(chunk_id)
+            if anchor is None or anchor.source_id != source_id:
+                raise ValueError(f"chunk {chunk_id} 不属于来源 {source_id}")
+            anchor_index = source_chunks.index(anchor)
+            start = max(0, anchor_index - 1)
+            selected = source_chunks[start : start + MAX_READ_CHUNKS]
+            previous_chunk_id = selected[0].prev_chunk_id
+            following_chunk_id = selected[-1].next_chunk_id
+        else:
+            requested = (article_no or "").strip()
+            matched = [
+                chunk
+                for chunk in source_chunks
+                if _is_requested_article(chunk.article_no, requested)
+            ]
+            if not matched:
+                available = sorted({chunk.article_no for chunk in source_chunks if chunk.article_no})
+                raise ValueError(
+                    f"来源 {source_id} 中没有条款 {requested}；该来源可读取的条款："
+                    f"{available[:20] or '无（该来源未按条款切分）'}"
+                )
+            selected = matched[offset : offset + MAX_READ_CHUNKS]
+            if not selected:
+                raise ValueError(
+                    f"来源 {source_id} 的 {requested} 只有 {len(matched)} 块，"
+                    f"offset={offset} 超出该条范围"
+                )
+            if offset + len(selected) < len(matched):
+                next_offset = offset + len(selected)
+
+        as_of = facts.as_of_date or datetime.now(UTC).date()
+        hits = [
+            hit_from_chunk(chunk, rank) for rank, chunk in enumerate(selected)
+        ]
+        hits = filter_hits_as_of(hits, self._chunks_by_id, as_of=as_of)
+        if not hits:
+            raise ValueError(
+                f"来源 {source_id} 的该部分内容在 {as_of.isoformat()} 不是现行有效版本"
+            )
+        base = max((hit.score for hit in self._candidate_hits.values()), default=0.0)
+        return EvidenceRead(
+            hits=[
+                hit.model_copy(update={
+                    "score": round(base + EXPLICIT_READ_SCORE_MARGIN, 6),
+                    "source_has_articles": source_id in self._sources_with_articles,
+                })
+                for hit in hits
+            ],
+            next_offset=next_offset,
+            previous_chunk_id=previous_chunk_id,
+            following_chunk_id=following_chunk_id,
+        )
 
     def search_web(self, queries: list[RetrievalQuery], facts: ReviewFacts) -> list[WebFinding]:
         """Continue the investigation on official public pages.
@@ -314,7 +454,20 @@ class ComplianceAgentTools:
             neighbor_hits=list(self._neighbor_hits.values()),
             chunks_by_id=self._chunks_by_id,
         )
-        result_evidence = flatten_source_evidence_packets(source_packets) or primary_evidence
+        # The report may cite what this run actually returned to the model. The
+        # packet pass above is a presentation collapse — one representative per
+        # source plus two supporting chunks — so re-deriving the citable set from
+        # it dropped chunks the model had already been shown (the clause it read
+        # back explicitly, or an earlier search result). A claim citing one of
+        # those was rejected as "未检索到", and the run retried the same claim
+        # until its budget ran out.
+        evidence_by_chunk = {
+            hit.chunk_id: hit for hit in flatten_source_evidence_packets(source_packets)
+        }
+        evidence_by_chunk.update(
+            {hit.chunk_id: hit for hit in state.evidence if hit.chunk_id not in evidence_by_chunk}
+        )
+        result_evidence = list(evidence_by_chunk.values()) or primary_evidence
         claims = validate_grounded_claims(draft.claims, result_evidence)
         if draft.risk_level != "insufficient_evidence" and not claims:
             raise ValueError("正式风险结论至少需要一条可引用法条支持")
@@ -336,7 +489,10 @@ class ComplianceAgentTools:
         issues = self._finalize_issues(draft.issues, result_evidence, citation_groups)
         decision_summary = draft.decision_summary.strip()
         if any(char in decision_summary for char in "\n\r#*_`"):
-            raise ValueError("decision_summary 必须为纯文本段落")
+            raise ValueError(
+                f"decision_summary 必须为单段纯文本，当前摘要为：{decision_summary[:240]}。"
+                "请删除 Markdown 标记（如 **、#、反引号）和换行，只保留一段中文摘要。"
+            )
         if self._semantic_verifier is None:
             raise RuntimeError("正式报告缺少独立语义证据校验器")
         if system_abstention:
@@ -350,6 +506,7 @@ class ComplianceAgentTools:
                 extracted_facts=state.facts,
                 material=self._material_text,
                 evidence=verifier_evidence,
+                chunks_by_id=self._chunks_by_id,
             )
         if verdict.status != "supported":
             raise SemanticGroundingRejected(verdict)

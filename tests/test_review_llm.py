@@ -560,7 +560,7 @@ def test_result_generation_rejects_uncitable_claim() -> None:
         ]
     )
 
-    with pytest.raises(ReviewWorkflowFailed, match="不可作为正式法条"):
+    with pytest.raises(ReviewWorkflowFailed, match="不可作为正式法条.*行业指南提供了分类分级参考"):
         build_review_result_with_deepseek(
         review_result_id="result_1",
         review_case_id="review_1",

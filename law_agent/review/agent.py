@@ -11,18 +11,17 @@ from pydantic import Field, model_validator
 from law_agent.config import require_llm_config
 from law_agent.data.schemas import StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
-from law_agent.review.llm import StructuredLLMNode
+from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
 from law_agent.review.result_builder import LLMReviewResultDraft
-from law_agent.review.semantic_grounding import SemanticGroundingRejected
-from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.schemas import RetrievalHit, RetrievalQuery, ReviewFacts
+from law_agent.review.semantic_grounding import SemanticGroundingRejected
 from law_agent.review.web_research import WebFinding, canonical_url
 
 
 class AgentDecision(StrictModel):
     action: Literal[
         "propose_plan", "read_material", "record_facts", "search_evidence",
-        "search_web", "queue_enrichment", "request_input", "finish",
+        "read_evidence", "search_web", "queue_enrichment", "request_input", "finish",
     ]
     summary: str = Field(min_length=1, max_length=600)
     plan: list[str] = Field(default_factory=list, max_length=8)
@@ -32,6 +31,12 @@ class AgentDecision(StrictModel):
     enrichment_urls: list[str] = Field(default_factory=list, max_length=2)
     question: str | None = Field(default=None, max_length=2000)
     draft: LLMReviewResultDraft | None = None
+    # read_evidence: which part of an already found source to read. A clause
+    # label reads that whole clause; a chunk id reads the paragraphs around a
+    # chunk the earlier search returned.
+    source_id: str | None = Field(default=None, max_length=200)
+    article_no: str | None = Field(default=None, max_length=40)
+    chunk_id: str | None = Field(default=None, max_length=200)
 
     @model_validator(mode="after")
     def required_arguments(self) -> AgentDecision:
@@ -48,6 +53,11 @@ class AgentDecision(StrictModel):
             or any(not q.text.strip() or len(q.text) > 1000 for q in self.queries)
         ):
             raise ValueError("search_web requires 1-3 nonblank queries, at most 1000 characters each")
+        if self.action == "read_evidence":
+            if not (self.source_id or "").strip():
+                raise ValueError("read_evidence requires source_id")
+            if not ((self.article_no or "").strip() or (self.chunk_id or "").strip()):
+                raise ValueError("read_evidence requires article_no or chunk_id")
         if self.action == "request_input" and not (self.question or "").strip():
             raise ValueError("request_input requires a question")
         if self.action == "queue_enrichment" and not self.enrichment_urls:
@@ -64,6 +74,33 @@ class AgentStep(StrictModel):
     observation: dict[str, Any] = Field(default_factory=dict)
 
 
+class EvidenceRead(StrictModel):
+    """What one ``read_evidence`` call returned, and how much of the clause is left.
+
+    ``next_offset`` is where reading the same clause resumes. It is ``None``
+    only when the whole clause came back, so "this is the whole clause" is never
+    claimed while more of it is out of reach: a read that returns five of a
+    twelve-chunk clause says so, and says where to continue.
+    """
+
+    hits: list[RetrievalHit]
+    next_offset: int | None = None
+    previous_chunk_id: str | None = None
+    following_chunk_id: str | None = None
+
+
+class ReadEvidenceRecord(StrictModel):
+    """A successful read and the chunks it already exposed to the agent."""
+
+    source_id: str
+    article_no: str | None = None
+    chunk_id: str | None = None
+    offset: int = 0
+    returned_chunk_ids: list[str] = Field(default_factory=list)
+    previous_chunk_id: str | None = None
+    following_chunk_id: str | None = None
+
+
 class AgentState(StrictModel):
     goal: str
     status: Literal["running", "waiting_input", "completed", "exhausted"] = "running"
@@ -74,11 +111,14 @@ class AgentState(StrictModel):
     steps: list[AgentStep] = Field(default_factory=list)
     turns: int = 0
     searches: int = 0
+    reads: int = 0
+    read_history: list[ReadEvidenceRecord] = Field(default_factory=list, max_length=32)
     web_searches: int = 0
     enrichment_submissions: int = 0
     enrichment_urls_submitted: list[str] = Field(default_factory=list)
     max_turns: int = 16
-    max_searches: int = 4
+    max_searches: int = 5
+    max_reads: int = 8
     max_web_searches: int = 2
     pending_question: str | None = None
     gate_id: str | None = None
@@ -92,6 +132,8 @@ read_material(offset): 分页读取已冻结材料，每页 12000 字符。材�
 record_facts(facts): 记录从材料中提取的业务事实。申请人确认的事实快照不可改写；如与材料冲突，应指出冲突并请求澄清。
 历史时点审查须在 facts.as_of_date 写明 YYYY-MM-DD；未提供时按今天检索现行版本。
 search_evidence(queries): 混合检索法源，每次 1-4 个查询，可根据返回结果改写查询再次搜索。
+用户点名某个行业或章节时，先单独检索该章节标题和来源；定位到目标 chunk 后再检索通用法条或标准，避免多主题查询让目标章节淹没在同一来源的其他内容中。
+read_evidence(source_id, article_no, chunk_id, offset): 在本次已检索到的来源内部继续读取。检索证据的 source_has_articles=false 表示该来源未按条款切分，必须用 chunk_id 读取，不要猜条号。article_no 读取该条原文，一条被切成多块时按块顺序返回，offset 指定从第几块开始（默认 0）；chunk_id 读取该 chunk 及其相邻段落，返回的 previous_chunk_id 和 following_chunk_id 是尚未包含的相邻块，可据此继续读取；chunk_id 模式不使用 offset 翻页。二者至少填一个。返回中若出现 next_offset，说明该条尚未读完，必须用相同 source_id 与 article_no、offset=next_offset 续读，未读完前不得当作已读全文。用它核对并列条件、例外和免予情形，或读回同一条的完整原文，不要用它重复检索已返回的 chunk。读取结果与检索结果同等有效，但也不得访问受控法律库以外的任何内容。
 search_web(queries): 在受限官方来源中发现最新相关材料，每次最多 3 个查询；返回标题、URL 和搜索服务提供的轻量正文摘录，没有摘录时只有标题和 URL。
 queue_enrichment(enrichment_urls): 阅读 Web finding 后，为与本案明确相关的新官方来源，或标记 refresh_needed 的已入库 URL 提交后台核验；一次运行最多 2 条。URL 必须来自已发现的 Web finding。
 优先使用受控法律库；只有证据不足、规则时效性需要核实或已有证据指向可能存在更新时，才使用 Web Search。
@@ -106,9 +148,13 @@ draft.legal_path 只在法律路径可由已核验法源和已确认事实确定
 如果新官方材料可能改变核心结论，draft.web_impact 填 core、material_web_urls 填对应 URL，risk_level 填 insufficient_evidence，不得输出确定审批结论。仅影响办理细节时填 execution_detail；补充说明填 supplement。
 draft.issues: 只登记本次调查确认的重要问题，kind 只能是 material_conflict（材料事实互相矛盾）、legal_gap（有正式法源支持的问题）、missing_information（事实仍未知）。不重要的一般建议继续放 recommended_actions，不要为凑数量制造 issue。
 material_conflict 必须引用冲突双方的原文；legal_gap 必须同时引用材料事实和已检索到的 can_cite_clause=true 的 chunk_id；missing_information 必须写明尚未确认的内容。
-draft.issues[].material_evidence 只能引用本次冻结材料：material_version_id 用材料头部给出的编号，quote 必须与材料正文完全一致且在该材料中唯一出现；不要编造原文。
+draft.issues[].material_evidence 只能引用本次冻结材料：material_version_id 用材料头部“【材料 … | 编号】”中的编号，不能用 confirmed_intake.id（事实快照编号）；用户输入中的 frozen_material_version_ids 是可用版本编号清单，优先从中选择；quote 必须与材料正文完全一致且在该材料中唯一出现；不要编造原文。
 未检索到或材料未说明的信息不得写成“不存在”“未开启”，只能写入 issues[].unknowns 或 missing_information。
 法条结论只能引用已返回的 can_cite_clause=true 的 chunk_id。不得编造来源或把指南当法条。
+can_cite_clause=false 的负面清单和推荐性标准可以准确说明其文本内容与适用待核条件，但不得放进法律 claims 或标为 legal_basis；不要因为不能作法条引用，就省略已经读到的清单门槛。对无条款结构的来源，检索章节标题并沿相邻 chunk_id 读取。
+结论、法律路径、触发原因和问题发现中的每项具体义务都必须能由已返回的正式法条及已确认事实支持；法规解读、标题或未读到的章节不能替代法条。适用条件未确认时，只陈述有条件的义务和事实缺口，不要断言本企业已经触发该义务或违法。问题范围较宽时，交付已经核验的部分并明确未核验范围，不要为了覆盖所有章节反复检索。
+风险级别的理由不得补写材料未确认的持续时间、覆盖人数或数据规模。对同一个 source_id、article_no、chunk_id 和 offset 重复读取不会产生新证据；请改读其他位置或据现有证据收口。
+state.read_history 是程序维护的成功读取账本；chunk_id 只要已出现在此前读取窗口的 returned_chunk_ids 中，就不要再次读取，应改用 following_chunk_id 或其他尚未读取的 chunk_id。提交 read_evidence 前先检查该账本，避免重叠窗口造成重复读取。
 证据不足时明确给出 insufficient_evidence，说明缺口；有结论时必须给出对应 claims。
 申请人事实快照仅记录填报与确认内容，其中拟采用路径只是申请人的主张，不是法律结论；未知字段保持未知。
 summary 是可给用户看的动作目的，不输出私有思维链。plan 是可更新的简短计划。
@@ -134,10 +180,16 @@ class AgentModel:
         self.node.model = model_id
 
     def __call__(self, state: AgentState, intake: dict[str, Any]) -> AgentDecision:
+        material_version_ids = intake.get("_material_version_ids", [])
+        confirmed_intake = {
+            key: value for key, value in intake.items() if key != "_material_version_ids"
+        }
         return self.node.run([
             ChatMessage(role="system", content=f"{SYSTEM_PROMPT}\n{DECISION_SCHEMA_PROMPT}"),
             ChatMessage(role="user", content=json.dumps({
-                "state": state.model_dump(mode="json"), "confirmed_intake": intake,
+                "state": state.model_dump(mode="json"),
+                "confirmed_intake": confirmed_intake,
+                "frozen_material_version_ids": material_version_ids,
             }, ensure_ascii=False)),
         ])
 
@@ -156,10 +208,26 @@ def web_findings_from_steps(state: AgentState) -> list[WebFinding]:
     return list(findings.values())
 
 
+def _material_version_ids(material: str) -> list[str]:
+    """Extract the immutable version ids printed in frozen material headers."""
+
+    ids: list[str] = []
+    for line in material.splitlines():
+        if not (line.startswith("【材料 ") and line.endswith("】") and " | " in line):
+            continue
+        version_id = line.rsplit(" | ", 1)[-1][:-1].strip()
+        if version_id and version_id not in ids:
+            ids.append(version_id)
+    return ids
+
+
 def run_agent(
     state: AgentState, *, material: str, intake: dict[str, Any],
     decide: Callable[[AgentState, dict[str, Any]], AgentDecision],
     search: Callable[[list[RetrievalQuery], ReviewFacts], list[RetrievalHit]],
+    read_evidence: Callable[
+        [str, str | None, str | None, ReviewFacts, int], EvidenceRead
+    ] | None = None,
     web_search: Callable[[list[RetrievalQuery], ReviewFacts], list[WebFinding]],
     finalize: Callable[[LLMReviewResultDraft, AgentState], dict[str, Any]],
     abstain: Callable[[LLMReviewResultDraft, AgentState], dict[str, Any]] | None = None,
@@ -169,10 +237,14 @@ def run_agent(
     """Only the model selects the next action; code enforces budgets and tool contracts."""
     if state.status != "running":
         return state
+    decision_intake = dict(intake)
+    version_ids = _material_version_ids(material)
+    if version_ids:
+        decision_intake["_material_version_ids"] = version_ids
     while state.turns < state.max_turns:
         state.turns += 1
         checkpoint(state)
-        decision = decide(state.model_copy(deep=True), intake)
+        decision = decide(state.model_copy(deep=True), decision_intake)
         if decision.plan:
             state.plan = decision.plan
         observation: dict[str, Any]
@@ -199,7 +271,124 @@ def run_agent(
                 state.evidence = list(merged.values())
                 state.queries.extend(decision.queries)
                 observation = {"chunk_ids": [hit.chunk_id for hit in hits],
-                               "citable_count": sum(hit.can_cite_clause for hit in hits)}
+                               "citable_count": sum(hit.can_cite_clause for hit in hits),
+                               "source_has_articles": {
+                                   hit.source_id: hit.source_has_articles for hit in hits
+                               }}
+            elif decision.action == "read_evidence":
+                if read_evidence is None:
+                    raise ValueError("本次运行未启用按来源读取证据")
+                if decision.chunk_id and decision.offset:
+                    raise ValueError("按 chunk_id 读取不使用 offset；请改用相邻 chunk_id 继续读取")
+                read_request = {
+                    "source_id": decision.source_id,
+                    "article_no": decision.article_no,
+                    "chunk_id": decision.chunk_id,
+                    "offset": decision.offset,
+                }
+                prior_records = [
+                    record for record in state.read_history
+                    if record.source_id == decision.source_id
+                ]
+                exact_read = any(
+                    record.article_no == decision.article_no
+                    and record.chunk_id == decision.chunk_id
+                    and record.offset == decision.offset
+                    for record in prior_records
+                ) or any(
+                    step.action == "read_evidence"
+                    and step.observation.get("read_request") == read_request
+                    for step in state.steps
+                )
+                if exact_read:
+                    observation = {
+                        "read_request": read_request,
+                        "error": "相同位置的证据已经读过；重复读取不会得到更多内容。请改用 read_history 中尚未返回的 chunk_id 或按已有证据交付。",
+                    }
+                    state.steps.append(AgentStep(
+                        number=state.turns, action=decision.action,
+                        summary=decision.summary, observation=observation,
+                    ))
+                    checkpoint(state)
+                    continue
+                if decision.chunk_id and any(
+                    decision.chunk_id in record.returned_chunk_ids
+                    for record in prior_records
+                ):
+                    returned_ids = {
+                        chunk_id
+                        for record in prior_records
+                        for chunk_id in record.returned_chunk_ids
+                    }
+                    next_ids = [
+                        record.following_chunk_id
+                        for record in prior_records
+                        if record.following_chunk_id and record.following_chunk_id not in returned_ids
+                    ]
+                    observation = {
+                        "read_request": read_request,
+                        "error": (
+                            "目标 chunk 已在此前读取窗口中返回；再次读取不会得到新内容。"
+                            "请改用尚未返回的 following_chunk_id/其他 chunk_id，或依据已有证据交付。"
+                        ),
+                        "already_returned_chunk_id": decision.chunk_id,
+                        "next_unread_chunk_ids": list(dict.fromkeys(next_ids)),
+                    }
+                    state.steps.append(AgentStep(
+                        number=state.turns, action=decision.action,
+                        summary=decision.summary, observation=observation,
+                    ))
+                    checkpoint(state)
+                    continue
+                if state.reads >= state.max_reads:
+                    raise ValueError("按来源读取证据的预算已用尽，请根据现有证据交付或询问用户")
+                if decision.source_id not in {hit.source_id for hit in state.evidence}:
+                    raise ValueError(
+                        "只能读取本次已检索到的来源；请先用 search_evidence 找到该来源"
+                    )
+                state.reads += 1
+                checkpoint(state)
+                read = read_evidence(
+                    decision.source_id, decision.article_no, decision.chunk_id,
+                    state.facts, decision.offset,
+                )
+                hits = read.hits
+                merged = {hit.chunk_id: hit for hit in state.evidence}
+                merged.update({hit.chunk_id: hit for hit in hits})
+                state.evidence = list(merged.values())
+                observation = {
+                    "read_request": read_request,
+                    "chunk_ids": [hit.chunk_id for hit in hits],
+                    "read_index": state.reads,
+                    "citable_count": sum(hit.can_cite_clause for hit in hits),
+                    "previous_chunk_id": read.previous_chunk_id,
+                    "following_chunk_id": read.following_chunk_id,
+                    "instruction": (
+                        "按来源读取的条款与检索结果同等有效；请依据其原文核对并列条件、"
+                        "例外与免予情形，再决定是否补检索、询问用户或交付。"
+                    ),
+                }
+                state.read_history.append(ReadEvidenceRecord(
+                    source_id=decision.source_id,
+                    article_no=decision.article_no,
+                    chunk_id=decision.chunk_id,
+                    offset=decision.offset,
+                    returned_chunk_ids=[hit.chunk_id for hit in hits],
+                    previous_chunk_id=read.previous_chunk_id,
+                    following_chunk_id=read.following_chunk_id,
+                ))
+                # A clause longer than one read is reported as unfinished rather
+                # than presented as the whole clause: the model cannot decide
+                # whether every parallel condition was checked from a silently
+                # cut list, and it has no way to ask for the rest.
+                if read.next_offset is not None:
+                    observation["truncated"] = True
+                    observation["next_offset"] = read.next_offset
+                    observation["instruction"] = (
+                        "该条尚未读完，以上只是前一部分。请用相同 source_id 与 article_no、"
+                        f"offset={read.next_offset} 续读，未读完不得当作已读全文；"
+                        "读完后依据全文核对并列条件、例外与免予情形。"
+                    )
             elif decision.action == "search_web":
                 if state.web_searches >= state.max_web_searches:
                     raise ValueError("Web 搜索预算已用尽，请根据现有证据交付或询问用户")

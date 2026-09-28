@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 # ``CleanedDocument.cleaning_version`` and the knowledge-base processing
 # signature both read this, so the cache can never claim compatibility with a
 # body this pipeline would no longer produce.
-CLEANING_VERSION = "legal-cleaning-v3"
+CLEANING_VERSION = "legal-cleaning-v4"
 
 CONTROL_CHARS_RE = re.compile(r"[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]")
 TRAILING_SPACE_RE = re.compile(r"[ \t]+\n")
@@ -33,10 +33,10 @@ ISOLATED_NUMBER_LINE_RE = re.compile(r"^\d+(?:\.\d+){0,4}$")
 # Three consecutive single-letter tokens is already outside English prose, so the
 # run threshold matches the artifact detector in ``law_agent.data.quality``.
 SPACED_LATIN_RE = re.compile(r"(^|[^\w])([a-zA-Z](?:\s[a-zA-Z]){2,})")
-# Digit-spacing artifact: "GB / T 4 3 6 9 7 - 2 0 2 4". A run of three or more
-# single digits separated by spaces is never how a number is written, so the
-# run can be re-joined without guessing at legal meaning.
-SPACED_DIGIT_RUN_RE = re.compile(r"\d(?:[ \u3000]\d){2,}")
+# Digit-spacing is deliberately *not* repaired here. ``GB / T 4 3 6 9 7`` is
+# definitely damaged, but ``1 2 3`` and a table column of spaced digits are also
+# legitimate, so a global re-join guesses at content. The artifact is reported
+# by ``law_agent.data.quality`` and resolved by choosing the better parse.
 # Identifier slash spacing: "GB / T" and "SAC / TC260". The canonical form has
 # no space around the slash; a space on either side is parser damage.
 IDENTIFIER_SLASH_SPACE_RE = re.compile(
@@ -319,15 +319,6 @@ def _fix_spaced_latin(lines: list[str]) -> tuple[list[str], int]:
     return result, fixed_count
 
 
-def _collapse_spaced_digit_runs(text: str) -> tuple[str, int]:
-    """Re-join digit runs a parser split character by character."""
-
-    def _join(match: re.Match[str]) -> str:
-        return re.sub(r"[ \u3000]", "", match.group(0))
-
-    return SPACED_DIGIT_RUN_RE.subn(_join, text)
-
-
 def _merge_isolated_number_lines(lines: list[str]) -> tuple[list[str], int]:
     """Merge bare clause-number lines (e.g. "3.2") into the following heading line.
 
@@ -408,17 +399,16 @@ def clean_text(text: str, *, title: str | None = None) -> CleanResult:
 
     # Narrow typographic repairs for parser/OCR spacing. Deliberately limited
     # to positions where a space can never carry meaning: around Chinese
-    # punctuation, around an identifier slash, and inside a digit run. Legal
-    # substance is never reinterpreted here — choosing a better parser is the
-    # primary fix, this only stops known damage from reaching the index.
+    # punctuation and around an identifier slash. Digit runs are *not* repaired
+    # here — see the note on ``SPACED_LATIN_RE``. Legal substance is never
+    # reinterpreted here; choosing a better parser is the primary fix, this only
+    # stops known damage from reaching the index.
     text, count = _apply_counted_sub(CJK_PUNCT_LEADING_SPACE_RE, r"\1", text)
     hits["cjk_punct_leading_space"] = count
     text, count = _apply_counted_sub(CJK_PUNCT_TRAILING_SPACE_RE, r"\1", text)
     hits["cjk_punct_trailing_space"] = count
     text, count = _apply_counted_sub(IDENTIFIER_SLASH_SPACE_RE, "/", text)
     hits["identifier_slash_space"] = count
-    text, count = _collapse_spaced_digit_runs(text)
-    hits["spaced_digit_runs"] = count
 
     # Merge isolated clause-number lines into following heading lines.
     lines = text.split("\n")

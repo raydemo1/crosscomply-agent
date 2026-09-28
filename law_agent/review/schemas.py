@@ -151,6 +151,7 @@ class RetrievalHit(StrictModel):
     # 第三十九条") instead of just the chunk title. ``heading_path`` carries
     # the chapter/section context for the evidence panel.
     article_no: str | None = None
+    source_has_articles: bool | None = None
     citation_label: str | None = None
     heading_path: list[str] = Field(default_factory=list)
     doc_type: DocType = "law"

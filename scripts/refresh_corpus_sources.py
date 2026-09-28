@@ -20,12 +20,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
 from pathlib import Path
 
 from law_agent.config import require_service_config
 from law_agent.data.io import read_manifest
 from law_agent.data.schemas import SourceRecord
-from law_agent.kb.ingestion import prepare_chunks_for_publish, prepare_document_for_ingest
+from law_agent.kb.ingestion import prepare_source_for_ingest
 from law_agent.kb.service import InMemoryIndex, KnowledgeBase, processing_signature
 from law_agent.kb.service_index import ServiceGenerationIndex
 from law_agent.llm.embeddings import build_embeddings_provider
@@ -93,42 +94,19 @@ def _run_operation(
         raise RuntimeError(f"raw 文件不存在：{raw_path}")
     if dry_run:
         return f"将解析 {raw_path.name} 并重发"
-    document = prepare_document_for_ingest(raw_path, parser=entry.get("parser", "auto"))
+    prepared = prepare_source_for_ingest(source, raw_path, parser=entry.get("parser", "auto"))
+    prepared.require_publishable()
     duplicate_ids = sorted(
         other.source_id
-        for other in kb.exact_matches(document.text)
+        for other in kb.exact_matches(prepared.document.text)
         if other.source_id != source.source_id
     )
     if duplicate_ids:
         print(f"    警告：正文与以下来源相同 -> {', '.join(duplicate_ids)}")
-    final_document = document.model_copy(
-        update={
-            "doc_id": source.source_id,
-            "source_id": source.source_id,
-            "library_kind": source.library_kind,
-            "title": source.title,
-            "source_url": source.source_url,
-            "source_site": source.source_site,
-            "doc_type": source.doc_type,
-            "authority": source.authority,
-            "citation_role": source.citation_role,
-            "law_status": source.law_status,
-            "publish_date": source.publish_date,
-            "effective_date": source.effective_date,
-            "issuing_body": source.issuing_body,
-            "owning_department": source.owning_department,
-            "internal_status": source.internal_status,
-            "applicable_region": source.applicable_region,
-            "legal_domain": source.legal_domain,
-            "applicable_subjects": source.applicable_subjects,
-            "topic_tags": source.topic_tags,
-        }
-    )
-    chunks = prepare_chunks_for_publish(final_document)
     result = kb.ingest_prepared(
         source,
-        final_document.text,
-        chunks,
+        prepared.document.text,
+        prepared.chunks,
         raw_file=raw_path,
     )
     return f"{result.action}: 新增向量 {result.embedded_chunks}，缓存命中 {result.cached_chunks}"
@@ -170,13 +148,35 @@ def main(argv: list[str] | None = None) -> int:
                 embed_texts=build_embeddings_provider(config.embedding).embed_texts,
             )
         )
+        failures: list[tuple[str, str]] = []
         for entry, source in prepared:
             print(f"[{entry['op']}] {_describe(entry['op'], source, entry.get('set') or {})}")
-            outcome = _run_operation(kb, entry, source, dry_run=not args.apply)
+            try:
+                outcome = _run_operation(kb, entry, source, dry_run=not args.apply)
+            except Exception as exc:  # noqa: BLE001 - one source must not stop the rest
+                # A plan of independent per-source operations is resumable: a
+                # source that cannot be republished is recorded and skipped so
+                # the remaining sources still get their corrected version, and
+                # re-running the same plan retries exactly the failures. The
+                # failing frame is recorded too, because a resumed run only
+                # prints the message and the location is what makes it fixable.
+                frame = traceback.extract_tb(exc.__traceback__)[-1]
+                reason = (
+                    f"{type(exc).__name__}: {exc} "
+                    f"(at {frame.filename}:{frame.lineno} in {frame.name})"
+                )
+                failures.append((source.source_id, reason))
+                print(f"    失败：{reason}", file=sys.stderr)
+                continue
             print(f"    {outcome}")
     finally:
         if args.apply:
             index.close()
+    if failures:
+        print(f"\n{len(failures)} 个来源未能发布：", file=sys.stderr)
+        for source_id, reason in failures:
+            print(f"  - {source_id}: {reason}", file=sys.stderr)
+        return 1
     if not args.apply:
         print("\n预览完成：未写入任何内容。加 --apply 才会生效。")
     return 0

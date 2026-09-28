@@ -3,25 +3,75 @@
 from __future__ import annotations
 
 import os
+import socket
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+_PROXY_ENV_VARS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+_DEFAULT_PROXY_PORTS = {"http": 80, "https": 443}
+
+
+def _proxy_endpoint(proxy: str) -> tuple[str, int] | None:
+    """Host and port of an http(s) proxy value, or None if it cannot be probed."""
+
+    parsed = urllib.parse.urlsplit(proxy if "//" in proxy else f"http://{proxy}")
+    if parsed.scheme not in _DEFAULT_PROXY_PORTS or not parsed.hostname:
+        return None
+    return parsed.hostname, parsed.port or _DEFAULT_PROXY_PORTS[parsed.scheme]
+
+
+def drop_unreachable_proxy() -> list[str]:
+    """Remove proxy variables pointing at a port nothing is listening on.
+
+    A proxy variable left behind by a stopped local proxy client (Clash and
+    similar) is worse than no proxy at all: every outbound request is routed to
+    a dead port, and the failure looks like the remote API being unreachable.
+    Proxies that do answer are kept, so running with the proxy up is unchanged.
+    """
+
+    dropped: list[str] = []
+    for name in _PROXY_ENV_VARS:
+        raw = os.environ.get(name)
+        if not raw:
+            continue
+        endpoint = _proxy_endpoint(raw)
+        if endpoint is None:
+            continue
+        try:
+            with socket.create_connection(endpoint, timeout=1.0):
+                continue
+        except OSError:
+            pass
+        os.environ.pop(name, None)
+        dropped.append(name)
+    return dropped
 
 
 def load_env_file(path: str | Path = ".env") -> None:
     """Load simple KEY=VALUE lines into the process environment."""
 
     env_path = Path(path)
-    if not env_path.exists():
-        return
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
+    if env_path.exists():
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key, value)
+    # Proxy settings never come from .env, so a dead one here was inherited from
+    # the surrounding environment and has to be dealt with before any request.
+    drop_unreachable_proxy()
 
 
 @dataclass(frozen=True)

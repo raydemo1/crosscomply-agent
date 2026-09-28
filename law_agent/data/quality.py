@@ -43,7 +43,11 @@ MIN_TOKENS_FOR_RATIO = 40
 DEFAULT_FAIL_AT = 3
 
 # ``GB / T 4 3 6 9 7 - 2 0 2 4`` / ``2 0 2 1 年``: three or more space-separated
-# single digits.  Prose never spaces out every digit of a number.
+# single digits.  This is an *ambiguous* signal, not proof of damage: prose
+# never spaces out every digit of a number, but a table column of bare digits
+# (``1 2 3``) and a page of separated figures are legitimate document content.
+# It is therefore reported as a warning and weighed alongside the other parse
+# candidates rather than failing the parse on its own.
 SPACED_DIGITS_RE = re.compile(r"\d(?:[ \u3000]\d){2,}")
 # ``S A C``: an acronym emitted one letter per token.
 SPACED_LATIN_RE = re.compile(r"(?<![A-Za-z])[A-Za-z](?:[ \u3000][A-Za-z]){2,}(?![A-Za-z])")
@@ -70,7 +74,10 @@ class _Detector:
 # Order matters only for the reported issue list; every detector always runs.
 _DETECTORS = (
     _Detector("corruption_chars", CORRUPTION_RE, fail_at=1),
-    _Detector("spaced_digits", SPACED_DIGITS_RE),
+    # Digit spacing is ambiguous (see ``SPACED_DIGITS_RE``): it counts toward
+    # ``damage`` so the better parse candidate still wins, but it never fails a
+    # parse by itself.
+    _Detector("spaced_digits", SPACED_DIGITS_RE, fail_at=None),
     _Detector("spaced_latin", SPACED_LATIN_RE),
     _Detector("mixed_fragment", MIXED_FRAGMENT_RE),
     _Detector("broken_identifier", BROKEN_IDENTIFIER_RE),

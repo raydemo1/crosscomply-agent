@@ -122,7 +122,13 @@ def validate_grounded_claims(
         if unknown:
             raise ValueError(f"法律主张引用了未检索到的法条：{sorted(unknown)}")
         if uncitable:
-            raise ValueError(f"法律主张引用了不可作为正式法条的材料：{sorted(uncitable)}")
+            raise ValueError(
+                f"法律主张引用了不可作为正式法条的材料：{sorted(uncitable)}。"
+                f"对应 claim 文本：{claim.text[:240]}。"
+                "请删除这条 claim，或移除其中的不可引用 chunk；可在 conclusion 中准确说明"
+                "参考性材料的文本内容与待核条件，但不要把它放进 claims。正式法律 claims"
+                "只引用 can_cite_clause=true 的法条。"
+            )
         if not claim.supporting_chunk_ids:
             raise ValueError("法律主张必须引用至少一条正式法条")
     return claims

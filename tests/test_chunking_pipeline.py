@@ -1,4 +1,4 @@
-from law_agent.data.chunking.pipeline import chunk_document
+from law_agent.data.chunking.pipeline import chunk_document, should_chunk_as_law
 from law_agent.data.schemas import Document, IngestMeta
 
 
@@ -48,6 +48,28 @@ def test_chunk_document_splits_faq_by_question_blocks() -> None:
     )
     assert "答：达到规定数量" in chunks[0].text
     assert chunks[0].can_cite_clause is False
+
+
+def test_chunk_document_keeps_the_lead_in_before_the_first_question() -> None:
+    """A Q&A's opening is body text and must not be dropped for having no 问."""
+
+    document = _document(
+        doc_type="faq",
+        title="《数据出境安全评估办法》答记者问",
+        text=(
+            "《数据出境安全评估办法》答记者问\n"
+            "7月7日，国家互联网信息办公室公布《数据出境安全评估办法》。\n"
+            "问：什么情形需要申报数据出境安全评估？\n"
+            "答：达到规定数量或者属于重要数据的，应当申报。"
+        ),
+    )
+
+    chunks = chunk_document(document)
+
+    assert len(chunks) == 2
+    assert "国家互联网信息办公室公布《数据出境安全评估办法》" in chunks[0].text
+    assert chunks[0].heading_path == ["《数据出境安全评估办法》答记者问", "问答"]
+    assert "答：达到规定数量" in chunks[1].text
 
 
 def test_chunk_document_splits_guideline_by_markdown_and_numeric_headings() -> None:
@@ -236,3 +258,85 @@ def test_chunk_document_keeps_short_trailing_article_standalone() -> None:
     assert last.text == "第三条 本规定自公布之日起施行。"
     assert last.can_cite_clause is True
     assert "本规定自公布之日起施行" not in chunks[-2].text
+
+
+def test_policy_that_only_quotes_articles_keeps_structured_chunking() -> None:
+    """Three article markers anywhere in the body used to force article splitting."""
+
+    document = _document(
+        doc_type="policy",
+        title="中国（上海）自由贸易试验区数据出境管理清单（负面清单）",
+        text=(
+            "本清单说明\n"
+            "属于《促进和规范数据跨境流动规定》第三条、第六条规定情形的，不计入累计数量。\n"
+            "第三条规定的数据出境活动，由数据处理者自行判断。\n"
+            "第六条规定的数据出境活动，不计入累计数量。\n"
+            "第九条规定的数据出境活动，不计入累计数量。\n"
+        ),
+    )
+
+    assert should_chunk_as_law(document) is False
+    chunks = chunk_document(document)
+    assert all(chunk.article_no is None for chunk in chunks)
+    assert any("本清单说明" in chunk.text for chunk in chunks)
+
+
+def test_law_document_type_always_uses_article_chunking() -> None:
+    document = _document(
+        doc_type="law",
+        title="中华人民共和国个人信息保护法",
+        text="第一条 为了保护个人信息权益，制定本法。",
+    )
+
+    assert should_chunk_as_law(document) is True
+
+
+def test_table_header_is_carried_by_the_first_chunk_too() -> None:
+    document = _document(
+        title="数据分类分级规则",
+        text=(
+            "| 数据类别 | 数据子类 | 判定规则 |\n"
+            "| --- | --- | --- |\n"
+            "| 重要数据 | 地理信息 | 向境外提供前应当申报安全评估。 |\n"
+            "| 个人信息 | 生物识别 | 处理敏感个人信息应当取得单独同意。 |\n"
+        ),
+    )
+
+    chunks = chunk_document(document)
+
+    assert chunks[0].text.startswith("数据类别 | 数据子类 | 判定规则")
+    assert "地理信息" in chunks[0].text
+
+
+def test_empty_table_cell_keeps_its_column_position() -> None:
+    document = _document(
+        title="数据分类分级规则",
+        text=(
+            "| 数据类别 | 数据子类 | 判定规则 |\n"
+            "| --- | --- | --- |\n"
+            "| 重要数据 |  | 向境外提供前应当申报安全评估。 |\n"
+            "| 个人信息 | 生物识别 | 处理敏感个人信息应当取得单独同意。 |\n"
+        ),
+    )
+
+    chunks = chunk_document(document)
+
+    assert "重要数据 |  | 向境外提供前应当申报安全评估。" in chunks[0].text
+
+
+def test_short_table_shard_is_kept_rather_than_dropped_as_decoration() -> None:
+    document = _document(
+        title="数据分类分级规则",
+        text=(
+            "<table>"
+            "<tr><th>判定规则</th><th>说明</th></tr>"
+            "<tr><td>不适用</td><td>无</td></tr>"
+            "</table>"
+        ),
+    )
+
+    chunks = chunk_document(document)
+
+    published = "".join(chunk.text for chunk in chunks)
+    assert "判定规则" in published
+    assert "不适用 | 无" in published

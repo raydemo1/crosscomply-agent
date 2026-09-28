@@ -68,8 +68,10 @@ def test_filter_chunks_by_legal_metadata() -> None:
     assert [chunk.chunk_id for chunk in matched] == ["doc:0000"]
 
 
-def test_citation_policy_marks_only_primary_sources_clause_citable() -> None:
-    primary = SourceRecord(
+def test_citation_policy_separates_instrument_effect_from_citation_role() -> None:
+    """A conditional role narrows *where* a norm applies, not whether it is one."""
+
+    regulation = SourceRecord(
         source_id="new_official_regulation",
         title="新规",
         source_url="https://example.gov.cn/rule",
@@ -77,16 +79,24 @@ def test_citation_policy_marks_only_primary_sources_clause_citable() -> None:
         doc_type="regulation",
         citation_role="primary_legal_basis",
     )
-    auxiliary = primary.model_copy(update={"citation_role": "interpretation_auxiliary"})
-    conditional = primary.model_copy(update={"citation_role": "conditional_industry_basis"})
+    auxiliary = regulation.model_copy(update={"citation_role": "interpretation_auxiliary"})
+    # A local regulation only limits where it binds; its clauses still bind.
+    local_regulation = regulation.model_copy(update={"citation_role": "conditional_local_basis"})
+    # An industry guideline is a reference, never a clause-level legal basis.
+    guideline = regulation.model_copy(
+        update={"doc_type": "guideline", "citation_role": "conditional_industry_basis"}
+    )
 
-    assert citation_role_for_source(primary) == "primary_legal_basis"
-    assert can_cite_clause(primary) is True
-    assert can_cite_clause_chunk(primary, "第一条") is True
-    assert can_cite_clause_chunk(primary, None) is False
+    assert citation_role_for_source(regulation) == "primary_legal_basis"
+    assert can_cite_clause(regulation) is True
+    assert can_cite_clause_chunk(regulation, "第一条") is True
+    assert can_cite_clause_chunk(regulation, None) is False
+    assert can_cite_clause(local_regulation) is True
+    assert can_cite_clause_chunk(local_regulation, "第一条") is True
+    assert can_cite_clause(guideline) is False
+    assert can_cite_clause_chunk(guideline, "第一条") is False
     assert can_cite_clause(auxiliary) is False
-    assert can_cite_clause_chunk(conditional, "第一条") is False
-    assert can_cite_clause(primary.model_copy(update={"library_kind": "internal_policy"})) is False
+    assert can_cite_clause(regulation.model_copy(update={"library_kind": "internal_policy"})) is False
 
 
 def test_frontend_and_default_retrieval_policy_are_separate() -> None:

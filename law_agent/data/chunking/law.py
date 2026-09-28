@@ -11,10 +11,12 @@ from law_agent.data.schemas import Chunk, Document
 # PDF parsers such as Docling can serialize article headings as ``## 第一条``.
 # Treat the Markdown prefix as presentation, not part of the legal identity.
 ARTICLE_RE = re.compile(
-    r"(?:#{1,6}\s+)?(?:\*\*)?(第[一二三四五六七八九十百千万零〇\d]+条)(?:\*\*)?"
+    r"(?:#{1,6}\s+)?(?:\*\*)?(第[一二三四五六七八九十百千万零〇\d]+条)"
+    r"(?!第?[一二三四五六七八九十百千万零〇\d]+[款项])(?:\*\*)?"
 )
 ARTICLE_HEADING_RE = re.compile(
-    r"^(?:#{1,6}\s+)?(?:\*\*)?(第[一二三四五六七八九十百千万零〇\d]+条)(?:\*\*)?"
+    r"^(?:#{1,6}\s+)?(?:\*\*)?(第[一二三四五六七八九十百千万零〇\d]+条)"
+    r"(?!第?[一二三四五六七八九十百千万零〇\d]+[款项])(?:\*\*)?"
 )
 BOOK_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+编")
 PART_RE = re.compile(r"^第[一二三四五六七八九十百千万零〇\d]+篇")
@@ -25,10 +27,81 @@ ITEM_RE = re.compile(
 )
 ARTICLE_HARD_LIMIT_CHARS = 650
 MIN_PARAGRAPH_CHUNK_CHARS = 120
+# Numerals a Chinese article number is written with, and the place units that
+# multiply them ("二十三" = 23, "五百零九" = 509).
+_NUMERAL_DIGITS = {
+    "〇": 0, "零": 0, "一": 1, "二": 2, "两": 2, "三": 3,
+    "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9,
+}
+_NUMERAL_UNITS = {"十": 10, "百": 100, "千": 1000}
+# Article numbers a body has to run through one after another before it counts
+# as genuinely article-structured. One or two in a row is how prose quotes a
+# statute ("属于……规定的第三条、第六条规定情形的"); an instrument that is
+# actually built out of articles does not stop at two.
+ORDERED_ARTICLE_RUN = 3
 
 
 def _strip_article_heading_markup(line: str) -> str:
     return ARTICLE_HEADING_RE.sub(r"\1", line, count=1)
+
+
+def article_ordinal(article_no: str) -> int | None:
+    """Turn ``第十三条`` into 13; ``None`` for anything not a countable number.
+
+    Public because the review Agent compares an article label it asked for
+    ("第13条") against the label a chunk carries ("第十三条").
+    """
+
+    token = article_no.removeprefix("第").removesuffix("条").strip()
+    if not token:
+        return None
+    if token.isdigit():
+        return int(token)
+    total = 0
+    number = 0
+    for char in token:
+        if char in _NUMERAL_DIGITS:
+            number = _NUMERAL_DIGITS[char]
+        elif char in _NUMERAL_UNITS:
+            total += (number or 1) * _NUMERAL_UNITS[char]
+            number = 0
+        else:
+            return None
+    return total + number
+
+
+def has_ordered_articles(text: str) -> bool:
+    """Whether the body carries a real, sequentially numbered article structure.
+
+    Routing used to infer article structure from "three article markers
+    anywhere in the text". A negative list satisfies that by quoting
+    ``属于《促进和规范数据跨境流动规定》第三条、第六条规定情形的`` inside a
+    table cell, because the PDF text layer wraps the sentence so the line starts
+    with ``第六条``. Requiring the marker to start a line *and* the numbers to
+    advance one by one means a quotation inside prose can never stand in for an
+    article structure.
+
+    Prose between two articles does not end the chain: a real instrument writes
+    its articles over as many lines as it needs, so only the numbering itself
+    has to be consecutive.
+    """
+
+    run = 0
+    previous: int | None = None
+    for raw_line in text.splitlines():
+        match = ARTICLE_HEADING_RE.match(raw_line.strip())
+        if match is None:
+            continue
+        ordinal = article_ordinal(match.group(1))
+        if ordinal is None:
+            previous = None
+            run = 0
+            continue
+        run = run + 1 if previous is not None and ordinal == previous + 1 else 1
+        previous = ordinal
+        if run >= ORDERED_ARTICLE_RUN:
+            return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -68,7 +141,13 @@ def split_law_articles(text: str) -> list[tuple[str, str]]:
 
 
 def split_law_article_sections(text: str) -> list[LawArticle]:
-    """Split legal text and carry chapter/section context into each article."""
+    """Split legal text and carry chapter/section context into each article.
+
+    Text sitting outside any article — a substantive preamble before the first
+    one, or a passage a chapter heading interrupts — comes back as its own
+    section with an empty ``article_no``. Only a bare chapter heading stays
+    metadata; dropping the prose around it lost real body text.
+    """
 
     current_book: str | None = None
     current_part: str | None = None
@@ -77,9 +156,18 @@ def split_law_article_sections(text: str) -> list[LawArticle]:
     pending_article_no: str | None = None
     pending_lines: list[str] = []
     pending_path: list[str] = []
+    loose_lines: list[str] = []
+    loose_path: list[str] = []
     articles: list[LawArticle] = []
 
-    def flush() -> None:
+    def context() -> list[str]:
+        return [
+            item
+            for item in [current_book, current_part, current_chapter, current_section]
+            if item
+        ]
+
+    def flush_article() -> None:
         nonlocal pending_article_no, pending_lines, pending_path
         if pending_article_no and pending_lines:
             articles.append(
@@ -93,55 +181,69 @@ def split_law_article_sections(text: str) -> list[LawArticle]:
         pending_lines = []
         pending_path = []
 
+    def flush_loose() -> None:
+        nonlocal loose_lines, loose_path
+        if loose_lines:
+            articles.append(
+                LawArticle(
+                    article_no="",
+                    text="\n".join(loose_lines).strip(),
+                    heading_path=loose_path,
+                )
+            )
+        loose_lines = []
+        loose_path = []
+
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
             continue
         if BOOK_RE.match(line) and "条" not in line:
-            flush()
+            flush_article()
+            flush_loose()
             current_book = line
             current_part = None
             current_chapter = None
             current_section = None
             continue
         if PART_RE.match(line) and "条" not in line:
-            flush()
+            flush_article()
+            flush_loose()
             current_part = line
             current_chapter = None
             current_section = None
             continue
         if CHAPTER_RE.match(line) and "条" not in line:
-            flush()
+            flush_article()
+            flush_loose()
             current_chapter = line
             current_section = None
             continue
         if SECTION_RE.match(line) and "条" not in line:
-            flush()
+            flush_article()
+            flush_loose()
             current_section = line
             continue
 
         match = ARTICLE_HEADING_RE.match(line)
         if match:
-            flush()
+            flush_article()
+            flush_loose()
             pending_article_no = match.group(1)
-            pending_path = [
-                item
-                for item in [
-                    current_book,
-                    current_part,
-                    current_chapter,
-                    current_section,
-                    pending_article_no,
-                ]
-                if item
-            ]
+            pending_path = [*context(), pending_article_no]
             pending_lines = [_strip_article_heading_markup(line)]
             continue
 
         if pending_article_no:
             pending_lines.append(line)
+            continue
 
-    flush()
+        if not loose_lines:
+            loose_path = context()
+        loose_lines.append(line)
+
+    flush_article()
+    flush_loose()
     return articles
 
 

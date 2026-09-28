@@ -2,6 +2,7 @@
 
 import json
 
+from law_agent.data.schemas import Chunk
 from law_agent.review.agent import AgentDecision, AgentState, run_agent
 from law_agent.review.result_builder import LLMReviewResultDraft
 from law_agent.review.schemas import GroundedClaim, ReviewFacts
@@ -44,6 +45,40 @@ def test_verifier_receives_full_article_and_rejects_unresolved_exemptions() -> N
     assert payload["confirmed_intake"]["count_period"] == "unknown"
     assert verdict.status == "uncertain"
     assert client.kwargs[0]["model"] == "test-model"
+
+
+def test_verifier_sees_the_applicability_boundary_of_each_cited_authority() -> None:
+    """检索到不等于适用于本案：适用地区与对象必须随被引法源一并核验。"""
+
+    client = FakeClient(outputs=[{
+        "status": "supported",
+        "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "支持"}],
+        "conclusion_reason": "已核查",
+    }])
+    verifier = SemanticGroundingVerifier(model_id="test-model", client=client)
+    chunk = Chunk(
+        chunk_id="c1",
+        doc_id="d1",
+        source_id="s1",
+        title="上海自贸区数据出境负面清单",
+        text="再保险领域：需要通过数据出境安全评估的数据清单。",
+        chunk_index=0,
+        source_url="u",
+        char_count=26,
+        doc_type="guideline",
+        citation_role="conditional_local_basis",
+        applicable_region="CN-SH",
+        applicable_subjects=["再保险"],
+    )
+
+    verifier(
+        draft=_draft(), confirmed_intake={}, extracted_facts=ReviewFacts(),
+        material="申请材料", evidence=[_hit()], chunks_by_id={"c1": chunk},
+    )
+
+    payload = json.loads(client.calls[0][1].content)
+    assert payload["cited_authorities"][0]["applicable_region"] == "CN-SH"
+    assert payload["cited_authorities"][0]["applicable_subjects"] == ["再保险"]
 
 
 def test_semantic_rejection_returns_to_agent_then_budget_abstains() -> None:

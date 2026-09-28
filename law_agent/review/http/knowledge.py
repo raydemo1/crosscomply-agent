@@ -26,6 +26,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
+from law_agent.config import require_service_config
 from law_agent.data.schemas import LibraryKind, SourceRecord
 from law_agent.kb.admin import (
     InMemoryKnowledgeJobStore,
@@ -35,8 +36,13 @@ from law_agent.kb.admin import (
     source_summary_payload,
 )
 from law_agent.kb.enrichment import PostgresEnrichmentStore
-from law_agent.kb.ingestion import prepare_document_for_ingest
-from law_agent.kb.service import normalized_content_hash
+from law_agent.kb.ingestion import prepare_source_for_ingest
+from law_agent.kb.service import (
+    InMemoryIndex,
+    KnowledgeBase,
+    normalized_content_hash,
+    processing_signature,
+)
 from law_agent.review.case_store import UserRecord
 from law_agent.review.http.schemas import (
     KnowledgeDeleteJobRequest,
@@ -352,6 +358,17 @@ def register_knowledge_routes(
             item.source.source_id: item
             for item in app.state.knowledge_service.list_sources(library_kind=library_kind)
         }
+        # The preview must judge an import exactly as the commit would: same
+        # preparation boundary, same duplicate rule, live processing signature.
+        config = require_service_config()
+        probe = KnowledgeBase(
+            app.state.knowledge_corpus,
+            index=InMemoryIndex(),
+            signature=processing_signature(
+                embedding_model=config.embedding.model,
+                embedding_dimension=config.embedding.dimension,
+            ),
+        )
         items: list[dict[str, Any]] = []
         try:
             for index, upload in enumerate(files):
@@ -395,13 +412,21 @@ def register_knowledge_routes(
                     "error": None,
                 }
                 try:
-                    document = prepare_document_for_ingest(path, parser="auto")
-                    digest = normalized_content_hash(document.text)
+                    prepared = prepare_source_for_ingest(source, path)
+                    prepared.require_publishable()
+                    digest = normalized_content_hash(prepared.document.text)
                     item["content_hash"] = digest
-                    same_source = state.get("sources", {}).get(source.source_id, {})
+                    item["chunk_count"] = len(prepared.chunks)
                     if source.source_id in existing:
+                        # Body hash alone is not enough: a source is current
+                        # only when its chunking, processing signature and
+                        # source metadata also match. Otherwise a moved
+                        # signature or an edited provenance would be silently
+                        # skipped and never reach the index.
                         item["action"] = (
-                            "skip" if same_source.get("content_hash") == digest else "replace"
+                            "skip"
+                            if probe.is_up_to_date(source, prepared.document.text, prepared.chunks)
+                            else "replace"
                         )
                     elif any(
                         value.get("content_hash") == digest

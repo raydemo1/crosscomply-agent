@@ -7,7 +7,6 @@ import pytest
 from law_agent.data.io import write_jsonl
 from law_agent.data.schemas import Chunk
 from law_agent.review.retrieval.boosts import (
-    CONDITIONAL_INDUSTRY_MISMATCH_WEIGHT,
     CONDITIONAL_LOCAL_BASIS_BOOST,
     CONDITIONAL_LOCAL_MISMATCH_WEIGHT,
     CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST,
@@ -296,7 +295,13 @@ def test_conditional_industry_basis_uses_industry_aliases() -> None:
     assert boost > 1.0
 
 
-def test_conditional_industry_basis_downweighted_when_industry_mismatch() -> None:
+def test_conditional_industry_basis_is_left_alone_when_industry_mismatch() -> None:
+    """A non-matching industry no longer demotes the chunk.
+
+    The ablation showed the demotion never changed top-5 recall while pushing
+    expected sources out of the 50-candidate pool.
+    """
+
     hit = RetrievalHit(
         chunk_id="c1",
         doc_id="d1",
@@ -317,7 +322,7 @@ def test_conditional_industry_basis_downweighted_when_industry_mismatch() -> Non
     facts = ReviewFacts(industry="车联网")
 
     boost = compute_boost_for_hit(hit, chunk, facts)
-    assert boost == pytest.approx(CONDITIONAL_INDUSTRY_MISMATCH_WEIGHT)
+    assert boost == pytest.approx(1.0)
 
 
 def test_boosts_summary_records_active_rules() -> None:
@@ -328,7 +333,7 @@ def test_boosts_summary_records_active_rules() -> None:
     assert "interpretation_auxiliary" in summary
     assert "conditional_local_basis:CN-SH" in summary
     assert "conditional_industry_basis:汽车" in summary
-    assert "implementation_reference:missing_information" in summary
+    assert "query_type:missing_information" in summary
 
 
 def test_apply_boosts_to_hits_multiplies_scores() -> None:

@@ -55,7 +55,7 @@ def expand_neighbors(
         ):
             seen.add(chunk.prev_chunk_id)
             prev_chunk = chunks_by_id[chunk.prev_chunk_id]
-            neighbors.append(_make_neighbor_hit(prev_chunk, PREV_RANK, hit.matched_query_type))
+            neighbors.append(hit_from_chunk(prev_chunk, PREV_RANK, hit.matched_query_type))
             if len(neighbors) >= max_neighbors:
                 break
 
@@ -68,19 +68,24 @@ def expand_neighbors(
         ):
             seen.add(chunk.next_chunk_id)
             next_chunk = chunks_by_id[chunk.next_chunk_id]
-            neighbors.append(_make_neighbor_hit(next_chunk, NEXT_RANK, hit.matched_query_type))
+            neighbors.append(hit_from_chunk(next_chunk, NEXT_RANK, hit.matched_query_type))
             if len(neighbors) >= max_neighbors:
                 break
 
     return neighbors
 
 
-def _make_neighbor_hit(
+def hit_from_chunk(
     chunk: Chunk,
     rank: int,
     matched_query_type: str | None = None,
 ) -> RetrievalHit:
-    """Create a RetrievalHit for a neighbor chunk."""
+    """Create a RetrievalHit for a chunk that was not scored by a retriever.
+
+    The single chunk → hit converter: neighbor expansion and the Agent's
+    explicit clause reads both go through it, so a chunk's governed metadata
+    (citation_role, can_cite_clause, dates) is never copied field by field.
+    """
 
     return RetrievalHit(
         chunk_id=chunk.chunk_id,

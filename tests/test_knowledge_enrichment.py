@@ -208,6 +208,9 @@ def test_same_official_body_does_not_create_version(monkeypatch, tmp_path) -> No
         def get_source(self, _source_id):
             return {"content_hash": normalized_content_hash(body)}
 
+        def is_up_to_date(self, *_args):
+            return True
+
         def ingest_file(self, *_args):
             raise AssertionError("unchanged body must not be ingested")
 
@@ -219,6 +222,61 @@ def test_same_official_body_does_not_create_version(monkeypatch, tmp_path) -> No
     }, store=store, service=Service())
     assert store.status == "unchanged"
     assert store.source.source_id == "old"
+
+
+def test_same_body_on_a_stale_index_is_republished_not_reported_unchanged(
+    monkeypatch, tmp_path
+) -> None:
+    """A matching content hash alone is not currency.
+
+    The stored body can be identical while the published chunks, the processing
+    signature or the source metadata moved. Reporting the job as unchanged then
+    left the index stale under a body that had never been re-chunked.
+    """
+
+    title = "中华人民共和国示例法"
+    body = (f"{title}\n" + "第一条 测试规定。" * 40 + "\n" + "第二条 测试条件。" * 40
+            + "\n本法自2020年1月1日起施行。")
+    existing = SourceRecord(
+        source_id="old", title=title, source_url="https://flk.npc.gov.cn/law",
+        source_site="flk.npc.gov.cn", doc_type="law", authority="national_law",
+        effective_date="2019-01-01", instrument_key=None,
+        citation_role="primary_legal_basis",
+    )
+
+    class Store:
+        statuses = []
+
+        def record_raw(self, *_args, **_kwargs):
+            pass
+
+        def transition(self, _job_id, *, status, source=None, **_kwargs):
+            self.statuses.append(status)
+
+    class Service:
+        corpus = tmp_path
+        ingested = None
+
+        def list_sources(self):
+            return [SimpleNamespace(source=existing)]
+
+        def get_source(self, _source_id):
+            return {"content_hash": normalized_content_hash(body)}
+
+        def is_up_to_date(self, *_args):
+            return False
+
+        def ingest_file(self, source, path):
+            self.ingested = source
+
+    monkeypatch.setattr(enrichment, "_download", lambda _url, path: path.write_text(body, encoding="utf-8"))
+    store, service = Store(), Service()
+    process_enrichment_job({
+        "id": "enrich_stale", "title": title, "url": existing.source_url,
+        "raw_path": None, "raw_sha256": None, "source_json": None, "attempt_count": 1,
+    }, store=store, service=service)
+    assert service.ingested is not None
+    assert store.statuses[-1] == "published"
 
 
 def test_changed_same_url_with_same_effective_date_waits_for_review(monkeypatch, tmp_path) -> None:

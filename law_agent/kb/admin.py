@@ -21,8 +21,8 @@ from uuid import uuid4
 import psycopg
 
 from law_agent.config import require_service_config
-from law_agent.data.schemas import SourceRecord
-from law_agent.kb.ingestion import prepare_chunks_for_publish, prepare_document_for_ingest
+from law_agent.data.schemas import Chunk, SourceRecord
+from law_agent.kb.ingestion import prepare_source_for_ingest
 from law_agent.kb.service import (
     InMemoryIndex,
     KnowledgeBase,
@@ -178,37 +178,36 @@ class KnowledgeBaseAdminService:
             raise KeyError(source_id)
         return Path(path)
 
+    def is_up_to_date(
+        self, source: SourceRecord, normalized_text: str, chunks: list[Chunk]
+    ) -> bool:
+        """Whether this corpus already publishes exactly what ``chunks`` would.
+
+        Read-only, and asked through the same processing signature an actual
+        ingest records: a body that merely matches the stored content hash is
+        not necessarily current, because the chunking, the signature and the
+        source metadata are part of the same duplicate rule.
+        """
+
+        config = require_service_config()
+        kb = KnowledgeBase(
+            self.corpus,
+            index=InMemoryIndex(),
+            signature=processing_signature(
+                embedding_model=config.embedding.model,
+                embedding_dimension=config.embedding.dimension,
+            ),
+        )
+        return kb.is_up_to_date(source, normalized_text, chunks)
+
     def ingest_file(self, source: SourceRecord, file_path: Path, *, parser: str = "auto") -> dict[str, Any]:
         if self.read_only:
             raise RuntimeError("知识库当前为只读挂载")
         with self._mutation_lock, corpus_mutation_lock():
-            document = prepare_document_for_ingest(file_path, parser=parser)
-            final_document = document.model_copy(
-                update={
-                    "doc_id": source.source_id,
-                    "source_id": source.source_id,
-                    "library_kind": source.library_kind,
-                    "title": source.title,
-                    "source_url": source.source_url,
-                    "source_site": source.source_site,
-                    "doc_type": source.doc_type,
-                    "authority": source.authority,
-                    "citation_role": source.citation_role,
-                    "law_status": source.law_status,
-                    "publish_date": source.publish_date,
-                    "effective_date": source.effective_date,
-                    "valid_to": source.valid_to,
-                    "instrument_key": source.instrument_key,
-                    "issuing_body": source.issuing_body,
-                    "owning_department": source.owning_department,
-                    "internal_status": source.internal_status,
-                    "applicable_region": source.applicable_region,
-                    "legal_domain": source.legal_domain,
-                    "applicable_subjects": source.applicable_subjects,
-                    "topic_tags": source.topic_tags,
-                }
-            )
-            chunks = prepare_chunks_for_publish(final_document)
+            # One formal boundary for parsing, binding, chunking and both
+            # gates: the HTTP path and the CLI judge a source identically.
+            prepared = prepare_source_for_ingest(source, file_path, parser=parser)
+            prepared.require_publishable()
             config = require_service_config()
             index = ServiceGenerationIndex(config)
             try:
@@ -224,8 +223,8 @@ class KnowledgeBaseAdminService:
                 )
                 result = kb.ingest_prepared(
                     source,
-                    final_document.text,
-                    chunks,
+                    prepared.document.text,
+                    prepared.chunks,
                     raw_file=file_path,
                 )
             finally:
