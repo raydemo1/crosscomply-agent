@@ -789,7 +789,10 @@ def task_drafter() -> _FakeTaskDrafter:
 
 
 @pytest.fixture
-def workbench(tmp_path: Path, task_drafter: _FakeTaskDrafter):
+def workbench(tmp_path: Path, task_drafter: _FakeTaskDrafter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr("law_agent.config.load_env_file", lambda: None)
+    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "")
+    monkeypatch.setenv("OPENAI_COMPATIBLE_MODEL", "test-model")
     chunks = tmp_path / "chunks.jsonl"
     chunks.write_text("", encoding="utf-8")
     runner = _FakeRereview(result=_completed())
@@ -850,6 +853,7 @@ def test_reviewer_can_ask_the_agent_to_draft_remediation_tasks(
     assert body["items"][0]["suggested_due_days"] == 7
     assert body["items"][0]["source_recommendation"] is None
     assert task_drafter.calls[0]["review_result"]["issues"][0]["id"] == "issue_1"
+    assert task_drafter.calls[0]["model_id"] == "test-model"
 
 
 def test_drafting_tasks_never_creates_a_plan(workbench) -> None:

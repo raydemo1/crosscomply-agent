@@ -18,7 +18,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from law_agent.config import require_llm_config
+from law_agent.config import load_llm_config
 from law_agent.review.agent import AgentState, answer_agent
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
@@ -277,7 +277,7 @@ def register_remediation_routes(
         )
         review_task = enterprise().get_latest_task(task["case_id"])
         model_id = review_task.model_id if review_task is not None else (
-            require_llm_config().model or "not-configured"
+            load_llm_config().model or "not-configured"
         )
         goal = (
             f"复核整改任务「{task.get('title')}」：判断原审查问题在本次处理进展后是否已经解决。"
@@ -360,7 +360,7 @@ def register_remediation_routes(
         model_id = (
             review_task.model_id
             if review_task is not None
-            else (require_llm_config().model or "not-configured")
+            else (load_llm_config().model or "not-configured")
         )
         try:
             items = await run_in_threadpool(task_drafter, review_result, model_id=model_id)
