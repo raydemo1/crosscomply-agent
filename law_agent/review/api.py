@@ -152,7 +152,7 @@ def _case_summary(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _case_payload(store: CaseStore, case: dict[str, Any]) -> dict[str, Any]:
+def _case_payload(store: CaseStore, case: dict[str, Any], user: UserRecord) -> dict[str, Any]:
     case_payload = dict(case)
     if isinstance(case_payload.get("response"), dict):
         case_payload["response"] = _normalize_review_response_payload(case_payload["response"])
@@ -160,7 +160,8 @@ def _case_payload(store: CaseStore, case: dict[str, Any]) -> dict[str, Any]:
         "case": case_payload,
         "remediation_plan": store.get_remediation_plan(case["id"]),
         "events": store.list_events(case["id"]),
-        "feedback": store.get_feedback(case["id"]),
+        "feedback": store.get_feedback(case["id"], user.id),
+        "feedback_entries": store.list_feedback(case["id"]) if user.role != "requester" else [],
     }
 
 
@@ -574,8 +575,8 @@ def create_app(
         )
         return asdict(approval)
 
-    def case_payload(case: dict[str, Any]) -> dict[str, Any]:
-        payload = _case_payload(store(), case)
+    def case_payload(case: dict[str, Any], user: UserRecord) -> dict[str, Any]:
+        payload = _case_payload(store(), case, user)
         snapshot = enterprise().get_latest_material_snapshot(case["id"])
         intake_snapshot = (
             enterprise().get_latest_intake_snapshot(

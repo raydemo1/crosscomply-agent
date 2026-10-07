@@ -59,6 +59,7 @@ export interface SavedCase {
   actions: CaseAction[];
   events: CaseEvent[];
   feedback: CaseFeedback | null;
+  feedbackEntries: import('./api').CaseFeedbackEntryApi[];
   materialSnapshot: MaterialSnapshotApi | null;
   intakeSnapshot: IntakeSnapshotApi | null;
   reviewTask: ReviewTaskApi | null;

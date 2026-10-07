@@ -4,6 +4,7 @@
 .codex/
 .impeccable/
 .playwright-cli/
+.playwright-mcp/
 .zread/
 .github/hooks/
 .github/skills/

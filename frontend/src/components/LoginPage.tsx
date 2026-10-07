@@ -31,7 +31,6 @@ export default function LoginPage({ onLogin, error }: LoginPageProps): JSX.Eleme
         <form onSubmit={submit} className="login-form">
           <label className="form-field"><span>登录账号</span><input type="text" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="例如：admin@example.com" autoComplete="username" autoFocus required /></label>
           <label className="form-field"><span>访问密码</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="输入账户密码" autoComplete="current-password" required /></label>
-          <div className="login-form__hint">账号角色由系统权限决定，无需单独选择角色。</div>
           {error ? <div className="form-error" role="alert" aria-live="assertive">{error}</div> : null}
           <button type="submit" className="btn-primary login-form__submit" disabled={loading}>{loading ? '正在验证…' : '进入系统 →'}</button>
         </form>

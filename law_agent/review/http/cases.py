@@ -84,6 +84,34 @@ def _intake_from_extraction(facts: ReviewFacts) -> IntakePayload:
     )
 
 
+# These are explicit product fields, not a best-effort keyword classifier.  The
+# extractor is instructed to return these stable keys; an unknown key remains
+# visible to the applicant as a free-form clarification instead of vanishing.
+_INTAKE_FOLLOWUP_TYPES: dict[str, str] = {
+    "cross_border_transfer": "choice",
+    "contains_personal_information": "choice",
+    "sensitive_personal_info": "choice",
+    "overseas_recipient": "text",
+    "processing_purpose": "text",
+    "legal_basis_or_consent": "text",
+    "data_volume_threshold": "count",
+    "exemption_facts_confirmed": "exemption",
+}
+
+
+def _intake_followups(facts: ReviewFacts) -> list[dict[str, str]]:
+    """Expose only explicit Agent fact requests to the intake form."""
+
+    return [
+        {
+            "key": item,
+            "reason": item,
+            "input_type": _INTAKE_FOLLOWUP_TYPES.get(item, "free_text"),
+        }
+        for item in dict.fromkeys(value.strip() for value in facts.missing_information if value.strip())
+    ]
+
+
 async def material_from_upload(file: UploadFile) -> tuple[str, str]:
     filename = Path(file.filename or "uploaded-material").name
     suffix = Path(filename).suffix.lower()
@@ -133,7 +161,7 @@ def register_case_routes(
     store: Callable[[], CaseStore],
     enterprise: Callable[[], InMemoryEnterpriseStore | PostgresEnterpriseStore],
     originals: Callable[[], MaterialObjectStore],
-    case_payload: Callable[[dict[str, Any]], dict[str, Any]],
+    case_payload: Callable[[dict[str, Any], UserRecord], dict[str, Any]],
     case_summary: Callable[[dict[str, Any]], dict[str, Any]],
     can_view: Callable[[UserRecord, dict[str, Any]], bool],
 ) -> None:
@@ -182,7 +210,7 @@ def register_case_routes(
             target="review_running",
             authority="local",
         )
-        store().update_case(identifier, owner_id=user.id, status="review_running")
+        store().update_case(identifier, status="review_running")
         store().add_event(
             identifier,
             user.id,
@@ -241,7 +269,7 @@ def register_case_routes(
             owner_id=user.id,
         )
         store().add_event(item["id"], user.id, event_type="case_created", to_status="draft")
-        return case_payload(item)
+        return case_payload(item, user)
 
     @router.post("/api/intake-extraction")
     async def extract_intake(
@@ -293,7 +321,7 @@ def register_case_routes(
         facts = await run_in_threadpool(extract_facts_with_deepseek, combined, question or None)
         return {
             "intake": _intake_from_extraction(facts).model_dump(mode="json"),
-            "missing": [{"key": "material_fact", "reason": item} for item in facts.missing_information],
+            "missing": _intake_followups(facts),
         }
 
     @router.post("/api/cases/{identifier}/materials")
@@ -467,7 +495,7 @@ def register_case_routes(
         case = store().get_case(identifier)
         if case is None or not can_view(user, case):
             raise HTTPException(status_code=404, detail="案件不存在或无权访问")
-        return case_payload(case)
+        return case_payload(case, user)
 
     @router.get("/api/cases/{identifier}/knowledge-rechecks")
     async def get_case_knowledge_rechecks(
@@ -505,7 +533,7 @@ def register_case_routes(
             event_type="case_updated",
             payload={"fields": list(values)},
         )
-        return case_payload(updated)
+        return case_payload(updated, user)
 
     @router.post("/api/cases/{identifier}/status")
     async def update_case_status(
@@ -577,7 +605,7 @@ def register_case_routes(
                     raise
                 raise HTTPException(status_code=409, detail=str(exc)) from exc
             updated = store().get_case(identifier) or updated
-        return case_payload(updated)
+        return case_payload(updated, user)
 
     @router.post("/api/cases/{identifier}/run")
     async def run_case(
@@ -622,6 +650,70 @@ def register_case_routes(
         queued = queue_review(identifier, user, case, material_snapshot, intake_snapshot)
         return JSONResponse(status_code=202, content=queued)
 
+    @router.post("/api/cases/{identifier}/guided-rereview")
+    async def guided_rereview_case(
+        identifier: str,
+        user: UserRecord = Depends(current_user),
+    ) -> JSONResponse:
+        """Freeze the applicant's latest materials and explicitly restart the whole review."""
+        case = store().get_case(identifier)
+        if case is None or not can_view(user, case):
+            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        requester_id = case.get("owner_id") or case.get("created_by")
+        if user.role != "requester" or requester_id != user.id:
+            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        if case["status"] != "needs_info":
+            raise HTTPException(status_code=409, detail="只有等待补充与整改的案件可以重新审查")
+        active_task = enterprise().get_latest_task(identifier)
+        if active_task is not None and active_task.status in {"queued", "running", "waiting_input"}:
+            raise HTTPException(status_code=409, detail="当前审查仍在运行或等待回答，请先完成当前步骤")
+        plan = store().get_remediation_plan(identifier)
+        if plan is None:
+            raise HTTPException(status_code=409, detail="本轮整改清单尚未生成，请联系审核人处理")
+        blockers = [
+            item for item in plan.get("tasks") or []
+            if item.get("is_current", True)
+            and item.get("blocking")
+            and item.get("phase") == "pre_approval"
+            and item.get("status") != "completed"
+        ]
+        if blockers:
+            raise HTTPException(status_code=409, detail="仍有送审前事项未完成或待审核人验收")
+
+        latest_by_material: dict[str, Any] = {}
+        for version in enterprise().list_material_versions(identifier):
+            current = latest_by_material.get(version.material_id)
+            if current is None or version.version_number > current.version_number:
+                latest_by_material[version.material_id] = version
+        versions = list(latest_by_material.values())
+        if not versions:
+            raise HTTPException(status_code=409, detail="案件没有可冻结的材料版本")
+        try:
+            snapshot = enterprise().create_material_snapshot(
+                case_id=identifier,
+                version_ids=[item.id for item in versions],
+                created_by=user.id,
+            )
+            intake = IntakePayload.model_validate(case.get("intake") or {}).model_dump(mode="json")
+            intake_snapshot = enterprise().create_intake_snapshot(
+                case_id=identifier,
+                material_snapshot_id=snapshot.id,
+                intake=intake,
+                created_by=user.id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+        queued = queue_review(identifier, user, case, snapshot, intake_snapshot)
+        for superseded_task_id in enterprise().supersede_waiting_tasks(identifier):
+            store().add_event(
+                identifier,
+                user.id,
+                event_type="review_task_superseded",
+                payload={"task_id": superseded_task_id, "material_snapshot_id": snapshot.id},
+            )
+        return JSONResponse(status_code=202, content=queued)
+
     @router.get("/api/tasks/{task_id}")
     async def get_review_task(
         task_id: str,
@@ -643,18 +735,19 @@ def register_case_routes(
     ) -> dict[str, Any]:
         from law_agent.review.agent import AgentState, answer_agent
 
-        reviewer_only(user)
         task = enterprise().get_task(task_id)
         if task is None:
             raise HTTPException(status_code=404, detail="审查任务不存在")
         case = store().get_case(task.case_id)
         if case is None:
             raise HTTPException(status_code=404, detail="案件不存在")
-        if payload.changes_frozen_facts:
-            raise HTTPException(
-                status_code=409,
-                detail="该补充会改变申请人确认事实，请重新冻结事实与材料后提交",
-            )
+        if user.role == "requester":
+            if (case.get("owner_id") or case.get("created_by")) != user.id:
+                raise HTTPException(status_code=404, detail="审查任务不存在或无权访问")
+        else:
+            reviewer_only(user)
+        if task.status != "waiting_input":
+            raise HTTPException(status_code=409, detail="当前审查没有等待回答的问题")
         if task.agent_state is None:
             raise HTTPException(status_code=409, detail="任务没有可恢复的 Agent 状态")
         try:
@@ -662,6 +755,10 @@ def register_case_routes(
                 AgentState.model_validate(task.agent_state),
                 gate_id=payload.gate_id,
                 answer=payload.answer,
+                provenance=(
+                    "applicant_statement" if user.role == "requester" else "reviewer_instruction"
+                ),
+                intake_snapshot_id=task.intake_snapshot_id,
             )
             resumed = enterprise().resume_task(
                 task_id, state=state.model_dump(mode="json")
@@ -712,6 +809,81 @@ def register_case_routes(
             or latest_intake.id != task.intake_snapshot_id
         ):
             raise HTTPException(status_code=409, detail="案件材料或事实快照已变化，请重新提交审查")
+        sync_events = [
+            event for event in store().list_events(task.case_id)
+            if event.get("event_type") in {
+                "guided_action_list_failed",
+                "guided_action_list_reconciled",
+            }
+            and (event.get("payload") or {}).get("task_id") == task.id
+        ]
+        if task.status == "succeeded":
+            if (
+                task.result is None
+                or (
+                    sync_events
+                    and sync_events[-1].get("event_type") != "guided_action_list_failed"
+                )
+            ):
+                raise HTTPException(status_code=409, detail="该审查已完成，没有待重试的整改清单")
+            from law_agent.review.remediation import reconcile_guided_action_list
+
+            try:
+                plan, blockers, final_status = reconcile_guided_action_list(
+                    store(),
+                    case_id=task.case_id,
+                    actor_id=user.id,
+                    requester_id=case.get("owner_id") or case["created_by"],
+                    task_result=task.result,
+                )
+            except Exception as exc:  # noqa: BLE001 - preserve the completed review and allow retry
+                store().add_event(
+                    task.case_id,
+                    user.id,
+                    event_type="guided_action_list_failed",
+                    from_status="run_failed",
+                    to_status="run_failed",
+                    payload={"task_id": task.id, "error": f"{exc.__class__.__name__}: {exc}"[:500]},
+                )
+                raise HTTPException(
+                    status_code=503,
+                    detail="整改清单仍未能保存，可以稍后重试；审查结果和历史记录已保留",
+                ) from exc
+            validate_case_transition(
+                current="run_failed", target=final_status, authority="local"
+            )
+            store().update_case(
+                task.case_id,
+                status=final_status,
+                risk_level=(task.result.get("review_result") or {}).get("risk_level"),
+                trace_id=task.result.get("trace_id"),
+                response_json=task.result,
+            )
+            store().add_event(
+                task.case_id,
+                user.id,
+                event_type="review_completed",
+                from_status="run_failed",
+                to_status=final_status,
+                payload={"task_id": task.id, "recovered_after_action_list_failure": True},
+            )
+            store().add_event(
+                task.case_id,
+                user.id,
+                event_type="guided_action_list_reconciled",
+                from_status="run_failed",
+                to_status=final_status,
+                payload={
+                    "task_id": task.id,
+                    "plan_id": plan.get("id"),
+                    "retry": True,
+                    "current_action_count": sum(
+                        item.get("is_current", True) for item in plan.get("tasks") or []
+                    ),
+                    "blocking_action_count": len(blockers),
+                },
+            )
+            return asdict(task)
         try:
             retried = enterprise().retry_task(task_id)
         except ValueError as exc:

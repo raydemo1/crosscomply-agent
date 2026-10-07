@@ -32,8 +32,12 @@ def register_activity_routes(
         case = store().get_case(identifier)
         if case is None or not can_view(user, case):
             raise HTTPException(status_code=404, detail="案件不存在或无权访问")
+        if user.role == "requester" and payload.citation_verdicts:
+            raise HTTPException(status_code=403, detail="引用核查仅供审核人提交")
+        if any(value not in {"correct", "wrong"} for value in payload.citation_verdicts.values()):
+            raise HTTPException(status_code=422, detail="引用核查结果无效")
         feedback = store().save_feedback(identifier, user.id, **payload.model_dump(mode="json"))
-        store().add_event(identifier, user.id, event_type="feedback_saved")
+        store().add_event(identifier, user.id, event_type="feedback_saved", payload={"actor_role": user.role})
         return feedback
 
     @router.get("/api/cases/{identifier}/events")

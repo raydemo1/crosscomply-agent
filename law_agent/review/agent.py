@@ -143,11 +143,14 @@ Web finding 是调查上下文，不是正式法律 evidence，不得作为 clai
 形成法律路径时独立检查每个并列条件、例外和适用前提。不能由某一项数量门槛不满足推断所有免予情形均不适用；统计期间和人数口径未经确认时不得当作已确认事实。
 finish 若收到语义证据校验的 unsupported/uncertain observation，应重新读法条、补充检索、询问用户或修正结论。预算耗尽时只允许以 insufficient_evidence 收口。
 request_input(question): 存在阻塞性缺口时询问人类并暂停。若补充会改变申请人确认的事实，要求重新冻结事实与材料快照。
+人类答复保存在 state.steps 中，必须按 observation.provenance 判断来源。applicant_statement 是申报人的未经核实陈述，不会更新 confirmed_intake，也不是材料或外部证据：只可作为“申报人陈述”记录；如与已冻结事实或材料冲突，保留原快照，明确指出冲突，并要求先更正事实/材料、重新冻结快照后再据此判断。缺少 provenance 的旧答复也按未经核实陈述处理。reviewer_instruction 只是审查操作指引，不是事实证据或法律依据。
 finish(draft): 提交带引用的结构化报告。conclusion 可用 Markdown；missing_information、建议和边界必须填入对应字段。
 draft.legal_path 只在法律路径可由已核验法源和已确认事实确定时填写；否则填 null，不得直接复制申请人拟采用路径。
 如果新官方材料可能改变核心结论，draft.web_impact 填 core、material_web_urls 填对应 URL，risk_level 填 insufficient_evidence，不得输出确定审批结论。仅影响办理细节时填 execution_detail；补充说明填 supplement。
 draft.issues: 只登记本次调查确认的重要问题，kind 只能是 material_conflict（材料事实互相矛盾）、legal_gap（有正式法源支持的问题）、missing_information（事实仍未知）。不重要的一般建议继续放 recommended_actions，不要为凑数量制造 issue。
 material_conflict 必须引用冲突双方的原文；legal_gap 必须同时引用材料事实和已检索到的 can_cite_clause=true 的 chunk_id；missing_information 必须写明尚未确认的内容。
+每个 issue 的 answer_type 明确指定申报人回答方式：choice 适合是/否/不确定，count 适合需要填写具体数量，text 适合开放性事实说明。不要让界面从问题标题猜测回答方式。
+对未形成 issue、但列入 missing_information 的问题，也在 missing_answer_types 中按原问题文本指定回答方式。
 draft.issues[].material_evidence 只能引用本次冻结材料：material_version_id 用材料头部“【材料 … | 编号】”中的编号，不能用 confirmed_intake.id（事实快照编号）；用户输入中的 frozen_material_version_ids 是可用版本编号清单，优先从中选择；quote 必须与材料正文完全一致且在该材料中唯一出现；不要编造原文。
 未检索到或材料未说明的信息不得写成“不存在”“未开启”，只能写入 issues[].unknowns 或 missing_information。
 法条结论只能引用已返回的 can_cite_clause=true 的 chunk_id。不得编造来源或把指南当法条。
@@ -475,6 +478,8 @@ def answer_agent(
     *,
     gate_id: str,
     answer: str,
+    provenance: Literal["applicant_statement", "reviewer_instruction"] = "applicant_statement",
+    intake_snapshot_id: str | None = None,
 ) -> AgentState:
     if state.status != "waiting_input" or state.gate_id != gate_id:
         raise ValueError("该问题已处理或等待状态已变化，请刷新后再试")
@@ -486,8 +491,16 @@ def answer_agent(
     state.steps.append(AgentStep(
         number=state.turns,
         action="human_input",
-        summary="用户补充信息",
-        observation={"answer": answer.strip()},
+        summary=(
+            "申报人补充陈述（未核实）"
+            if provenance == "applicant_statement"
+            else "审查人操作指引"
+        ),
+        observation={
+            "answer": answer.strip(),
+            "provenance": provenance,
+            "intake_snapshot_id": intake_snapshot_id,
+        },
     ))
     state.pending_question = None
     state.gate_id = None

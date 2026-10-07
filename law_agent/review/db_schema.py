@@ -1,1 +1,1 @@
-EXPECTED_SCHEMA_REVISION = "0012_agent_facts"
+EXPECTED_SCHEMA_REVISION = "0015_default_remediation_phase"

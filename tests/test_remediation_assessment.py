@@ -27,6 +27,7 @@ from law_agent.review.remediation import (
     build_rereview_packet,
     execute_rereview,
     finalize_assessment,
+    guided_actions_from_review,
     validate_task_drafts,
 )
 from law_agent.review.schemas import RetrievalQuery
@@ -94,9 +95,12 @@ def _packet(
     *,
     attachments: tuple[RereviewAttachment, ...] = (),
     accepted: list[dict[str, Any]] | None = None,
+    task_kind: str = "control_remediation",
 ) -> Any:
+    task = _task()
+    task["task_kind"] = task_kind
     return build_rereview_packet(
-        task=_task(),
+        task=task,
         review_result=_review_result(),
         issue=_issue(),
         material_versions=[_Version("mv_1", CONTRACT_QUOTE)],
@@ -132,8 +136,203 @@ def test_resolved_backed_only_by_user_statement_is_rejected() -> None:
             _point("生产环境已关闭训练", AssessmentBasisDraft(source="user_statement", quote="已关闭"))
         ]
     )
-    with pytest.raises(RemediationAssessmentError, match="可核实依据"):
+    with pytest.raises(RemediationAssessmentError, match="可核验材料"):
         finalize_assessment(draft, _packet())
+
+
+def test_fact_confirmation_accepts_an_exact_applicant_statement() -> None:
+    statement = "已关闭生产环境的模型训练功能。"
+    draft = _draft(
+        confirmed_points=[
+            _point("申报人已声明生产环境关闭训练功能", AssessmentBasisDraft(source="user_statement", quote=statement))
+        ]
+    )
+    payload = finalize_assessment(draft, _packet(task_kind="fact_confirmation"))
+    assert payload["status"] == "resolved"
+    basis = payload["grounded_evidence"][0]
+    assert basis["source"] == "user_statement"
+    assert basis["quote"] == statement
+    assert basis["start_offset"] == 0
+
+
+def test_legal_basis_cannot_prove_a_control_was_implemented() -> None:
+    draft = _draft(
+        confirmed_points=[
+            _point(
+                "合同已完成约定",
+                AssessmentBasisDraft(
+                    source="legal_basis",
+                    reference="chunk_1",
+                    quote="个人信息处理者委托处理个人信息的，应当与受托人约定委托处理的目的、期限、处理方式等。",
+                ),
+            )
+        ]
+    )
+    with pytest.raises(RemediationAssessmentError, match="法条本身不能证明整改已经完成"):
+        finalize_assessment(draft, _packet())
+
+
+def test_guided_actions_reconcile_and_keep_fact_and_remediation_boundaries() -> None:
+    store = InMemoryCaseStore(seed_password="pw")
+    initial_review = {
+        "review_result_id": "result_1",
+        "issues": [
+            {
+                "id": "issue_fact",
+                "kind": "missing_information",
+                "title": "处理目的未确认",
+                "finding": "材料没有说明处理目的。",
+                "unknowns": ["是否仅用于履行服务合同"],
+            },
+            {
+                "id": "issue_control",
+                "kind": "legal_gap",
+                "title": "委托合同条款不完整",
+                "finding": "合同未约定委托处理期限。",
+                "recommended_action": "补充期限条款并提交已签署合同。",
+            },
+        ],
+        "recommended_actions": ["获批后每年复核供应商合同"],
+    }
+    actions = guided_actions_from_review(initial_review, requester_id="requester_1")
+    assert [item["task_kind"] for item in actions] == [
+        "fact_confirmation",
+        "control_remediation",
+        "recommendation",
+    ]
+    assert actions[0]["blocking"] is True and actions[0]["phase"] == "pre_approval"
+    assert actions[2]["blocking"] is False and actions[2]["phase"] == "post_approval"
+
+    plan = store.sync_guided_remediation_plan("case_1", "reviewer_1", actions)
+    fact, control, recommendation = plan["tasks"]
+    store.start_remediation_task(fact["id"])
+    fact_submission = store.create_remediation_submission(
+        fact["id"], submitted_by="requester_1", note="仅用于履行服务合同。"
+    )
+    verified = store.apply_agent_remediation_assessment(
+        fact_submission["id"], assessment_status="resolved"
+    )
+    assert verified["status"] == "agent_verified"
+    assert store.get_remediation_task(fact["id"])["status"] == "completed"
+
+    store.start_remediation_task(control["id"])
+    control_submission = store.create_remediation_submission(
+        control["id"], submitted_by="requester_1", note="已补充期限条款。"
+    )
+    pending_review = store.apply_agent_remediation_assessment(
+        control_submission["id"], assessment_status="resolved"
+    )
+    assert pending_review["status"] == "pending_review"
+    assert store.get_remediation_task(control["id"])["status"] == "pending_review"
+
+    refreshed = store.sync_guided_remediation_plan("case_1", "reviewer_1", actions)
+    refreshed_by_key = {item["source_key"]: item for item in refreshed["tasks"]}
+    assert refreshed_by_key[control["source_key"]]["id"] == control["id"]
+    assert refreshed_by_key[control["source_key"]]["status"] == "pending_review"
+    assert refreshed_by_key[recommendation["source_key"]]["id"] == recommendation["id"]
+
+    next_review = {**initial_review, "review_result_id": "result_2", "issues": [initial_review["issues"][1]]}
+    next_actions = guided_actions_from_review(next_review, requester_id="requester_1")
+    reconciled = store.sync_guided_remediation_plan("case_1", "reviewer_1", next_actions)
+    fact_history = next(item for item in reconciled["tasks"] if item["id"] == fact["id"])
+    assert fact_history["is_current"] is False
+    assert all(item["is_current"] for item in reconciled["tasks"] if item["id"] != fact["id"])
+
+
+def test_guided_fact_answer_type_is_explicit_and_survives_reconciliation() -> None:
+    store = InMemoryCaseStore(seed_password="pw")
+    review = {
+        "review_result_id": "result_answer_type",
+        "issues": [{
+            "id": "issue_count",
+            "kind": "missing_information",
+            "title": "请确认覆盖规模",
+            "finding": "材料没有给出覆盖规模。",
+            "unknowns": ["实际覆盖多少名用户"],
+            "answer_type": "count",
+        }],
+    }
+    actions = guided_actions_from_review(review, requester_id="requester_1")
+    assert actions[0]["answer_type"] == "count"
+    plan = store.sync_guided_remediation_plan("case_1", "reviewer_1", actions)
+    assert plan["tasks"][0]["answer_type"] == "count"
+    updated = store.sync_guided_remediation_plan("case_1", "reviewer_1", actions)
+    assert updated["tasks"][0]["answer_type"] == "count"
+
+    unlocated = guided_actions_from_review({
+        "review_result_id": "result_unlocated",
+        "missing_information": ["请提供本年度覆盖用户总数"],
+        "missing_answer_types": {"请提供本年度覆盖用户总数": "count"},
+    }, requester_id="requester_1")
+    assert unlocated[0]["answer_type"] == "count"
+
+
+def test_declared_control_without_document_waits_for_human_review() -> None:
+    store = InMemoryCaseStore(seed_password="pw")
+    plan = store.sync_guided_remediation_plan(
+        "case_1", "reviewer_1", [
+            {
+                "source_key": "control:training", "title": "限制服务商训练使用",
+                "description": "", "acceptance_criteria": "限制训练使用",
+                "assignee_id": "requester_1", "priority": "high", "due_date": None,
+                "task_kind": "control_remediation", "phase": "pre_approval", "blocking": True,
+            }
+        ],
+    )
+    task_id = plan["tasks"][0]["id"]
+    store.start_remediation_task(task_id)
+    submission = store.create_remediation_submission(
+        task_id, submitted_by="requester_1", note="已关闭训练功能。",
+        response_choice="completed",
+    )
+    reviewed = store.apply_agent_remediation_assessment(
+        submission["id"], assessment_status="insufficient_evidence"
+    )
+    assert reviewed["status"] == "pending_review"
+    assert store.get_remediation_task(task_id)["status"] == "pending_review"
+    accepted = store.review_remediation_submission(
+        submission["id"], decision="accepted", reviewed_by="reviewer_1",
+        review_note="已人工核实供应商后台设置。",
+    )
+    assert accepted["status"] == "accepted"
+    assert store.get_remediation_task(task_id)["status"] == "completed"
+
+
+def test_guided_actions_do_not_duplicate_gaps_or_defer_required_controls() -> None:
+    actions = guided_actions_from_review(
+        {
+            "issues": [
+                {
+                    "kind": "missing_information",
+                    "title": "人数口径未确认",
+                    "unknowns": ["自当年1月1日起累计出境去重人数"],
+                },
+                {
+                    "kind": "compliance_gap",
+                    "title": "服务商训练用途未限制",
+                    "unknowns": ["服务商是否已关闭模型训练用途"],
+                    "recommended_action": "取得书面限制条款和后台设置证据",
+                },
+            ],
+            "missing_information": [
+                "自当年1月1日起累计向境外提供的个人信息去重人数及是否含敏感个人信息",
+                "是否已完成个人信息保护影响评估及其报告",
+                "服务商是否已关闭模型训练用途，是否有后台设置证据",
+            ],
+            "recommended_actions": [
+                "开展个人信息保护影响评估并形成报告",
+                "获批后定期复核服务商合同",
+            ],
+        },
+        requester_id="requester_1",
+    )
+    assert len(actions) == 4
+    assert [item["task_kind"] for item in actions] == [
+        "fact_confirmation", "control_remediation", "control_remediation", "recommendation",
+    ]
+    assert actions[1]["phase"] == "pre_approval"
+    assert actions[2]["phase"] == "pre_approval"
+    assert actions[3]["phase"] == "post_approval"
 
 
 def test_resolved_with_grounded_attachment_records_offsets_and_hash() -> None:
@@ -611,6 +810,7 @@ def workbench(tmp_path: Path, task_drafter: _FakeTaskDrafter):
             "intake": {"business_activity": "推荐系统", "cross_border_transfer": True},
         },
     ).json()["case"]["id"]
+    app.state.case_store.update_case(case_id, status="approved")
     app.state.case_store.update_case(
         case_id, response_json={"review_result": _review_result()}
     )
@@ -812,3 +1012,56 @@ def test_case_material_evidence_is_grounded_from_frozen_materials(workbench) -> 
     evidence = response.json()["submission"]["evidence"][0]
     assert evidence["parse_status"] == "ready"
     assert runner.calls[-1]["packet"].attachment_texts == {evidence["id"]: CONTRACT_QUOTE}
+
+
+def test_frozen_case_material_counts_as_verifiable_evidence_on_review(workbench) -> None:
+    """Readable case materials verify a submission just like an upload, so no human note is forced."""
+    client, app, _runner, case_id, task_id = workbench
+    enterprise = app.state.enterprise_store
+    version = enterprise.create_material_version(
+        case_id=case_id,
+        logical_name="vendor_dpa",
+        filename="dpa.txt",
+        content_type="text/plain",
+        object_key=f"cases/{case_id}/dpa.txt",
+        sha256="d" * 64,
+        byte_size=40,
+        uploaded_by="user_test",
+        parse_status="ready",
+        parsed_text=CONTRACT_QUOTE,
+    )
+    submitted = client.post(
+        f"/api/remediation-tasks/{task_id}/submissions",
+        json={
+            "note": "已按合同条款完成整改。",
+            "response_choice": "completed",
+            "evidence": [
+                {"kind": "case_material", "label": "vendor_dpa", "object_key": version.id}
+            ],
+        },
+    ).json()
+    accepted = client.post(
+        f"/api/remediation-submissions/{submitted['submission']['id']}/review",
+        json={"decision": "accepted"},
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["status"] == "accepted"
+
+
+def test_declaration_only_acceptance_still_requires_a_recorded_basis(workbench) -> None:
+    client, _app, _runner, _case_id, task_id = workbench
+    submitted = client.post(
+        f"/api/remediation-tasks/{task_id}/submissions",
+        json={"note": "已处理。", "response_choice": "completed"},
+    ).json()
+    blocked = client.post(
+        f"/api/remediation-submissions/{submitted['submission']['id']}/review",
+        json={"decision": "accepted"},
+    )
+    assert blocked.status_code == 422
+    assert "人工核验依据" in blocked.json()["detail"]
+    accepted = client.post(
+        f"/api/remediation-submissions/{submitted['submission']['id']}/review",
+        json={"decision": "accepted", "review_note": "已人工核实供应商后台设置。"},
+    )
+    assert accepted.status_code == 200, accepted.text

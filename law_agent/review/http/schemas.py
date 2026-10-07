@@ -110,6 +110,8 @@ class IntakePayload(BaseModel):
     vendor_name: str = ""
     contract_status: str = ""
     legal_basis_or_consent: str = ""
+    exemption_facts: str = ""
+    followup_answers: dict[str, str] = Field(default_factory=dict)
     notes: str = ""
 
 
@@ -160,7 +162,6 @@ class MaterialSnapshotRequest(BaseModel):
 class AgentInputRequest(BaseModel):
     gate_id: str = Field(..., min_length=1, max_length=200)
     answer: str = Field(..., min_length=1, max_length=6000)
-    changes_frozen_facts: bool = False
 
 
 class RemediationEvidenceRequest(BaseModel):
@@ -181,6 +182,10 @@ class RemediationTaskRequest(BaseModel):
     source_recommendation: str | None = None
     source_review_result_id: str | None = None
     source_issue_id: str | None = None
+    task_kind: Literal["fact_confirmation", "control_remediation", "recommendation"] = "control_remediation"
+    answer_type: Literal["choice", "count", "text", "control_status"] | None = None
+    phase: Literal["pre_approval", "post_approval"] = "pre_approval"
+    blocking: bool = False
     assignee_id: str | None = None
     priority: Literal["high", "medium", "low"] = "medium"
     due_date: str | None = None
@@ -195,6 +200,10 @@ class RemediationTaskUpdateRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1)
     description: str | None = None
     acceptance_criteria: str | None = None
+    task_kind: Literal["fact_confirmation", "control_remediation", "recommendation"] | None = None
+    answer_type: Literal["choice", "count", "text", "control_status"] | None = None
+    phase: Literal["pre_approval", "post_approval"] | None = None
+    blocking: bool | None = None
     assignee_id: str | None = None
     priority: Literal["high", "medium", "low"] | None = None
     due_date: str | None = None
@@ -203,6 +212,7 @@ class RemediationTaskUpdateRequest(BaseModel):
 
 class RemediationSubmissionRequest(BaseModel):
     note: str = Field(..., min_length=1)
+    response_choice: Literal["yes", "no", "unknown", "completed", "incomplete", "not_applicable"] | None = None
     evidence: list[RemediationEvidenceRequest] = Field(default_factory=list, max_length=5)
 
 

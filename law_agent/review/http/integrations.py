@@ -48,6 +48,25 @@ def register_integration_routes(
             raise HTTPException(status_code=404, detail="案件不存在")
         if case["status"] != "pending_feishu_approval":
             raise HTTPException(status_code=409, detail="案件尚未完成审查，不能发起飞书审批")
+        if (case.get("response") or {}).get("freshness_hold"):
+            raise HTTPException(status_code=409, detail="最新官方法源仍在核验，暂不能发起飞书审批")
+        plan = store().get_remediation_plan(identifier)
+        blockers = [
+            item for item in (plan or {}).get("tasks") or []
+            if item.get("is_current", True)
+            and item.get("phase") == "pre_approval"
+            and item.get("blocking")
+            and item.get("status") != "completed"
+        ]
+        if blockers:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "pre_approval_actions_open",
+                    "message": "送审前行动项尚未全部完成",
+                    "action_ids": [item.get("id") for item in blockers],
+                },
+            )
         task = enterprise().get_latest_task(identifier)
         if task is None or task.status != "succeeded":
             raise HTTPException(status_code=409, detail="案件没有已完成的审查任务")

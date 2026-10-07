@@ -279,6 +279,7 @@ class ReviewIssue(StrictModel):
 
     id: str
     kind: IssueKind
+    answer_type: Literal["choice", "count", "text"] | None = None
     title: str
     finding: str
     material_evidence: list[MaterialEvidenceRef]
@@ -301,6 +302,7 @@ class ReviewResult(StrictModel):
     review_facts: ReviewFacts
     trigger_reasons: list[str] = Field(default_factory=list)
     missing_information: list[str] = Field(default_factory=list)
+    missing_answer_types: dict[str, Literal["choice", "count", "text"]] = Field(default_factory=dict)
     recommended_actions: list[str] = Field(default_factory=list)
     risk_boundaries: list[str] = Field(default_factory=list)
     claims: list[GroundedClaim] = Field(default_factory=list)

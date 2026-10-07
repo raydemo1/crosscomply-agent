@@ -165,7 +165,7 @@ def main() -> None:
     from law_agent.review.api import create_app
     from law_agent.review.case_store import PostgresCaseStore
     from law_agent.review.enterprise_store import PostgresEnterpriseStore
-    from law_agent.review.workflow import next_status_after_review
+    from law_agent.review.remediation import reconcile_guided_action_list
 
     config = load_service_config()
     case_store = PostgresCaseStore(config.postgres.dsn)
@@ -231,12 +231,31 @@ def main() -> None:
                 case_id=task.case_id, review_task_id=task.id,
                 urls=task.result.get("material_web_urls") or [],
             )
-        final_status = (
-            "pending_source_verification" if task.result.get("freshness_hold")
-            else next_status_after_review(
-                has_missing_information=completion_has_missing_information(task)
+        try:
+            plan, blockers, final_status = reconcile_guided_action_list(
+                case_store,
+                case_id=task.case_id,
+                actor_id=actor(case),
+                requester_id=case.get("owner_id") or case["created_by"],
+                task_result=task.result,
             )
-        )
+        except Exception as exc:  # noqa: BLE001 - never promote without a durable action list
+            case_store.update_case(
+                task.case_id,
+                status="run_failed",
+                risk_level=review_result.get("risk_level"),
+                trace_id=task.result.get("trace_id"),
+                response_json=task.result,
+            )
+            case_store.add_event(
+                task.case_id,
+                actor(case),
+                event_type="guided_action_list_failed",
+                from_status="review_running",
+                to_status="run_failed",
+                payload={"task_id": task.id, "error": f"{exc.__class__.__name__}: {exc}"[:500]},
+            )
+            return
         case_store.update_case(
             task.case_id,
             status=final_status,
@@ -251,6 +270,21 @@ def main() -> None:
             from_status="review_running",
             to_status=final_status,
             payload={"task_id": task.id},
+        )
+        case_store.add_event(
+            task.case_id,
+            actor(case),
+            event_type="guided_action_list_reconciled",
+            from_status=final_status,
+            to_status=final_status,
+            payload={
+                "task_id": task.id,
+                "plan_id": plan.get("id"),
+                "current_action_count": sum(
+                    item.get("is_current", True) for item in plan.get("tasks") or []
+                ),
+                "blocking_action_count": len(blockers),
+            },
         )
 
     def on_failed(task: ReviewTask) -> None:

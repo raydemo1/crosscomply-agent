@@ -360,6 +360,7 @@ def test_result_generation_with_deepseek_uses_program_citation_groups() -> None:
                 ],
                 "trigger_reasons": ["cross_border_transfer"],
                 "missing_information": ["data_volume_threshold"],
+                "missing_answer_types": {"data_volume_threshold": "count"},
                 "recommended_actions": ["确认出境数据规模"],
                 "risk_boundaries": ["本结论基于当前证据。"],
             }
@@ -383,6 +384,7 @@ def test_result_generation_with_deepseek_uses_program_citation_groups() -> None:
     assert result.claims[0].supporting_chunk_ids == ["c1"]
     assert result.applicable_evidence
     assert result.citations[0].chunk_id == "c1"
+    assert result.missing_answer_types == {"data_volume_threshold": "count"}
 
 
 def test_result_generation_prompt_receives_trace_context() -> None:

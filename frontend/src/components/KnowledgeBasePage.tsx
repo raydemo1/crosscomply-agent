@@ -391,7 +391,6 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
       <header className="knowledge-intro">
         <div className="knowledge-intro__copy">
           <h1 id="knowledge-title" className="page-title">知识库</h1>
-          <p>集中维护可检索来源，保留导入、元数据和回收操作的完整轨迹。</p>
         </div>
       </header>
 

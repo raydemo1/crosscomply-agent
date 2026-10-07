@@ -1,0 +1,51 @@
+.case-progress { padding: 0; }
+.case-progress__summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-lg); padding: 15px var(--space-lg); cursor: pointer; list-style: none; }
+.case-progress__summary::-webkit-details-marker { display: none; }
+.case-progress__summary-copy { display: flex; align-items: baseline; gap: var(--space-sm); min-width: 0; }
+.case-progress__summary-copy small { color: var(--color-muted-foreground); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; }
+.case-progress__summary-copy strong { color: var(--color-foreground); font-family: var(--font-heading); font-size: 1rem; }
+.case-progress__status { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: var(--space-sm); color: var(--color-muted-foreground); font-size: 0.8rem; white-space: nowrap; }
+.case-progress__status b { color: var(--color-primary); font-weight: 700; }
+.case-progress__head { display: inline-flex; align-items: center; gap: var(--space-sm); }
+.case-progress__primary { min-height: 34px; padding: 6px 12px; white-space: nowrap; }
+.case-progress__toggle { color: var(--color-accent); font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.case-progress__toggle::after { content: '展开流程 ▾'; }
+.case-progress[open] .case-progress__summary { border-bottom: 1px solid var(--color-border); }
+.case-progress[open] .case-progress__toggle::after { content: '收起流程 ▴'; }
+.case-progress__body { padding: var(--space-lg); }
+.case-progress__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-sm); margin: 0; padding: 0; list-style: none; }
+.case-progress__steps li { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; min-width: 0; color: var(--color-muted-foreground); }
+.case-progress__steps li::before { position: absolute; top: 14px; right: calc(100% - 8px); width: calc(100% - 16px); height: 1px; background: var(--color-border); content: ''; }
+.case-progress__steps li:first-child::before { display: none; }
+.case-progress__index { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-surface); color: var(--color-muted-foreground); font: 700 0.75rem var(--font-mono); }
+.case-progress__steps strong,
+.case-progress__steps small { display: block; }
+.case-progress__steps strong { color: inherit; font-size: 0.86rem; line-height: 1.35; }
+.case-progress__steps small { margin-top: 3px; font-size: 0.75rem; line-height: 1.45; }
+.case-progress__steps .is-done { color: var(--color-success); }
+.case-progress__steps .is-done .case-progress__index { border-color: var(--color-success); background: var(--color-success); color: #fff; }
+.case-progress__steps .is-done::before { background: var(--color-success); }
+.case-progress__steps .is-current { color: var(--color-primary); }
+.case-progress__steps .is-current .case-progress__index { border: 2px solid var(--color-primary); color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent); }
+.case-progress__steps .is-conditional { color: var(--color-muted-foreground); }
+.case-progress__steps .is-conditional .case-progress__index { border-style: dashed; }
+.case-progress__current { display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg); margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--color-border); }
+.case-progress__guidance { max-width: 760px; margin: 0; color: var(--color-muted-foreground); font-size: 0.9rem; line-height: 1.65; }
+.case-progress__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-sm); }
+.case-progress__supplement { margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--color-border); }
+.case-progress__notice { padding: 10px 12px; border-left: 3px solid var(--color-accent); background: color-mix(in srgb, var(--color-warning) 8%, transparent); color: var(--color-warning); font-size: 0.84rem; line-height: 1.6; }
+
+@media (max-width: 767px) {
+  .case-progress__summary { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'copy head' 'status status'; align-items: start; padding: var(--space-md); }
+  .case-progress__summary-copy { grid-area: copy; align-items: flex-start; flex-direction: column; gap: 2px; }
+  .case-progress__status { grid-area: status; justify-content: flex-start; white-space: normal; }
+  .case-progress__head { grid-area: head; align-items: flex-end; flex-direction: column; }
+  .case-progress__toggle::after { content: '展开 ▾'; }
+  .case-progress[open] .case-progress__toggle::after { content: '收起 ▴'; }
+  .case-progress__body { padding: var(--space-md); }
+  .case-progress__steps { grid-template-columns: 1fr; gap: var(--space-md); }
+  .case-progress__steps li::before { top: -10px; right: auto; left: 13px; width: 1px; height: 10px; }
+  .case-progress__current { align-items: flex-start; flex-direction: column; }
+  .case-progress__actions { justify-content: flex-start; width: 100%; }
+  .case-progress__actions > .btn-primary { width: 100%; }
+}

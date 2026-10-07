@@ -454,7 +454,7 @@ export async function createCase(input: CreateCaseInput): Promise<CaseDetailApi>
 
 export interface IntakeExtractionApi {
   intake: CaseIntake;
-  missing: Array<{ key: string; reason: string }>;
+  missing: Array<{ key: string; reason: string; input_type: 'choice' | 'text' | 'count' | 'exemption' | 'free_text' }>;
 }
 
 /** Read the material before the case exists, so the user answers only what blocks a conclusion. */
@@ -566,6 +566,13 @@ export async function runCase(caseId: string): Promise<EnqueueReviewResponse> {
   );
 }
 
+export async function runGuidedRereview(caseId: string): Promise<EnqueueReviewResponse> {
+  return request<EnqueueReviewResponse>(
+    `/api/cases/${encodeURIComponent(caseId)}/guided-rereview`,
+    { method: 'POST' },
+  );
+}
+
 export async function getReviewTask(taskId: string): Promise<ReviewTaskApi> {
   return request<ReviewTaskApi>(`/api/tasks/${encodeURIComponent(taskId)}`);
 }
@@ -583,7 +590,7 @@ export async function answerReviewTask(
 ): Promise<ReviewTaskApi> {
   return request<ReviewTaskApi>(`/api/tasks/${encodeURIComponent(taskId)}/answer`, {
     method: 'POST',
-    body: JSON.stringify({ gate_id: gateId, answer, changes_frozen_facts: false }),
+    body: JSON.stringify({ gate_id: gateId, answer }),
   });
 }
 
@@ -684,7 +691,7 @@ export async function submitRemediationTask(
     `/api/remediation-tasks/${encodeURIComponent(taskId)}/submissions`,
     {
       method: 'POST',
-      body: JSON.stringify({ note: payload.note, evidence: payload.evidence ?? [] }),
+       body: JSON.stringify({ note: payload.note, response_choice: payload.response_choice ?? null, evidence: payload.evidence ?? [] }),
     },
   );
 }

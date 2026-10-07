@@ -66,7 +66,7 @@ def build_fact_extraction_messages(
             "不得根据公司名称、注册地暗示等材料未明确写出的内容推断地区。",
             "必须输出合法 json object，字段必须与 json_example 完全一致。",
             "未检测到的事实用 null，列表字段用 []。",
-            "missing_information 只列出仍需用户补充的事实键。",
+            "missing_information 只列出仍需用户补充的事实键，只能使用：cross_border_transfer、contains_personal_information、sensitive_personal_info、overseas_recipient、processing_purpose、legal_basis_or_consent、data_volume_threshold、exemption_facts_confirmed。",
             "当材料含「一些」「某些」「未确定」「没有说明」等模糊限定词时，不要将对应字段设为 true；应把缺口放入 missing_information。",
         ],
     }

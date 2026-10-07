@@ -180,6 +180,10 @@ class CaseStore(Protocol):
 
     def create_remediation_plan(self, case_id: str, created_by: str, **kwargs: Any) -> dict[str, Any]: ...
 
+    def sync_guided_remediation_plan(
+        self, case_id: str, created_by: str, tasks: list[dict[str, Any]], **kwargs: Any
+    ) -> dict[str, Any]: ...
+
     def activate_remediation_plan(self, plan_id: str, **kwargs: Any) -> dict[str, Any]: ...
 
     def cancel_remediation_plan(self, plan_id: str, **kwargs: Any) -> dict[str, Any]: ...
@@ -200,11 +204,17 @@ class CaseStore(Protocol):
 
     def review_remediation_submission(self, submission_id: str, **kwargs: Any) -> dict[str, Any]: ...
 
+    def apply_agent_remediation_assessment(
+        self, submission_id: str, *, assessment_status: str
+    ) -> dict[str, Any]: ...
+
     def list_remediation_events(self, plan_id: str) -> list[dict[str, Any]]: ...
 
     def add_remediation_event(self, plan_id: str, actor_id: str, **kwargs: Any) -> dict[str, Any]: ...
 
-    def get_feedback(self, case_id: str) -> dict[str, Any] | None: ...
+    def get_feedback(self, case_id: str, actor_id: str) -> dict[str, Any] | None: ...
+
+    def list_feedback(self, case_id: str) -> list[dict[str, Any]]: ...
 
     def save_feedback(self, case_id: str, actor_id: str, **kwargs: Any) -> dict[str, Any]: ...
 
@@ -447,6 +457,9 @@ class PostgresCaseStore:
             "source_recommendation": row["source_recommendation"],
             "source_review_result_id": row["source_review_result_id"],
             "source_issue_id": row["source_issue_id"],
+            "task_kind": row["task_kind"], "answer_type": row["answer_type"], "phase": row["phase"],
+            "blocking": row["blocking"], "source_key": row["source_key"],
+            "is_current": row["is_current"],
             "assignee_id": row["assignee_id"], "priority": row["priority"],
             "due_date": _json_value(row["due_date"]), "status": row["status"],
             "version": row["version"], "created_at": _json_value(row["created_at"]),
@@ -466,7 +479,7 @@ class PostgresCaseStore:
     def _remediation_submission_dict(row: dict[str, Any]) -> dict[str, Any]:
         return {
             "id": row["id"], "task_id": row["task_id"], "submitted_by": row["submitted_by"],
-            "note": row["note"], "status": row["status"], "reviewed_by": row["reviewed_by"],
+            "note": row["note"], "response_choice": row.get("response_choice"), "status": row["status"], "reviewed_by": row["reviewed_by"],
             "review_note": row["review_note"], "reviewed_at": _json_value(row["reviewed_at"]),
             "created_at": _json_value(row["created_at"]),
         }
@@ -478,7 +491,9 @@ class PostgresCaseStore:
             "label": row["label"], "uri": row["uri"], "object_key": row["object_key"],
             "content_type": row["content_type"], "sha256": row["sha256"],
             "byte_size": row["byte_size"], "parsed_text": row["parsed_text"],
-            "parse_status": row["parse_status"], "created_at": _json_value(row["created_at"]),
+            "parse_status": row["parse_status"],
+            "material_version_id": row["material_version_id"],
+            "created_at": _json_value(row["created_at"]),
         }
 
     def get_remediation_plan(self, identifier: str) -> dict[str, Any] | None:
@@ -537,14 +552,92 @@ class PostgresCaseStore:
                     """INSERT INTO remediation_tasks (
                     id, plan_id, case_id, title, description, acceptance_criteria,
                     source_recommendation_index, source_recommendation,
-                    source_review_result_id, source_issue_id, assignee_id, priority, due_date
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    source_review_result_id, source_issue_id, assignee_id, priority, due_date,
+                    task_kind, answer_type, phase, blocking, source_key
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (task.get("id") or remediation_task_id(), plan_identifier, identifier, task["title"],
                      task.get("description", ""), task.get("acceptance_criteria", ""),
                      task.get("source_recommendation_index"), task.get("source_recommendation"),
                      task.get("source_review_result_id"), task.get("source_issue_id"),
-                     task.get("assignee_id"), task.get("priority", "medium"), task.get("due_date")),
+                     task.get("assignee_id"), task.get("priority", "medium"), task.get("due_date"),
+                     task.get("task_kind", "control_remediation"), task.get("answer_type") or ("choice" if task.get("task_kind") == "fact_confirmation" else "control_status"), task.get("phase", "pre_approval"),
+                     task.get("blocking", False), task.get("source_key")),
                 )
+            conn.commit()
+        return self.get_remediation_plan(identifier) or {"id": plan_identifier, "case_id": identifier}
+
+    def sync_guided_remediation_plan(
+        self, identifier: str, created_by: str, tasks: list[dict[str, Any]], **kwargs: Any
+    ) -> dict[str, Any]:
+        """Create or reconcile the case's active applicant action list."""
+
+        plan_identifier = remediation_plan_id()
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT * FROM remediation_plans WHERE case_id = %s FOR UPDATE", (identifier,))
+            plan = cur.fetchone()
+            if plan is None:
+                cur.execute(
+                    """INSERT INTO remediation_plans (id, case_id, created_by, status, no_remediation_reason)
+                    VALUES (%s, %s, %s, 'active', %s) RETURNING *""",
+                    (plan_identifier, identifier, created_by, kwargs.get("no_remediation_reason")),
+                )
+                plan = cur.fetchone()
+            else:
+                plan_identifier = plan["id"]
+                cur.execute(
+                    "UPDATE remediation_tasks SET is_current = false, version = version + 1, updated_at = now() WHERE plan_id = %s AND is_current",
+                    (plan_identifier,),
+                )
+            assert plan is not None
+            for item in tasks:
+                cur.execute(
+                    "SELECT id, status FROM remediation_tasks WHERE plan_id = %s AND source_key = %s FOR UPDATE",
+                    (plan_identifier, item["source_key"]),
+                )
+                existing = cur.fetchone()
+                values = (
+                    item["title"], item.get("description", ""), item.get("acceptance_criteria", ""),
+                    item.get("source_recommendation_index"), item.get("source_recommendation"),
+                    item.get("source_review_result_id"), item.get("source_issue_id"),
+                    item.get("assignee_id"), item.get("priority", "medium"), item.get("due_date"),
+                    item.get("task_kind", "control_remediation"), item.get("answer_type") or ("choice" if item.get("task_kind") == "fact_confirmation" else "control_status"), item.get("phase", "pre_approval"),
+                    item.get("blocking", True), item["source_key"], plan_identifier,
+                )
+                if existing is None:
+                    cur.execute(
+                        """INSERT INTO remediation_tasks (
+                        id, plan_id, case_id, title, description, acceptance_criteria,
+                        source_recommendation_index, source_recommendation,
+                        source_review_result_id, source_issue_id, assignee_id, priority, due_date,
+                        task_kind, answer_type, phase, blocking, source_key, is_current
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, true)""",
+                        (remediation_task_id(), plan_identifier, identifier, *values[:-1]),
+                    )
+                else:
+                    next_status = "open" if existing["status"] == "completed" else existing["status"]
+                    cur.execute(
+                        """UPDATE remediation_tasks SET title = %s, description = %s,
+                        acceptance_criteria = %s, source_recommendation_index = %s,
+                        source_recommendation = %s, source_review_result_id = %s,
+                        source_issue_id = %s, assignee_id = COALESCE(%s, assignee_id),
+                        priority = %s, due_date = COALESCE(%s, due_date), task_kind = %s, answer_type = %s,
+                        phase = %s, blocking = %s, is_current = true, status = %s,
+                        version = version + 1, updated_at = now()
+                        WHERE id = %s""",
+                        (*values[:-2], next_status, existing["id"]),
+                    )
+            cur.execute(
+                """SELECT COUNT(*) AS open_count FROM remediation_tasks
+                WHERE plan_id = %s AND is_current AND status <> 'completed'""",
+                (plan_identifier,),
+            )
+            open_count = int(cur.fetchone()["open_count"])
+            plan_status = "active" if open_count else "completed"
+            cur.execute(
+                """UPDATE remediation_plans SET status = %s, no_remediation_reason = %s,
+                version = version + 1, updated_at = now() WHERE id = %s""",
+                (plan_status, kwargs.get("no_remediation_reason"), plan_identifier),
+            )
             conn.commit()
         return self.get_remediation_plan(identifier) or {"id": plan_identifier, "case_id": identifier}
 
@@ -615,9 +708,9 @@ class PostgresCaseStore:
     def create_remediation_task(self, plan_id: str, **kwargs: Any) -> dict[str, Any]:
         plan = self._plan_case_id(plan_id)
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("""INSERT INTO remediation_tasks (id, plan_id, case_id, title, description, acceptance_criteria, source_recommendation_index, source_recommendation, source_review_result_id, source_issue_id, assignee_id, priority, due_date)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
-                (remediation_task_id(), plan, kwargs["case_id"], kwargs["title"], kwargs.get("description", ""), kwargs.get("acceptance_criteria", ""), kwargs.get("source_recommendation_index"), kwargs.get("source_recommendation"), kwargs.get("source_review_result_id"), kwargs.get("source_issue_id"), kwargs.get("assignee_id"), kwargs.get("priority", "medium"), kwargs.get("due_date")))
+            cur.execute("""INSERT INTO remediation_tasks (id, plan_id, case_id, title, description, acceptance_criteria, source_recommendation_index, source_recommendation, source_review_result_id, source_issue_id, assignee_id, priority, due_date, task_kind, answer_type, phase, blocking, source_key)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                (remediation_task_id(), plan, kwargs["case_id"], kwargs["title"], kwargs.get("description", ""), kwargs.get("acceptance_criteria", ""), kwargs.get("source_recommendation_index"), kwargs.get("source_recommendation"), kwargs.get("source_review_result_id"), kwargs.get("source_issue_id"), kwargs.get("assignee_id"), kwargs.get("priority", "medium"), kwargs.get("due_date"), kwargs.get("task_kind", "control_remediation"), kwargs.get("answer_type") or ("choice" if kwargs.get("task_kind") == "fact_confirmation" else "control_status"), kwargs.get("phase", "pre_approval"), kwargs.get("blocking", False), kwargs.get("source_key")))
             row = cur.fetchone()
             conn.commit()
         return self._remediation_task_dict(row)
@@ -631,7 +724,7 @@ class PostgresCaseStore:
         return row["case_id"]
 
     def update_remediation_task(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
-        allowed = {"title", "description", "acceptance_criteria", "assignee_id", "priority", "due_date"}
+        allowed = {"title", "description", "acceptance_criteria", "assignee_id", "priority", "due_date", "task_kind", "answer_type", "phase", "blocking"}
         updates = {key: value for key, value in kwargs.items() if key in allowed}
         if not updates:
             task = self.get_remediation_task(identifier)
@@ -669,10 +762,12 @@ class PostgresCaseStore:
             task = cur.fetchone()
             if task is None:
                 raise KeyError(identifier)
-            cur.execute("INSERT INTO remediation_submissions (id, task_id, submitted_by, note) VALUES (%s, %s, %s, %s) RETURNING *", (submission_identifier, identifier, kwargs["submitted_by"], kwargs["note"]))
+            if task["status"] != "in_progress" or not task["is_current"]:
+                raise ValueError("只有当前处理中的整改事项可以提交")
+            cur.execute("INSERT INTO remediation_submissions (id, task_id, submitted_by, note, response_choice) VALUES (%s, %s, %s, %s, %s) RETURNING *", (submission_identifier, identifier, kwargs["submitted_by"], kwargs["note"], kwargs.get("response_choice")))
             row = cur.fetchone()
             for item in evidence:
-                cur.execute("INSERT INTO remediation_evidence (id, submission_id, kind, label, uri, object_key, content_type, sha256, byte_size, parsed_text, parse_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (remediation_evidence_id(), submission_identifier, item["kind"], item["label"], item.get("uri"), item.get("object_key"), item.get("content_type"), item.get("sha256"), item.get("byte_size"), item.get("parsed_text"), item.get("parse_status", "pending")))
+                cur.execute("INSERT INTO remediation_evidence (id, submission_id, kind, label, uri, object_key, content_type, sha256, byte_size, parsed_text, parse_status, material_version_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (remediation_evidence_id(), submission_identifier, item["kind"], item["label"], item.get("uri"), item.get("object_key"), item.get("content_type"), item.get("sha256"), item.get("byte_size"), item.get("parsed_text"), item.get("parse_status", "pending"), item.get("material_version_id")))
             cur.execute("UPDATE remediation_tasks SET status = 'pending_review', version = version + 1, updated_at = now() WHERE id = %s", (identifier,))
             conn.commit()
         result = self._remediation_submission_dict(row)
@@ -693,7 +788,7 @@ class PostgresCaseStore:
     def review_remediation_submission(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
         accepted = kwargs["decision"] == "accepted"
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("UPDATE remediation_submissions SET status = %s, reviewed_by = %s, review_note = %s, reviewed_at = now() WHERE id = %s AND status = 'pending_review' RETURNING *", ("accepted" if accepted else "rejected", kwargs["reviewed_by"], kwargs.get("review_note"), identifier))
+            cur.execute("UPDATE remediation_submissions SET status = %s, reviewed_by = %s, review_note = %s, reviewed_at = now() WHERE id = %s AND status IN ('pending_review', 'agent_feedback') RETURNING *", ("accepted" if accepted else "rejected", kwargs["reviewed_by"], kwargs.get("review_note"), identifier))
             row = cur.fetchone()
             if row is None:
                 raise ValueError("整改提交不存在或已经复核")
@@ -701,12 +796,63 @@ class PostgresCaseStore:
             cur.execute("SELECT plan_id FROM remediation_tasks WHERE id = %s", (row["task_id"],))
             plan_id = cur.fetchone()["plan_id"]
             if accepted:
-                cur.execute("SELECT COUNT(*) AS count FROM remediation_tasks WHERE plan_id = %s AND status <> 'completed'", (plan_id,))
-                if int(cur.fetchone()["count"]) == 0:
-                    cur.execute("UPDATE remediation_plans SET status = 'completed', version = version + 1, updated_at = now() WHERE id = %s", (plan_id,))
+                cur.execute("SELECT COUNT(*) AS count FROM remediation_tasks WHERE plan_id = %s AND is_current AND status <> 'completed'", (plan_id,))
+                plan_status = "completed" if int(cur.fetchone()["count"]) == 0 else "active"
+                cur.execute("UPDATE remediation_plans SET status = %s, version = version + 1, updated_at = now() WHERE id = %s", (plan_status, plan_id))
             conn.commit()
         result = self.get_remediation_submission(identifier)
         return result or self._remediation_submission_dict(row)
+
+    def apply_agent_remediation_assessment(
+        self, identifier: str, *, assessment_status: str
+    ) -> dict[str, Any]:
+        already_processed = False
+        result: dict[str, Any] | None = None
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """SELECT s.*, t.task_kind, t.id AS remediation_task_id, t.plan_id
+                FROM remediation_submissions s JOIN remediation_tasks t ON t.id = s.task_id
+                WHERE s.id = %s FOR UPDATE OF s, t""",
+                (identifier,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise KeyError(identifier)
+            if row["status"] != "pending_review":
+                already_processed = True
+                result = self._remediation_submission_dict(row)
+            else:
+                resolved = assessment_status == "resolved"
+                fact_task = row["task_kind"] == "fact_confirmation"
+                if resolved and fact_task:
+                    submission_status, task_status = "agent_verified", "completed"
+                elif resolved:
+                    submission_status, task_status = "pending_review", "pending_review"
+                elif not fact_task and row.get("response_choice") in {"completed", "not_applicable"}:
+                    submission_status, task_status = "pending_review", "pending_review"
+                else:
+                    submission_status, task_status = "agent_feedback", "in_progress"
+                cur.execute(
+                    "UPDATE remediation_submissions SET status = %s WHERE id = %s",
+                    (submission_status, identifier),
+                )
+                cur.execute(
+                    "UPDATE remediation_tasks SET status = %s, version = version + 1, updated_at = now() WHERE id = %s",
+                    (task_status, row["remediation_task_id"]),
+                )
+                cur.execute(
+                    "SELECT COUNT(*) AS count FROM remediation_tasks WHERE plan_id = %s AND is_current AND status <> 'completed'",
+                    (row["plan_id"],),
+                )
+                plan_status = "active" if int(cur.fetchone()["count"]) else "completed"
+                cur.execute(
+                    "UPDATE remediation_plans SET status = %s, version = version + 1, updated_at = now() WHERE id = %s",
+                    (plan_status, row["plan_id"]),
+                )
+                conn.commit()
+        if already_processed:
+            return self.get_remediation_submission(identifier) or result or {}
+        return self.get_remediation_submission(identifier) or {}
 
     def list_remediation_events(self, identifier: str) -> list[dict[str, Any]]:
         with self._connect() as conn, conn.cursor() as cur:
@@ -720,9 +866,9 @@ class PostgresCaseStore:
             conn.commit()
         return {"id": row["id"], "plan_id": row["plan_id"], "task_id": row["task_id"], "actor_id": row["actor_id"], "event_type": row["event_type"], "payload": row["payload_json"] or {}, "created_at": _json_value(row["created_at"])}
 
-    def get_feedback(self, identifier: str) -> dict[str, Any] | None:
+    def get_feedback(self, identifier: str, actor_id: str) -> dict[str, Any] | None:
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT * FROM case_feedback WHERE case_id = %s", (identifier,))
+            cur.execute("SELECT * FROM case_feedback WHERE case_id = %s AND actor_id = %s", (identifier, actor_id))
             row = cur.fetchone()
         if row is None:
             return None
@@ -736,6 +882,12 @@ class PostgresCaseStore:
             "updated_at": _json_value(row["updated_at"]),
         }
 
+    def list_feedback(self, identifier: str) -> list[dict[str, Any]]:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT f.actor_id, f.conclusion_useful, f.missing_sources, f.notes, f.updated_at, u.role AS actor_role, u.display_name AS actor_name FROM case_feedback f JOIN users u ON u.id = f.actor_id WHERE f.case_id = %s ORDER BY f.updated_at DESC", (identifier,))
+            rows = cur.fetchall()
+        return [{**dict(row), "updated_at": _json_value(row["updated_at"])} for row in rows]
+
     def save_feedback(self, identifier: str, actor_id: str, **kwargs: Any) -> dict[str, Any]:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
@@ -743,8 +895,7 @@ class PostgresCaseStore:
                 INSERT INTO case_feedback (
                     case_id, actor_id, conclusion_useful, missing_sources, notes, citation_verdicts_json
                 ) VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (case_id) DO UPDATE SET
-                    actor_id = EXCLUDED.actor_id,
+                ON CONFLICT (case_id, actor_id) DO UPDATE SET
                     conclusion_useful = EXCLUDED.conclusion_useful,
                     missing_sources = EXCLUDED.missing_sources,
                     notes = EXCLUDED.notes,
@@ -762,7 +913,7 @@ class PostgresCaseStore:
                 ),
             )
             conn.commit()
-        return self.get_feedback(identifier) or {"case_id": identifier}
+        return self.get_feedback(identifier, actor_id) or {"case_id": identifier}
 
     def dashboard_summary(self, user: UserRecord) -> dict[str, Any]:
         cases = self.list_cases(user)
@@ -793,7 +944,7 @@ class InMemoryCaseStore:
         self.remediation_submissions: dict[str, dict[str, Any]] = {}
         self.remediation_evidence: dict[str, dict[str, Any]] = {}
         self.remediation_events: list[dict[str, Any]] = []
-        self.feedback: dict[str, dict[str, Any]] = {}
+        self.feedback: dict[tuple[str, str], dict[str, Any]] = {}
         hasher = PostgresCaseStore._password_hasher
         for username, display_name, role in (
             ("requester@crosscomply.local", "业务申请人", "requester"),
@@ -1030,12 +1181,103 @@ class InMemoryCaseStore:
             "source_recommendation": kwargs.get("source_recommendation"),
             "source_review_result_id": kwargs.get("source_review_result_id"),
             "source_issue_id": kwargs.get("source_issue_id"),
+            "task_kind": kwargs.get("task_kind", "control_remediation"),
+            "answer_type": kwargs.get("answer_type") or ("choice" if kwargs.get("task_kind") == "fact_confirmation" else "control_status"),
+            "phase": kwargs.get("phase", "pre_approval"),
+            "blocking": kwargs.get("blocking", False),
+            "source_key": kwargs.get("source_key"),
+            "is_current": kwargs.get("is_current", True),
             "assignee_id": kwargs.get("assignee_id"),
             "priority": kwargs.get("priority", "medium"), "due_date": kwargs.get("due_date"),
             "status": "open", "version": 1, "created_at": now, "updated_at": now,
         }
         self.remediation_tasks[task["id"]] = task
         return dict(task)
+
+    def sync_guided_remediation_plan(
+        self, identifier: str, created_by: str, tasks: list[dict[str, Any]], **kwargs: Any
+    ) -> dict[str, Any]:
+        plan = next((item for item in self.remediation_plans.values() if item["case_id"] == identifier), None)
+        if plan is None:
+            plan = {
+                "id": remediation_plan_id(), "case_id": identifier, "created_by": created_by,
+                "status": "active", "no_remediation_reason": kwargs.get("no_remediation_reason"),
+                "version": 1, "created_at": utc_now(), "updated_at": utc_now(),
+            }
+            self.remediation_plans[plan["id"]] = plan
+        else:
+            for task in self.remediation_tasks.values():
+                if task["plan_id"] == plan["id"]:
+                    task["is_current"] = False
+                    task["version"] += 1
+                    task["updated_at"] = utc_now()
+        existing_by_key = {
+            task.get("source_key"): task
+            for task in self.remediation_tasks.values()
+            if task["plan_id"] == plan["id"] and task.get("source_key")
+        }
+        for data in tasks:
+            task = existing_by_key.get(data["source_key"])
+            if task is None:
+                self.create_remediation_task(
+                    plan["id"], case_id=identifier, is_current=True, **data
+                )
+                continue
+            for key in (
+                "title", "description", "acceptance_criteria", "source_recommendation_index",
+                "source_recommendation", "source_review_result_id", "source_issue_id",
+                "priority", "task_kind", "answer_type", "phase", "blocking",
+            ):
+                if key in data:
+                    task[key] = data[key]
+            task["assignee_id"] = data.get("assignee_id") or task.get("assignee_id")
+            task["due_date"] = data.get("due_date") or task.get("due_date")
+            task["is_current"] = True
+            if task["status"] == "completed":
+                task["status"] = "open"
+            task["version"] += 1
+            task["updated_at"] = utc_now()
+        open_current = [
+            task for task in self.remediation_tasks.values()
+            if task["plan_id"] == plan["id"] and task.get("is_current") and task["status"] != "completed"
+        ]
+        plan.update(
+            status="active" if open_current else "completed",
+            no_remediation_reason=kwargs.get("no_remediation_reason"),
+            version=plan["version"] + 1,
+            updated_at=utc_now(),
+        )
+        return self.get_remediation_plan(identifier) or plan
+
+    def apply_agent_remediation_assessment(
+        self, identifier: str, *, assessment_status: str
+    ) -> dict[str, Any]:
+        submission = self.remediation_submissions.get(identifier)
+        if submission is None:
+            raise KeyError(identifier)
+        if submission["status"] != "pending_review":
+            return self.get_remediation_submission(identifier) or submission
+        task = self.remediation_tasks[submission["task_id"]]
+        resolved = assessment_status == "resolved"
+        if resolved and task.get("task_kind") == "fact_confirmation":
+            submission_status, task_status = "agent_verified", "completed"
+        elif resolved:
+            submission_status, task_status = "pending_review", "pending_review"
+        elif task.get("task_kind") != "fact_confirmation" and submission.get("response_choice") in {"completed", "not_applicable"}:
+            submission_status, task_status = "pending_review", "pending_review"
+        else:
+            submission_status, task_status = "agent_feedback", "in_progress"
+        submission["status"] = submission_status
+        task.update(status=task_status, version=task["version"] + 1, updated_at=utc_now())
+        plan = self.remediation_plans[task["plan_id"]]
+        current_open = any(
+            item.get("is_current", True)
+            and item["status"] != "completed"
+            for item in self.remediation_tasks.values()
+            if item["plan_id"] == plan["id"]
+        )
+        plan.update(status="active" if current_open else "completed", version=plan["version"] + 1, updated_at=utc_now())
+        return self.get_remediation_submission(identifier) or submission
 
     def update_remediation_task(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
         task = self.remediation_tasks.get(identifier)
@@ -1066,7 +1308,7 @@ class InMemoryCaseStore:
         if task["status"] != "in_progress":
             raise ValueError("只有处理中的整改任务可以提交")
         now = utc_now()
-        submission = {"id": remediation_submission_id(), "task_id": identifier, "submitted_by": kwargs["submitted_by"], "note": kwargs["note"], "status": "pending_review", "reviewed_by": None, "review_note": None, "reviewed_at": None, "created_at": now}
+        submission = {"id": remediation_submission_id(), "task_id": identifier, "submitted_by": kwargs["submitted_by"], "note": kwargs["note"], "response_choice": kwargs.get("response_choice"), "status": "pending_review", "reviewed_by": None, "review_note": None, "reviewed_at": None, "created_at": now}
         self.remediation_submissions[submission["id"]] = submission
         for item in kwargs.get("evidence") or []:
             evidence = {"id": remediation_evidence_id(), "submission_id": submission["id"], **item, "created_at": now}
@@ -1086,7 +1328,7 @@ class InMemoryCaseStore:
 
     def review_remediation_submission(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
         submission = self.remediation_submissions.get(identifier)
-        if submission is None or submission["status"] != "pending_review":
+        if submission is None or submission["status"] not in {"pending_review", "agent_feedback"}:
             raise ValueError("整改提交不存在或已经复核")
         accepted = kwargs["decision"] == "accepted"
         submission.update(status="accepted" if accepted else "rejected", reviewed_by=kwargs["reviewed_by"], review_note=kwargs.get("review_note"), reviewed_at=utc_now())
@@ -1094,8 +1336,13 @@ class InMemoryCaseStore:
         task.update(status="completed" if accepted else "in_progress", version=task["version"] + 1, updated_at=utc_now())
         if accepted:
             plan = self.remediation_plans[task["plan_id"]]
-            if all(item["status"] == "completed" for item in self.remediation_tasks.values() if item["plan_id"] == plan["id"]):
-                plan.update(status="completed", version=plan["version"] + 1, updated_at=utc_now())
+            current_open = any(
+                item.get("is_current", True)
+                and item["status"] != "completed"
+                for item in self.remediation_tasks.values()
+                if item["plan_id"] == plan["id"]
+            )
+            plan.update(status="active" if current_open else "completed", version=plan["version"] + 1, updated_at=utc_now())
         return self.get_remediation_submission(identifier) or submission
 
     def list_remediation_events(self, identifier: str) -> list[dict[str, Any]]:
@@ -1110,8 +1357,15 @@ class InMemoryCaseStore:
         self.remediation_events.append(event)
         return event
 
-    def get_feedback(self, identifier: str) -> dict[str, Any] | None:
-        return self.feedback.get(identifier)
+    def get_feedback(self, identifier: str, actor_id: str) -> dict[str, Any] | None:
+        return self.feedback.get((identifier, actor_id))
+
+    def list_feedback(self, identifier: str) -> list[dict[str, Any]]:
+        users = {record[0].id: record[0] for record in self.users.values()}
+        return [
+            {"actor_id": item["actor_id"], "actor_role": users[item["actor_id"]].role, "actor_name": users[item["actor_id"]].display_name, "conclusion_useful": item["conclusion_useful"], "missing_sources": item["missing_sources"], "notes": item["notes"], "updated_at": item["updated_at"]}
+            for (case_id, _), item in self.feedback.items() if case_id == identifier and item["actor_id"] in users
+        ]
 
     def save_feedback(self, identifier: str, actor_id: str, **kwargs: Any) -> dict[str, Any]:
         feedback = {
@@ -1123,7 +1377,7 @@ class InMemoryCaseStore:
             "citation_verdicts": kwargs.get("citation_verdicts") or {},
             "updated_at": utc_now(),
         }
-        self.feedback[identifier] = feedback
+        self.feedback[(identifier, actor_id)] = feedback
         return feedback
 
     def dashboard_summary(self, user: UserRecord) -> dict[str, Any]:

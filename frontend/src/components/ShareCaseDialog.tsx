@@ -79,7 +79,6 @@ export default function ShareCaseDialog({ caseId, isOpen, onClose }: ShareCaseDi
           <div>
             <span className="share-dialog__eyebrow"><QrCode size={15} aria-hidden="true" />案件交接</span>
             <h2 id="share-dialog-title">分享案件</h2>
-            <p>通过网页链接或二维码交给有权限的协作者查看。</p>
           </div>
           <button type="button" className="share-dialog__close" onClick={onClose} aria-label="关闭分享窗口"><X size={19} /></button>
         </header>

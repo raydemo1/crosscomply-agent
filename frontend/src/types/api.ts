@@ -340,6 +340,7 @@ export interface ReviewResult {
   review_facts: ReviewFacts;
   trigger_reasons: string[];
   missing_information: string[];
+  missing_answer_types?: Record<string, 'choice' | 'count' | 'text'>;
   recommended_actions: string[];
   risk_boundaries: string[];
   claims: GroundedClaim[];
@@ -571,7 +572,9 @@ export type RemediationPlanStatus = 'draft' | 'active' | 'completed' | 'cancelle
 export type RemediationTaskStatus = 'open' | 'in_progress' | 'pending_review' | 'completed';
 export type RemediationPriority = 'high' | 'medium' | 'low';
 export type RemediationEvidenceKind = 'file' | 'case_material' | 'link';
-export type RemediationSubmissionStatus = 'pending_review' | 'accepted' | 'rejected';
+export type RemediationSubmissionStatus = 'pending_review' | 'accepted' | 'rejected' | 'agent_verified' | 'agent_feedback';
+export type RemediationTaskKind = 'fact_confirmation' | 'control_remediation' | 'recommendation';
+export type RemediationTaskPhase = 'pre_approval' | 'post_approval';
 
 export interface RemediationAssigneeApi extends WorkbenchUser {
   active?: boolean;
@@ -587,6 +590,8 @@ export interface RemediationEvidenceApi {
   content_type?: string | null;
   byte_size: number | null;
   sha256: string | null;
+  material_version_id?: string | null;
+  parse_status?: 'pending' | 'ready' | 'failed';
   created_at: string;
 }
 
@@ -643,6 +648,7 @@ export interface RemediationSubmissionApi {
   submitted_by: string;
   submitted_by_user?: RemediationAssigneeApi | null;
   note: string;
+  response_choice: 'yes' | 'no' | 'unknown' | 'completed' | 'incomplete' | 'not_applicable' | null;
   evidence: RemediationEvidenceApi[];
   status: RemediationSubmissionStatus;
   reviewed_by?: string | null;
@@ -659,11 +665,18 @@ export interface RemediationTaskApi {
   case_id: string;
   case_title?: string | null;
   case_question?: string | null;
+  case_status?: CaseStatus;
   title: string;
   description: string;
   acceptance_criteria?: string;
   source_recommendation: string | null;
   source_recommendation_index: number | null;
+  task_kind: RemediationTaskKind;
+  answer_type: 'choice' | 'count' | 'text' | 'control_status';
+  phase: RemediationTaskPhase;
+  blocking: boolean;
+  source_key: string | null;
+  is_current: boolean;
   assignee_id: string | null;
   assignee?: RemediationAssigneeApi | null;
   priority: RemediationPriority;
@@ -685,6 +698,7 @@ export interface RemediationPlanCountsApi {
   pending_review: number;
   completed: number;
   overdue: number;
+  blocking: number;
 }
 
 export interface RemediationPlanApi {
@@ -697,6 +711,7 @@ export interface RemediationPlanApi {
   no_remediation_reason?: string | null;
   version?: number;
   counts?: RemediationPlanCountsApi;
+  next_action?: RemediationTaskApi | null;
   tasks: RemediationTaskApi[];
   events?: CaseEvent[];
   created_at: string;
@@ -729,6 +744,9 @@ export interface RemediationPlanCreatePayload {
     source_recommendation?: string | null;
     source_recommendation_index?: number | null;
     source_issue_id?: string | null;
+    task_kind?: RemediationTaskKind;
+    phase?: RemediationTaskPhase;
+    blocking?: boolean;
     assignee_id: string;
     priority: RemediationPriority;
     due_date: string;
@@ -739,10 +757,14 @@ export interface RemediationTaskUpdatePayload {
   assignee_id?: string;
   priority?: RemediationPriority;
   due_date?: string | null;
+  task_kind?: RemediationTaskKind;
+  phase?: RemediationTaskPhase;
+  blocking?: boolean;
 }
 
 export interface RemediationSubmissionPayload {
   note: string;
+  response_choice?: RemediationSubmissionApi['response_choice'];
   evidence?: Array<{
     kind: RemediationEvidenceKind;
     label: string;
@@ -940,6 +962,8 @@ export interface CaseIntake {
   vendor_name: string;
   contract_status: string;
   legal_basis_or_consent: string;
+  exemption_facts: string;
+  followup_answers: Record<string, string>;
   notes: string;
 }
 
@@ -1001,6 +1025,16 @@ export interface CaseFeedbackApi {
   updated_at: string;
 }
 
+export interface CaseFeedbackEntryApi {
+  actor_id: string;
+  actor_role: UserRole;
+  actor_name: string;
+  conclusion_useful: boolean | null;
+  missing_sources: string;
+  notes: string;
+  updated_at: string;
+}
+
 export interface CaseSummaryApi {
   id: string;
   title: string;
@@ -1030,6 +1064,7 @@ export interface CaseDetailApi {
   actions?: CaseAction[];
   events: CaseEvent[];
   feedback: CaseFeedbackApi | null;
+  feedback_entries: CaseFeedbackEntryApi[];
   material_snapshot: MaterialSnapshotApi | null;
   intake_snapshot: IntakeSnapshotApi | null;
   review_task: ReviewTaskApi | null;

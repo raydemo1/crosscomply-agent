@@ -117,6 +117,7 @@ def register_remediation_routes(
         if case:
             payload["case_title"] = case.get("title") or case.get("question")
             payload["case_question"] = case.get("question")
+            payload["case_status"] = case.get("status")
         return payload
 
     def plan_payload(plan: dict[str, Any]) -> dict[str, Any]:
@@ -125,21 +126,39 @@ def register_remediation_routes(
         if case:
             payload["case_title"] = case.get("title") or case.get("question")
             payload["case_question"] = case.get("question")
+            payload["case_status"] = case.get("status")
         tasks = [task_payload(item) for item in (plan.get("tasks") or [])]
         payload["tasks"] = tasks
+        current_tasks = [item for item in tasks if item.get("is_current", True)]
+        next_action = next(
+            (
+                item for item in current_tasks
+                if item.get("phase") == "pre_approval"
+                and item.get("blocking")
+                and item.get("status") != "completed"
+            ),
+            next((item for item in current_tasks if item.get("status") != "completed"), None),
+        )
         payload["counts"] = {
-            "total": len(tasks),
-            "open": sum(item.get("status") == "open" for item in tasks),
-            "in_progress": sum(item.get("status") == "in_progress" for item in tasks),
-            "pending_review": sum(item.get("status") == "pending_review" for item in tasks),
-            "completed": sum(item.get("status") == "completed" for item in tasks),
+            "total": len(current_tasks),
+            "open": sum(item.get("status") == "open" for item in current_tasks),
+            "in_progress": sum(item.get("status") == "in_progress" for item in current_tasks),
+            "pending_review": sum(item.get("status") == "pending_review" for item in current_tasks),
+            "completed": sum(item.get("status") == "completed" for item in current_tasks),
             "overdue": sum(
                 bool(item.get("due_date"))
                 and item.get("status") != "completed"
                 and item["due_date"] < datetime.now(UTC).date().isoformat()
-                for item in tasks
+                for item in current_tasks
+            ),
+            "blocking": sum(
+                item.get("blocking")
+                and item.get("phase") == "pre_approval"
+                and item.get("status") != "completed"
+                for item in current_tasks
             ),
         }
+        payload["next_action"] = next_action
         return payload
 
     def record_event(
@@ -445,7 +464,8 @@ def register_remediation_routes(
             items = store().list_remediation_tasks(status=status)
         else:
             items = store().list_remediation_tasks(assignee_id=user.id, status=status)
-        return {"items": [task_payload(item) for item in items], "total": len(items)}
+        current_items = [item for item in items if item.get("is_current", True)]
+        return {"items": [task_payload(item) for item in current_items], "total": len(current_items)}
 
     @router.get("/api/users/assignable")
     async def list_assignable_users(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
@@ -497,9 +517,16 @@ def register_remediation_routes(
         task = store().get_remediation_task(task_id)
         if task is None or task.get("assignee_id") != user.id:
             raise HTTPException(status_code=404, detail="整改任务不存在或无权访问")
+        if not task.get("is_current", True):
+            raise HTTPException(status_code=409, detail="该事项已被新版审查清单取代")
         plan = store().get_remediation_plan(task["case_id"])
         if plan is None or plan["status"] != "active":
             raise HTTPException(status_code=409, detail="整改计划尚未激活")
+        case = store().get_case(task["case_id"])
+        if case is None:
+            raise HTTPException(status_code=404, detail="案件不存在")
+        if task.get("phase") == "post_approval" and case.get("status") not in {"approved", "conditionally_approved"}:
+            raise HTTPException(status_code=409, detail="该事项需在案件批准后处理")
         try:
             updated = store().start_remediation_task(task_id)
         except (KeyError, ValueError) as exc:
@@ -522,6 +549,8 @@ def register_remediation_routes(
         task = store().get_remediation_task(task_id)
         if task is None or task.get("assignee_id") != user.id:
             raise HTTPException(status_code=404, detail="整改任务不存在或无权访问")
+        if not task.get("is_current", True):
+            raise HTTPException(status_code=409, detail="该事项已被新版审查清单取代")
         filename = Path(file.filename or "remediation-evidence").name
         suffix = Path(filename).suffix.lower()
         if suffix not in ALLOWED_UPLOAD_SUFFIXES:
@@ -556,8 +585,21 @@ def register_remediation_routes(
         task = store().get_remediation_task(task_id)
         if task is None or task.get("assignee_id") != user.id:
             raise HTTPException(status_code=404, detail="整改任务不存在或无权访问")
+        if not task.get("is_current", True):
+            raise HTTPException(status_code=409, detail="该事项已被新版审查清单取代")
+        if task.get("status") != "in_progress":
+            raise HTTPException(status_code=409, detail="请先开始当前事项，再提交处理进展")
+        case = store().get_case(task["case_id"])
+        if case is None:
+            raise HTTPException(status_code=404, detail="案件不存在")
+        if task.get("phase") == "post_approval" and case.get("status") not in {"approved", "conditionally_approved"}:
+            raise HTTPException(status_code=409, detail="该事项需在案件批准后处理")
         if not payload.note.strip():
             raise HTTPException(status_code=422, detail="请先用一句话说明本次处理进展")
+        if payload.response_choice in {"yes", "no", "unknown"} and task.get("task_kind") != "fact_confirmation":
+            raise HTTPException(status_code=422, detail="该回答选项不适用于整改事项")
+        if payload.response_choice in {"completed", "incomplete", "not_applicable"} and task.get("task_kind") == "fact_confirmation":
+            raise HTTPException(status_code=422, detail="该回答选项不适用于事实确认")
         evidence: list[dict[str, Any]] = []
         for item in payload.evidence:
             if item.kind == "link" and (not item.uri or not re.match(r"^https?://", item.uri)):
@@ -571,11 +613,57 @@ def register_remediation_routes(
             data["parsed_text"] = parsed_text
             data["parse_status"] = parse_status
             evidence.append(data)
+
+        if (
+            case is not None
+            and task.get("phase") == "pre_approval"
+            and case.get("status") in {"needs_info", "pending_source_verification"}
+        ):
+            note = payload.note.strip()
+            note_blob = note.encode("utf-8")
+            note_object = originals().put_original(
+                case_id=task["case_id"],
+                logical_name=f"申报人说明-{task['id']}",
+                filename="申报人说明.txt",
+                content_type="text/plain; charset=utf-8",
+                content=note_blob,
+            )
+            enterprise().create_material_version(
+                case_id=task["case_id"],
+                logical_name=f"申报人说明-{task['id']}",
+                filename="申报人说明.txt",
+                content_type="text/plain; charset=utf-8",
+                object_key=note_object.object_key,
+                sha256=note_object.sha256,
+                byte_size=note_object.byte_size,
+                uploaded_by=user.id,
+                parse_status="ready",
+                parser="applicant-guidance",
+                parsed_text=note,
+            )
+            for item in evidence:
+                if item.get("kind") != "file" or item.get("parse_status") != "ready":
+                    continue
+                version = enterprise().create_material_version(
+                    case_id=task["case_id"],
+                    logical_name=f"整改材料-{task['id']}-{item['label']}",
+                    filename=item["label"],
+                    content_type=item.get("content_type") or "application/octet-stream",
+                    object_key=item["object_key"],
+                    sha256=item["sha256"],
+                    byte_size=item["byte_size"],
+                    uploaded_by=user.id,
+                    parse_status="ready",
+                    parser="law_agent.review.materials",
+                    parsed_text=item.get("parsed_text"),
+                )
+                item["material_version_id"] = version.id
         try:
             submission = store().create_remediation_submission(
                 task_id,
                 submitted_by=user.id,
                 note=payload.note.strip(),
+                response_choice=payload.response_choice,
                 evidence=evidence,
             )
         except (KeyError, ValueError) as exc:
@@ -605,6 +693,12 @@ def register_remediation_routes(
         assessment = await _advance(
             assessment, task=full_task, submission=full_submission, state=None
         )
+        if assessment.get("run_status") == "completed":
+            store().apply_agent_remediation_assessment(
+                submission["id"],
+                assessment_status=assessment.get("status") or "insufficient_evidence",
+            )
+            full_submission = store().get_remediation_submission(submission["id"]) or full_submission
         record_event(
             task["plan_id"],
             user.id,
@@ -643,6 +737,11 @@ def register_remediation_routes(
         updated = await _advance(
             assessment, task=full_task, submission=submission, state=state
         )
+        if updated.get("run_status") == "completed":
+            store().apply_agent_remediation_assessment(
+                assessment["submission_id"],
+                assessment_status=updated.get("status") or "insufficient_evidence",
+            )
         record_event(
             task["plan_id"],
             user.id,
@@ -665,6 +764,22 @@ def register_remediation_routes(
         task = store().get_remediation_task(submission["task_id"])
         if task is None:
             raise HTTPException(status_code=404, detail="整改任务不存在")
+        if not task.get("is_current", True):
+            raise HTTPException(status_code=409, detail="该整改事项已被新版审查清单取代")
+        latest_submissions = task.get("submissions") or []
+        if latest_submissions and latest_submissions[-1].get("id") != submission_id:
+            raise HTTPException(status_code=409, detail="已有更新的处理进展，请复核最新一条提交")
+        if (
+            payload.decision == "accepted"
+            and submission.get("response_choice") in {"completed", "not_applicable"}
+            # Frozen case materials are as verifiable as uploads; a link alone is not.
+            and not any(
+                item.get("kind") in {"file", "case_material"}
+                for item in submission.get("evidence") or []
+            )
+            and not (payload.review_note or "").strip()
+        ):
+            raise HTTPException(status_code=422, detail="仅凭申报人声明验收时，请记录人工核验依据")
         try:
             reviewed = store().review_remediation_submission(
                 submission_id,

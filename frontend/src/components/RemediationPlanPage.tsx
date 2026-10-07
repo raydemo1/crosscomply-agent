@@ -9,6 +9,8 @@ import type {
   RemediationSubmissionApi,
   RemediationTaskApi,
   RemediationTaskStatus,
+  ReviewTaskStatus,
+  CaseStatus,
   ReviewIssue,
   WorkbenchUser,
 } from '../types/api';
@@ -21,20 +23,23 @@ import {
   getRemediationTask,
   getRemediationPlan,
   listAssignableUsers,
+  runGuidedRereview,
   reviewRemediationSubmission,
   startRemediationTask,
   submitRemediationTask,
   uploadRemediationEvidence,
   updateRemediationTask,
+  waitForReviewTask,
 } from '../api/client';
 import { formatTime, relativeTime } from '../utils/display';
+import CaseProgress from './CaseProgress';
 import './RemediationPlanPage.css';
 
 const STATUS_LABELS: Record<RemediationTaskStatus, string> = {
   open: '待处理',
   in_progress: '处理中',
   pending_review: '待复核',
-  completed: '已完成',
+  completed: '已核实',
 };
 
 const PRIORITY_LABELS: Record<RemediationPriority, string> = { high: '高优先级', medium: '中优先级', low: '低优先级' };
@@ -46,10 +51,18 @@ const ASSESSMENT_STATUS_LABELS: Record<RemediationAssessmentStatus, string> = {
   insufficient_evidence: '证据不足',
 };
 
+const TASK_KIND_LABELS: Record<RemediationTaskApi['task_kind'], string> = {
+  fact_confirmation: '补充事实',
+  control_remediation: '整改事项',
+  recommendation: '后续建议',
+};
+
 const SUBMISSION_STATUS_LABELS: Record<RemediationSubmissionApi['status'], string> = {
   pending_review: '待复核',
-  accepted: '已通过',
+  accepted: '已核实',
   rejected: '需补充',
+  agent_verified: 'Agent 已核对陈述',
+  agent_feedback: '请继续补充',
 };
 
 function assessmentRunLabel(assessment: RemediationAssessmentApi): string {
@@ -68,6 +81,11 @@ export interface RemediationPlanPageProps {
   recommendations?: string[];
   /** Review findings from the case, offered as a starting point for new tasks. */
   issues?: ReviewIssue[];
+  /**
+   * This page has no place to answer the Agent, so the progress card's answer button hands the user
+   * back to the case report instead of pretending to open a form that does not exist here.
+   */
+  onOpenAgentQuestion?: () => void;
 }
 
 export interface MyRemediationsPageProps {
@@ -79,6 +97,7 @@ interface TaskDetailProps {
   task: RemediationTaskApi;
   user: WorkbenchUser;
   assignableUsers: RemediationAssigneeApi[];
+  caseStatus?: CaseStatus;
   onChanged: () => Promise<void>;
 }
 
@@ -154,9 +173,42 @@ function latestSubmission(task: RemediationTaskApi) {
   return task.latest_submission ?? task.submissions?.[task.submissions.length - 1] ?? null;
 }
 
+function taskStatusLabel(task: RemediationTaskApi): string {
+  const latest = latestSubmission(task);
+  return task.status === 'completed' && latest?.status === 'accepted' && latest.response_choice === 'not_applicable'
+    ? '已核实不适用'
+    : STATUS_LABELS[task.status];
+}
+
+/**
+ * A link alone is not verifiable implementation material: the Agent cannot read it and
+ * a link's existence says nothing about whether the control is actually in place.
+ * Uploads and frozen case materials both count — this must match the server-side review guard,
+ * otherwise the UI accepts a submission the API later rejects with 422.
+ */
+function hasVerifiableEvidence(submission: RemediationSubmissionApi | null | undefined): boolean {
+  return (submission?.evidence ?? []).some((item) => item.kind === 'file' || item.kind === 'case_material');
+}
+
+/**
+ * Material existing is not the same as the Agent confirming it proves implementation.
+ * `resolved` is the only Agent verdict that means the measure itself was verified.
+ */
+function agentConfirmedImplementation(assessment: RemediationAssessmentApi | null | undefined): boolean {
+  return assessment?.run_status === 'completed' && assessment.status === 'resolved';
+}
+
+/** Keeps “材料已提交” apart from “材料已足以证明措施实施” in reviewer-facing copy. */
+function evidenceStanding(submission: RemediationSubmissionApi | null | undefined, assessment: RemediationAssessmentApi | null | undefined): string {
+  if (!hasVerifiableEvidence(submission)) return '本次仅有申报人声明，尚无可核验的实施材料';
+  return agentConfirmedImplementation(assessment)
+    ? '已提交可核验材料，Agent 已确认措施实施'
+    : '已提交可核验材料，但 Agent 尚未确认材料足以证明措施实施';
+}
+
 function planCounts(plan: RemediationPlanApi) {
   if (plan.counts) return plan.counts;
-  const tasks = plan.tasks;
+  const tasks = plan.tasks.filter((item) => item.is_current !== false);
   return {
     total: tasks.length,
     open: tasks.filter((item) => item.status === 'open').length,
@@ -164,7 +216,20 @@ function planCounts(plan: RemediationPlanApi) {
     pending_review: tasks.filter((item) => item.status === 'pending_review').length,
     completed: tasks.filter((item) => item.status === 'completed').length,
     overdue: tasks.filter(isOverdue).length,
+    blocking: tasks.filter((item) => item.blocking && item.phase === 'pre_approval' && item.status !== 'completed').length,
   };
+}
+
+function currentTasksFor(plan: RemediationPlanApi): RemediationTaskApi[] {
+  return plan.tasks.filter((task) => task.is_current !== false);
+}
+
+function nextCurrentAction(tasks: RemediationTaskApi[], caseStatus: CaseStatus | undefined, user: WorkbenchUser): RemediationTaskApi | null {
+  const approved = caseStatus === 'approved' || caseStatus === 'conditionally_approved';
+  const actionable = tasks.filter((task) => task.phase === 'pre_approval' || approved);
+  if (canManage(user)) return actionable.find((task) => task.status === 'pending_review') ?? null;
+  return actionable.find((task) => (task.assignee_id === user.id || task.assignee?.id === user.id)
+    && ['open', 'in_progress'].includes(task.status)) ?? null;
 }
 
 function taskStatusClass(status: RemediationTaskStatus): string {
@@ -175,15 +240,22 @@ function planStatusLabel(status: RemediationPlanApi['status']): string {
   return { draft: '待建立', active: '执行中', completed: '已完成', cancelled: '已取消' }[status];
 }
 
-export default function RemediationPlanPage({ caseId, user, initialPlan = null, recommendations = [], issues = [] }: RemediationPlanPageProps): JSX.Element {
+export default function RemediationPlanPage({ caseId, user, initialPlan = null, recommendations = [], issues = [], onOpenAgentQuestion }: RemediationPlanPageProps): JSX.Element {
   const [plan, setPlan] = useState<RemediationPlanApi | null>(initialPlan);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialPlan?.tasks[0]?.id ?? null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialPlan
+    ? nextCurrentAction(currentTasksFor(initialPlan), initialPlan.case_status, user)?.id ?? currentTasksFor(initialPlan)[0]?.id ?? null
+    : null);
   const [assignableUsers, setAssignableUsers] = useState<RemediationAssigneeApi[]>([]);
   const [caseOwnerId, setCaseOwnerId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(initialPlan === undefined);
+  const [caseStatus, setCaseStatus] = useState<CaseStatus | undefined>(initialPlan?.case_status);
+  const [reviewTaskStatus, setReviewTaskStatus] = useState<ReviewTaskStatus | null>(null);
+  const [approvalStarted, setApprovalStarted] = useState(false);
+  const [loading, setLoading] = useState(initialPlan == null);
   const [error, setError] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [rereviewing, setRereviewing] = useState(false);
+  const [rereviewNotice, setRereviewNotice] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -191,40 +263,91 @@ export default function RemediationPlanPage({ caseId, user, initialPlan = null, 
     try {
       const next = await getRemediationPlan(caseId);
       setPlan(next);
-      setSelectedTaskId((current) => current && next.tasks.some((task) => task.id === current) ? current : next.tasks[0]?.id ?? null);
+      setCaseStatus(next.case_status);
+      setSelectedTaskId((current) => current && next.tasks.some((task) => task.id === current && task.is_current !== false)
+        ? current : nextCurrentAction(currentTasksFor(next), next.case_status, user)?.id ?? currentTasksFor(next)[0]?.id ?? null);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '无法加载整改计划');
+      setError(reason instanceof Error ? reason.message : '无法加载待核实事项');
     } finally {
       setLoading(false);
     }
-  }, [caseId]);
+  }, [caseId, user]);
 
   useEffect(() => {
     if (initialPlan === null) void refresh();
   }, [initialPlan, refresh]);
 
   useEffect(() => {
-    if (!canManage(user)) return;
-    void listAssignableUsers().then((result) => setAssignableUsers(result.items)).catch(() => setAssignableUsers([]));
-    void getCaseDetail(caseId).then((detail) => setCaseOwnerId(detail.case.owner_id)).catch(() => setCaseOwnerId(null));
+    if (canManage(user)) {
+      void listAssignableUsers().then((result) => setAssignableUsers(result.items)).catch(() => setAssignableUsers([]));
+    }
+    void getCaseDetail(caseId).then((detail) => {
+      setCaseOwnerId(detail.case.owner_id);
+      setCaseStatus(detail.case.status);
+      setReviewTaskStatus(detail.review_task?.status ?? null);
+      setApprovalStarted(Boolean(detail.feishu_approval));
+    }).catch(() => setCaseOwnerId(null));
   }, [user, caseId]);
 
   const selectedTask = plan?.tasks.find((task) => task.id === selectedTaskId) ?? null;
   const counts = plan ? planCounts(plan) : null;
+  const currentTasks = plan ? currentTasksFor(plan) : [];
+  const archivedTasks = plan?.tasks.filter((task) => task.is_current === false) ?? [];
+  const nextAction = plan ? nextCurrentAction(currentTasks, caseStatus, user) : null;
+  const blockingTasks = currentTasks.filter((task) => task.blocking && task.phase === 'pre_approval' && task.status !== 'completed');
+
+  const startGuidedRereview = async (): Promise<void> => {
+    setRereviewing(true);
+    setError(null);
+    setRereviewNotice(null);
+    setCaseStatus('review_running');
+    try {
+      const queued = await runGuidedRereview(caseId);
+      const task = await waitForReviewTask(queued.task_id, (updated) => {
+        setReviewTaskStatus(updated.status);
+        if (updated.status === 'queued' || updated.status === 'running') setCaseStatus('review_running');
+        if (updated.status === 'waiting_input') setCaseStatus('needs_info');
+      });
+      const [detail, updatedPlan] = await Promise.all([getCaseDetail(caseId), getRemediationPlan(caseId)]);
+      setCaseStatus(detail.case.status);
+      setReviewTaskStatus(detail.review_task?.status ?? null);
+      setApprovalStarted(Boolean(detail.feishu_approval));
+      setPlan(updatedPlan);
+      const next = nextCurrentAction(currentTasksFor(updatedPlan), detail.case.status, user);
+      setSelectedTaskId(next?.id ?? updatedPlan.tasks.find((item) => item.is_current !== false)?.id ?? null);
+      if (task.status === 'failed') {
+        setError('本次整案复核因系统运行问题未能完成，不代表证据不足。请稍后重试，或联系审核人处理。');
+      } else if (task.status === 'waiting_input') {
+        setRereviewNotice('Agent 还需要补充信息。请回到案件报告页回答 Agent 的问题，完成后系统会继续复核。');
+      } else if (task.status === 'succeeded') {
+        setRereviewNotice('整案复核已完成，行动清单已按最新审查结果更新。');
+      }
+    } catch (reason) {
+      try {
+        const detail = await getCaseDetail(caseId);
+        setCaseStatus(detail.case.status);
+      } catch { /* Keep the last known case status when refresh is unavailable. */ }
+      setError(reason instanceof Error ? reason.message : '无法启动整案复核');
+    } finally {
+      setRereviewing(false);
+    }
+  };
 
   if (loading) {
-    return <section className="remediation-page"><div className="card remediation-state"><strong>正在加载整改计划…</strong></div></section>;
+    return <section className="remediation-page"><div className="card remediation-state"><strong>正在加载待核实事项…</strong></div></section>;
   }
 
   if (!plan) {
     return (
       <section className="remediation-page">
-        <RemediationPageTop title="建立整改计划" />
+        <RemediationPageTop title="待核实事项" />
         <div className="card remediation-empty-plan">
           <div className="remediation-empty-plan__mark" aria-hidden="true">＋</div>
-          <h1>这个案件还没有整改计划</h1>
-          <p>从审查建议中明确选择需要交接的事项，再分派给具体负责人。审查建议不会自动变成任务。</p>
-          {canManage(user) ? <button type="button" className="remediation-button remediation-button--primary" onClick={() => setShowBuilder(true)}>建立整改计划</button> : <span className="remediation-muted">等待审核人建立计划</span>}
+          <h1>{user.role === 'requester' ? '处理清单暂不可用' : '这个案件还没有待核实事项'}</h1>
+          <p>{user.role === 'requester'
+            ? '系统暂时没有可执行的处理清单。请联系审核人处理，不需要重复提交案件材料。'
+            : '审查结束后，系统会自动生成申报人行动清单。审核人也可以在这里建立补充任务。'}</p>
+          {canManage(user) ? <button type="button" className="remediation-button remediation-button--primary" onClick={() => setShowBuilder(true)}>建立处理清单</button> : <span className="remediation-muted">请联系审核人恢复处理清单</span>}
         </div>
         {showBuilder ? <PlanBuilder caseId={caseId} user={user} recommendations={recommendations} issues={issues} assignableUsers={assignableUsers} caseOwnerId={caseOwnerId} onCreated={(created) => { setPlan(created); setShowBuilder(false); setSelectedTaskId(created.tasks[0]?.id ?? null); }} onCancel={() => setShowBuilder(false)} /> : null}
         {error ? <div className="remediation-error" role="alert">{error}</div> : null}
@@ -234,26 +357,46 @@ export default function RemediationPlanPage({ caseId, user, initialPlan = null, 
 
   return (
     <section className="remediation-page">
-      <RemediationPageTop title="案件整改计划">
+      <RemediationPageTop title={plan.case_title || '处理清单'}>
         <span className={`remediation-plan-status remediation-plan-status--${plan.status}`}>{planStatusLabel(plan.status)}</span>
       </RemediationPageTop>
-      <RemediationPlanOverview plan={plan} />
-      {plan.status === 'draft' && canManage(user) ? <div className="remediation-plan-activation"><p>计划仍处于草稿，确认负责人和期限后激活，任务才会收到处理入口。</p><button type="button" className="remediation-button remediation-button--primary" disabled={activating} onClick={() => { setActivating(true); void activateRemediationPlan(plan.id).then((next) => setPlan(next)).catch((reason) => setError(reason instanceof Error ? reason.message : '无法激活整改计划')).finally(() => setActivating(false)); }}>{activating ? '正在激活…' : '激活整改计划'}</button></div> : null}
+      <CaseProgress
+        status={caseStatus ?? plan.case_status ?? 'needs_info'}
+        viewerRole={user.role}
+        remediationPlan={plan}
+        reviewTaskStatus={reviewTaskStatus}
+        approvalStarted={approvalStarted}
+        onAnswerAction={onOpenAgentQuestion}
+        onOpenAction={(kind) => {
+          if (kind === 'rereview') {
+            if (!rereviewing && blockingTasks.length === 0) void startGuidedRereview();
+            return;
+          }
+          if (nextAction) { setSelectedTaskId(nextAction.id); return; }
+          document.getElementById('remediation-task-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+      >
+        {caseStatus === 'pending_source_verification' ? <div className="case-progress__notice" role="status">发现的新官方法源仍在核验，核验完成前不能形成最终审批结论。</div> : null}
+        {user.role === 'requester' && caseStatus === 'needs_info' && blockingTasks.length > 0 ? <div className="case-progress__notice" role="status">还有 {blockingTasks.length} 项送审前事项待处理或待审核人核验，核实后才能按最新材料重新审查。</div> : null}
+        {rereviewNotice ? <div className="case-progress__notice" role="status">{rereviewNotice}</div> : null}
+      </CaseProgress>
+      {plan.status === 'draft' && canManage(user) ? <div className="remediation-plan-activation"><p>清单仍处于草稿，确认负责人和期限后发布，负责人才能开始处理。</p><button type="button" className="remediation-button remediation-button--primary" disabled={activating} onClick={() => { setActivating(true); void activateRemediationPlan(plan.id).then((next) => setPlan(next)).catch((reason) => setError(reason instanceof Error ? reason.message : '无法发布处理清单')).finally(() => setActivating(false)); }}>{activating ? '正在发布…' : '发布处理清单'}</button></div> : null}
       {error ? <div className="remediation-error" role="alert">{error}</div> : null}
       <div className="remediation-workspace">
-        <section className="card remediation-task-list" aria-label="整改任务列表">
-          <div className="remediation-section-heading"><div><span className="remediation-kicker">任务清单</span><h2>按状态处理</h2></div><span className="remediation-count">{counts?.total ?? 0} 项</span></div>
-          <div className="remediation-task-list__groups">
+        <section className="card remediation-task-list" id="remediation-task-list" aria-label="待核实事项列表">
+          <div className="remediation-section-heading"><div><h2>待核实事项</h2></div><span className="remediation-count">{counts?.total ?? 0} 项</span></div>
+      <div className="remediation-task-list__groups">
             {(['open', 'in_progress', 'pending_review', 'completed'] as RemediationTaskStatus[]).map((status) => {
-              const tasks = plan.tasks.filter((task) => task.status === status);
+              const tasks = currentTasks.filter((task) => task.status === status);
               if (tasks.length === 0) return null;
-              return <div className="remediation-task-group" key={status}><div className="remediation-task-group__label"><span>{STATUS_LABELS[status]}</span><b>{tasks.length}</b></div>{tasks.map((task) => <button type="button" className={'remediation-task-item' + (selectedTaskId === task.id ? ' is-selected' : '')} key={task.id} onClick={() => setSelectedTaskId(task.id)}><span className={taskStatusClass(task.status)}>{STATUS_LABELS[task.status]}</span><strong>{task.title}</strong><small>{taskAssignee(task, assignableUsers)?.display_name ?? '尚未分派'} · {task.due_date ? `截止 ${task.due_date}` : '未设期限'}</small>{isOverdue(task) ? <em>已逾期</em> : null}</button>)}</div>;
+              return <div className="remediation-task-group" key={status}><div className="remediation-task-group__label"><span>{STATUS_LABELS[status]}</span><b>{tasks.length}</b></div>{tasks.map((task) => <button type="button" className={'remediation-task-item' + (selectedTaskId === task.id ? ' is-selected' : '')} key={task.id} onClick={() => setSelectedTaskId(task.id)}><span className={taskStatusClass(task.status)}>{taskStatusLabel(task)}</span><strong>{task.title}</strong><small>{taskAssignee(task, assignableUsers)?.display_name ?? '尚未分派'} · {task.phase === 'pre_approval' ? '送审前' : '批准后'} · {task.due_date ? `截止 ${task.due_date}` : '未设期限'}</small>{isOverdue(task) ? <em>已逾期</em> : null}</button>)}</div>;
             })}
           </div>
-          {plan.tasks.length === 0 ? <div className="remediation-muted">计划中还没有任务。</div> : null}
+          {currentTasks.length === 0 ? <div className="remediation-muted">{plan.no_remediation_reason ?? '当前没有有效行动项。'}</div> : null}
+          {archivedTasks.length ? <details className="remediation-archive"><summary>此前审查事项（{archivedTasks.length}）</summary><div>{archivedTasks.map((task) => <div className="remediation-archive__item" key={task.id}><span>{taskStatusLabel(task)}</span><strong>{task.title}</strong><small>历史记录，仅供查看</small></div>)}</div></details> : null}
         </section>
-        <section className="card remediation-task-detail" aria-label="整改任务详情">
-          {selectedTask ? <RemediationTaskDetail task={selectedTask} user={user} assignableUsers={assignableUsers} onChanged={refresh} /> : <div className="remediation-detail-placeholder">选择左侧任务查看要求、负责人和提交记录。</div>}
+        <section className="card remediation-task-detail" aria-label="事项详情">
+          {selectedTask ? <RemediationTaskDetail key={selectedTask.id} task={selectedTask} user={user} assignableUsers={assignableUsers} caseStatus={caseStatus} onChanged={refresh} /> : <div className="remediation-detail-placeholder">选择左侧事项，回答当前问题。</div>}
         </section>
       </div>
     </section>
@@ -262,12 +405,6 @@ export default function RemediationPlanPage({ caseId, user, initialPlan = null, 
 
 function RemediationPageTop({ title, children }: { title: string; children?: React.ReactNode }): JSX.Element {
   return <header className="remediation-page__top"><h1 className="page-title">{title}</h1><div className="remediation-page__top-meta">{children}</div></header>;
-}
-
-function RemediationPlanOverview({ plan }: { plan: RemediationPlanApi }): JSX.Element {
-  const counts = planCounts(plan);
-  const progress = counts.total ? Math.round((counts.completed / counts.total) * 100) : 0;
-  return <section className="card remediation-overview"><div className="remediation-overview__copy"><span className="remediation-kicker">关联案件</span><h2>{plan.case_title ?? plan.case_id}</h2></div><div className="remediation-progress"><div className="remediation-progress__value"><strong>{progress}%</strong><span>完成进度</span></div><div className="remediation-progress__track"><span style={{ width: `${progress}%` }} /></div><div className="remediation-progress__stats"><span>{counts.completed} 已完成</span><span>{counts.pending_review} 待复核</span><span className={counts.overdue ? 'is-danger' : ''}>{counts.overdue} 已逾期</span></div></div></section>;
 }
 
 function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, caseOwnerId, onCreated, onCancel }: { caseId: string; user: WorkbenchUser; recommendations: string[]; issues: ReviewIssue[]; assignableUsers: RemediationAssigneeApi[]; caseOwnerId: string | null; onCreated: (plan: RemediationPlanApi) => void; onCancel: () => void }): JSX.Element {
@@ -311,7 +448,7 @@ function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, c
   return (
     <div className="card remediation-builder">
       <div className="remediation-section-heading"><div><span className="remediation-kicker">审核人操作</span><h2>把审查问题变成可交接任务</h2></div><button type="button" className="remediation-close" onClick={onCancel}>取消</button></div>
-      <p className="remediation-builder__intro">可以先让 Agent 按审查结论起草任务，再逐项确认负责人和期限；只有你确认后建立的事项才会进入整改计划，审查问题不会自动变成任务。</p>
+      <p className="remediation-builder__intro">可以先让 Agent 按审查结论起草待核实事项，再逐项确认负责人和期限；审查问题不会自动变成要求整改的任务。</p>
       <div className="remediation-builder__draft-action"><button type="button" className="remediation-button" disabled={drafting} onClick={() => void draftWithAgent()}>{drafting ? '正在起草…' : '让 Agent 起草任务'}</button><span className="remediation-muted">起草结果会覆盖下方草稿，仍可自由修改或删除。</span></div>
       {drafts.map((draft, index) => (
         <div className="remediation-builder__item" key={index}>
@@ -335,8 +472,9 @@ function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, c
   );
 }
 
-function RemediationTaskDetail({ task, user, assignableUsers, onChanged }: TaskDetailProps): JSX.Element {
+function RemediationTaskDetail({ task, user, assignableUsers, caseStatus, onChanged }: TaskDetailProps): JSX.Element {
   const [busy, setBusy] = useState(false);
+  const [choice, setChoice] = useState<NonNullable<RemediationSubmissionApi['response_choice']> | ''>('');
   const [note, setNote] = useState('');
   const [links, setLinks] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -345,7 +483,16 @@ function RemediationTaskDetail({ task, user, assignableUsers, onChanged }: TaskD
   const [showMaterials, setShowMaterials] = useState(false);
   const manager = canManage(user);
   const assignee = task.assignee_id === user.id || task.assignee?.id === user.id;
-  const canSubmit = assignee && task.status === 'in_progress';
+  const currentCaseStatus = caseStatus ?? task.case_status;
+  const postApprovalLocked = task.phase === 'post_approval' && currentCaseStatus !== 'approved' && currentCaseStatus !== 'conditionally_approved';
+  const canSubmit = assignee && ['open', 'in_progress'].includes(task.status) && !postApprovalLocked;
+  const factQuestion = task.task_kind === 'fact_confirmation';
+  const countQuestion = factQuestion && task.answer_type === 'count';
+  const textQuestion = factQuestion && task.answer_type === 'text';
+  const choiceOptions: Array<{ value: NonNullable<RemediationSubmissionApi['response_choice']>; label: string }> = factQuestion
+    ? [{ value: 'yes', label: countQuestion ? '已核对具体数据' : '是' }, { value: 'no', label: countQuestion ? '目前没有该数据' : '否' }, { value: 'unknown', label: '还不确定' }]
+    : [{ value: 'completed', label: '已完成' }, { value: 'incomplete', label: '尚未完成' }, { value: 'not_applicable', label: '可能不适用' }];
+  const needsDetail = textQuestion || (countQuestion && choice === 'yes') || choice === 'not_applicable';
   const submissions = task.submissions ?? [];
   const latest = latestSubmission(task);
 
@@ -354,43 +501,70 @@ function RemediationTaskDetail({ task, user, assignableUsers, onChanged }: TaskD
     try { await operation(); await onChanged(); setMessage(success); } catch (reason) { setMessage(reason instanceof Error ? reason.message : '操作失败，请稍后重试'); } finally { setBusy(false); }
   };
   const submit = async (): Promise<void> => {
-    if (!note.trim()) { setMessage('请先用一句话说明本次处理进展。'); return; }
+    if (!textQuestion && !choice) { setMessage('请先选择当前情况。'); return; }
+    if (needsDetail && !note.trim()) { setMessage(choice === 'not_applicable' ? '请简单说明为什么可能不适用。' : countQuestion ? '请填写核对后的具体数量。' : '请填写这项事实。'); return; }
     const linkEvidence = links.split(/\r?\n/).map((item) => item.trim()).filter(Boolean).map((uri) => ({ kind: 'link' as const, label: uri, uri }));
-    await run(async () => {
+    const answerLabel = choiceOptions.find((option) => option.value === choice)?.label ?? choice;
+    const statement = `${task.title}：${textQuestion ? note.trim() : `${answerLabel}${note.trim() ? `。${note.trim()}` : ''}`}。`;
+    setBusy(true); setMessage(null);
+    try {
+      if (task.status === 'open') await startRemediationTask(task.id);
       const fileEvidence = await Promise.all(files.map((file) => uploadRemediationEvidence(task.id, file)));
-      return submitRemediationTask(task.id, { note: note.trim(), evidence: [...fileEvidence, ...linkEvidence] });
-    }, '已提交，Agent 正在复核。');
-    setNote(''); setLinks(''); setFiles([]);
+      await submitRemediationTask(task.id, { note: statement, response_choice: choice || null, evidence: [...fileEvidence, ...linkEvidence] });
+      await onChanged();
+      setMessage(choice === 'completed' || choice === 'not_applicable' ? '已提交。没有材料时，审核人仍可根据你的声明作出判断。' : '已提交，Agent 正在核对。');
+      setChoice(''); setNote(''); setLinks(''); setFiles([]);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : '提交失败，请稍后重试。');
+      await onChanged();
+    } finally { setBusy(false); }
   };
   const answer = async (assessmentId: string, gateId: string, text: string): Promise<void> => {
     await answerRemediationAssessment(assessmentId, { gate_id: gateId, answer: text });
     await onChanged();
   };
-  const review = (decision: 'accepted' | 'rejected'): Promise<void> => run(() => latest ? reviewRemediationSubmission(latest.id, { decision, review_note: reviewNote.trim() || undefined }) : Promise.resolve(), decision === 'accepted' ? '已验收完成。' : '已退回负责人补充。');
+  const review = (decision: 'accepted' | 'rejected'): Promise<void> => {
+    if (decision === 'accepted' && latest?.response_choice && ['completed', 'not_applicable'].includes(latest.response_choice) && !hasVerifiableEvidence(latest) && !reviewNote.trim()) {
+      setMessage('本次提交没有可核验的实施材料；仅凭申报人声明验收时，请简要记录人工核验依据。');
+      return Promise.resolve();
+    }
+    return run(() => latest ? reviewRemediationSubmission(latest.id, { decision, review_note: reviewNote.trim() || undefined }) : Promise.resolve(), decision === 'accepted' ? latest?.response_choice === 'not_applicable' ? '已核实不适用。' : '已确认核实结果。' : '已退回负责人补充。');
+  };
   const assigneeName = task.assignee?.display_name ?? task.assignee_id ?? '尚未分派';
   return (
     <div className="remediation-task-detail__inner">
       <div className="remediation-task-detail__head">
         <div>
-          <span className={taskStatusClass(task.status)}>{STATUS_LABELS[task.status]}</span>
-          <span className="remediation-kicker">问题 / 整改目标</span>
+          <span className={taskStatusClass(task.status)}>{taskStatusLabel(task)}</span>
           <h2>{task.title}</h2>
-          <p>{task.description || '暂无任务说明。'}</p>
+          {task.description && task.description !== task.title ? <p>{task.description}</p> : null}
         </div>
         <span className={`remediation-priority remediation-priority--${task.priority}`}>{PRIORITY_LABELS[task.priority]}</span>
       </div>
-      <div className="remediation-task-facts"><div><span>负责人</span><strong>{assigneeName}</strong></div><div><span>截止日期</span><strong className={isOverdue(task) ? 'is-danger' : ''}>{task.due_date ?? '未设置'}{isOverdue(task) ? ' · 已逾期' : ''}</strong></div><div><span>创建时间</span><strong>{formatTime(task.created_at)}</strong></div></div>
-      {task.source_recommendation ? <div className="remediation-source"><span>来源审查建议</span><p>{task.source_recommendation}</p></div> : null}
-      <div className="remediation-criteria">
-        <div className="remediation-section-heading"><div><span className="remediation-kicker">验收标准</span><h3>验收标准</h3></div></div>
-        <p>{task.acceptance_criteria?.trim() || '尚未单独填写验收标准，请与审核人确认交付要求。'}</p>
-      </div>
-      {manager ? <TaskAssignment task={task} assignableUsers={assignableUsers} onChanged={onChanged} /> : null}
-      <SubmissionHistory submissions={submissions} />
-      <AgentReviewCard assessment={task.latest_assessment ?? null} onAnswer={answer} />
-      {assignee && task.status === 'open' ? <div className="remediation-submit"><div className="remediation-section-heading"><div><span className="remediation-kicker">负责人操作</span><h3>开始处理</h3></div></div><p className="remediation-muted">开始处理后，就可以提交处理进展。</p><button type="button" className="remediation-button remediation-button--primary" disabled={busy} onClick={() => void run(() => startRemediationTask(task.id), '已开始处理。')}>开始处理</button></div> : null}
-      {canSubmit ? <div className="remediation-submit"><div className="remediation-section-heading"><div><span className="remediation-kicker">负责人操作</span><h3>提交处理进展</h3></div></div><p className="remediation-muted">简单说明你做了什么即可。需要进一步证明时，Agent 会告诉你具体还缺什么。</p><label><span>本次处理进展（必填）</span><textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="用一句话说明完成了什么、还剩什么" /></label><button type="button" className="remediation-text-button" onClick={() => setShowMaterials((value) => !value)}>{showMaterials ? '收起补充材料' : '补充材料（可选）'}</button>{showMaterials ? <div className="remediation-materials"><p className="remediation-muted">案件已有材料：Agent 会自动复用案件已经提交的材料，通常无需重复上传。</p><label><span>上传文件（可选）</span><input type="file" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []))} /></label>{files.length ? <div className="remediation-file-list">{files.map((file) => <span key={`${file.name}-${file.size}`}>{file.name}</span>)}</div> : null}<label><span>添加链接（可选，每行一个 https://…）</span><textarea className="remediation-submit__links" value={links} onChange={(event) => setLinks(event.target.value)} placeholder="每行一个 https://…" /></label></div> : null}<button type="button" className="remediation-button remediation-button--primary" disabled={busy || !note.trim()} onClick={() => void submit()}>{busy ? '正在提交…' : '提交给 Agent 复核'}</button></div> : null}
-      {manager && latest?.status === 'pending_review' ? <div className="remediation-review"><div className="remediation-section-heading"><div><span className="remediation-kicker">审核人操作</span><h3>审核人最终决定</h3></div></div><p className="remediation-muted">Agent 复核不改变任务状态，最终由你决定退回补充还是验收完成。</p><textarea value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="退回时请说明需要补充的内容；验收时可留下备注" /><div className="remediation-review__actions"><button type="button" className="remediation-button" disabled={busy} onClick={() => void review('rejected')}>退回补充</button><button type="button" className="remediation-button remediation-button--primary" disabled={busy} onClick={() => void review('accepted')}>验收完成</button></div></div> : null}
+      <p className="remediation-task-detail__assignee">负责人：{assigneeName}{task.due_date ? ` · 截止 ${task.due_date}` : ''}</p>
+      {canSubmit ? <div className="remediation-submit">
+        {factQuestion && !textQuestion ? null : <h3>{textQuestion ? '请说明已确认的事实' : '这项措施目前是什么情况？'}</h3>}
+        {!textQuestion ? <div className="remediation-choice-group" role="radiogroup" aria-label={factQuestion ? '事实确认' : '措施状态'}>
+          {choiceOptions.map((option) => <label className={'remediation-choice' + (choice === option.value ? ' is-selected' : '')} key={option.value}><input type="radio" name={`remediation-choice-${task.id}`} value={option.value} checked={choice === option.value} onChange={() => setChoice(option.value)} /><span>{option.label}</span></label>)}
+        </div> : null}
+        {choice || textQuestion ? <>
+          <label className="remediation-answer-detail"><span>{choice === 'not_applicable' ? '不适用的原因' : countQuestion && choice === 'yes' ? '已确认数量' : textQuestion ? '事实说明' : '补充说明（可选）'}</span>{countQuestion && choice === 'yes' ? <input type="number" min="0" value={note} onChange={(event) => setNote(event.target.value)} placeholder="填写具体数量" /> : <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={choice === 'not_applicable' ? '说明业务事实和不适用依据' : textQuestion ? '针对这项问题单独说明' : '有需要说明的情况，写一两句即可'} />}</label>
+          <button type="button" className="remediation-text-button" onClick={() => setShowMaterials((value) => !value)}>{showMaterials ? '收起材料' : '补充材料'}</button>
+          {showMaterials ? <div className="remediation-materials"><p className="remediation-muted">已有材料无需重复上传。</p><label><span>上传文件</span><input type="file" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []))} /></label>{files.length ? <div className="remediation-file-list">{files.map((file) => <span key={`${file.name}-${file.size}`}>{file.name}</span>)}</div> : null}<label><span>补充链接（每行一个）</span><textarea className="remediation-submit__links" value={links} onChange={(event) => setLinks(event.target.value)} placeholder="https://…" /></label></div> : null}
+          {!factQuestion && choice === 'completed' && !files.length ? <p className="remediation-muted">可先提交完成声明。没有实施材料时，审核人会看到这一情况并决定是否验收。</p> : null}
+          <button type="button" className="remediation-button remediation-button--primary" disabled={busy || (needsDetail && !note.trim())} onClick={() => void submit()}>{busy ? '正在提交…' : '提交回答'}</button>
+        </> : null}
+      </div> : null}
+      <AgentReviewCard assessment={task.latest_assessment ?? null} submission={latest} onAnswer={answer} />
+      {manager && latest && ['pending_review', 'agent_feedback'].includes(latest.status) ? <div className="remediation-review"><div className="remediation-section-heading"><div><span className="remediation-kicker">审核人操作</span><h3>核验意见</h3></div></div><p className="remediation-muted">{evidenceStanding(latest, task.latest_assessment)}；请核对后决定是否验收。</p><textarea value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="退回时说明需要补充什么；通过时记录核验依据" /><div className="remediation-review__actions"><button type="button" className="remediation-button" disabled={busy} onClick={() => void review('rejected')}>退回补充</button><button type="button" className="remediation-button remediation-button--primary" disabled={busy} onClick={() => void review('accepted')}>{latest.response_choice === 'not_applicable' ? '确认不适用' : '确认核实结果'}</button></div></div> : null}
+      <details className="remediation-extra"><summary>详细信息</summary><div className="remediation-extra__body">
+        <div className="remediation-criteria"><h3>验收参考</h3><p>{task.acceptance_criteria?.trim() || '尚未单独填写验收标准，请与审核人确认。'}</p></div>
+        <div className="remediation-task-facts"><div><span>负责人</span><strong>{assigneeName}</strong></div><div><span>截止日期</span><strong className={isOverdue(task) ? 'is-danger' : ''}>{task.due_date ?? '未设置'}{isOverdue(task) ? ' · 已逾期' : ''}</strong></div><div><span>创建时间</span><strong>{formatTime(task.created_at)}</strong></div></div>
+        <div className="remediation-task-facts remediation-task-facts--workflow"><div><span>事项类型</span><strong>{TASK_KIND_LABELS[task.task_kind]}</strong></div><div><span>适用阶段</span><strong>{task.phase === 'pre_approval' ? '送审前' : '批准后'}</strong></div><div><span>是否阻塞送审</span><strong>{task.blocking && task.phase === 'pre_approval' ? '是' : '否'}</strong></div></div>
+        {task.source_recommendation ? <div className="remediation-source"><span>来源审查建议</span><p>{task.source_recommendation}</p></div> : null}
+        {manager ? <TaskAssignment task={task} assignableUsers={assignableUsers} onChanged={onChanged} /> : null}
+        <SubmissionHistory submissions={submissions} />
+      </div></details>
       {message ? <div className="remediation-message" role="status">{message}</div> : null}
     </div>
   );
@@ -408,17 +582,17 @@ function TaskAssignment({ task, assignableUsers, onChanged }: { task: Remediatio
 function SubmissionHistory({ submissions }: { submissions: RemediationSubmissionApi[] }): JSX.Element {
   return (
     <div className="remediation-history">
-      <div className="remediation-section-heading"><div><span className="remediation-kicker">处理进展</span><h3>历史处理进展</h3></div><span className="remediation-count">{submissions.length} 次提交</span></div>
+      <div className="remediation-section-heading"><div><h3>提交记录</h3></div><span className="remediation-count">{submissions.length} 次提交</span></div>
       {submissions.length === 0 ? <p className="remediation-muted">负责人尚未提交处理进展。</p> : (
         <ol className="remediation-history__list">
           {submissions.map((submission, index) => (
             <li className="remediation-submission" key={submission.id}>
-              <div className="remediation-submission__head"><span>第 {index + 1} 次提交</span><span className={`remediation-submission-status remediation-submission-status--${submission.status}`}>{SUBMISSION_STATUS_LABELS[submission.status]}</span></div>
+              <div className="remediation-submission__head"><span>第 {index + 1} 次提交</span><span className={`remediation-submission-status remediation-submission-status--${submission.status}`}>{submission.status === 'accepted' && submission.response_choice === 'not_applicable' ? '已核实不适用' : SUBMISSION_STATUS_LABELS[submission.status]}</span></div>
               <p>{submission.note}</p>
               <small>{submission.submitted_by_user?.display_name ?? submission.submitted_by} · {relativeTime(submission.created_at)}</small>
               {submission.evidence.length ? <div className="remediation-evidence-list">{submission.evidence.map((item) => <span key={item.id}>{item.kind === 'file' ? '附件' : item.kind === 'link' ? '链接' : '材料'} · {item.label}</span>)}</div> : null}
               {submission.review_note ? <div className="remediation-submission__review">人工复核意见：{submission.review_note}</div> : null}
-              {submission.assessment ? <AssessmentSummaryLine assessment={submission.assessment} /> : null}
+      {submission.assessment ? <AssessmentSummaryLine assessment={submission.assessment} /> : null}
             </li>
           ))}
         </ol>
@@ -437,10 +611,12 @@ function AssessmentSummaryLine({ assessment }: { assessment: RemediationAssessme
   );
 }
 
-function AgentReviewCard({ assessment, onAnswer }: { assessment: RemediationAssessmentApi | null; onAnswer: (assessmentId: string, gateId: string, answer: string) => Promise<void> }): JSX.Element {
+function AgentReviewCard({ assessment, submission, onAnswer }: { assessment: RemediationAssessmentApi | null; submission: RemediationSubmissionApi | null; onAnswer: (assessmentId: string, gateId: string, answer: string) => Promise<void> }): JSX.Element {
   const [answer, setAnswer] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (!assessment && !submission) return <></>;
 
   const reply = async (): Promise<void> => {
     if (!assessment) return;
@@ -452,8 +628,8 @@ function AgentReviewCard({ assessment, onAnswer }: { assessment: RemediationAsse
 
   return (
     <div className="remediation-agent-review">
-      <div className="remediation-section-heading"><div><span className="remediation-kicker">Agent 复核</span><h3>最新 Agent 复核</h3></div>{assessment?.run_status === 'completed' && assessment.status ? <span className={`remediation-assessment-status remediation-assessment-status--${assessment.status}`}>{ASSESSMENT_STATUS_LABELS[assessment.status]}</span> : null}</div>
-      {!assessment ? <p className="remediation-muted">提交处理进展后，Agent 会自动复核并说明已确认和还需确认的内容。</p> : null}
+       <div className="remediation-section-heading"><div><h3>核验结果</h3></div>{submission?.status === 'pending_review' && assessment?.status !== 'resolved' ? <span className="remediation-assessment-status">待审核人确认</span> : assessment?.run_status === 'completed' && assessment.status ? <span className={`remediation-assessment-status remediation-assessment-status--${assessment.status}`}>{ASSESSMENT_STATUS_LABELS[assessment.status]}</span> : null}</div>
+      {!assessment ? <p className="remediation-muted">待 Agent 核验</p> : null}
       {assessment?.run_status === 'running' ? <p className="remediation-muted">Agent 正在复核本次处理进展…</p> : null}
       {assessment?.run_status === 'failed' ? <p className="remediation-muted">本次 Agent 复核未能完成，请稍后重试或直接由审核人判断。</p> : null}
       {assessment?.run_status === 'waiting_input' ? (
@@ -465,13 +641,11 @@ function AgentReviewCard({ assessment, onAnswer }: { assessment: RemediationAsse
       ) : null}
       {assessment?.run_status === 'completed' ? (
         <div className="remediation-agent-review__body">
-          {assessment.summary ? <p className="remediation-agent-review__summary">{assessment.summary}</p> : null}
-          {assessment.confirmed_points.length ? <div className="remediation-agent-review__group"><span>已确认</span><ul>{assessment.confirmed_points.map((point, index) => <li key={index}>{point.text}</li>)}</ul></div> : null}
-          {assessment.remaining_gaps.length ? <div className="remediation-agent-review__group"><span>还需确认</span><ul>{assessment.remaining_gaps.map((gap, index) => <li key={index}>{gap}</li>)}</ul></div> : null}
-          {assessment.next_request.trim() ? <div className="remediation-agent-review__next"><span>最简单的下一步</span><p>{assessment.next_request}</p></div> : null}
+           {submission?.status === 'pending_review' && !agentConfirmedImplementation(assessment) ? <p className="remediation-muted">{evidenceStanding(submission, assessment)}；请审核人结合业务情况确认。</p> : null}
+           {assessment.next_request.trim() && submission?.status !== 'pending_review' ? <div className="remediation-agent-review__next"><span>下一步</span><p>{assessment.next_request}</p></div> : null}
+           {assessment.summary || assessment.confirmed_points.length || assessment.remaining_gaps.length ? <details className="remediation-extra"><summary>查看 Agent 核验意见</summary><div className="remediation-extra__body">{assessment.summary ? <p className="remediation-agent-review__summary">{assessment.summary}</p> : null}{assessment.confirmed_points.length ? <div className="remediation-agent-review__group"><span>已确认</span><ul>{assessment.confirmed_points.map((point, index) => <li key={index}>{point.text}</li>)}</ul></div> : null}{assessment.remaining_gaps.length ? <div className="remediation-agent-review__group"><span>还需确认</span><ul>{assessment.remaining_gaps.map((gap, index) => <li key={index}>{gap}</li>)}</ul></div> : null}</div></details> : null}
         </div>
       ) : null}
-      {assessment ? <p className="remediation-agent-review__note">Agent 复核只说明证据是否充分，不改变任务状态；是否通过仍由审核人决定。</p> : null}
       {error ? <div className="remediation-form-error" role="alert">{error}</div> : null}
     </div>
   );
@@ -479,8 +653,9 @@ function AgentReviewCard({ assessment, onAnswer }: { assessment: RemediationAsse
 
 export function MyRemediationsPage({ user, initialItems }: MyRemediationsPageProps): JSX.Element {
   const [items, setItems] = useState<RemediationTaskApi[]>(initialItems ?? []);
+  const [allItems, setAllItems] = useState<RemediationTaskApi[]>(initialItems ?? []);
   const [loading, setLoading] = useState(initialItems === undefined);
-  const [status, setStatus] = useState<'all' | RemediationTaskStatus>('all');
+  const [status, setStatus] = useState<'all' | 'active' | RemediationTaskStatus>('all');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialItems?.[0]?.id ?? null);
   const [selectedDetail, setSelectedDetail] = useState<RemediationTaskApi | null>(null);
   const [assignableUsers, setAssignableUsers] = useState<RemediationAssigneeApi[]>([]);
@@ -490,10 +665,13 @@ export function MyRemediationsPage({ user, initialItems }: MyRemediationsPagePro
     setLoading(true); setError(null);
     try {
       const { listMyRemediations } = await import('../api/client');
-      const result = await listMyRemediations({ scope: reviewerView ? 'review' : 'mine', ...(status === 'all' ? {} : { status }) });
-      setItems(result.items);
-      setSelectedTaskId((current) => current && result.items.some((item) => item.id === current) ? current : result.items[0]?.id ?? null);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : '无法加载我的整改'); } finally { setLoading(false); }
+      const scope = reviewerView ? 'review' : 'mine';
+      const all = await listMyRemediations({ scope });
+      const visible = status === 'all' ? all.items : all.items.filter((item) => status === 'active' ? item.status === 'open' || item.status === 'in_progress' : item.status === status);
+      setItems(visible);
+      setAllItems(all.items);
+      setSelectedTaskId((current) => current && visible.some((item) => item.id === current) ? current : visible[0]?.id ?? null);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : '无法加载待核实事项'); } finally { setLoading(false); }
   }, [reviewerView, status]);
   useEffect(() => { if (initialItems === undefined) void refresh(); }, [initialItems, refresh]);
   useEffect(() => {
@@ -508,9 +686,9 @@ export function MyRemediationsPage({ user, initialItems }: MyRemediationsPagePro
     if (!reviewerView) { setAssignableUsers([]); return; }
     void listAssignableUsers().then((result) => setAssignableUsers(result.items)).catch(() => setAssignableUsers([]));
   }, [reviewerView]);
-  const counts = useMemo(() => ({ pending: items.filter((item) => item.status === 'pending_review').length, open: items.filter((item) => item.status === 'open' || item.status === 'in_progress').length, done: items.filter((item) => item.status === 'completed').length }), [items]);
-  const tabs: Array<['all' | RemediationTaskStatus, string]> = reviewerView
-    ? [['all', '全部'], ['open', '待处理'], ['pending_review', '待我复核'], ['completed', '已完成']]
-    : [['all', '全部'], ['open', '待处理'], ['in_progress', '处理中'], ['completed', '已完成']];
-  return <section className="remediation-page"><RemediationPageTop title={reviewerView ? '整改复核' : '我的整改'}><span className="remediation-inbox-summary">{counts.open} 待处理{reviewerView ? ` · ${counts.pending} 待复核` : ''}</span></RemediationPageTop><div className="remediation-inbox-tabs" role="tablist" aria-label="整改任务筛选">{tabs.map(([key, label]) => <button type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} key={key} onClick={() => setStatus(key)}>{label}</button>)}</div>{error ? <div className="remediation-error" role="alert">{error}</div> : null}{loading ? <div className="card remediation-state">正在加载任务…</div> : <div className="remediation-workspace remediation-workspace--inbox"><section className="card remediation-inbox-list">{items.length ? items.map((item) => <button type="button" className={'remediation-task-item' + (selectedTaskId === item.id ? ' is-selected' : '')} key={item.id} onClick={() => { setSelectedTaskId(item.id); setSelectedDetail(null); }}><span className={taskStatusClass(item.status)}>{STATUS_LABELS[item.status]}</span><strong>{item.title}</strong><small>{item.case_title ?? item.case_id} · {item.due_date ? `截止 ${item.due_date}` : '未设期限'}</small>{isOverdue(item) ? <em>已逾期</em> : null}</button>) : <div className="remediation-muted">当前没有需要你处理的整改任务。</div>}</section><section className="card remediation-task-detail">{selected ? <RemediationTaskDetail task={selectedDetail ?? selected} user={user} assignableUsers={assignableUsers} onChanged={refresh} /> : <div className="remediation-detail-placeholder">选择任务查看详情。</div>}</section></div>}</section>;
+  const counts = useMemo(() => ({ pending: allItems.filter((item) => item.status === 'pending_review').length, open: allItems.filter((item) => item.status === 'open' || item.status === 'in_progress').length, done: allItems.filter((item) => item.status === 'completed').length }), [allItems]);
+  const tabs: Array<['all' | 'active' | RemediationTaskStatus, string]> = reviewerView
+    ? [['all', '全部'], ['active', '待处理'], ['pending_review', '待复核'], ['completed', '已核实']]
+    : [['all', '全部'], ['active', '待处理'], ['pending_review', '待复核'], ['completed', '已核实']];
+  return <section className="remediation-page"><RemediationPageTop title={reviewerView ? '事项复核' : '我的待核实事项'}><span className="remediation-inbox-summary">{counts.open} 待处理{reviewerView ? ` · ${counts.pending} 待复核` : ''}</span></RemediationPageTop><div className="remediation-inbox-tabs" role="tablist" aria-label="待核实事项筛选">{tabs.map(([key, label]) => <button type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} key={key} onClick={() => setStatus(key)}>{label}</button>)}</div>{error ? <div className="remediation-error" role="alert">{error}</div> : null}{loading ? <div className="card remediation-state">正在加载事项…</div> : <div className="remediation-workspace remediation-workspace--inbox"><section className="card remediation-inbox-list">{items.length ? items.map((item) => <button type="button" className={'remediation-task-item' + (selectedTaskId === item.id ? ' is-selected' : '')} key={item.id} onClick={() => { setSelectedTaskId(item.id); setSelectedDetail(null); }}><span className={taskStatusClass(item.status)}>{taskStatusLabel(item)}</span><strong>{item.title}</strong><small>{item.case_title ?? item.case_id} · {item.due_date ? `截止 ${item.due_date}` : '未设期限'}</small>{isOverdue(item) ? <em>已逾期</em> : null}</button>) : <div className="remediation-muted">当前没有需要处理的事项。</div>}</section><section className="card remediation-task-detail">{selected ? <RemediationTaskDetail key={selected.id} task={selectedDetail ?? selected} user={user} assignableUsers={assignableUsers} onChanged={refresh} /> : <div className="remediation-detail-placeholder">选择事项查看详情。</div>}</section></div>}</section>;
 }

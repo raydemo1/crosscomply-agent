@@ -10,7 +10,10 @@ the cheapest next step for the user is.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
+from difflib import SequenceMatcher
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -30,6 +33,7 @@ from law_agent.review.agent import AgentState, run_agent
 from law_agent.review.agent_tools import ComplianceAgentTools
 from law_agent.review.llm import StructuredLLMNode
 from law_agent.review.schemas import RetrievalQuery
+from law_agent.review.workflow import CaseStatus, next_status_after_review
 
 AssessmentStatus = Literal[
     "resolved", "partially_resolved", "not_resolved", "insufficient_evidence"
@@ -44,10 +48,8 @@ BasisSource = Literal[
 ]
 AssessmentRunStatus = Literal["running", "waiting_input", "completed", "failed"]
 
-#: A confirmed point only counts as *verified* when it rests on an artifact the
-#: case can actually check. A user statement is new information, never proof.
-VERIFIED_BASIS_SOURCES = frozenset(
-    {"attachment", "case_material", "accepted_revision", "legal_basis"}
+ARTIFACT_BASIS_SOURCES = frozenset(
+    {"attachment", "case_material", "accepted_revision"}
 )
 
 MAX_ATTACHMENT_CHARS = 20000
@@ -55,6 +57,179 @@ MAX_ATTACHMENT_CHARS = 20000
 
 class RemediationAssessmentError(ValueError):
     """Raised when a proposed assessment fails the deterministic trust gate."""
+
+
+def _action_key(kind: str, text: str) -> str:
+    normalized = re.sub(r"\s+", " ", text).strip().casefold()
+    digest = hashlib.sha256(f"{kind}:{normalized}".encode("utf-8")).hexdigest()[:24]
+    return f"{kind}:{digest}"
+
+
+def _same_gap(left: str, right: str) -> bool:
+    left = re.sub(r"[^\w]+", "", left).casefold()
+    right = re.sub(r"[^\w]+", "", right).casefold()
+    if not left or not right:
+        return False
+    if min(len(left), len(right)) >= 6 and (left in right or right in left):
+        return True
+    return SequenceMatcher(None, left, right).ratio() >= 0.55
+
+
+def guided_actions_from_review(
+    review_result: dict[str, Any], *, requester_id: str | None
+) -> list[dict[str, Any]]:
+    """Turn grounded review issues into persistent, actionable case work."""
+
+    result_id = review_result.get("review_result_id")
+    actions: list[dict[str, Any]] = []
+    represented_gaps: list[str] = []
+    missing_information = [
+        str(item).strip() for item in review_result.get("missing_information") or []
+        if str(item).strip()
+    ]
+    missing_answer_types = review_result.get("missing_answer_types") or {}
+
+    def add_action(
+        *, kind: str, title: str, description: str, criteria: str,
+        source_key_text: str, source_issue_id: str | None = None,
+        recommendation_index: int | None = None, recommendation: str | None = None,
+        blocking: bool = True, phase: str = "pre_approval", answer_type: str | None = None,
+    ) -> None:
+        actions.append({
+            "title": title[:200],
+            "description": description[:2000],
+            "acceptance_criteria": criteria[:2000],
+            "source_recommendation_index": recommendation_index,
+            "source_recommendation": recommendation,
+            "source_review_result_id": result_id,
+            "source_issue_id": source_issue_id,
+            "assignee_id": requester_id,
+            "priority": "high" if blocking else "medium",
+            "due_date": None,
+            "task_kind": kind,
+            "answer_type": answer_type or ("choice" if kind == "fact_confirmation" else "control_status"),
+            "phase": phase,
+            "blocking": blocking,
+            "source_key": _action_key(kind, source_key_text),
+        })
+
+    for issue in review_result.get("issues") or []:
+        issue_kind = issue.get("kind")
+        title = str(issue.get("title") or "请处理审查问题")
+        finding = str(issue.get("finding") or "")
+        issue_id = issue.get("id")
+        unknowns = [str(item).strip() for item in issue.get("unknowns") or [] if str(item).strip()]
+        if issue_kind == "missing_information" and missing_information:
+            continue
+        if issue_kind == "missing_information" and unknowns:
+            for unknown in unknowns:
+                represented_gaps.append(unknown)
+                add_action(
+                    kind="fact_confirmation",
+                    title=(unknown if len(unknown) < 160 else title),
+                    description=f"{finding}\n\n需要申报人确认：{unknown}".strip(),
+                    criteria=f"明确回答“{unknown}”；如有可核对的材料，请一并上传或引用。",
+                    source_key_text=f"{issue_kind}:{unknown}",
+                    source_issue_id=issue_id,
+                    answer_type=issue.get("answer_type") if issue.get("answer_type") in {"choice", "count", "text"} else None,
+                )
+            continue
+
+        is_fact = issue_kind in {"material_conflict", "missing_information"}
+        action_text = str(issue.get("recommended_action") or "请补充说明并提交相关材料。")
+        add_action(
+            kind="fact_confirmation" if is_fact else "control_remediation",
+            title=title,
+            description=finding,
+            criteria=action_text,
+            source_key_text=f"{issue_kind}:{title}",
+            source_issue_id=issue_id,
+            answer_type=issue.get("answer_type") if issue.get("answer_type") in {"choice", "count", "text"} else None,
+        )
+        represented_gaps.extend(unknowns)
+        represented_gaps.append(title)
+
+    for text in missing_information:
+        if any(_same_gap(text, prior) for prior in represented_gaps):
+            continue
+        if "拟采用" in text and "出境路径" in text:
+            continue
+        requires_implementation_proof = text.startswith(("是否已完成", "是否已就", "是否已落实", "是否已关闭"))
+        add_action(
+            kind="control_remediation" if requires_implementation_proof else "fact_confirmation",
+            title=text,
+            description=("本轮审查仍需核实该项措施及其适用情况。" if requires_implementation_proof
+                         else "本轮审查仍需要申报人补充这项事实。"),
+            criteria=(
+                f"说明“{text}”的落实情况并上传证明；如认为不适用，说明依据并提交可核对的业务材料，供审核人验收。"
+                if requires_implementation_proof else
+                f"明确回答“{text}”；如有可核对的材料，请一并上传或引用。"
+            ),
+            source_key_text=f"missing_information:{text}",
+            answer_type=missing_answer_types.get(text) if missing_answer_types.get(text) in {"choice", "count", "text"} else None,
+        )
+        represented_gaps.append(text)
+
+    seen_recommendations: set[str] = set()
+    for index, item in enumerate(review_result.get("recommended_actions") or []):
+        recommendation = str(item).strip()
+        normalized = re.sub(r"\s+", "", recommendation).casefold()
+        if not recommendation or normalized in seen_recommendations:
+            continue
+        seen_recommendations.add(normalized)
+        if not recommendation.startswith(("获批后", "批准后", "上线后", "运行期间", "运营期间", "定期")):
+            continue
+        add_action(
+            kind="recommendation",
+            title=recommendation,
+            description="审查报告中的后续建议。",
+            criteria=recommendation,
+            source_key_text=f"recommendation:{normalized}",
+            recommendation_index=index,
+            recommendation=recommendation,
+            blocking=False,
+            phase="post_approval",
+        )
+    actions.sort(key=lambda item: {"fact_confirmation": 0, "control_remediation": 1, "recommendation": 2}[item["task_kind"]])
+    return actions
+
+
+def reconcile_guided_action_list(
+    case_store: Any,
+    *,
+    case_id: str,
+    actor_id: str,
+    requester_id: str | None,
+    task_result: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]], CaseStatus]:
+    """Persist guided actions and derive the resulting case status from a saved review."""
+
+    review_result = task_result.get("review_result") or {}
+    actions = guided_actions_from_review(review_result, requester_id=requester_id)
+    plan = case_store.sync_guided_remediation_plan(
+        case_id,
+        actor_id,
+        actions,
+        no_remediation_reason="本轮审查没有待处理事项。" if not actions else None,
+    )
+    blockers = [
+        item for item in plan.get("tasks") or []
+        if item.get("is_current", True)
+        and item.get("blocking")
+        and item.get("phase") == "pre_approval"
+        and item.get("status") != "completed"
+    ]
+    if task_result.get("freshness_hold"):
+        final_status = "pending_source_verification"
+    else:
+        final_status = next_status_after_review(
+            has_missing_information=(
+                review_result.get("risk_level") == "insufficient_evidence"
+                or bool(review_result.get("missing_information"))
+                or bool(blockers)
+            )
+        )
+    return plan, blockers, final_status
 
 
 class AssessmentBasisDraft(StrictModel):
@@ -120,17 +295,20 @@ finish(draft): 提交复核判断。draft 字段含义：
 status 只能是 resolved（已解决）、partially_resolved（部分解决）、not_resolved（未解决）、insufficient_evidence（证据不足，无法判断）。
 confirmed_points 只登记本次真正能确认的要点；每一条都必须给出 basis，basis 的取值与 reference 必须来自材料包：
 - attachment：本次新增附件，reference 填该附件的 evidence_id，quote 必须是该附件解析文本中逐字出现的原文；
-- case_material：案件已有材料，reference 填材料包给出的 material_version_id，quote 必须是该材料原文；
+- case_material：案件已有材料，reference 填材料包给出的 material_version_id，quote 必须是该材料原文；parser 为 applicant-guidance 的申报人说明属于自我陈述，不能作为整改已完成的材料依据；
 - accepted_revision：已接受的修改，reference 填 revision_id，quote 必须是接受后文本中的原文；
 - legal_basis：已核实法条，reference 填材料包给出的 chunk_id；
 - issue：原审查问题本身，reference 填原问题 issue_id；
 - user_statement：用户本次陈述，属于未经核实的新事实。
 remaining_gaps 写明仍然无法确认的内容。next_request 写明用户下一步最省事的做法。
-硬性要求：resolved 必须没有 remaining_gaps，且至少一个要点使用了可核实依据（attachment / case_material / accepted_revision / legal_basis）；仅凭 user_statement 不能判定 resolved。
+任务类型为 fact_confirmation 时，用户对该事实的明确陈述可以按“申报人已声明”确认该信息已补齐；必须引用本次陈述中的逐字原文，不能说成外部核验事实。其余任务仍必须有可核实依据才能 resolved。
+申报人选择“已完成”或“不适用”但未提供实施材料时，说明这是未经材料核实的陈述，并指出审核人需要确认的关键点；不要反复要求用户上传其无法取得的文件。此类提交会交给审核人判断，Agent 不得自行标记为已解决。
+硬性要求：resolved 必须没有 remaining_gaps；fact_confirmation 至少有一条精确引用的 user_statement 或可核验材料；control_remediation 与 recommendation 至少一项使用可核验材料（attachment / case_material / accepted_revision）。法律依据只能说明义务，不能证明整改已经实施；仅凭 user_statement 不能判定整改已完成。
 非 resolved 必须给出至少一条 remaining_gaps，并写明 next_request；证据不足时也要指出具体缺什么。
-外部链接附件未联网读取，不得声称已经核实链接内容；不得把本次处理说明当作附件证据。
+外部链接附件未联网读取，不得声称已经核实链接内容；本次处理说明和申报人自我说明不得包装成附件或整改材料证据。只有任务类型为 fact_confirmation 时，才能将用户陈述按“申报人已声明”记录；control_remediation 与 recommendation 必须引用可核验材料。
 案件已有的材料、已接受的工作稿和原法律依据可以直接引用，不要要求用户重复上传。
 不要输出私有思维链。仅输出符合 schema 的 JSON。
+summary、confirmed_points 和 next_request 面向申报人书写：直接说已经确认什么、仍缺什么、下一步交什么；不要出现 fact_confirmation、control_remediation、schema 字段名或“按规则”等内部实现用语。
 """
 
 DECISION_SCHEMA_PROMPT = "输出必须是单个 JSON object，字段与以下 JSON Schema 完全一致：\n" + json.dumps(
@@ -177,7 +355,10 @@ class RereviewPacket:
 
     text: str
     issue_id: str | None = None
+    task_kind: str = "control_remediation"
+    user_statement: str = ""
     material_texts: dict[str, str] = field(default_factory=dict)
+    self_attested_material_ids: frozenset[str] = frozenset()
     citable_chunk_ids: frozenset[str] = frozenset()
     accepted_revision_texts: dict[str, str] = field(default_factory=dict)
     attachments: tuple[RereviewAttachment, ...] = ()
@@ -231,6 +412,8 @@ def build_rereview_packet(
         f"标题：{task.get('title') or ''}",
         f"说明：{task.get('description') or '（未填写）'}",
         f"验收标准：{task.get('acceptance_criteria') or '（未填写）'}",
+        f"任务类型：{task.get('task_kind') or 'control_remediation'}",
+        f"申报人选择：{submission.get('response_choice') or '未选择'}",
         "",
     ]
 
@@ -260,10 +443,13 @@ def build_rereview_packet(
         ]
 
     material_texts: dict[str, str] = {}
+    self_attested_material_ids: set[str] = set()
     for version in material_versions:
         text = getattr(version, "parsed_text", None) or ""
         if text.strip():
             material_texts[version.id] = text
+        if getattr(version, "parser", None) == "applicant-guidance":
+            self_attested_material_ids.add(version.id)
 
     citable_chunk_ids: set[str] = set()
     citation_lines: list[str] = []
@@ -346,7 +532,10 @@ def build_rereview_packet(
     return RereviewPacket(
         text="\n".join(lines),
         issue_id=(issue or {}).get("id"),
+        task_kind=str(task.get("task_kind") or "control_remediation"),
+        user_statement=str(submission.get("note") or ""),
         material_texts=material_texts,
+        self_attested_material_ids=frozenset(self_attested_material_ids),
         citable_chunk_ids=frozenset(citable_chunk_ids),
         accepted_revision_texts=accepted_texts,
         attachments=tuple(attachments),
@@ -373,7 +562,11 @@ def _ground_basis(
     source = basis.source
     reference = basis.reference.strip()
     if source == "user_statement":
-        return {"source": source, "reference": "", "quote": basis.quote.strip()}
+        start, end = _locate(packet.user_statement, basis.quote, "申报人陈述")
+        return {
+            "source": source, "reference": "", "quote": basis.quote.strip(),
+            "start_offset": start, "end_offset": end,
+        }
     if source == "issue":
         if not packet.issue_id or reference != packet.issue_id:
             raise RemediationAssessmentError("依据引用了不属于本整改任务的原审查问题")
@@ -383,6 +576,12 @@ def _ground_basis(
             raise RemediationAssessmentError("依据引用了本次材料包之外或不可引用的法条")
         return {"source": source, "reference": reference, "quote": ""}
     if source == "attachment":
+        attachment = next(
+            (item for item in packet.attachments if item.evidence_id == reference),
+            None,
+        )
+        if attachment is None or attachment.kind != "file":
+            raise RemediationAssessmentError("附件不存在或无法解析；只有本次上传的文件可以作为整改材料依据")
         text = packet.attachment_texts.get(reference)
         if text is None:
             raise RemediationAssessmentError("依据引用了本次提交中不存在或无法解析的附件")
@@ -393,6 +592,8 @@ def _ground_basis(
             "sha256": packet.attachment_sha256.get(reference),
         }
     if source == "case_material":
+        if reference in packet.self_attested_material_ids:
+            raise RemediationAssessmentError("申报人说明属于自我陈述，不能作为整改已完成的材料依据")
         text = packet.material_texts.get(reference)
         if text is None:
             raise RemediationAssessmentError("依据引用了不属于本案冻结材料的材料版本")
@@ -419,13 +620,18 @@ def finalize_assessment(
 
     points: list[dict[str, Any]] = []
     grounded: list[dict[str, Any]] = []
-    verified_point_count = 0
+    artifact_point_count = 0
+    attested_fact_count = 0
     for point in draft.confirmed_points:
         if not point.basis:
             raise RemediationAssessmentError("每个已确认要点都必须给出依据")
         grounded_basis = [_ground_basis(item, packet) for item in point.basis]
-        if any(item["source"] in VERIFIED_BASIS_SOURCES for item in grounded_basis):
-            verified_point_count += 1
+        if any(item["source"] in ARTIFACT_BASIS_SOURCES for item in grounded_basis):
+            artifact_point_count += 1
+        if packet.task_kind == "fact_confirmation" and any(
+            item["source"] == "user_statement" for item in grounded_basis
+        ):
+            attested_fact_count += 1
         grounded.extend(grounded_basis)
         points.append({
             "text": point.text.strip(),
@@ -436,9 +642,12 @@ def finalize_assessment(
     if draft.status == "resolved":
         if gaps:
             raise RemediationAssessmentError("判定为已解决时不能同时保留未确认的缺口")
-        if not verified_point_count:
+        completion_basis_present = artifact_point_count > 0 or (
+            packet.task_kind == "fact_confirmation" and attested_fact_count > 0
+        )
+        if not completion_basis_present:
             raise RemediationAssessmentError(
-                "判定为已解决时至少需要一个可核实依据；仅凭用户陈述不能认定解决"
+                "判定为已解决时需要可核验材料；事实确认任务可使用逐字核对过的申报人陈述，法条本身不能证明整改已经完成"
             )
     else:
         if not gaps:
@@ -663,7 +872,7 @@ def _view(item: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
-_JSON_COLUMNS = frozenset({"confirmed_points_json", "remaining_gaps_json", "grounded_evidence_json"})
+_JSON_COLUMNS = frozenset({"confirmed_points_json", "remaining_gaps_json", "grounded_evidence_json", "agent_state_json"})
 
 
 class InMemoryRemediationAssessmentStore:

@@ -58,5 +58,7 @@ def test_terminal_approval_status_is_irreversible() -> None:
         )
 
 
-def test_run_failure_can_be_retried_or_sent_back_for_information() -> None:
-    assert CASE_TRANSITIONS["run_failed"] == frozenset({"review_running", "needs_info"})
+def test_run_failure_can_resume_or_recover_completed_review() -> None:
+    assert CASE_TRANSITIONS["run_failed"] == frozenset({
+        "review_running", "needs_info", "pending_source_verification", "pending_feishu_approval",
+    })

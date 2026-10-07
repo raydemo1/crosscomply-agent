@@ -34,7 +34,12 @@ CASE_TRANSITIONS: dict[CaseStatus, frozenset[CaseStatus]] = {
     "approved": frozenset(),
     "conditionally_approved": frozenset(),
     "rejected": frozenset(),
-    "run_failed": frozenset({"review_running", "needs_info"}),
+    "run_failed": frozenset({
+        "review_running",
+        "needs_info",
+        "pending_source_verification",
+        "pending_feishu_approval",
+    }),
 }
 
 _FEISHU_TERMINAL_STATUS: dict[ApprovalDecision, CaseStatus] = {

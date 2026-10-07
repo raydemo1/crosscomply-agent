@@ -143,6 +143,121 @@ def test_missing_critical_facts_can_enqueue_agent_investigation(tmp_path: Path) 
         assert task.intake_snapshot_id
 
 
+def test_guided_rereview_requires_finished_blockers_and_applicant_ownership(tmp_path: Path) -> None:
+    case_store = InMemoryCaseStore(seed_password="pw")
+    enterprise = InMemoryEnterpriseStore()
+    chunks = tmp_path / "chunks.jsonl"
+    chunks.write_text("", encoding="utf-8")
+    app = create_app(chunks_path=chunks, case_store=case_store, enterprise_store=enterprise)
+
+    with TestClient(app) as requester:
+        _login(requester, "requester@crosscomply.local")
+        case_id = _create_case(requester)
+        requester_id = requester.get("/api/auth/me").json()["user"]["id"]
+        _freeze_inputs(enterprise, case_id)
+        case_store.update_case(case_id, status="needs_info")
+        plan = case_store.sync_guided_remediation_plan(
+            case_id,
+            requester_id,
+            [{
+                "title": "提交已签署的委托处理协议",
+                "description": "补充合同文件。",
+                "acceptance_criteria": "协议已签署并约定委托处理期限。",
+                "task_kind": "control_remediation",
+                "phase": "pre_approval",
+                "blocking": True,
+                "source_key": "control:contract-term",
+                "assignee_id": requester_id,
+                "priority": "high",
+            }],
+        )
+
+        blocked = requester.post(f"/api/cases/{case_id}/guided-rereview")
+        assert blocked.status_code == 409
+        assert "未完成或待审核人验收" in blocked.json()["detail"]
+
+        case_store.remediation_tasks[plan["tasks"][0]["id"]]["status"] = "completed"
+        queued = requester.post(f"/api/cases/{case_id}/guided-rereview")
+        assert queued.status_code == 202, queued.text
+        assert queued.json()["status"] == "queued"
+        assert case_store.get_case(case_id)["status"] == "review_running"
+
+    with TestClient(app) as reviewer:
+        _login(reviewer)
+        unauthorized = reviewer.post(f"/api/cases/{case_id}/guided-rereview")
+        assert unauthorized.status_code == 404
+
+
+def test_remediation_inbox_excludes_superseded_actions(tmp_path: Path) -> None:
+    case_store = InMemoryCaseStore(seed_password="pw")
+    enterprise = InMemoryEnterpriseStore()
+    chunks = tmp_path / "chunks.jsonl"
+    chunks.write_text("", encoding="utf-8")
+    app = create_app(chunks_path=chunks, case_store=case_store, enterprise_store=enterprise)
+
+    with TestClient(app) as requester:
+        _login(requester, "requester@crosscomply.local")
+        case_id = _create_case(requester)
+        requester_id = requester.get("/api/auth/me").json()["user"]["id"]
+        action = {
+            "title": "核对人数", "description": "", "acceptance_criteria": "确认口径",
+            "task_kind": "fact_confirmation", "phase": "pre_approval", "blocking": True,
+            "assignee_id": requester_id, "priority": "high",
+        }
+        old = case_store.sync_guided_remediation_plan(
+            case_id, requester_id, [{**action, "source_key": "old"}]
+        )["tasks"][0]["id"]
+        new = case_store.sync_guided_remediation_plan(
+            case_id, requester_id, [{**action, "source_key": "new"}]
+        )["tasks"][-1]["id"]
+
+        mine = requester.get("/api/remediations?scope=mine").json()["items"]
+        assert [item["id"] for item in mine] == [new]
+        assert old not in [item["id"] for item in mine]
+
+    with TestClient(app) as reviewer:
+        _login(reviewer)
+        inbox = reviewer.get("/api/remediations?scope=review").json()["items"]
+        assert [item["id"] for item in inbox] == [new]
+
+
+def test_requester_can_answer_only_their_waiting_agent_question(tmp_path: Path) -> None:
+    case_store = InMemoryCaseStore(seed_password="pw")
+    enterprise = InMemoryEnterpriseStore()
+    chunks = tmp_path / "chunks.jsonl"
+    chunks.write_text("", encoding="utf-8")
+    app = create_app(chunks_path=chunks, case_store=case_store, enterprise_store=enterprise)
+
+    with TestClient(app) as requester:
+        _login(requester, "requester@crosscomply.local")
+        case_id = _create_case(requester)
+        snapshot, intake = _freeze_inputs(enterprise, case_id)
+        task = enterprise.enqueue_review_task(
+            case_id=case_id,
+            material_snapshot_id=snapshot.id,
+            intake_snapshot_id=intake.id,
+            model_id="approved-model",
+            data_boundary_summary={},
+        )
+        enterprise.claim_next_task(worker_id="worker-agent")
+        state = AgentState(
+            goal="确认境外接收方信息",
+            status="waiting_input",
+            turns=1,
+            pending_question="接收方位于哪个国家或地区？",
+            gate_id="input_requester_1",
+        )
+        enterprise.pause_task(task.id, state=state.model_dump(mode="json"))
+        case_store.update_case(case_id, status="needs_info")
+
+        answered = requester.post(
+            f"/api/tasks/{task.id}/answer",
+            json={"gate_id": "input_requester_1", "answer": "接收方位于新加坡。"},
+        )
+        assert answered.status_code == 200, answered.text
+        assert answered.json()["status"] == "queued"
+
+
 def test_reviewer_can_answer_and_resume_waiting_agent(tmp_path: Path) -> None:
     case_store = InMemoryCaseStore(seed_password="pw")
     enterprise = InMemoryEnterpriseStore()

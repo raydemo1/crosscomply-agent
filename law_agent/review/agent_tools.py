@@ -199,6 +199,7 @@ def finalize_issues(
                 ),
                 unknowns=draft.unknowns,
                 recommended_action=draft.recommended_action,
+                answer_type=draft.answer_type,
             )
         )
     return issues
@@ -500,6 +501,16 @@ class ComplianceAgentTools:
                 raise ValueError("预算耗尽时只能生成无确定法律结论的证据不足报告")
             verdict = SemanticVerdict(status="supported", claim_checks=[], conclusion_reason="证据不足且未提出确定法律路径")
         else:
+            human_inputs = [
+                {
+                    "answer": str(step.observation.get("answer") or ""),
+                    "provenance": step.observation.get("provenance") or "unverified_legacy_input",
+                    "intake_snapshot_id": step.observation.get("intake_snapshot_id"),
+                }
+                for step in state.steps
+                if step.action == "human_input"
+                and str(step.observation.get("answer") or "").strip()
+            ]
             verdict = self._semantic_verifier(
                 draft=draft,
                 confirmed_intake=intake_snapshot["facts"],
@@ -507,6 +518,7 @@ class ComplianceAgentTools:
                 material=self._material_text,
                 evidence=verifier_evidence,
                 chunks_by_id=self._chunks_by_id,
+                human_inputs=human_inputs,
             )
         if verdict.status != "supported":
             raise SemanticGroundingRejected(verdict)
@@ -522,6 +534,7 @@ class ComplianceAgentTools:
             review_facts=state.facts,
             trigger_reasons=draft.trigger_reasons,
             missing_information=draft.missing_information,
+            missing_answer_types=draft.missing_answer_types,
             recommended_actions=draft.recommended_actions,
             risk_boundaries=draft.risk_boundaries,
             claims=claims,

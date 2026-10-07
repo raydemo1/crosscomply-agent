@@ -222,6 +222,7 @@ def test_missing_information_keeps_unknowns_without_material_quote() -> None:
         supporting_chunk_ids=[],
         unknowns=["供应商是否使用客户数据训练模型"],
         recommended_action="要求供应商书面确认训练数据范围。",
+        answer_type="choice",
     )
     issues = finalize_issues(
         [draft],
@@ -232,6 +233,7 @@ def test_missing_information_keeps_unknowns_without_material_quote() -> None:
 
     assert issues[0].material_evidence == []
     assert issues[0].unknowns == ["供应商是否使用客户数据训练模型"]
+    assert issues[0].answer_type == "choice"
 
 
 def test_missing_information_without_unknowns_is_rejected() -> None:

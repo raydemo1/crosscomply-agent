@@ -4,6 +4,8 @@ import {
   decideReviewAnnotation, followupReviewAnnotation, getReviewMaterials,
   listReviewAnnotations, saveReviewAnnotation,
 } from '../api/client';
+import RevisionWorkspace, { type RevisionSelection } from './RevisionWorkspace';
+import { confirmDiscardAnnotation, confirmDiscardAnnotationMode, confirmDiscardRevisionEdit } from '../utils/workflow';
 import './DocumentReview.css';
 
 type LocatedItem = {
@@ -21,8 +23,11 @@ interface DocumentReviewProps {
   reviewResultId: string;
   issues: ReviewIssue[];
   canManageActions: boolean;
-  onRevisionTarget: (issue: ReviewIssue, target: MaterialEvidenceRef) => void;
-  onPendingChange?: (count: number) => void;
+  focusTarget?: { issue: ReviewIssue; target: MaterialEvidenceRef } | null;
+  onFocusHandled?: () => void;
+  onOpenReportIssue?: (issueId: string) => void;
+  /** Reports any unsubmitted text in the document view — a revision edit or an annotation draft — so hosts can guard navigation away. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 function validIssueLocations(issues: ReviewIssue[], material: ReviewMaterialApi): LocatedItem[] {
@@ -53,7 +58,7 @@ function orderMaterials(materials: ReviewMaterialApi[], issues: ReviewIssue[]): 
     || right.parsed_text.length - left.parsed_text.length);
 }
 
-export default function DocumentReview({ caseId, reviewResultId, issues, canManageActions, onRevisionTarget, onPendingChange }: DocumentReviewProps): JSX.Element {
+export default function DocumentReview({ caseId, reviewResultId, issues, canManageActions, focusTarget, onFocusHandled, onOpenReportIssue, onDirtyChange }: DocumentReviewProps): JSX.Element {
   const [materials, setMaterials] = useState<ReviewMaterialApi[]>([]);
   const [annotations, setAnnotations] = useState<ReviewAnnotationApi[]>([]);
   const [materialId, setMaterialId] = useState<string | null>(null);
@@ -61,10 +66,19 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
   const [selectedRange, setSelectedRange] = useState<{ start: number; end: number } | null>(null);
   const [finding, setFinding] = useState('');
   const [question, setQuestion] = useState('');
+  const [annotationMode, setAnnotationMode] = useState<'comment' | 'followup'>('comment');
+  const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [revisionSelection, setRevisionSelection] = useState<RevisionSelection | null>(null);
+  const [revisionDirty, setRevisionDirty] = useState(false);
+  const [pendingLocate, setPendingLocate] = useState<string | null>(null);
+  const [locateNotice, setLocateNotice] = useState<string | null>(null);
   const paperRef = useRef<HTMLDivElement>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const locatingTimer = useRef<number | null>(null);
+  const noticeTimer = useRef<number | null>(null);
   const load = async (): Promise<void> => {
     const [nextMaterials, nextAnnotations] = await Promise.all([
       getReviewMaterials(caseId), listReviewAnnotations(caseId),
@@ -96,24 +110,122 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
     ...validIssueLocations(issues, material), ...validAnnotations(annotations, material, reviewResultId),
   ] : [], [issues, annotations, material, reviewResultId]);
   const selected = locations.find((item) => item.id === selectedId) ?? null;
-  const unresolvedIssues = issues.filter((issue) => !materials.some((item) => validIssueLocations([issue], item).length > 0));
   const pendingCount = annotations.filter((item) => item.review_result_id === reviewResultId && item.status === 'pending').length;
-  useEffect(() => { onPendingChange?.(pendingCount); }, [pendingCount, onPendingChange]);
+  useEffect(() => () => {
+    if (locatingTimer.current !== null) window.clearTimeout(locatingTimer.current);
+    if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current);
+  }, []);
+  // A draft annotation belongs to the paragraph it was written for. It counts as unsaved work for
+  // the host too: leaving the view with half-typed annotation text would drop it silently.
+  const annotationDirty = selectedRange !== null && (finding.trim().length > 0 || question.trim().length > 0);
+  useEffect(() => { onDirtyChange?.(revisionDirty || annotationDirty); }, [revisionDirty, annotationDirty, onDirtyChange]);
+  useEffect(() => {
+    if (!locating || !selectedId) return;
+    const frame = window.requestAnimationFrame(() => {
+      detailRef.current?.scrollIntoView({ block: window.matchMedia('(max-width: 1279px)').matches ? 'start' : 'nearest', behavior: 'smooth' });
+      detailRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [locating, selectedId]);
 
-  const selectLocation = (item: LocatedItem, fromText = false): void => {
+  // Wait until the target material is rendered and its highlight node exists before scrolling:
+  // locating right after the state change could run while the previous material is still mounted.
+  useEffect(() => {
+    if (!pendingLocate) return;
+    let cancelled = false;
+    let frame = 0;
+    let attempts = 0;
+    const attempt = (): void => {
+      if (cancelled) return;
+      const marks = paperRef.current?.querySelectorAll<HTMLElement>('mark[data-review-items]');
+      const mark = Array.from(marks ?? []).find((node) => node.dataset.reviewItems?.split('|').includes(pendingLocate));
+      if (mark) {
+        mark.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        setPendingLocate(null);
+        return;
+      }
+      // The target material rendered but this quote has no highlight node: report it instead of
+      // leaving a selection the reader cannot see.
+      if (++attempts > 60) {
+        setPendingLocate(null);
+        setSelectedId(null);
+        setLocateNotice('原文位置未找到，请切换材料后手动查找。');
+        if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current);
+        noticeTimer.current = window.setTimeout(() => setLocateNotice(null), 4000);
+        return;
+      }
+      frame = window.requestAnimationFrame(attempt);
+    };
+    frame = window.requestAnimationFrame(attempt);
+    return () => { cancelled = true; window.cancelAnimationFrame(frame); };
+  }, [pendingLocate, materialId]);
+
+  const confirmDiscardRevision = (): boolean => !revisionSelection || !revisionDirty || confirmDiscardRevisionEdit();
+
+  // Carrying a draft annotation to another selection would attach the legal note to the wrong quote.
+  const confirmDiscardAnnotationDraft = (): boolean => !annotationDirty || confirmDiscardAnnotation();
+
+  const clearSelection = (restoreFocus = false): boolean => {
+    if (!confirmDiscardRevision() || !confirmDiscardAnnotationDraft()) return false;
+    const priorSelection = selectedId;
+    setSelectedId(null);
+    setSelectedRange(null);
+    setFinding('');
+    setQuestion('');
+    setLocating(false);
+    setPendingLocate(null);
+    setRevisionSelection(null);
+    setRevisionDirty(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => {
+        const marks = paperRef.current?.querySelectorAll<HTMLElement>('mark[data-review-items]');
+        const mark = Array.from(marks ?? []).find((node) => node.dataset.reviewItems?.split('|').includes(priorSelection ?? ''));
+        (mark ?? paperRef.current)?.focus({ preventScroll: true });
+      });
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || (!selectedId && !selectedRange && !revisionSelection)) return;
+      event.preventDefault();
+      clearSelection(true);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedId, selectedRange, revisionSelection, revisionDirty, annotationDirty]);
+
+  const selectLocation = (item: LocatedItem, fromText = false): boolean => {
+    if (!confirmDiscardRevision() || !confirmDiscardAnnotationDraft()) return false;
+    if (selectedId === item.id && !selectedRange && fromText) return clearSelection();
+    setPendingLocate(null);
+    setRevisionSelection(null);
+    setRevisionDirty(false);
+    setFinding('');
+    setQuestion('');
     setMaterialId(item.kind === 'issue' ? item.target!.material_version_id : item.annotation!.material_version_id);
     setSelectedRange(null);
     setSelectedId(item.id);
-    window.requestAnimationFrame(() => {
-      if (fromText && window.matchMedia('(max-width: 1279px)').matches) {
-        document.querySelector('.document-review__detail')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-        return;
-      }
-      const marks = paperRef.current?.querySelectorAll<HTMLElement>('mark[data-review-items]');
-      const mark = Array.from(marks ?? []).find((node) => node.dataset.reviewItems?.split('|').includes(item.id));
-      mark?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    });
+    setLocating(fromText);
+    if (locatingTimer.current !== null) window.clearTimeout(locatingTimer.current);
+    if (fromText) { locatingTimer.current = window.setTimeout(() => setLocating(false), 1300); return true; }
+    setPendingLocate(item.id);
+    return true;
   };
+
+  useEffect(() => {
+    if (!focusTarget || !materials.some((item) => item.id === focusTarget.target.material_version_id)) return;
+    const applied = selectLocation({
+      id: `issue:${focusTarget.issue.id}:${focusTarget.target.start_offset}:${focusTarget.target.end_offset}`,
+      start: focusTarget.target.start_offset,
+      end: focusTarget.target.end_offset,
+      kind: 'issue',
+      issue: focusTarget.issue,
+      target: focusTarget.target,
+    });
+    if (applied) onFocusHandled?.();
+  }, [focusTarget, materials, onFocusHandled]);
 
   const segments = useMemo(() => {
     if (!material) return [];
@@ -131,14 +243,22 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
     if (!selection || selection.isCollapsed || !paper || !selection.rangeCount) return;
     const range = selection.getRangeAt(0);
     if (!paper.contains(range.startContainer) || !paper.contains(range.endContainer)) return;
+    // Selecting another passage also leaves the current revision target, so it needs the same confirmation.
+    if (!confirmDiscardRevision() || !confirmDiscardAnnotationDraft()) { selection.removeAllRanges(); return; }
     const prefix = range.cloneRange();
     prefix.selectNodeContents(paper);
     prefix.setEnd(range.startContainer, range.startOffset);
     const start = prefix.toString().length;
     const end = start + range.toString().length;
     if (end > start && end - start <= 2000 && material?.parsed_text.slice(start, end) === range.toString()) {
+      setPendingLocate(null);
+      setRevisionSelection(null);
+      setRevisionDirty(false);
+      setFinding('');
+      setQuestion('');
       setSelectedRange({ start, end });
       setSelectedId(null);
+      setAnnotationMode('comment');
     }
   };
 
@@ -165,27 +285,40 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
       supporting_citation_refs: annotation.citation_refs, unknowns: [],
       recommended_action: annotation.recommendation,
     };
-    onRevisionTarget(issue, evidence);
+    openRevision(issue, evidence);
+  };
+
+  const openRevision = (issue: ReviewIssue, target: MaterialEvidenceRef): void => {
+    setRevisionDirty(false);
+    setRevisionSelection({ issue, target });
+  };
+
+  // 写批注 and 请 Agent 追查 are alternative inputs for the same selection. Switching drops the
+  // other box's draft, so confirm first — otherwise submitting one silently discards the hidden other.
+  const switchAnnotationMode = (next: 'comment' | 'followup'): void => {
+    if (next === annotationMode) return;
+    if ((finding.trim() || question.trim()) && !confirmDiscardAnnotationMode()) return;
+    setFinding('');
+    setQuestion('');
+    setAnnotationMode(next);
   };
 
   return <section className="document-review" aria-label="原文审阅">
-    <div className="document-review__intro">
-      <div><h2>原文审阅</h2><p>模型标记与人工批注落在本次审查的冻结原文上。选择文字可补充意见或发起追审。</p></div>
-      <span>{issues.length} 项审查问题{pendingCount > 0 && canManageActions ? ` · ${pendingCount} 项待确认` : ''}</span>
-    </div>
+    {pendingCount > 0 && canManageActions ? <p className="document-review__pending">{pendingCount} 项追审批注待确认</p> : null}
+    {locateNotice ? <p className="document-review__notice" role="status">{locateNotice}</p> : null}
     {error ? <div className="document-review__error" role="alert">{error}</div> : null}
     {materials.length === 0 ? <div className="card document-review__empty">{error ? '原文加载失败，请刷新重试。' : loaded ? '本次审查没有可展示的解析材料。' : '正在读取本次审查的冻结材料…'}</div> : <>
       <div className="document-review__files" role="tablist" aria-label="冻结材料">
         {materials.map((item) => <button key={item.id} type="button" role="tab" aria-selected={item.id === materialId}
           className={item.id === materialId ? 'is-active' : ''}
-          onClick={() => { setMaterialId(item.id); setSelectedId(null); setSelectedRange(null); }}>
+          onClick={() => { if (clearSelection()) setMaterialId(item.id); }}>
           {item.logical_name} <small>v{item.version_number}</small>
         </button>)}
       </div>
-      <div className="document-review__layout">
+      <div className={'document-review__layout' + (selectedRange || selected || revisionSelection ? ' document-review__layout--focused' : '')}>
         <div className="document-review__paper-shell">
-          <div className="document-review__paper-header"><strong>{material?.filename}</strong><span>冻结原文 · {material?.parsed_text.length.toLocaleString()} 字</span></div>
-          <div className="document-review__paper" ref={paperRef} onMouseUp={captureSelection} onKeyUp={captureSelection} role="tabpanel" aria-label="冻结材料原文">
+          <div className="document-review__paper-header"><strong>{material?.filename}</strong><span>冻结原文</span></div>
+          <div className="document-review__paper" ref={paperRef} tabIndex={-1} onMouseUp={captureSelection} onKeyUp={captureSelection} onClick={(event) => { if (!(event.target as HTMLElement).closest('mark') && window.getSelection()?.isCollapsed) clearSelection(); }} role="tabpanel" aria-label="冻结材料原文">
             {segments.map((segment) => segment.items.length === 0 ? <span key={segment.start}>{segment.text}</span> : <mark key={segment.start}
               data-review-items={segment.items.map((item) => item.id).join('|')}
               tabIndex={0} role="button" aria-label={`${segment.items.length} 条批注，点击查看`}
@@ -195,44 +328,38 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
               {segment.text}</mark>)}
           </div>
         </div>
-        <aside className="document-review__side" aria-label="原文批注与操作">
-          {selectedRange && material ? <div className="document-review__detail">
-            <h3>选中的原文</h3><blockquote>{material.parsed_text.slice(selectedRange.start, selectedRange.end)}</blockquote>
+        {(selectedRange || selected || revisionSelection) ? <aside className="document-review__side" aria-label={revisionSelection ? '文书修改' : '当前原文批注'}>
+          {revisionSelection ? <RevisionWorkspace
+            key={`${revisionSelection.issue.id}:${revisionSelection.target.material_version_id}:${revisionSelection.target.start_offset}`}
+            caseId={caseId}
+            selection={revisionSelection}
+            canManageActions={canManageActions}
+            embedded
+            onDirtyChange={setRevisionDirty}
+            onClose={() => clearSelection()}
+          /> : selectedRange && material ? <div className={'document-review__detail' + (locating ? ' is-locating' : '')} ref={detailRef} tabIndex={-1}>
+            <div className="document-review__detail-head"><div><span className="document-review__source">已选中 {selectedRange.end - selectedRange.start} 字</span><h3>添加批注</h3></div><button type="button" className="document-review__close" aria-label="关闭批注" onClick={() => clearSelection()}>×</button></div>
             {canManageActions ? <>
-              <label>人工批注<textarea value={finding} onChange={(event) => setFinding(event.target.value)} rows={4} placeholder="写下需要注意的问题或处理意见" /></label>
-              <button type="button" disabled={busy || !finding.trim()} onClick={() => target && void mutate(() => saveReviewAnnotation(caseId, target, finding.trim()))}>保存人工批注</button>
-              <label>向模型追问<textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={3} placeholder="希望模型继续核查什么？" /></label>
-              <button type="button" disabled={busy || !question.trim()} onClick={() => target && void mutate(() => followupReviewAnnotation(caseId, target, question.trim()))}>{busy ? '正在处理…' : '发起追审'}</button>
+              <div className="document-review__mode"><button type="button" className={annotationMode === 'comment' ? 'is-active' : ''} onClick={() => switchAnnotationMode('comment')}>写批注</button><button type="button" className={annotationMode === 'followup' ? 'is-active' : ''} onClick={() => switchAnnotationMode('followup')}>请 Agent 追查</button></div>
+              {annotationMode === 'comment' ? <><label className="document-review__field">批注内容<textarea value={finding} onChange={(event) => setFinding(event.target.value)} rows={4} placeholder="写下判断或需要处理的问题" /></label><button type="button" disabled={busy || !finding.trim()} onClick={() => target && void mutate(() => saveReviewAnnotation(caseId, target, finding.trim()))}>保存批注</button></> : <><label className="document-review__field">追查问题<textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={3} placeholder="请 Agent 核查什么？" /></label><button type="button" disabled={busy || !question.trim()} onClick={() => target && void mutate(() => followupReviewAnnotation(caseId, target, question.trim()))}>{busy ? '正在处理…' : '发起追查'}</button></>}
             </> : null}
-          </div> : selected ? <div className="document-review__detail">
-            <span className="document-review__source">{selected.kind === 'issue' ? '模型审查问题' : selected.annotation?.source === 'human' ? '人工批注' : '模型追审批注'}{selected.annotation?.status === 'pending' ? ' · 待确认' : ''}</span>
+          </div> : selected ? <div className={'document-review__detail' + (locating ? ' is-locating' : '')} ref={detailRef} tabIndex={-1}>
+            <div className="document-review__detail-head"><span className="document-review__source">{selected.kind === 'issue' ? 'Agent 批注' : selected.annotation?.source === 'human' ? '人工批注' : 'Agent 追审批注'}{selected.annotation?.status === 'pending' ? ' · 待确认' : ''}</span><button type="button" className="document-review__close" aria-label="关闭批注" onClick={() => clearSelection()}>×</button></div>
             {overlapping.length > 1 ? <div className="document-review__overlap" aria-label="同一位置的批注">
               {overlapping.map((item, index) => <button key={item.id} type="button" className={item.id === selected.id ? 'is-active' : ''} onClick={() => setSelectedId(item.id)}>批注 {index + 1}</button>)}
             </div> : null}
             <h3>{selected.issue?.title ?? '原文批注'}</h3>
-            <blockquote>{selected.target?.quote ?? selected.annotation?.quote}</blockquote>
             <p>{selected.issue?.finding ?? selected.annotation?.finding}</p>
-            {selected.annotation?.recommendation ? <p><strong>建议：</strong>{selected.annotation.recommendation}</p> : null}
-            {selected.issue?.recommended_action ? <p><strong>建议：</strong>{selected.issue.recommended_action}</p> : null}
+            {selected.issue && onOpenReportIssue ? <button type="button" className="document-review__report-link" onClick={() => onOpenReportIssue(selected.issue!.id)}>查看报告判断</button> : null}
             {selected.annotation?.insufficient_evidence ? <p className="document-review__caution">证据不足，需要进一步核查。</p> : null}
-            {selected.annotation?.citation_refs.length ? <p>法源：{selected.annotation.citation_refs.join('、')}</p> : null}
             {selected.annotation?.source === 'model' && selected.annotation.status === 'pending' && canManageActions ? <div className="document-review__decision">
               <button type="button" disabled={busy} onClick={() => void mutate(() => decideReviewAnnotation(selected.annotation!.id, 'rejected', selected.annotation!.version))}>驳回</button>
               <button type="button" disabled={busy} onClick={() => void mutate(() => decideReviewAnnotation(selected.annotation!.id, 'confirmed', selected.annotation!.version))}>确认批注</button>
             </div> : null}
-            {selected.issue && selected.target && canManageActions && selected.issue.kind !== 'missing_information' ? <button type="button" onClick={() => onRevisionTarget(selected.issue!, selected.target!)}>针对这段准备修改</button> : null}
+            {selected.issue && selected.target && canManageActions && selected.issue.kind !== 'missing_information' ? <button type="button" onClick={() => openRevision(selected.issue!, selected.target!)}>准备修改</button> : null}
             {selected.annotation?.status === 'confirmed' && !selected.annotation.insufficient_evidence && canManageActions ? <button type="button" onClick={() => reviseAnnotation(selected.annotation!)}>根据批注准备修改</button> : null}
-          </div> : <div className="document-review__detail document-review__detail--empty"><h3>从原文开始</h3><p>点击荧光标记查看模型发现的问题；也可以选中一段原文，追加人工批注或请模型追审。</p></div>}
-          <div className="document-review__index"><h3>已定位的问题与批注</h3>
-            {materials.flatMap((item) => [
-              ...validIssueLocations(issues, item), ...validAnnotations(annotations, item, reviewResultId),
-            ]).map((item) => <button key={item.id} type="button" onClick={() => selectLocation(item)}>
-              <span>{item.kind === 'issue' ? '模型问题' : item.annotation?.status === 'pending' ? '待确认追审' : '补充批注'}</span>
-              <strong>{item.issue?.title ?? item.annotation?.finding}</strong>
-            </button>)}
-          </div>
-          {unresolvedIssues.length > 0 ? <div className="document-review__unlocated"><h3>无法定位到具体原文的问题</h3><ul>{unresolvedIssues.map((item) => <li key={item.id}>{item.title}</li>)}</ul></div> : null}
-        </aside>
+          </div> : null}
+        </aside> : null}
       </div>
     </>}
   </section>;

@@ -16,7 +16,7 @@ const EMPTY_INTAKE: CaseIntake = {
   important_data_status: 'unknown', ciio_status: 'unknown', annual_non_sensitive_count: '',
   count_period: 'unknown',
   annual_sensitive_count: '', overseas_recipient: '', destination_region: '', processing_purpose: '',
-  transfer_mechanism: '', vendor_name: '', contract_status: '', legal_basis_or_consent: '', notes: '',
+  transfer_mechanism: '', vendor_name: '', contract_status: '', legal_basis_or_consent: '', exemption_facts: '', followup_answers: {}, notes: '',
 };
 
 const TEMPLATE_FORMAT = 'crosscomply.case-template';
@@ -242,7 +242,7 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
             <label className="template-field"><span>模板名称</span><input value={draft.name} maxLength={120} onChange={(event) => updateDraft('name', event.target.value)} placeholder="例如：个人信息出境审查" /></label>
             <label className="template-field"><span>适用场景说明</span><input value={draft.description} maxLength={500} onChange={(event) => updateDraft('description', event.target.value)} placeholder="说明什么时候适合使用" /></label>
             <label className="template-field"><span>审查问题</span><textarea value={draft.question} maxLength={4000} onChange={(event) => updateDraft('question', event.target.value)} rows={4} placeholder="例如：这个业务是否需要数据出境安全评估？" /></label>
-            <p className="template-editor__note">这里只保存新建案件字段预设，不包含案件材料、审查结论、法源引用或审计记录。</p>
+            <p className="template-editor__note">模板仅保存字段设置，不包含案件材料或审查记录。</p>
             <div className="template-editor__footer"><button className="button button--secondary" type="button" onClick={closeEditor} disabled={busy}>取消</button><button className="button button--primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? '保存中…' : '保存模板'}</button></div>
           </section>
         </div>

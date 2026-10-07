@@ -115,7 +115,7 @@ function GovernanceRow({
               <span><span className="cite-row__meta-label">评分</span><code>{chunk.score.toFixed(4)}</code></span>
             </div>
           ) : null}
-          {readOnly ? null : <div className="cite-row__feedback">
+          {readOnly || viewerRole === 'requester' ? null : <div className="cite-row__feedback">
             <span className="cite-row__field-label">人工引用评价</span>
             <div className="cite-row__verdicts">
               <button

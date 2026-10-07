@@ -83,6 +83,37 @@ def _create_case(client: TestClient) -> str:
     return response.json()["case"]["id"]
 
 
+def test_feedback_is_per_actor_and_requester_cannot_verify_citations(app) -> None:
+    requester = TestClient(app)
+    reviewer = TestClient(app)
+    _login(requester, "requester@crosscomply.local")
+    _login(reviewer, "reviewer@crosscomply.local")
+    case_id = _create_case(requester)
+
+    denied = requester.post(
+        f"/api/cases/{case_id}/feedback",
+        json={"citation_verdicts": {"citation-1": "correct"}},
+    )
+    assert denied.status_code == 403
+    assert requester.post(
+        f"/api/cases/{case_id}/feedback",
+        json={"notes": "这里的审查问题可能遗漏了合同附件"},
+    ).status_code == 200
+    assert reviewer.post(
+        f"/api/cases/{case_id}/feedback",
+        json={"citation_verdicts": {"citation-1": "correct"}},
+    ).status_code == 200
+
+    requester_feedback = requester.get(f"/api/cases/{case_id}").json()["feedback"]
+    reviewer_detail = reviewer.get(f"/api/cases/{case_id}").json()
+    reviewer_feedback = reviewer_detail["feedback"]
+    assert requester_feedback["notes"] == "这里的审查问题可能遗漏了合同附件"
+    assert requester_feedback["citation_verdicts"] == {}
+    assert reviewer_feedback["citation_verdicts"] == {"citation-1": "correct"}
+    assert reviewer_feedback["notes"] == ""
+    assert any(entry["actor_role"] == "requester" and entry["notes"] == requester_feedback["notes"] for entry in reviewer_detail["feedback_entries"])
+
+
 def _freeze_inputs(app, case_id: str, *, needs_info: bool = False) -> None:
     enterprise = app.state.enterprise_store
     version = enterprise.create_material_version(
@@ -170,6 +201,25 @@ def test_intake_extraction_requires_material(app) -> None:
         response = client.post("/api/intake-extraction", data={"question": "是否需要安全评估？"})
         assert response.status_code == 422
         assert "材料" in str(response.json()["detail"])
+
+
+def test_intake_extraction_returns_explicit_followup_controls(app, monkeypatch) -> None:
+    def fake_extract(material_text: str, question: str | None = None, **_: object) -> ReviewFacts:
+        return ReviewFacts(missing_information=["data_volume_threshold", "exemption_facts_confirmed"])
+
+    monkeypatch.setattr("law_agent.review.http.cases.extract_facts_with_deepseek", fake_extract)
+
+    with TestClient(app) as client:
+        _login(client, "requester@crosscomply.local")
+        response = client.post(
+            "/api/intake-extraction",
+            data={"question": "是否需要数据出境安全评估？", "material_text": "拟向境外提供客户服务数据。"},
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["missing"] == [
+            {"key": "data_volume_threshold", "reason": "data_volume_threshold", "input_type": "count"},
+            {"key": "exemption_facts_confirmed", "reason": "exemption_facts_confirmed", "input_type": "exemption"},
+        ]
 
 
 def test_intake_extraction_rejects_unsupported_upload(app) -> None:

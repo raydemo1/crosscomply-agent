@@ -57,6 +57,7 @@ class ReviewIssueDraft(StrictModel):
     supporting_chunk_ids: list[str]
     unknowns: list[str]
     recommended_action: str
+    answer_type: Literal["choice", "count", "text"] | None = None
 
 
 class LLMReviewResultDraft(StrictModel):
@@ -69,6 +70,7 @@ class LLMReviewResultDraft(StrictModel):
     claims: list[GroundedClaim] = Field(default_factory=list)
     trigger_reasons: list[str]
     missing_information: list[str]
+    missing_answer_types: dict[str, Literal["choice", "count", "text"]] = Field(default_factory=dict)
     recommended_actions: list[str]
     risk_boundaries: list[str]
     issues: list[ReviewIssueDraft] = Field(default_factory=list)
@@ -957,6 +959,7 @@ def build_review_result_with_deepseek(
             trigger_reasons = plain_draft.trigger_reasons
             risk_level = plain_draft.risk_level
             missing_information = plain_draft.missing_information
+            missing_answer_types = plain_draft.missing_answer_types
             recommended_actions = plain_draft.recommended_actions
             risk_boundaries = plain_draft.risk_boundaries
     except ValueError as exc:
@@ -986,6 +989,7 @@ def build_review_result_with_deepseek(
         review_facts=facts,
         trigger_reasons=trigger_reasons,
         missing_information=missing_information,
+        missing_answer_types=missing_answer_types if output_format == "plain" else {},
         recommended_actions=recommended_actions,
         risk_boundaries=risk_boundaries,
         claims=claims,

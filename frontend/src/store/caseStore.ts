@@ -30,6 +30,8 @@ export const EMPTY_INTAKE: CaseIntake = {
   vendor_name: '',
   contract_status: '',
   legal_basis_or_consent: '',
+  exemption_facts: '',
+  followup_answers: {},
   notes: '',
 };
 
@@ -63,6 +65,7 @@ function fromSummary(item: CaseSummaryApi): SavedCase {
     actions: [],
     events: [],
     feedback: null,
+    feedbackEntries: [],
     materialSnapshot: null,
     intakeSnapshot: null,
     reviewTask: null,
@@ -89,10 +92,11 @@ export function fromDetail(detail: CaseDetailApi): SavedCase {
         : null
     ),
     status: item.status,
-    intake: item.intake,
+    intake: { ...EMPTY_INTAKE, ...item.intake, followup_answers: item.intake.followup_answers ?? {} },
     actions: detail.actions ?? [],
     events: detail.events,
     feedback: toFeedback(detail),
+    feedbackEntries: detail.feedback_entries ?? [],
     materialSnapshot: detail.material_snapshot,
     intakeSnapshot: detail.intake_snapshot,
     reviewTask: detail.review_task,
