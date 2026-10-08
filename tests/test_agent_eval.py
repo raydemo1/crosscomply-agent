@@ -775,21 +775,34 @@ def test_unknown_suite_rejected() -> None:
 
 
 def test_controlled_source_is_unavailable_to_reads_and_service_hits(tmp_path) -> None:
+    from law_agent.data.schemas import Chunk
     from law_agent.review.agent_tools import ComplianceAgentTools
     from law_agent.review.evalset.agent_cases import get_agent_cases
     from law_agent.review.evalset.agent_runner import FixedWebClient, prepare_controlled_corpus
-    from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
+    from law_agent.review.retrieval.corpus import load_corpus
     from law_agent.review.retrieval.neighbors import hit_from_chunk
     from law_agent.review.retrieval.temporal import filter_hits_as_of
     from law_agent.review.schemas import ReviewFacts
     from law_agent.review.web_research import WebResearch
 
     case = next(c for c in get_agent_cases("core") if c.controlled_web)
+    held = Chunk(
+        chunk_id="held-1", doc_id="held-doc", source_id=case.controlled_web.held_out_source_ids[0],
+        title="留出的测试法源", text="第一条 测试文本。", article_no="第一条",
+        source_url=case.controlled_web.results[0].url, chunk_index=0, char_count=10,
+    )
+    retained = held.model_copy(update={
+        "chunk_id": "retained-1", "doc_id": "retained-doc", "source_id": "retained-source",
+        "source_url": "https://www.cac.gov.cn/test-retained.htm",
+    })
+    original = tmp_path / "original.jsonl"
+    original.write_text("".join(chunk.model_dump_json() + "\n" for chunk in [
+        held, held.model_copy(update={"chunk_id": "held-2", "chunk_index": 1}), retained,
+    ]), encoding="utf-8")
     path = tmp_path / "chunks.jsonl"
-    prepare_controlled_corpus(case, DEFAULT_CHUNKS_PATH, path)
+    prepare_controlled_corpus(case, original, path)
     chunks = load_corpus(path)
-    held = next(c for c in load_corpus() if c.source_id in case.controlled_web.held_out_source_ids)
-    assert held.source_id not in {c.source_id for c in chunks}
+    assert [c.chunk_id for c in chunks] == [retained.chunk_id]
     by_id = {c.chunk_id: c for c in chunks}
     from datetime import date
 
@@ -808,9 +821,8 @@ def test_controlled_source_is_unavailable_to_reads_and_service_hits(tmp_path) ->
 def test_controlled_web_rejects_nonofficial_results_before_model_call(tmp_path) -> None:
     from law_agent.review.evalset.agent_cases import get_agent_cases
     from law_agent.review.evalset.agent_runner import prepare_controlled_corpus
-    from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 
     case = next(c for c in get_agent_cases("core") if c.controlled_web).model_copy(deep=True)
     case.controlled_web.results[0].url = "https://untrusted.example/new-law"
     with pytest.raises(ValueError, match="trusted official"):
-        prepare_controlled_corpus(case, DEFAULT_CHUNKS_PATH, tmp_path / "chunks.jsonl")
+        prepare_controlled_corpus(case, tmp_path / "absent.jsonl", tmp_path / "chunks.jsonl")
