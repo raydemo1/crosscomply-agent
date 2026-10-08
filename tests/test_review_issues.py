@@ -306,5 +306,48 @@ def test_agent_can_retry_after_finalizer_rejects_an_issue() -> None:
 
     assert state.status == "completed"
     assert [step.action for step in state.steps] == ["finish", "finish"]
-    assert "至少需要两条不同的材料原文" in state.steps[0].observation["error"]
+    assert "需要两条不同的材料原文" in state.steps[0].observation["error"]
     assert len(state.result["issues"]) == 1
+
+
+def test_intake_material_conflict_can_be_reported_as_unresolved_information() -> None:
+    text = "已收到主管部门识别通知，属于CIIO；通知是否仍有效尚未澄清。"
+    version = _version("mv_ciio", text, logical_name="业务台账", version_number=1)
+    wrong_issue = ReviewIssueDraft(
+        kind="material_conflict",
+        title="CIIO身份冲突",
+        finding="确认填报为非CIIO，材料记载属于CIIO，通知有效性尚未核实。",
+        material_evidence=[MaterialEvidenceDraft(material_version_id=version.id, quote=text)],
+        supporting_chunk_ids=[],
+        unknowns=["识别通知是否有效、当前CIIO身份"],
+        recommended_action="核对通知并更正后重新冻结。",
+    )
+
+    def decide(state, _intake):
+        if not state.steps:
+            issue = wrong_issue
+        else:
+            assert "missing_information" in state.steps[-1].observation["error"]
+            issue = wrong_issue.model_copy(update={"kind": "missing_information"})
+        return AgentDecision(action="finish", summary="保留身份冲突并说明核实事项", draft=_agent_draft(issue))
+
+    def finalize(draft, _state):
+        issues = finalize_issues(
+            draft.issues, evidence=[], citation_groups=[], material_versions_by_id={version.id: version},
+        )
+        return {"issues": [issue.model_dump(mode="json") for issue in issues]}
+
+    state = run_agent(
+        AgentState(goal="判断出境机制", max_turns=3),
+        material=text, intake={"ciio_status": "not_ciio"}, decide=decide,
+        search=lambda _queries, _facts: [], web_search=lambda _queries, _facts: [],
+        finalize=finalize, checkpoint=lambda _state: None,
+    )
+
+    assert state.status == "completed"
+    assert [step.action for step in state.steps] == ["finish", "finish"]
+    issue = state.result["issues"][0]
+    assert issue["kind"] == "missing_information"
+    assert issue["finding"] == wrong_issue.finding
+    assert issue["unknowns"] == wrong_issue.unknowns
+    assert [item["material_version_id"] for item in issue["material_evidence"]] == [version.id]

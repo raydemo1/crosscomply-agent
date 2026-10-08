@@ -1,7 +1,4 @@
 """API contract tests for durable asynchronous review tasks."""
-from law_agent.review.http.schemas import IntakePayload
-
-
 import hashlib
 import json
 from base64 import b64encode
@@ -16,6 +13,7 @@ from law_agent.review.case_store import InMemoryCaseStore
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
 from law_agent.review.feishu import ApprovalInstance, FeishuApprovalConfig
 from law_agent.review.governance_store import InMemoryGovernanceStore
+from law_agent.review.http.schemas import IntakePayload
 from law_agent.review.object_store import MaterialObjectStore
 from law_agent.review.user_admin import InMemoryUserAdminStore
 
@@ -256,6 +254,10 @@ def test_requester_can_answer_only_their_waiting_agent_question(tmp_path: Path) 
         )
         assert answered.status_code == 200, answered.text
         assert answered.json()["status"] == "queued"
+        entry = answered.json()["agent_state"]["fact_ledger"][0]
+        assert entry["source_type"] == "applicant_statement"
+        assert entry["status"] == "unverified"
+        assert entry["source_ref"] == "input_requester_1"
 
 
 def test_reviewer_can_answer_and_resume_waiting_agent(tmp_path: Path) -> None:
@@ -296,6 +298,8 @@ def test_reviewer_can_answer_and_resume_waiting_agent(tmp_path: Path) -> None:
         assert response.status_code == 200, response.text
         assert response.json()["status"] == "queued"
         assert response.json()["agent_state"]["steps"][-1]["action"] == "human_input"
+        assert response.json()["agent_state"]["fact_ledger"] == []
+        assert response.json()["agent_state"]["steps"][-1]["observation"]["provenance"] == "reviewer_instruction"
         assert case_store.get_case(case_id)["status"] == "review_running"
 
 

@@ -1,6 +1,7 @@
 /** Client for the CrossComply persisted case workbench API. */
 
 import type {
+  MatterTurnApi,
   CaseDetailApi,
   CaseFeedbackApi,
   CaseIntake,
@@ -762,4 +763,31 @@ export async function checkHealth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export interface FactBinding {
+  task_id: string;
+  material_snapshot_id: string;
+  intake_snapshot_id: string;
+}
+
+export async function recordFactAnswer(caseId: string, payload: FactBinding & {
+  gate_id: string; answer: string; values: Partial<Record<import('../utils/factFields').FactField, unknown>>;
+}): Promise<ReviewTaskApi> {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/fact-answers`, { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function confirmCaseFacts(caseId: string, payload: FactBinding & {
+  gate_id?: string; answer_revision?: string; conversation_id?: string;
+  values: Partial<Record<import('../utils/factFields').FactField, unknown>>; confirmed: true;
+}): Promise<{ task_id: string; status: string }> {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/confirm-facts`, { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function getMatterConversation(caseId: string): Promise<MatterTurnApi[]> {
+  return (await request<{ items: MatterTurnApi[] }>(`/api/cases/${encodeURIComponent(caseId)}/conversation`)).items;
+}
+
+export async function askMatterAgent(caseId: string, payload: FactBinding & { question: string }): Promise<MatterTurnApi> {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/conversation`, { method: 'POST', body: JSON.stringify(payload), timeoutMs: REVIEW_TIMEOUT_MS });
 }

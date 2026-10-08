@@ -199,8 +199,7 @@ def _cmd_agent_eval(args: argparse.Namespace) -> int:
         suite_cases = get_agent_cases(args.suite)
         if not suite_cases:
             raise ValueError(
-                f"agent eval suite {args.suite!r} has no cases yet "
-                "(core golden cases arrive in Slice 2B)"
+                f"agent eval suite {args.suite!r} has no cases"
             )
         if args.case_ids:
             wanted = set(args.case_ids)
@@ -420,7 +419,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["smoke", "core"],
         default="smoke",
         help="Agent eval suite. smoke is the 2-case framework self-check; "
-        "core is the hand-picked golden set (Slice 2B).",
+        "core contains legal-judgment candidates; review_status records human approval.",
     )
     agent_eval.add_argument("--case", action="append", dest="case_ids", default=None)
     agent_eval.add_argument(

@@ -17,10 +17,17 @@ Two layers of metrics:
 
 from __future__ import annotations
 
+import hashlib
+import json
+import re
 import time
 from collections.abc import Callable
+from contextlib import ExitStack
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import patch
 
 from law_agent.config import RerankMode, require_llm_config
 from law_agent.data.citation_policy import has_clause_locator, has_legal_effect
@@ -41,6 +48,7 @@ from law_agent.review.http.schemas import IntakePayload
 from law_agent.review.ids import utc_now_iso
 from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
+from law_agent.review.web_research import WebSearchResult, is_trusted_official_url
 
 WORKER_ID = "agent-eval"
 
@@ -48,6 +56,11 @@ WORKER_ID = "agent-eval"
 # evaluation uses make_production_executor().
 AgentExecutor = Callable[[ReviewTask, InMemoryEnterpriseStore], AgentState]
 JudgeCall = Callable[[AgentCase, dict[str, Any], list[str], list[ScriptedAnswer]], JudgeVerdict]
+
+
+def infrastructure_http_status(message: str) -> int | None:
+    match = re.search(r"\bHTTP (401|402|403|408|429|5\d\d)\b", message)
+    return int(match.group(1)) if match else None
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +80,7 @@ def build_case_task(
         filename="eval_material.txt",
         content_type="text/plain",
         object_key=f"agent_eval/{case.case_id}/eval_material.txt",
-        sha256="0" * 64,
+        sha256=hashlib.sha256(case.material_text.encode("utf-8")).hexdigest(),
         byte_size=len(case.material_text.encode("utf-8")),
         uploaded_by="agent_eval",
         parse_status="ready",
@@ -100,6 +113,7 @@ def make_production_executor(
     *,
     chunks_path: str | object = DEFAULT_CHUNKS_PATH,
     rerank_mode: RerankMode = "off",
+    artifacts_dir: Path | None = None,
 ) -> AgentExecutor:
     """Executor that assembles inputs exactly like ``review.worker`` does."""
 
@@ -118,18 +132,50 @@ def make_production_executor(
             f"【材料 {item.logical_name} v{item.version_number} | {item.id}】\n{item.parsed_text}"
             for item in versions
         )
-        return execute_agent_task(
-            task,
-            store=store,
-            goal=case.question,
-            material=frozen_material,
-            material_versions=versions,
-            chunks_path=chunks_path,
-            rerank_mode=rerank_mode,
-            on_web_findings=lambda findings: None,
-        )
+        with ExitStack() as stack:
+            effective_chunks = Path(chunks_path)
+            if case.controlled_web:
+                directory = artifacts_dir or Path(stack.enter_context(TemporaryDirectory()))
+                effective_chunks = directory / "controlled_chunks.jsonl"
+                prepare_controlled_corpus(case, Path(chunks_path), effective_chunks)
+                client = FixedWebClient(case)
+                stack.enter_context(patch("law_agent.review.agent_tools.build_web_search_client", return_value=client))
+            return execute_agent_task(
+                task,
+                store=store,
+                goal=case.question,
+                material=frozen_material,
+                material_versions=versions,
+                chunks_path=effective_chunks,
+                rerank_mode=rerank_mode,
+                on_web_findings=lambda findings: None,
+            )
 
     return execute
+
+
+def prepare_controlled_corpus(case: AgentCase, chunks_path: Path, output: Path) -> None:
+    fixture = case.controlled_web
+    if fixture is None:
+        raise ValueError("controlled corpus requires a Web fixture")
+    if any(not is_trusted_official_url(r.url) for r in fixture.results):
+        raise ValueError("controlled Web results must use trusted official URLs")
+    rows = [json.loads(line) for line in chunks_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    missing = set(fixture.held_out_source_ids) - {row["source_id"] for row in rows}
+    if missing:
+        raise ValueError(f"held-out sources are absent from the original corpus: {sorted(missing)}")
+    remaining = [row for row in rows if row["source_id"] not in fixture.held_out_source_ids]
+    if not remaining:
+        raise ValueError("controlled corpus cannot be empty")
+    output.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in remaining), encoding="utf-8")
+
+
+class FixedWebClient:
+    def __init__(self, case: AgentCase):
+        self.results = [WebSearchResult(**r.model_dump()) for r in case.controlled_web.results]
+
+    def search(self, query: str, *, max_results: int) -> list[WebSearchResult]:
+        return self.results[:max_results]
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +244,7 @@ def _result_base(
     counters = _counters_from_state(state)
     return AgentCaseResult(
         case_id=case.case_id,
+        review_status=case.review_status,
         tags=list(case.tags),
         status=status,  # type: ignore[arg-type]
         turns=counters["turns"],
@@ -228,12 +275,7 @@ def _evaluate_deterministic(
 
     cited_sources = {str(item.get("source_id")) for item in citations if item.get("source_id")}
     result.cited_source_ids = sorted(cited_sources)
-    result.missing_required_sources = [
-        source_id
-        for source_id in rubric.must_cover_sources
-        if source_id not in cited_sources
-    ]
-
+    clause_sources: set[str] = set()
     illegal: list[IllegalCitation] = []
     for item in citations:
         if not item.get("can_cite_clause"):
@@ -264,16 +306,23 @@ def _evaluate_deterministic(
                     reason="不具备法律效力或缺少条款定位，却被标记为可条款引用",
                 )
             )
+        else:
+            clause_sources.add(source_id)
     result.illegal_clause_citations = illegal
+    result.missing_required_sources = [
+        source_id for source_id in rubric.must_cover_sources if source_id not in clause_sources
+    ]
 
     abstained = risk_level == "insufficient_evidence"
-    result.abstain_correct = abstained == rubric.should_abstain
+    result.abstain_correct = (
+        abstained == rubric.should_abstain if rubric.should_abstain is not None else None
+    )
     if rubric.acceptable_outcomes:
         result.outcome_acceptable = risk_level in rubric.acceptable_outcomes
     result.freshness_hold_correct = result.freshness_hold == rubric.expect_freshness_hold
 
     reasons: list[str] = []
-    if not result.abstain_correct:
+    if result.abstain_correct is False:
         reasons.append(
             "expected_abstention" if rubric.should_abstain else "unexpected_abstention"
         )
@@ -323,23 +372,31 @@ def run_agent_case(
         try:
             state = execute(task, store)
         except ReviewWorkflowFailed as exc:
-            result = _result_base(case, state, status="failed")
+            latest = store.get_task(task.id)
+            if latest and latest.agent_state:
+                state = AgentState.model_validate(latest.agent_state)
+            blocked = infrastructure_http_status(exc.message) is not None
+            result = _result_base(case, state, status="blocked" if blocked else "failed")
             result.failure_node = exc.failed_node
             result.failure_category = exc.reason
             result.failure_message = exc.message
             result.deterministic_fail_reasons = [
                 f"workflow_failed:{exc.failed_node}:{exc.reason}"
             ]
-            result.overall_pass = False
+            result.overall_pass = None if blocked else False
             result.total_latency_ms = int((time.perf_counter() - started) * 1000)
             return result
         except Exception as exc:  # noqa: BLE001 - eval must never crash the suite
-            result = _result_base(case, state, status="failed")
+            latest = store.get_task(task.id)
+            if latest and latest.agent_state:
+                state = AgentState.model_validate(latest.agent_state)
+            blocked = infrastructure_http_status(str(exc)) is not None
+            result = _result_base(case, state, status="blocked" if blocked else "failed")
             result.failure_node = "agent_runtime"
             result.failure_category = type(exc).__name__
             result.failure_message = str(exc)[:1000]
             result.deterministic_fail_reasons = [f"runtime_error:{type(exc).__name__}"]
-            result.overall_pass = False
+            result.overall_pass = None if blocked else False
             result.total_latency_ms = int((time.perf_counter() - started) * 1000)
             return result
 
@@ -367,7 +424,7 @@ def run_agent_case(
                 paused.scripted_answers_used = len(answers_used)
                 paused.scripted_answers_unused = len(pending_answers)
                 paused.deterministic_fail_reasons = ["unanswered_gate"]
-                paused.overall_pass = False
+                paused.overall_pass = None
                 paused.total_latency_ms = int((time.perf_counter() - started) * 1000)
                 return paused
             answered = answer_agent(
@@ -415,6 +472,8 @@ def run_agent_case(
             result.overall_pass = None
         else:
             result.overall_pass = bool(verdict.overall_pass)
+    elif case.rubric.should_abstain is None and result.deterministic_pass:
+        result.overall_pass = None
     result.total_latency_ms = int((time.perf_counter() - started) * 1000)
     return result
 
@@ -429,7 +488,14 @@ _JUDGE_SYSTEM = """你是企业数据出境合规评测员，只评测单个 Age
 - legal_correctness: 法律路径与结论是否正确（门槛、并列条件、路径选择）。
 - exception_coverage: required_exceptions 中的每个豁免/例外是否被独立核对。
 - fact_grounding: 是否把未经确认的事实当作已确认（对照 must_not_assume）。
-- clarification_quality: 事实缺失时追问是否对准 clarification_expectations；无追问必要时给 not_applicable。
+- clarification_quality: 追问或报告明确披露的事实缺口与核实建议是否对准 clarification_expectations；它描述需澄清的内容，不自动要求调用 request_input。只有案件问题明确要求先追问时，才检查这一交互要求；无澄清必要时给 not_applicable。
+allowed_judgments、forbidden_judgments 是法律判断边界，不是固定答案句式；不得按字面匹配评分。
+按问题限定的范围判断；确定一个出境机制不等于确定整个业务合规。风险等级不能替代法律路径正确性。
+should_abstain=null 表示按 allowed_judgments 与 forbidden_judgments 评估是否诚实保留不确定性，不要求固定风险等级。法条引用准确仍须检查个案推理：未确认某个例外要件不等于已确认其不满足；区分条件性判断、暂行准备建议与确定法律义务。核对摘要、主结论、legal_path、issues 与条件说明是否一致，不能仅凭末尾“以后可能改变”的说明接受前文的确定结论。
+不规定检索、阅读顺序或必须追问；直接披露阻塞性缺口并诚实abstain也可满足澄清要求。
+申请人补充回答不自动成为已确认事实；不得据此奖赏无证据的确定结论。
+fact_ledger是最终交付的来源账本，不是正确答案；confirmed只表示确认填报，extracted是材料提取，unverified未核实，conflicted须保留矛盾，不可据状态直接认定法律结论成立。
+reference_basis是候选rubric的法源核对记录，不代表已有人类审定；判断不确定时说明，不凭模型记忆扩大法律义务。
 不相关的维度给 not_applicable。reasons 每条一行短评，不输出思维链，只输出 schema JSON。"""
 
 
@@ -442,6 +508,7 @@ class StructuredAgentJudge:
         model_id: str | None = None,
         client: OpenAICompatibleClient | None = None,
         max_retries: int = 2,
+        on_input: Callable[[list[ChatMessage]], None] | None = None,
     ) -> None:
         config = require_llm_config()
         self.node = StructuredLLMNode(
@@ -453,6 +520,7 @@ class StructuredAgentJudge:
         if model_id:
             self.node.model = model_id
         self.model_id = model_id or config.model
+        self.on_input = on_input
 
     def __call__(
         self,
@@ -464,17 +532,40 @@ class StructuredAgentJudge:
         try:
             rr = payload.get("review_result") or {}
             rubric = case.rubric
+            cited_chunk_ids = {c.get("chunk_id") for c in rr.get("citations", [])}
+            cited_chunk_ids.update(
+                chunk_id
+                for claim in rr.get("claims", [])
+                for chunk_id in claim.get("supporting_chunk_ids", [])
+            )
+            delivery = {
+                "review_result": rr,
+                "fact_ledger": payload.get("fact_ledger", []),
+                "supporting_evidence": [
+                    {key: chunk.get(key) for key in ("chunk_id", "source_id", "article_no", "text", "source_url", "can_cite_clause")}
+                    for chunk in payload.get("evidence_chunks", [])
+                    if chunk.get("chunk_id") in cited_chunk_ids
+                ],
+                "freshness_hold": payload.get("freshness_hold", False),
+                "web_impact": payload.get("web_impact"),
+                "material_web_urls": payload.get("material_web_urls", []),
+                "web_findings": payload.get("web_findings", []),
+            }
             user_lines = [
                 f"【案件问题】{case.question}",
                 f"【材料】{case.material_text}",
                 f"【确认事实】{case.intake or '（无）'}",
                 "【Rubric】",
-                f"- should_abstain: {rubric.should_abstain}",
+                f"- should_abstain: {json.dumps(rubric.should_abstain)}",
                 f"- acceptable_outcomes: {rubric.acceptable_outcomes or '（不限）'}",
                 f"- must_cover_sources: {rubric.must_cover_sources}",
                 f"- required_exceptions: {rubric.required_exceptions or '（无）'}",
                 f"- must_not_assume: {rubric.must_not_assume or '（无）'}",
                 f"- clarification_expectations: {rubric.clarification_expectations or '（无）'}",
+                f"- allowed_judgments: {rubric.allowed_judgments or '（无）'}",
+                f"- forbidden_judgments: {rubric.forbidden_judgments or '（无）'}",
+                f"- notes: {rubric.notes}",
+                f"【Rubric法源核对记录】{case.reference_basis}",
                 f"【Agent 追问】{questions_asked or '（无）'}",
                 "【预设人工回答】"
                 + (
@@ -488,13 +579,12 @@ class StructuredAgentJudge:
                 f"- trigger_reasons: {rr.get('trigger_reasons')}",
                 f"- missing_information: {rr.get('missing_information')}",
                 f"- citations: {[c.get('source_id') for c in rr.get('citations', [])]}",
+                "【完整交付及引用内容】" + json.dumps(delivery, ensure_ascii=False, default=str),
             ]
-            verdict = self.node.run(
-                [
-                    ChatMessage(role="system", content=_JUDGE_SYSTEM),
-                    ChatMessage(role="user", content="\n".join(user_lines)),
-                ]
-            )
+            messages = [ChatMessage(role="system", content=_JUDGE_SYSTEM), ChatMessage(role="user", content="\n".join(user_lines))]
+            if self.on_input:
+                self.on_input(messages)
+            verdict = self.node.run(messages)
             verdict.judge_model = self.model_id
             return verdict
         except Exception as exc:  # noqa: BLE001 - judge infra failure is diagnostic
@@ -582,6 +672,10 @@ def format_summary_text(summary: AgentEvalSummary) -> str:
         f"Corpus: {summary.chunks_path} | Rerank: {summary.rerank_mode}",
         "=" * 70,
         f"Cases: {summary.total_cases} | completed: {summary.completed_cases}",
+        "Review status: " + ", ".join(
+            f"{status}={sum(r.review_status == status for r in summary.results)}"
+            for status in ("candidate", "approved", "framework_check")
+        ),
         f"Deterministic pass: {summary.deterministic_pass_count}/{summary.total_cases}",
         (
             f"Judge pass: {summary.judge_pass_count}/{summary.total_cases}"
@@ -629,6 +723,11 @@ def format_summary_markdown(summary: AgentEvalSummary) -> str:
         f"- Agent model: `{summary.agent_model}`",
         f"- Judge model: `{summary.judge_model or 'disabled'}`",
         f"- Corpus: `{summary.chunks_path}` (rerank: `{summary.rerank_mode}`)",
+        "- Review status: " + ", ".join(
+            f"`{status}`={sum(r.review_status == status for r in summary.results)}"
+            for status in ("candidate", "approved", "framework_check")
+        ),
+        "- 候选案例的 PASS 仅代表满足当前候选 rubric；未经人工审定不得称为法律可靠性 Golden 指标。",
         "",
         "| Metric | Value |",
         "|---|---:|",

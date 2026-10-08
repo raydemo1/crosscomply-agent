@@ -6,7 +6,11 @@ from law_agent.data.schemas import Chunk
 from law_agent.review.agent import AgentDecision, AgentState, run_agent
 from law_agent.review.result_builder import LLMReviewResultDraft
 from law_agent.review.schemas import GroundedClaim, ReviewFacts
-from law_agent.review.semantic_grounding import SemanticGroundingRejected, SemanticGroundingVerifier, SemanticVerdict
+from law_agent.review.semantic_grounding import (
+    SemanticGroundingRejected,
+    SemanticGroundingVerifier,
+    SemanticVerdict,
+)
 from tests.test_review_llm import FakeClient
 from tests.test_review_result_builder import _hit
 
@@ -33,14 +37,17 @@ def test_verifier_receives_full_article_and_rejects_unresolved_exemptions() -> N
         "missing_facts": ["个人合同必要性"],
     }])
     verifier = SemanticGroundingVerifier(model_id="test-model", client=client)
-    hit = _hit().model_copy(update={"full_article_text": "第五条（一）个人合同；（四）数量条件。"})
+    hit = _hit().model_copy(update={"full_article_text": "第五条（一）个人合同；（四）数量条件。", "effective_date": "2024-03-22"})
 
     verdict = verifier(
+        review_goal="只判断出境机制，不认定手续已经完成",
         draft=_draft(), confirmed_intake={"annual_non_sensitive_count": "300000", "count_period": "unknown"},
         extracted_facts=ReviewFacts(), material="申请材料", evidence=[hit],
     )
 
     payload = json.loads(client.calls[0][1].content)
+    assert payload["review_goal"] == "只判断出境机制，不认定手续已经完成"
+    assert payload["cited_authorities"][0]["effective_date"] == "2024-03-22"
     assert payload["cited_authorities"][0]["article_text"] == hit.full_article_text
     assert payload["confirmed_intake"]["count_period"] == "unknown"
     assert verdict.status == "uncertain"
@@ -72,6 +79,7 @@ def test_verifier_sees_the_applicability_boundary_of_each_cited_authority() -> N
     )
 
     verifier(
+        review_goal="判断上海自贸区规则是否适用",
         draft=_draft(), confirmed_intake={}, extracted_facts=ReviewFacts(),
         material="申请材料", evidence=[_hit()], chunks_by_id={"c1": chunk},
     )

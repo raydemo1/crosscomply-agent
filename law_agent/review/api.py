@@ -575,6 +575,12 @@ def create_app(
         case_summary=_case_summary,
         can_view=_can_view,
     )
+    from law_agent.review.http.facts import register_fact_routes
+
+    register_fact_routes(app, current_user=current_user, store=store, enterprise=enterprise)
+    from law_agent.review.http.matter import register_matter_routes
+
+    register_matter_routes(app, current_user=current_user, store=store, enterprise=enterprise, can_view=_can_view)
     register_revision_routes(
         app, current_user=current_user, reviewer_only=reviewer_only,
         store=store, enterprise=enterprise,

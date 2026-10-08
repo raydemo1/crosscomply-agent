@@ -27,6 +27,14 @@ interface WorkbenchPageProps {
 }
 
 const FACT_QUESTIONS: Record<string, string> = {
+  important_data_status: '这批数据是否已被确认为重要数据？',
+  ciio_status: '贵公司是否已被认定为关键信息基础设施运营者？',
+  annual_non_sensitive_count: '统计期间内，非敏感个人信息出境涉及多少人？',
+  annual_sensitive_count: '统计期间内，敏感个人信息出境涉及多少人？',
+  count_period: '人数按哪个期间和口径统计？',
+  destination_region: '数据将传输至哪个国家或地区？',
+  exemption_facts: '可能适用豁免的具体业务事实是什么？',
+  sensitive_personal_info: '是否涉及敏感个人信息？',
   cross_border_transfer: '这项活动是否涉及向境外提供数据？',
   important_data: '这批数据里是否包含重要数据？',
   is_ciio: '贵公司是否属于关键信息基础设施运营者？',
@@ -42,6 +50,13 @@ const FACT_QUESTIONS: Record<string, string> = {
 };
 
 const FACT_FIELDS: Record<string, string[]> = {
+  important_data_status: ['important_data_status'],
+  ciio_status: ['ciio_status'],
+  annual_non_sensitive_count: ['annual_non_sensitive_count', 'count_period'],
+  annual_sensitive_count: ['annual_sensitive_count', 'count_period'],
+  count_period: ['count_period'],
+  destination_region: ['destination_region'],
+  exemption_facts: ['exemption_facts'],
   cross_border_transfer: ['cross_border_transfer'],
   important_data: ['important_data_status'],
   is_ciio: ['ciio_status'],

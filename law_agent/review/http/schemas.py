@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, JsonValue, field_validator
 
 from law_agent.config import RerankMode
-from law_agent.data.schemas import InternalPolicyStatus, LibraryKind
+from law_agent.data.schemas import InternalPolicyStatus, LibraryKind, StrictModel
 from law_agent.review.evalset.cases import EvalSuite
+from law_agent.review.schemas import (
+    CIIOStatus,
+    ConfirmableFactField,
+    CountPeriod,
+    ImportantDataStatus,
+)
 from law_agent.review.user_admin import UserRole
 
 
@@ -98,11 +104,11 @@ class IntakePayload(BaseModel):
     contains_personal_information: bool | None = None
     sensitive_personal_info: bool | None = None
     cross_border_transfer: bool | None = None
-    important_data_status: Literal["unknown", "not_important", "important", "under_review"] = "unknown"
-    ciio_status: Literal["unknown", "not_ciio", "ciio", "under_review"] = "unknown"
+    important_data_status: ImportantDataStatus = "unknown"
+    ciio_status: CIIOStatus = "unknown"
     annual_non_sensitive_count: str = ""
     annual_sensitive_count: str = ""
-    count_period: Literal["unknown", "current_year_cumulative", "annual_estimate", "other"] = "unknown"
+    count_period: CountPeriod = "unknown"
     overseas_recipient: str = ""
     destination_region: str = ""
     processing_purpose: str = ""
@@ -162,6 +168,40 @@ class MaterialSnapshotRequest(BaseModel):
 class AgentInputRequest(BaseModel):
     gate_id: str = Field(..., min_length=1, max_length=200)
     answer: str = Field(..., min_length=1, max_length=6000)
+
+
+class FactAnswerRequest(StrictModel):
+    task_id: str
+    material_snapshot_id: str
+    intake_snapshot_id: str
+    gate_id: str
+    answer: str = Field(min_length=1, max_length=6000)
+    values: dict[ConfirmableFactField, JsonValue] = Field(min_length=1, max_length=15)
+
+
+class FactConfirmRequest(StrictModel):
+    task_id: str
+    material_snapshot_id: str
+    intake_snapshot_id: str
+    gate_id: str | None = None
+    answer_revision: str | None = None
+    conversation_id: str | None = None
+    values: dict[ConfirmableFactField, JsonValue] = Field(min_length=1, max_length=15)
+    confirmed: Literal[True]
+
+    @field_validator("confirmed", mode="before")
+    @classmethod
+    def explicit_confirmation(cls, value):
+        if value is not True:
+            raise ValueError("须明确确认这些事实")
+        return value
+
+
+class MatterQuestionRequest(StrictModel):
+    task_id: str
+    material_snapshot_id: str
+    intake_snapshot_id: str
+    question: str = Field(min_length=1, max_length=2000)
 
 
 class RemediationEvidenceRequest(BaseModel):

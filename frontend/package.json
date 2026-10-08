@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "node --experimental-strip-types --test src/utils/materialNames.test.ts",
+    "test": "node --experimental-strip-types --test src/utils/materialNames.test.ts src/utils/factFields.test.ts",
     "preview": "vite preview"
   },
   "devDependencies": {

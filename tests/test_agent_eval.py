@@ -208,6 +208,7 @@ def test_waiting_without_scripted_answer_is_unanswered_gate() -> None:
     result = run_agent_case(case, execute=executor, model_id="m1")
 
     assert result.status == "unanswered_gate"
+    assert result.overall_pass is None
     assert result.deterministic_pass is False
     assert result.deterministic_fail_reasons == ["unanswered_gate"]
 
@@ -234,6 +235,28 @@ def test_required_abstention_missing_fails() -> None:
     assert result.abstain_correct is False
     assert "expected_abstention" in result.deterministic_fail_reasons
     assert result.outcome_acceptable is False
+
+
+@pytest.mark.parametrize("risk", ["high", "insufficient_evidence"])
+@pytest.mark.parametrize("semantic_pass", [True, False])
+def test_conditional_report_uses_semantic_boundaries_instead_of_risk_label(risk, semantic_pass) -> None:
+    case = _case(should_abstain=None, forbidden_judgments=["关键要件未知时确定例外不成立"])
+    result = run_agent_case(
+        case, execute=lambda _task, _store: _completed_state(_payload(risk=risk)),
+        judge=lambda *_args: JudgeVerdict(overall_pass=semantic_pass),
+    )
+
+    assert result.abstain_correct is None
+    assert result.deterministic_pass is True
+    assert result.overall_pass is semantic_pass
+
+
+def test_conditional_report_without_judge_has_no_overall_verdict() -> None:
+    case = _case(should_abstain=None)
+    result = run_agent_case(case, execute=lambda _task, _store: _completed_state(_payload()))
+
+    assert result.deterministic_pass is True
+    assert result.overall_pass is None
 
 
 def test_missing_required_source_fails() -> None:
@@ -670,10 +693,78 @@ def test_judge_defaults_to_agent_model(monkeypatch) -> None:
     assert explicit_summary.judge_model == "model-J"
 
 
-def test_core_suite_empty_until_slice_2b() -> None:
+def test_core_candidates_have_review_boundary_and_valid_intake() -> None:
+    from law_agent.review.evalset.agent_cases import get_agent_cases
+    from law_agent.review.http.schemas import IntakePayload
+
+    cases = get_agent_cases("core")
+    assert 8 <= len(cases) <= 20
+    assert len({c.case_id for c in cases}) == len(cases)
+    assert all(c.review_status == "candidate" for c in cases)
+    for case in cases:
+        IntakePayload.model_validate(case.intake)
+        assert case.selection_reason
+        assert case.rubric.allowed_judgments
+        assert case.rubric.forbidden_judgments
+        assert case.reference_basis
+
+
+def test_provider_balance_failure_is_unevaluated_with_checkpoint_counters() -> None:
+    def execute(task, store):
+        state = AgentState(goal="g", turns=4, searches=1)
+        store.checkpoint_agent(task.id, state=state.model_dump(mode="json"), expected_attempt=task.attempt_count)
+        raise ReviewWorkflowFailed(failed_node="compliance_agent", reason="llm_api_error", message="LLM request failed with HTTP 402: Insufficient Balance", attempts=1)
+
+    result = run_agent_case(_case(), execute=execute)
+    assert result.status == "blocked"
+    assert result.overall_pass is None
+    assert result.turns == 4
+    assert result.searches == 1
+
+
+def test_smoke_results_remain_framework_checks() -> None:
     from law_agent.review.evalset.agent_cases import get_agent_cases
 
-    assert get_agent_cases("core") == []
+    case = get_agent_cases("smoke")[1]
+    result = run_agent_case(case, execute=lambda task, store: _completed_state(_payload(risk="insufficient_evidence")))
+    assert result.review_status == "framework_check"
+
+
+def test_judge_sees_legal_constraints_and_cited_evidence_without_production_verdict() -> None:
+    from types import SimpleNamespace
+
+    from law_agent.review.evalset.agent_runner import StructuredAgentJudge
+
+    captured = []
+    judge = object.__new__(StructuredAgentJudge)
+    judge.model_id = "j1"
+    judge.on_input = captured.extend
+    judge.node = SimpleNamespace(run=lambda messages: JudgeVerdict(overall_pass=True))
+    case = _case(allowed_judgments=["允许合同或认证"], forbidden_judgments=["禁止按旧门槛强制评估"])
+    payload = _payload(citations=[_citation("law")])
+    payload["review_result"]["claims"] = [{"text": "正式法律断言", "supporting_chunk_ids": ["chunk_law"]}]
+    payload["evidence_chunks"] = [{"chunk_id": "chunk_law", "text": "对应原文"}, {"chunk_id": "unused", "text": "不相关的未引用证据"}]
+    payload["semantic_grounding"] = {"conclusion_reason": "生产评审秘密判词"}
+    payload["fact_ledger"] = [{"field": "supplemental_statement", "value": "人数只是申请人估计", "source_type": "applicant_statement", "source_ref": "gate-1", "status": "unverified"}]
+    verdict = judge(case, payload, [], [])
+    prompt = captured[1].content
+    assert verdict.overall_pass is True
+    assert "允许合同或认证" in prompt
+    assert "禁止按旧门槛强制评估" in prompt
+    assert "正式法律断言" in prompt
+    assert "人数只是申请人估计" in prompt
+    assert '"status": "unverified"' in prompt
+    assert "对应原文" in prompt
+    assert "不相关的未引用证据" not in prompt
+    assert "生产评审秘密判词" not in prompt
+
+
+def test_required_law_mentioned_only_as_context_does_not_satisfy_clause_coverage() -> None:
+    case = _case(must_cover_sources=["law"])
+    result = run_agent_case(case, execute=lambda task, store: _completed_state(_payload(citations=[_citation("law", can_cite=False)])))
+    assert result.cited_source_ids == ["law"]
+    assert result.missing_required_sources == ["law"]
+    assert result.deterministic_pass is False
 
 
 def test_unknown_suite_rejected() -> None:
@@ -681,3 +772,45 @@ def test_unknown_suite_rejected() -> None:
 
     with pytest.raises(ValueError):
         get_agent_cases("full")
+
+
+def test_controlled_source_is_unavailable_to_reads_and_service_hits(tmp_path) -> None:
+    from law_agent.review.agent_tools import ComplianceAgentTools
+    from law_agent.review.evalset.agent_cases import get_agent_cases
+    from law_agent.review.evalset.agent_runner import FixedWebClient, prepare_controlled_corpus
+    from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+    from law_agent.review.retrieval.temporal import filter_hits_as_of
+    from law_agent.review.schemas import ReviewFacts
+    from law_agent.review.web_research import WebResearch
+
+    case = next(c for c in get_agent_cases("core") if c.controlled_web)
+    path = tmp_path / "chunks.jsonl"
+    prepare_controlled_corpus(case, DEFAULT_CHUNKS_PATH, path)
+    chunks = load_corpus(path)
+    held = next(c for c in load_corpus() if c.source_id in case.controlled_web.held_out_source_ids)
+    assert held.source_id not in {c.source_id for c in chunks}
+    by_id = {c.chunk_id: c for c in chunks}
+    from datetime import date
+
+    assert not filter_hits_as_of([hit_from_chunk(held, 1)], by_id, as_of=date(2026, 10, 8))
+    tools = object.__new__(ComplianceAgentTools)
+    tools._chunks = chunks
+    with pytest.raises(ValueError, match="受控法律库中没有来源"):
+        tools.read_evidence(held.source_id, "第一条", None, ReviewFacts())
+    from law_agent.review.schemas import RetrievalQuery
+
+    findings = WebResearch(client=FixedWebClient(case), corpus_chunks=chunks).search([RetrievalQuery(query_id="q1", text="汽车数据", query_type="industry_condition")])
+    assert len(findings) == 1
+    assert findings[0].known_source_id is None
+
+
+def test_controlled_web_rejects_nonofficial_results_before_model_call(tmp_path) -> None:
+    from law_agent.review.evalset.agent_cases import get_agent_cases
+    from law_agent.review.evalset.agent_runner import prepare_controlled_corpus
+    from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
+
+    case = next(c for c in get_agent_cases("core") if c.controlled_web).model_copy(deep=True)
+    case.controlled_web.results[0].url = "https://untrusted.example/new-law"
+    with pytest.raises(ValueError, match="trusted official"):
+        prepare_controlled_corpus(case, DEFAULT_CHUNKS_PATH, tmp_path / "chunks.jsonl")

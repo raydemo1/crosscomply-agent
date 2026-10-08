@@ -11,6 +11,8 @@ CrossComply 是面向企业数据出境合规执行的单 Agent 系统：一个�
 | [docs/architecture.md](docs/architecture.md) | 系统现在如何运行：Agent / 程序 / 人各自的边界，生产 runtime 与 benchmark 流水线的区别 |
 | [docs/data-governance-design.md](docs/data-governance-design.md) | 法律知识如何进入受控证据库，什么时候具备条款引用资格 |
 | [docs/SERVICE_STACK.md](docs/SERVICE_STACK.md) | 部署依赖、服务拓扑、启动与运维事实 |
+| [docs/production-agent-golden-set.md](docs/production-agent-golden-set.md) | Production Agent 候选集、轻量 rubric、人工审定边界与实跑方式 |
+| [docs/agent-baseline-20261008.md](docs/agent-baseline-20261008.md) | 首轮候选实跑的失败证据、未评估项目与后续建设方向 |
 
 ## 开发启动
 
@@ -61,7 +63,7 @@ cd frontend; npm test
 - **确定性指标**（无需另一个模型）：是否完成、abstain 是否正确、必须法源是否覆盖、是否把标准/指南当条款引用、freshness hold、turns/searches/reads/web、追问次数、预算耗尽、workflow failure；
 - **语义 judge**（仅评测使用，不进生产链路）：`legal_correctness / exception_coverage / fact_grounding / clarification_quality / overall_pass`，默认与受测 Agent 同模型，可用 `--judge-model` 指定不同模型；`--no-judge` 只跑确定性检查。
 
-每个案例的总评是三态：`PASS`（已评测通过）/ `FAIL`（已评测失败，含 workflow failure）/ `UNEVALUATED`（judge 基础设施故障——既不算 Agent 失败，也绝不算通过）。
+每个案例的总评是三态：`PASS`（满足该案例 rubric）/ `FAIL`（已评测失败，含 workflow failure）/ `UNEVALUATED`（judge 故障或已确认的模型服务阻断，如余额不足——既不算法律判断失败，也不算通过）。`candidate` 的评分不是人工审定 Golden 指标。
 
 ```powershell
 python -m law_agent.review agent-eval --suite smoke --no-judge
@@ -69,7 +71,7 @@ python -m law_agent.review agent-eval --suite core --judge-model <judge-model> `
   --output data/review_runs/agent_eval_core.json --report data/review_runs/agent_eval_core.md
 ```
 
-> 当前状态：框架（harness、指标、judge、CLI、JSON/Markdown 报告）已就绪，`smoke` 含 2 个自检案例——一个提供 scripted answer 用于覆盖 `request_input → resume` 路径（该回答仍属未核实 applicant statement，恢复后以证据不足诚实收口；rubric 不强制 Agent 必须追问，直接谨慎 abstain 同样合格），一个 out-of-corpus 正确 abstain；15–20 个人工 golden cases（`core`）在下一步补齐后才有第一批在库指标。Rubric 只描述"必须判断对什么"，不规定执行步骤。
+> 当前状态：`smoke` 含 2 个框架自检案例；`core` 已有首轮 8 个合成候选，全部标为 `candidate`，尚未人工审定。首轮真实运行完成 4 个评分（3 PASS、1 FAIL），另有 1 个已交付但 judge 被余额不足阻断，3 个运行被同一原因中断。实跑没有触发 `request_input → resume`，不能将预设回答存在当作该路径已验证。完成首轮复核与剩余评测后，再按真实失败扩至约 15–20 个。Rubric 只描述判断边界，不规定执行步骤。
 
 ### Retrieval benchmark
 
@@ -89,7 +91,7 @@ python -m law_agent.review eval --suite full  --max-workers 8 --output data/revi
 ```
 
 > 评测会产生模型调用成本。除需要更新对外指标外，日常开发不重跑全量评测。
-> Production Agent 的端到端评价目前**没有**在库指标；不要用上表推断 Agent 整体正确率。
+> Production Agent 尚无**人工审定 Golden 指标**；候选基线、失败诊断与定向修复见[基线说明](docs/agent-baseline-post-provenance-20261009.md)。不要用检索召回或候选 PASS 推断 Agent 的整体法律正确率。
 
 ## 常用入口
 

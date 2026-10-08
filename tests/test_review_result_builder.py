@@ -1,12 +1,25 @@
 """Tests for citation validation used by LLM-owned result building."""
 
+import pytest
+
 from law_agent.review.citations import (
     count_citations_by_usage,
     group_citations,
     validate_citation,
 )
-from law_agent.review.result_builder import inject_citation_markers
+from law_agent.review.result_builder import inject_citation_markers, validate_decision_summary
 from law_agent.review.schemas import GroundedClaim, RetrievalHit, ReviewFacts
+
+
+def test_summary_keeps_literal_fact_identifiers() -> None:
+    summary = "材料记载属于CIIO，确认填报却为not_ciio，身份冲突尚未核实，暂不能确定出境机制。"
+    assert validate_decision_summary(summary, supported_text=summary) == summary
+
+
+@pytest.mark.parametrize("summary", ["**结论**", "_结论_", "__结论__", "# 结论", "结论\n边界", "`not_ciio`"])
+def test_summary_still_rejects_markdown_and_multiple_paragraphs(summary) -> None:
+    with pytest.raises(ValueError, match="plain-text paragraph"):
+        validate_decision_summary(summary, supported_text=summary)
 
 
 def _hit(

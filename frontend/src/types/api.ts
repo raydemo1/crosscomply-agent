@@ -86,7 +86,38 @@ export type EvalSuite = 'quick' | 'base' | 'full';
  * Matches `ReviewFacts` in `law_agent/review/schemas.py`. All optional
  * fields are `null` when the fact could not be inferred from the material.
  */
+export interface FactLedgerEntryApi {
+  field: string;
+  value: unknown;
+  source_type: 'confirmed_intake' | 'material' | 'applicant_statement';
+  source_ref: string;
+  status: 'confirmed' | 'extracted' | 'unverified' | 'conflicted';
+}
+
+export interface MatterTurnApi {
+  id: string;
+  task_id: string;
+  material_snapshot_id: string;
+  intake_snapshot_id: string;
+  question: string;
+  created_at: string;
+  reply: {
+    answer: string;
+    claims: GroundedClaim[];
+    material_citations: Array<{ material_version_id: string; quote: string; filename?: string }>;
+    fact_fields: import('../utils/factFields').FactField[];
+    proposed_facts: Partial<Record<import('../utils/factFields').FactField, unknown>>;
+  };
+}
+
 export interface ReviewFacts {
+  important_data_status?: 'unknown' | 'not_important' | 'important' | 'under_review';
+  ciio_status?: 'unknown' | 'not_ciio' | 'ciio' | 'under_review';
+  annual_non_sensitive_count?: string | null;
+  annual_sensitive_count?: string | null;
+  count_period?: 'unknown' | 'current_year_cumulative' | 'annual_estimate' | 'other';
+  destination_region?: string | null;
+  exemption_facts?: string | null;
   /** High-level description of the business activity, if detected. */
   business_activity: string | null;
   /** Data categories referenced by the material (e.g. "personal_info"). */
@@ -353,6 +384,7 @@ export interface ReviewResult {
 
 /** Structured review result returned inside a persisted case. */
 export interface ReviewResponse {
+  fact_ledger?: FactLedgerEntryApi[];
   review_case_id: string;
   trace_id: string;
   review_facts: ReviewFacts;
@@ -882,6 +914,10 @@ export interface ReviewTaskApi {
   data_boundary_summary: Record<string, unknown>;
   result: Record<string, unknown> | null;
   agent_state: {
+    fact_ledger?: FactLedgerEntryApi[];
+    fact_questions?: Array<{ field: import('../utils/factFields').FactField; answer_type: 'choice' | 'count' | 'text' }>;
+    pending_fact_values?: Partial<Record<import('../utils/factFields').FactField, unknown>>;
+    fact_answer_revision?: string | null;
     plan: string[];
     pending_question: string | null;
     gate_id: string | null;

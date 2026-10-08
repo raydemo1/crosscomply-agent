@@ -19,7 +19,7 @@ from pydantic import Field
 from law_agent.data.schemas import StrictModel
 
 AgentSuite = Literal["smoke", "core"]
-AgentRunStatus = Literal["succeeded", "failed", "unanswered_gate"]
+AgentRunStatus = Literal["succeeded", "failed", "blocked", "unanswered_gate"]
 JudgeGrade = Literal["pass", "minor_issue", "fail", "not_applicable"]
 AnswerProvenance = Literal["applicant_statement", "reviewer_instruction"]
 
@@ -45,9 +45,9 @@ class AgentRubric(StrictModel):
     ``must_not_assume``, ``required_exceptions``, ``clarification_expectations``.
     """
 
-    # Final risk level must be insufficient_evidence iff True; abstaining when
-    # the case is answerable (or answering when it is not) is a hard failure.
-    should_abstain: bool = False
+    # None leaves uncertainty handling to the semantic judgment boundaries,
+    # so a conditional report need not use one particular risk-level label.
+    should_abstain: bool | None = False
     # When non-empty, risk_level must be one of these. Empty = outcome level is
     # left to the judge / other deterministic checks.
     acceptable_outcomes: list[str] = Field(default_factory=list)
@@ -61,7 +61,21 @@ class AgentRubric(StrictModel):
     must_not_assume: list[str] = Field(default_factory=list)
     required_exceptions: list[str] = Field(default_factory=list)
     clarification_expectations: list[str] = Field(default_factory=list)
+    allowed_judgments: list[str] = Field(default_factory=list)
+    forbidden_judgments: list[str] = Field(default_factory=list)
     notes: str = ""
+
+
+class ControlledWebResult(StrictModel):
+    url: str
+    title: str
+    text: str
+    published_date: str
+
+
+class ControlledWebFixture(StrictModel):
+    held_out_source_ids: list[str] = Field(min_length=1)
+    results: list[ControlledWebResult] = Field(min_length=1, max_length=3)
 
 
 class AgentCase(StrictModel):
@@ -79,6 +93,12 @@ class AgentCase(StrictModel):
     intake: dict[str, object] = Field(default_factory=dict)
     scripted_answers: list[ScriptedAnswer] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+    review_status: Literal["framework_check", "candidate", "approved"] = "candidate"
+    source_case_id: str | None = None
+    construction_round: int = Field(default=1, ge=1, le=2)
+    selection_reason: str = ""
+    reference_basis: list[str] = Field(default_factory=list)
+    controlled_web: ControlledWebFixture | None = None
 
 
 class IllegalCitation(StrictModel):
@@ -106,6 +126,7 @@ class JudgeVerdict(StrictModel):
 
 class AgentCaseResult(StrictModel):
     case_id: str
+    review_status: Literal["framework_check", "candidate", "approved"] = "candidate"
     tags: list[str] = Field(default_factory=list)
     status: AgentRunStatus
     risk_level: str | None = None

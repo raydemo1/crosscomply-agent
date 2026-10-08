@@ -15,7 +15,6 @@ from typing import Any, Literal, Protocol
 from uuid import uuid4
 
 import psycopg
-from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pwdlib import PasswordHash
 
@@ -230,7 +229,9 @@ class PostgresCaseStore:
         self.dsn = dsn
 
     def _connect(self) -> psycopg.Connection[Any]:
-        return psycopg.connect(self.dsn, row_factory=dict_row)
+        from law_agent.review.transactions import store_connection
+
+        return store_connection(self.dsn)
 
     def initialize(self) -> None:
         with self._connect() as conn, conn.cursor() as cur:
@@ -826,9 +827,7 @@ class PostgresCaseStore:
                 fact_task = row["task_kind"] == "fact_confirmation"
                 if resolved and fact_task:
                     submission_status, task_status = "agent_verified", "completed"
-                elif resolved:
-                    submission_status, task_status = "pending_review", "pending_review"
-                elif not fact_task and row.get("response_choice") in {"completed", "not_applicable"}:
+                elif resolved or not fact_task and row.get("response_choice") in {"completed", "not_applicable"}:
                     submission_status, task_status = "pending_review", "pending_review"
                 else:
                     submission_status, task_status = "agent_feedback", "in_progress"
@@ -1261,9 +1260,7 @@ class InMemoryCaseStore:
         resolved = assessment_status == "resolved"
         if resolved and task.get("task_kind") == "fact_confirmation":
             submission_status, task_status = "agent_verified", "completed"
-        elif resolved:
-            submission_status, task_status = "pending_review", "pending_review"
-        elif task.get("task_kind") != "fact_confirmation" and submission.get("response_choice") in {"completed", "not_applicable"}:
+        elif resolved or task.get("task_kind") != "fact_confirmation" and submission.get("response_choice") in {"completed", "not_applicable"}:
             submission_status, task_status = "pending_review", "pending_review"
         else:
             submission_status, task_status = "agent_feedback", "in_progress"

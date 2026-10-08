@@ -4,11 +4,8 @@ Case material is NOT copied: ``case_id``/``question``/``material_text`` are
 resolved from the existing retrieval ``EvalScenario`` golden set, and only the
 Agent-specific rubric is defined here.
 
-Slice 2A ships the ``smoke`` suite (framework self-check). The 15-20 hand-picked
-``core`` cases (article-5 exemption, quantity thresholds, sensitive PI,
-important data, CIIO, local/industry rules, missing facts, material conflicts,
-historical points in time, freshness, must-abstain, ...) are added in Slice 2B
-after reviewing first real-model runs.
+``smoke`` contains framework self-checks. ``core`` contains the Slice 2B
+candidate legal-judgment cases, built in two rounds and awaiting human review.
 """
 
 from __future__ import annotations
@@ -65,10 +62,6 @@ _SMOKE_ANSWERS: dict[str, list[ScriptedAnswer]] = {
     ],
 }
 
-# Slice 2B: register hand-picked core case ids here, one AgentRubric each.
-_CORE_RUBRICS: dict[str, AgentRubric] = {}
-_CORE_ANSWERS: dict[str, list[ScriptedAnswer]] = {}
-
 SMOKE_CASE_IDS: tuple[str, ...] = tuple(_SMOKE_RUBRICS)
 
 
@@ -90,6 +83,8 @@ def _build_cases(
                 rubric=rubric,
                 scripted_answers=list(answers.get(case_id, ())),
                 tags=list(scenario.tags),
+                review_status="framework_check",
+                source_case_id=scenario.case_id,
             )
         )
     return cases
@@ -99,5 +94,7 @@ def get_agent_cases(suite: str) -> list[AgentCase]:
     if suite == "smoke":
         return _build_cases(_SMOKE_RUBRICS, _SMOKE_ANSWERS)
     if suite == "core":
-        return _build_cases(_CORE_RUBRICS, _CORE_ANSWERS)
+        from law_agent.review.evalset.agent_cases_core import build_core_cases
+
+        return build_core_cases()
     raise ValueError(f"unknown agent eval suite: {suite!r}")

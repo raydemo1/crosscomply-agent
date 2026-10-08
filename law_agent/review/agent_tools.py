@@ -22,6 +22,7 @@ from law_agent.review.result_builder import (
     ReviewIssueDraft,
     attach_citation_refs,
     validate_grounded_claims,
+    validate_plain_text_summary,
 )
 from law_agent.review.retrieval.boosts import apply_boosts_to_hits
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
@@ -156,7 +157,13 @@ def finalize_issues(
         )
         excerpts = {(item.material_version_id, item.start_offset) for item in material_evidence}
         if draft.kind == "material_conflict" and len(excerpts) < 2:
-            raise ValueError("material_conflict 至少需要两条不同的材料原文作为冲突双方证据")
+            raise ValueError(
+                f"material_conflict「{draft.title}」只有 {len(excerpts)} 条有效材料原文，"
+                "需要两条不同的材料原文作为冲突双方证据。"
+                "如果另一方来自确认填报或人工陈述，请改用 missing_information，"
+                "在 finding 中说明双方来源和值，在 unknowns 中列出待核实事项；"
+                "material_evidence 仅保留真实材料摘录，不把事实快照伪装成材料。"
+            )
         if draft.kind == "missing_information" and not any(
             unknown.strip() for unknown in draft.unknowns
         ):
@@ -488,12 +495,13 @@ class ComplianceAgentTools:
         claims = attach_citation_refs(claims, citation_groups)
         citations = [citation for group in citation_groups for citation in group.citations]
         issues = self._finalize_issues(draft.issues, result_evidence, citation_groups)
-        decision_summary = draft.decision_summary.strip()
-        if any(char in decision_summary for char in "\n\r#*_`"):
+        try:
+            decision_summary = validate_plain_text_summary(draft.decision_summary)
+        except ValueError as exc:
             raise ValueError(
-                f"decision_summary 必须为单段纯文本，当前摘要为：{decision_summary[:240]}。"
+                f"decision_summary 必须为单段纯文本，当前摘要为：{draft.decision_summary[:240]}。"
                 "请删除 Markdown 标记（如 **、#、反引号）和换行，只保留一段中文摘要。"
-            )
+            ) from exc
         if self._semantic_verifier is None:
             raise RuntimeError("正式报告缺少独立语义证据校验器")
         if system_abstention:
@@ -501,17 +509,24 @@ class ComplianceAgentTools:
                 raise ValueError("预算耗尽时只能生成无确定法律结论的证据不足报告")
             verdict = SemanticVerdict(status="supported", claim_checks=[], conclusion_reason="证据不足且未提出确定法律路径")
         else:
+            if any(
+                step.observation.get("provenance") not in {"applicant_statement", "reviewer_instruction"}
+                for step in state.steps if step.action == "human_input"
+            ):
+                raise ValueError("人工回答缺少有效来源，请重新审查")
             human_inputs = [
                 {
                     "answer": str(step.observation.get("answer") or ""),
-                    "provenance": step.observation.get("provenance") or "unverified_legacy_input",
+                    "provenance": step.observation["provenance"],
                     "intake_snapshot_id": step.observation.get("intake_snapshot_id"),
+                    "gate_id": step.observation.get("gate_id"),
                 }
                 for step in state.steps
                 if step.action == "human_input"
                 and str(step.observation.get("answer") or "").strip()
             ]
             verdict = self._semantic_verifier(
+                review_goal=state.goal,
                 draft=draft,
                 confirmed_intake=intake_snapshot["facts"],
                 extracted_facts=state.facts,
@@ -519,6 +534,7 @@ class ComplianceAgentTools:
                 evidence=verifier_evidence,
                 chunks_by_id=self._chunks_by_id,
                 human_inputs=human_inputs,
+                fact_ledger=state.fact_ledger,
             )
         if verdict.status != "supported":
             raise SemanticGroundingRejected(verdict)
@@ -546,6 +562,7 @@ class ComplianceAgentTools:
             "review_case_id": case_id,
             "trace_id": trace_id,
             "review_facts": state.facts.model_dump(mode="json"),
+            "fact_ledger": [entry.model_dump(mode="json") for entry in state.fact_ledger],
             "review_result": result.model_dump(mode="json"),
             "semantic_grounding": verdict.model_dump(mode="json"),
             "evidence_self_check": EvidenceSelfCheck(

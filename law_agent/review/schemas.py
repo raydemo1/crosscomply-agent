@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, JsonValue, field_validator, model_validator
 
 from law_agent.data.schemas import Authority, ClauseCitationRole, DocType, LawStatus, StrictModel
 
@@ -39,6 +39,32 @@ EvidenceIssueType = Literal[
 IssueKind = Literal["material_conflict", "missing_information", "legal_gap"]
 
 
+ImportantDataStatus = Literal["unknown", "not_important", "important", "under_review"]
+CIIOStatus = Literal["unknown", "not_ciio", "ciio", "under_review"]
+CountPeriod = Literal["unknown", "current_year_cumulative", "annual_estimate", "other"]
+ConfirmableFactField = Literal[
+    "business_activity", "data_types", "contains_personal_information",
+    "sensitive_personal_info", "cross_border_transfer", "overseas_recipient",
+    "processing_purpose", "legal_basis_or_consent", "important_data_status", "ciio_status",
+    "annual_non_sensitive_count", "annual_sensitive_count", "count_period",
+    "destination_region", "exemption_facts",
+]
+MaterialFactField = ConfirmableFactField | Literal["industry", "regions"]
+
+
+class FactQuestion(StrictModel):
+    field: ConfirmableFactField
+    answer_type: Literal["choice", "count", "text"]
+
+
+class FactLedgerEntry(StrictModel):
+    field: str = Field(min_length=1)
+    value: JsonValue
+    source_type: Literal["confirmed_intake", "material", "applicant_statement"]
+    source_ref: str = Field(min_length=1)
+    status: Literal["confirmed", "extracted", "unverified", "conflicted"]
+
+
 class ReviewFacts(StrictModel):
     """Structured facts extracted from user material."""
 
@@ -47,6 +73,13 @@ class ReviewFacts(StrictModel):
     contains_personal_information: bool | None = None
     sensitive_personal_info: bool | None = None
     cross_border_transfer: bool | None = None
+    important_data_status: ImportantDataStatus = "unknown"
+    ciio_status: CIIOStatus = "unknown"
+    annual_non_sensitive_count: str | None = None
+    annual_sensitive_count: str | None = None
+    count_period: CountPeriod = "unknown"
+    destination_region: str | None = None
+    exemption_facts: str | None = None
     overseas_recipient: str | None = None
     processing_purpose: str | None = None
     legal_basis_or_consent: str | None = None
@@ -68,6 +101,10 @@ class ReviewFacts(StrictModel):
         "processing_purpose",
         "legal_basis_or_consent",
         "industry",
+        "annual_non_sensitive_count",
+        "annual_sensitive_count",
+        "destination_region",
+        "exemption_facts",
         mode="before",
     )
     @classmethod
@@ -93,6 +130,20 @@ class ReviewFacts(StrictModel):
             if item not in cleaned:
                 cleaned.append(item)
         return cleaned
+
+
+class MaterialFactObservation(StrictModel):
+    field: MaterialFactField
+    value: str | bool | list[str] | None = Field(
+        description="冻结材料中的陈述值，与综合判断后的工作事实独立；"
+        "材料陈述真实性待核实，不改变材料本身明确陈述的值。",
+    )
+
+    @model_validator(mode="after")
+    def validate_field_value(self) -> MaterialFactObservation:
+        normalized = ReviewFacts.model_validate({self.field: self.value})
+        self.value = getattr(normalized, self.field)
+        return self
 
 
 class UploadedFileMeta(StrictModel):

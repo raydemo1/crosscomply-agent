@@ -939,12 +939,39 @@ def test_waiting_assessment_is_answered_through_the_input_endpoint(workbench) ->
     assert answered.status_code == 200, answered.text
     assert answered.json()["run_status"] == "completed"
     assert answered.json()["status"] == "partially_resolved"
+    resumed = runner.calls[-1]["state"]
+    assert resumed.fact_ledger == []
+    assert resumed.steps[-1].observation["provenance"] == "reviewer_instruction"
 
     stale = client.post(
         f"/api/remediation-assessments/{assessment['id']}/input",
         json={"gate_id": "input_1", "answer": "再答一次。"},
     )
     assert stale.status_code == 409
+
+
+def test_requester_answer_in_remediation_stays_unverified(workbench) -> None:
+    client, app, runner, _case_id, task_id = workbench
+    runner.pending = True
+    runner.question = "请说明生产设置"
+    submitted = client.post(
+        f"/api/remediation-tasks/{task_id}/submissions", json={"note": "已关闭训练。"},
+    ).json()
+    assessment = submitted["assessment"]
+    client.post(
+        "/api/auth/login", json={"username": "requester@crosscomply.local", "password": "pw"},
+    )
+    requester_id = client.get("/api/auth/me").json()["user"]["id"]
+    app.state.case_store.update_remediation_task(task_id, assignee_id=requester_id)
+    answered = client.post(
+        f"/api/remediation-assessments/{assessment['id']}/input",
+        json={"gate_id": "input_1", "answer": "对全部用户生效。"},
+    )
+    assert answered.status_code == 200, answered.text
+    entry = runner.calls[-1]["state"].fact_ledger[0]
+    assert entry.source_type == "applicant_statement"
+    assert entry.status == "unverified"
+    assert entry.source_ref == "input_1"
 
 
 def test_previous_assessment_and_human_note_reach_the_next_review(workbench) -> None:

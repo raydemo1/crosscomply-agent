@@ -730,6 +730,9 @@ def register_remediation_routes(
                 AgentState.model_validate(assessment["agent_state_json"]),
                 gate_id=payload.gate_id,
                 answer=payload.answer,
+                provenance=(
+                    "applicant_statement" if user.role == "requester" else "reviewer_instruction"
+                ),
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc

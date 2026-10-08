@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import tempfile
 from collections.abc import Callable
 from dataclasses import asdict
@@ -19,7 +18,6 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
-from law_agent.config import load_llm_config
 from law_agent.kb.enrichment import PostgresEnrichmentStore
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
@@ -78,6 +76,13 @@ def _intake_from_extraction(facts: ReviewFacts) -> IntakePayload:
         contains_personal_information=facts.contains_personal_information,
         sensitive_personal_info=facts.sensitive_personal_info,
         cross_border_transfer=facts.cross_border_transfer,
+        important_data_status=facts.important_data_status,
+        ciio_status=facts.ciio_status,
+        annual_non_sensitive_count=facts.annual_non_sensitive_count or "",
+        annual_sensitive_count=facts.annual_sensitive_count or "",
+        count_period=facts.count_period,
+        destination_region=facts.destination_region or "",
+        exemption_facts=facts.exemption_facts or "",
         overseas_recipient=facts.overseas_recipient or "",
         processing_purpose=facts.processing_purpose or "",
         legal_basis_or_consent=facts.legal_basis_or_consent or "",
@@ -94,6 +99,13 @@ _INTAKE_FOLLOWUP_TYPES: dict[str, str] = {
     "overseas_recipient": "text",
     "processing_purpose": "text",
     "legal_basis_or_consent": "text",
+    "important_data_status": "choice",
+    "ciio_status": "choice",
+    "annual_non_sensitive_count": "count",
+    "annual_sensitive_count": "count",
+    "count_period": "choice",
+    "destination_region": "text",
+    "exemption_facts": "exemption",
     "data_volume_threshold": "count",
     "exemption_facts_confirmed": "exemption",
 }
@@ -174,52 +186,16 @@ def register_case_routes(
         material_snapshot: Any,
         intake_snapshot: Any,
     ) -> dict[str, Any]:
-        """Validate frozen inputs, queue the Agent task and move the case into review."""
-        versions = [
-            enterprise().get_material_version(version_id)
-            for version_id in material_snapshot.version_ids
-        ]
-        if any(
-            version is None
-            or version.parse_status != "ready"
-            or not (version.parsed_text or "").strip()
-            for version in versions
-        ):
-            raise HTTPException(status_code=409, detail="快照中存在尚未完成通用解析的材料")
-        llm_config = load_llm_config()
-        task = enterprise().enqueue_review_task(
-            case_id=identifier,
-            material_snapshot_id=material_snapshot.id,
-            intake_snapshot_id=intake_snapshot.id,
-            model_id=llm_config.model or "not-configured",
-            data_boundary_summary={
-                "base_url": llm_config.base_url,
-                "deployment": os.getenv(
-                    "CROSSCOMPLY_MODEL_BOUNDARY",
-                    "enterprise-approved-api",
-                ),
-            },
-        )
-        if task.status not in {"queued", "running", "waiting_input"}:
-            raise HTTPException(
-                status_code=409,
-                detail="当前冻结输入已有终态任务；请更新材料或申请人事实后重新运行",
+        from law_agent.review.fact_confirmation import queue_review as enqueue_review
+
+        validate_case_transition(current=case["status"], target="review_running", authority="local")
+        try:
+            return enqueue_review(
+                cases=store(), enterprise=enterprise(), case=case, user=user,
+                material_snapshot=material_snapshot, intake_snapshot=intake_snapshot,
             )
-        validate_case_transition(
-            current=case["status"],
-            target="review_running",
-            authority="local",
-        )
-        store().update_case(identifier, status="review_running")
-        store().add_event(
-            identifier,
-            user.id,
-            event_type="review_queued",
-            from_status=case["status"],
-            to_status="review_running",
-            payload={"task_id": task.id, "material_snapshot_id": material_snapshot.id},
-        )
-        return {"task_id": task.id, "status": task.status}
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @router.post("/api/cases")
     async def create_case_endpoint(
@@ -738,43 +714,47 @@ def register_case_routes(
         task = enterprise().get_task(task_id)
         if task is None:
             raise HTTPException(status_code=404, detail="审查任务不存在")
-        case = store().get_case(task.case_id)
-        if case is None:
-            raise HTTPException(status_code=404, detail="案件不存在")
-        if user.role == "requester":
-            if (case.get("owner_id") or case.get("created_by")) != user.id:
-                raise HTTPException(status_code=404, detail="审查任务不存在或无权访问")
-        else:
-            reviewer_only(user)
-        if task.status != "waiting_input":
-            raise HTTPException(status_code=409, detail="当前审查没有等待回答的问题")
-        if task.agent_state is None:
-            raise HTTPException(status_code=409, detail="任务没有可恢复的 Agent 状态")
-        try:
-            state = answer_agent(
-                AgentState.model_validate(task.agent_state),
-                gate_id=payload.gate_id,
-                answer=payload.answer,
-                provenance=(
-                    "applicant_statement" if user.role == "requester" else "reviewer_instruction"
-                ),
-                intake_snapshot_id=task.intake_snapshot_id,
+        from law_agent.review.transactions import case_transaction
+
+        with case_transaction(store(), enterprise(), task.case_id):
+            task = enterprise().get_task(task_id)
+            case = store().get_case(task.case_id)
+            if case is None:
+                raise HTTPException(status_code=404, detail="案件不存在")
+            if user.role == "requester":
+                if (case.get("owner_id") or case.get("created_by")) != user.id:
+                    raise HTTPException(status_code=404, detail="审查任务不存在或无权访问")
+            else:
+                reviewer_only(user)
+            if task.status != "waiting_input":
+                raise HTTPException(status_code=409, detail="当前审查没有等待回答的问题")
+            if task.agent_state is None:
+                raise HTTPException(status_code=409, detail="任务没有可恢复的 Agent 状态")
+            try:
+                state = answer_agent(
+                    AgentState.model_validate(task.agent_state),
+                    gate_id=payload.gate_id,
+                    answer=payload.answer,
+                    provenance=(
+                        "applicant_statement" if user.role == "requester" else "reviewer_instruction"
+                    ),
+                    intake_snapshot_id=task.intake_snapshot_id,
+                )
+                resumed = enterprise().resume_task(
+                    task_id, state=state.model_dump(mode="json")
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            store().update_case(task.case_id, status="review_running")
+            store().add_event(
+                task.case_id,
+                user.id,
+                event_type="agent_input_received",
+                from_status=case["status"],
+                to_status="review_running",
+                payload={"task_id": task_id, "gate_id": payload.gate_id},
             )
-            resumed = enterprise().resume_task(
-                task_id, state=state.model_dump(mode="json")
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        store().update_case(task.case_id, status="review_running")
-        store().add_event(
-            task.case_id,
-            user.id,
-            event_type="agent_input_received",
-            from_status=case["status"],
-            to_status="review_running",
-            payload={"task_id": task_id, "gate_id": payload.gate_id},
-        )
-        return asdict(resumed)
+            return asdict(resumed)
 
     @router.post("/api/tasks/{task_id}/retry")
     async def retry_review_task(
@@ -836,7 +816,7 @@ def register_case_routes(
                     requester_id=case.get("owner_id") or case["created_by"],
                     task_result=task.result,
                 )
-            except Exception as exc:  # noqa: BLE001 - preserve the completed review and allow retry
+            except Exception as exc:
                 store().add_event(
                     task.case_id,
                     user.id,

@@ -11,8 +11,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
 
-import psycopg
-from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from law_agent.review.case_store import utc_now
@@ -238,12 +236,16 @@ class InMemoryEnterpriseStore:
         material_snapshot_id: str,
         intake: dict[str, Any],
         created_by: str,
+        confirmation_ref: str | None = None,
     ) -> IntakeSnapshot:
         with self._lock:
             snapshot = self.snapshots.get(material_snapshot_id)
             if snapshot is None or snapshot.case_id != case_id:
                 raise ValueError("事实快照必须绑定本案件的材料快照")
-            fingerprint = _canonical_hash({"material": snapshot.fingerprint, "intake": intake})
+            content = {"material": snapshot.fingerprint, "intake": intake}
+            if confirmation_ref is not None:
+                content["confirmation_ref"] = confirmation_ref
+            fingerprint = _canonical_hash(content)
             for existing in self.intake_snapshots.values():
                 if existing.case_id == case_id and existing.fingerprint == fingerprint:
                     return existing
@@ -435,6 +437,16 @@ class InMemoryEnterpriseStore:
             task.updated_at = attempt.finished_at
             return task
 
+    def record_waiting_input(self, task_id: str, *, state: dict[str, Any], gate_id: str) -> ReviewTask:
+        with self._lock:
+            task = self.tasks[task_id]
+            if task.status != "waiting_input" or (task.agent_state or {}).get("gate_id") != gate_id:
+                raise ValueError("该问题或事实确认已过期")
+            task.agent_state = _json_copy(state)
+            task.steps = _json_copy({"items": state.get("steps", [])})["items"]
+            task.updated_at = utc_now()
+            return task
+
     def resume_task(self, task_id: str, *, state: dict[str, Any]) -> ReviewTask:
         with self._lock:
             task = self.tasks[task_id]
@@ -551,9 +563,9 @@ class PostgresEnterpriseStore:
         self._connection_factory = connect
 
     def _connect(self) -> Any:
-        if self._connection_factory is not None:
-            return self._connection_factory()
-        return psycopg.connect(self.dsn, row_factory=dict_row)
+        from law_agent.review.transactions import store_connection
+
+        return store_connection(self.dsn, self._connection_factory)
 
     def create_material_version(
         self,
@@ -742,6 +754,7 @@ class PostgresEnterpriseStore:
         material_snapshot_id: str,
         intake: dict[str, Any],
         created_by: str,
+        confirmation_ref: str | None = None,
     ) -> IntakeSnapshot:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
@@ -751,7 +764,10 @@ class PostgresEnterpriseStore:
             snapshot = cur.fetchone()
             if snapshot is None or snapshot["case_id"] != case_id:
                 raise ValueError("事实快照必须绑定本案件的材料快照")
-            fingerprint = _canonical_hash({"material": snapshot["fingerprint"], "intake": intake})
+            content = {"material": snapshot["fingerprint"], "intake": intake}
+            if confirmation_ref is not None:
+                content["confirmation_ref"] = confirmation_ref
+            fingerprint = _canonical_hash(content)
             cur.execute(
                 """
                 INSERT INTO intake_snapshots (
@@ -1162,6 +1178,23 @@ class PostgresEnterpriseStore:
                 """,
                 (task_id, row["attempt_count"]),
             )
+            attempts = self._load_attempts(cur, task_id)
+            conn.commit()
+        return self._review_task(row, attempts)
+
+    def record_waiting_input(self, task_id: str, *, state: dict[str, Any], gate_id: str) -> ReviewTask:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE review_tasks SET agent_state_json = %s, updated_at = now()
+                WHERE id = %s AND status = 'waiting_input'
+                  AND agent_state_json->>'gate_id' = %s RETURNING *
+                """,
+                (Jsonb(state), task_id, gate_id),
+            )
+            row = cur.fetchone()
+            if row is None:
+                self._raise_invalid_state(cur, task_id, "该问题或事实确认已过期")
             attempts = self._load_attempts(cur, task_id)
             conn.commit()
         return self._review_task(row, attempts)

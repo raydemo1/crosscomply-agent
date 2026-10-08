@@ -4,8 +4,12 @@ import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
 import { setCitationVerdict } from '../store/caseStore';
 import { openCase } from '../store/caseStore';
-import { answerReviewTask, caseReportDownloadUrl, createFeishuApproval, getCaseKnowledgeRechecks, retryReviewTask, runCase, waitForReviewTask } from '../api/client';
+import { caseReportDownloadUrl, getCaseKnowledgeRechecks } from '../api/client';
 import RiskBadge from './RiskBadge';
+import CaseWorkflowActions from './CaseWorkflowActions';
+import CaseFactsPanel from './CaseFactsPanel';
+import MatterConversation from './MatterConversation';
+import { caseFactLedger } from '../utils/factFields';
 import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
 import GroundedClaims, { cssId } from './GroundedClaims';
@@ -57,6 +61,12 @@ interface CaseDetailPageProps {
 }
 
 type SavedCaseWithResponse = SavedCase & { response: ReviewApiResponse };
+
+function focusAnswer(): void {
+  const target = document.getElementById('case-agent-answer');
+  target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  target?.focus({ preventScroll: true });
+}
 
 /** Ordered facts shown in the 材料事实摘要 grid. */
 const FACT_FIELDS: Array<{ key: string; label: string; render: (f: ReviewFacts) => string }> = [
@@ -117,7 +127,7 @@ export default function CaseDetailPage({
 }: CaseDetailPageProps): JSX.Element {
   const [workflowOperation, setWorkflowOperation] = useState<string | null>(null);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
-  const [detailView, setDetailView] = useState<'document' | 'report' | 'records'>('report');
+  const [detailView, setDetailView] = useState<'document' | 'report' | 'facts' | 'records'>('report');
   const [documentTarget, setDocumentTarget] = useState<RevisionSelection | null>(null);
   const [reportIssueTarget, setReportIssueTarget] = useState<string | null>(null);
   /** True while the document view holds unsubmitted revision edits; leaving it would drop that text. */
@@ -130,7 +140,7 @@ export default function CaseDetailPage({
   useEffect(() => { onDocumentDirtyChange?.(documentDirty); }, [documentDirty, onDocumentDirtyChange]);
   const response = saved.response;
   if (!response) {
-    return <DraftCaseView saved={saved} canEdit={canEdit} onEdit={onEdit} onBack={onBack} canManageActions={canManageActions} viewerRole={viewerRole} workflowOperation={workflowOperation} workflowError={workflowError} setWorkflowOperation={setWorkflowOperation} setWorkflowError={setWorkflowError} />;
+    return <DraftCaseView saved={saved} canEdit={canEdit} onEdit={onEdit} onBack={onBack} canManageActions={canManageActions} viewerRole={viewerRole} workflowOperation={workflowOperation} workflowError={workflowError} setWorkflowOperation={setWorkflowOperation} setWorkflowError={setWorkflowError} focusAgentAnswer={focusAgentAnswer} onAgentAnswerFocused={onAgentAnswerFocused} />;
   }
   const failed = isReviewFailedResponse(response);
   const reviewResult = failed ? null : (response as Extract<ReviewApiResponse, { review_case_id: string }>).review_result;
@@ -150,10 +160,12 @@ export default function CaseDetailPage({
     onDocumentDirtyChange?.(false);
     return true;
   };
-  const switchDetailView = (next: 'document' | 'report' | 'records'): void => {
+  const switchDetailView = (next: 'document' | 'report' | 'facts' | 'records'): void => {
     if (!leaveDocumentView()) return;
     setDetailView(next);
   };
+  const attentionCount = new Set(caseFactLedger(saved).filter((entry) => entry.status === 'conflicted' || entry.source_type === 'applicant_statement').map((entry) => entry.field)).size;
+  const waiting = saved.reviewTask?.status === 'waiting_input';
 
   return (
     <div className="case-detail">
@@ -170,54 +182,62 @@ export default function CaseDetailPage({
         remediationPlan={saved.remediationPlan}
         reviewTaskStatus={saved.reviewTask?.status ?? null}
         approvalStarted={Boolean(saved.feishuApproval)}
+        onAnswerAction={waiting ? () => { if (leaveDocumentView()) focusAnswer(); } : undefined}
         onOpenAction={() => { if (leaveDocumentView()) onOpenRemediationPlan?.(); }}
-        revealAnswer={focusAgentAnswer}
-        onAnswerRevealed={onAgentAnswerFocused}
-        actionSlot={<CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => { if (leaveDocumentView()) onEdit(completedSaved); }} compact />}
+        actionSlot={!waiting ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => { if (leaveDocumentView()) onEdit(completedSaved); }} compact /> : undefined}
       />
 
-      {webFindings.some((item) => !item.known_source_id || item.refresh_needed) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>最新官方材料</strong><ul>{webFindings.filter((item) => !item.known_source_id || item.refresh_needed).map((item) => {
-        const recheck = knowledgeRechecks.find((entry) => entry.url === item.url);
-        const status = recheck?.recheck_status === 'pending'
-          ? (recheck.source_status === 'unchanged' ? '官方正文未变化，案件待复核' : '新版已入库，案件待复核')
-          : item.known_source_id ? '发现更新迹象，正在核对官方原件'
-            : item.excerpt ? '已有搜索摘录，尚待治理核验' : '已发现来源，尚待治理核验';
-        return <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {status}</span></li>;
-      })}</ul></div> : null}
+      <div className={'case-workspace' + (detailView === 'document' ? ' case-workspace--document' : '')}>
+        <div className="case-workspace__main">
+          {waiting ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => { if (leaveDocumentView()) onEdit(completedSaved); }} focusAnswer={focusAgentAnswer} onAnswerFocused={onAgentAnswerFocused} /> : null}
 
-      {!failed ? <nav className="case-detail-views" aria-label="案件详情视图">
-        <button type="button" className={detailView === 'report' ? 'is-active' : ''} aria-current={detailView === 'report' ? 'page' : undefined} onClick={() => switchDetailView('report')}>审查报告</button>
-        <button type="button" className={detailView === 'document' ? 'is-active' : ''} aria-current={detailView === 'document' ? 'page' : undefined} onClick={() => switchDetailView('document')}>原文审阅</button>
-        <button type="button" className={detailView === 'records' ? 'is-active' : ''} aria-current={detailView === 'records' ? 'page' : undefined} onClick={() => switchDetailView('records')}>案件资料</button>
-      </nav> : null}
-      {!failed && detailView === 'document' ? <>
-        <DocumentReview
-          caseId={completedSaved.id}
-          reviewResultId={reviewResult?.review_result_id ?? ''}
-          issues={reviewResult?.issues ?? []}
-          canManageActions={canManageActions}
-          focusTarget={documentTarget}
-          onFocusHandled={() => setDocumentTarget(null)}
-          onDirtyChange={setDocumentDirty}
-          onOpenReportIssue={(issueId) => { if (!leaveDocumentView()) return; setReportIssueTarget(issueId); setDetailView('report'); }}
-        />
-      </> : null}
-      {failed ? (
-        <FailedChain response={response} />
-      ) : detailView !== 'document' ? (
-        <ReviewChain
-          saved={completedSaved}
-          view={detailView}
-          onVerdictChange={handleVerdict}
-          viewerRole={viewerRole}
-          canManageActions={canManageActions}
-          onOpenRemediationPlan={onOpenRemediationPlan}
-          onOpenDocument={(selection) => { setDocumentTarget(selection); setDetailView('document'); }}
-          focusIssueId={reportIssueTarget}
-          onIssueFocused={() => setReportIssueTarget(null)}
-        />
-      ) : null}
-      {failed ? <AuditDisclosure saved={saved} /> : null}
+          {webFindings.some((item) => !item.known_source_id || item.refresh_needed) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>最新官方材料</strong><ul>{webFindings.filter((item) => !item.known_source_id || item.refresh_needed).map((item) => {
+            const recheck = knowledgeRechecks.find((entry) => entry.url === item.url);
+            const status = recheck?.recheck_status === 'pending'
+              ? (recheck.source_status === 'unchanged' ? '官方正文未变化，案件待复核' : '新版已入库，案件待复核')
+              : item.known_source_id ? '发现更新迹象，正在核对官方原件'
+                : item.excerpt ? '已有搜索摘录，尚待治理核验' : '已发现来源，尚待治理核验';
+            return <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {status}</span></li>;
+          })}</ul></div> : null}
+
+          {!failed ? <nav className="case-detail-views" aria-label="案件详情视图">
+            <button type="button" className={detailView === 'report' ? 'is-active' : ''} aria-current={detailView === 'report' ? 'page' : undefined} onClick={() => switchDetailView('report')}>审查报告</button>
+            <button type="button" className={detailView === 'facts' ? 'is-active' : ''} aria-current={detailView === 'facts' ? 'page' : undefined} onClick={() => switchDetailView('facts')}>案件事实{attentionCount > 0 ? <span className="case-facts-count" aria-label={`${attentionCount} 项待核对`}>{attentionCount}</span> : null}</button>
+            <button type="button" className={detailView === 'document' ? 'is-active' : ''} aria-current={detailView === 'document' ? 'page' : undefined} onClick={() => switchDetailView('document')}>原文审阅</button>
+            <button type="button" className={detailView === 'records' ? 'is-active' : ''} aria-current={detailView === 'records' ? 'page' : undefined} onClick={() => switchDetailView('records')}>案件资料</button>
+          </nav> : null}
+          {detailView === 'facts' || failed ? <CaseFactsPanel saved={saved} viewerRole={viewerRole} /> : null}
+          {!failed && detailView === 'document' ? <>
+            <DocumentReview
+              caseId={completedSaved.id}
+              reviewResultId={reviewResult?.review_result_id ?? ''}
+              issues={reviewResult?.issues ?? []}
+              canManageActions={canManageActions}
+              focusTarget={documentTarget}
+              onFocusHandled={() => setDocumentTarget(null)}
+              onDirtyChange={setDocumentDirty}
+              onOpenReportIssue={(issueId) => { if (!leaveDocumentView()) return; setReportIssueTarget(issueId); setDetailView('report'); }}
+            />
+          </> : null}
+          {failed ? (
+            <FailedChain response={response} />
+          ) : detailView === 'report' || detailView === 'records' ? (
+            <ReviewChain
+              saved={completedSaved}
+              view={detailView}
+              onVerdictChange={handleVerdict}
+              viewerRole={viewerRole}
+              canManageActions={canManageActions}
+              onOpenRemediationPlan={onOpenRemediationPlan}
+              onOpenDocument={(selection) => { setDocumentTarget(selection); setDetailView('document'); }}
+              focusIssueId={reportIssueTarget}
+              onIssueFocused={() => setReportIssueTarget(null)}
+            />
+          ) : null}
+          {failed ? <AuditDisclosure saved={saved} /> : null}
+        </div>
+        <aside className="case-workspace__aside" aria-label="案件问答" hidden={detailView === 'document'}><MatterConversation saved={saved} viewerRole={viewerRole} /></aside>
+      </div>
     </div>
   );
 }
@@ -233,6 +253,8 @@ function DraftCaseView({
   workflowError,
   setWorkflowOperation,
   setWorkflowError,
+  focusAgentAnswer,
+  onAgentAnswerFocused,
 }: {
   saved: SavedCase;
   canEdit: boolean;
@@ -244,6 +266,8 @@ function DraftCaseView({
   workflowError: string | null;
   setWorkflowOperation: (value: string | null) => void;
   setWorkflowError: (value: string | null) => void;
+  focusAgentAnswer?: boolean;
+  onAgentAnswerFocused?: () => void;
 }): JSX.Element {
   const [shareOpen, setShareOpen] = useState(false);
   return (
@@ -264,20 +288,30 @@ function DraftCaseView({
         status={saved.status}
         viewerRole={viewerRole}
         remediationPlan={saved.remediationPlan}
-        actionSlot={<CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => onEdit(saved)} compact />}
+        reviewTaskStatus={saved.reviewTask?.status ?? null}
+        approvalStarted={Boolean(saved.feishuApproval)}
+        onAnswerAction={saved.reviewTask?.status === 'waiting_input' ? focusAnswer : undefined}
+        actionSlot={saved.reviewTask?.status !== 'waiting_input' ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => onEdit(saved)} compact /> : undefined}
       />
-      <section className="card draft-case-card">
-        <div className="section-title">提交前检查</div>
-        <div className="draft-case-card__grid">
-          <div><span>业务活动</span><strong>{saved.intake.business_activity || '待补充'}</strong></div>
-          <div><span>跨境传输</span><strong>{saved.intake.cross_border_transfer === null ? '待确认' : saved.intake.cross_border_transfer ? '是' : '否'}</strong></div>
-          <div><span>境外接收方</span><strong>{saved.intake.overseas_recipient || '待补充'}</strong></div>
-          <div><span>材料长度</span><strong>{saved.materialText.length.toLocaleString()} 字符</strong></div>
+      <div className="case-workspace">
+        <div className="case-workspace__main">
+          {saved.reviewTask?.status === 'waiting_input' ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => onEdit(saved)} focusAnswer={focusAgentAnswer} onAnswerFocused={onAgentAnswerFocused} /> : null}
+          {!saved.reviewTask ? <section className="card draft-case-card">
+            <div className="section-title">提交前检查</div>
+            <div className="draft-case-card__grid">
+              <div><span>业务活动</span><strong>{saved.intake.business_activity || '待补充'}</strong></div>
+              <div><span>跨境传输</span><strong>{saved.intake.cross_border_transfer === null ? '待确认' : saved.intake.cross_border_transfer ? '是' : '否'}</strong></div>
+              <div><span>境外接收方</span><strong>{saved.intake.overseas_recipient || '待补充'}</strong></div>
+              <div><span>材料长度</span><strong>{saved.materialText.length.toLocaleString()} 字符</strong></div>
+            </div>
+            <p className="draft-case-card__hint">确认材料和关键事实后提交。</p>
+            {canEdit && saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onEdit(saved)}>编辑并补充</button> : null}
+          </section> : saved.reviewTask.status !== 'waiting_input' ? <section className="card case-review-placeholder" role="status"><span className="case-module-kicker">审查报告</span><h2>{saved.reviewTask.status === 'queued' ? '材料已提交，等待审查' : saved.reviewTask.status === 'running' ? '正在审查案件' : '本次审查尚未形成报告'}</h2><p>完成后，判断结论与需要处理的问题会显示在这里。</p></section> : null}
+          <CaseFactsPanel saved={saved} viewerRole={viewerRole} />
+          <AuditDisclosure saved={saved} includeMaterial />
         </div>
-        <p className="draft-case-card__hint">确认材料和关键事实后提交。</p>
-        {canEdit && saved.status === 'needs_info' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" onClick={() => onEdit(saved)}>编辑并补充</button> : null}
-      </section>
-      <AuditDisclosure saved={saved} includeMaterial />
+        <aside className="case-workspace__aside" aria-label="案件问答"><MatterConversation saved={saved} viewerRole={viewerRole} /></aside>
+      </div>
     </div>
     <ShareCaseDialog caseId={saved.id} isOpen={shareOpen} onClose={() => setShareOpen(false)} />
     </>
@@ -337,180 +371,6 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
       ) : null}
     </section>
   );
-}
-
-interface CaseWorkflowActionsProps {
-  saved: SavedCase;
-  canManage: boolean;
-  allowApplicantAnswer?: boolean;
-  operation: string | null;
-  error: string | null;
-  setOperation: (value: string | null) => void;
-  setError: (value: string | null) => void;
-  /** Opens the material editing flow so the user can answer by uploading or updating materials. */
-  onEditMaterial?: () => void;
-  compact?: boolean;
-}
-
-function CaseWorkflowActions({
-  saved,
-  canManage,
-  allowApplicantAnswer = false,
-  operation,
-  error,
-  setOperation,
-  setError,
-  onEditMaterial,
-  compact = false,
-}: CaseWorkflowActionsProps): JSX.Element | null {
-  const [agentAnswer, setAgentAnswer] = useState('');
-  const canAnswerAgent = allowApplicantAnswer && saved.reviewTask?.status === 'waiting_input';
-  const guidedActionSyncFailed = hasUnresolvedGuidedActionSyncFailure(saved);
-  if (!canManage && !canAnswerAgent) return null;
-
-  const execute = async (name: string, action: () => Promise<void>): Promise<void> => {
-    setOperation(name);
-    setError(null);
-    try {
-      await action();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '流程操作失败');
-    } finally {
-      setOperation(null);
-    }
-  };
-
-  const startReview = (): void => {
-    void execute('run', async () => {
-      const queued = await runCase(saved.id);
-      await openCase(saved.id);
-      await waitForReviewTask(queued.task_id, async () => {
-        await openCase(saved.id);
-      });
-      await openCase(saved.id);
-    });
-  };
-
-  const retryReview = (): void => {
-    const taskId = saved.reviewTask?.id;
-    if (!taskId) return;
-    void execute('retry', async () => {
-      const retried = await retryReviewTask(taskId);
-      await openCase(saved.id);
-      await waitForReviewTask(retried.id, async () => {
-        await openCase(saved.id);
-      });
-      await openCase(saved.id);
-    });
-  };
-
-  const createApproval = (): void => {
-    void execute('approval', async () => {
-      await createFeishuApproval(saved.id);
-      await openCase(saved.id);
-    });
-  };
-
-  const resumeAgent = (): void => {
-    const task = saved.reviewTask;
-    const gateId = task?.agent_state?.gate_id;
-    if (!task || !gateId || !agentAnswer.trim()) return;
-    void execute('answer', async () => {
-      const resumed = await answerReviewTask(task.id, gateId, agentAnswer.trim());
-      setAgentAnswer('');
-      await openCase(saved.id);
-      await waitForReviewTask(resumed.id, async () => {
-        await openCase(saved.id);
-      });
-      await openCase(saved.id);
-    });
-  };
-
-  const activeTask = Boolean(saved.reviewTask && ['queued', 'running', 'waiting_input'].includes(saved.reviewTask.status));
-  // POST /api/cases/{id}/run rejects a re-run when the latest task already succeeded on the currently frozen
-  // inputs, so the button is only offered while the frozen input has not been investigated yet.
-  const frozenInputAlreadyReviewed = saved.reviewTask !== null
-    && saved.reviewTask.status === 'succeeded'
-    && saved.materialSnapshot !== null
-    && saved.reviewTask.material_snapshot_id === saved.materialSnapshot.id
-    && saved.reviewTask.intake_snapshot_id === saved.intakeSnapshot?.id;
-  const hasAction = canAnswerAgent || (canManage && (saved.status === 'pending_review'
-    || (saved.status === 'needs_info' && !activeTask)
-    || saved.status === 'run_failed'
-    || saved.status === 'pending_source_verification'
-    || saved.status === 'pending_feishu_approval'
-    || saved.reviewTask?.status === 'waiting_input'));
-  if (!hasAction && !error) return null;
-
-  const controls = (
-    <div className="workflow-actions__controls">
-      {canManage && saved.status === 'pending_review' ? (activeTask
-        ? <span>{saved.reviewTask?.status === 'queued' ? '审查任务已进入队列，等待 Worker 执行，无需手动启动。' : 'Agent 正在审查当前材料，完成后会自动更新结论。'}</span>
-        : <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '正在入队…' : '重新进入审查队列'}</button>) : null}
-      {canManage && saved.status === 'needs_info' && !activeTask ? (frozenInputAlreadyReviewed
-        ? <span>当前冻结材料与事实已完成调查，请申报人补充材料或事实后重新提交，或由申报人发起整案复核。</span>
-        : <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '调查启动中…' : '按最新材料重新调查'}</button>) : null}
-      {canManage && saved.status === 'pending_source_verification' ? <span>{saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '官方法源已完成核验，案件待人工复核；原结论未自动改写' : '发现可能影响结论的新官方法源，正在核验；原结论不会自动改写'}</span> : null}
-      {canManage && saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? (guidedActionSyncFailed ? '正在恢复整改清单…' : '重新运行中…') : (guidedActionSyncFailed ? '重试整改清单保存' : '重试失败任务')}</button> : null}
-      {canManage && saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
-      {(canAnswerAgent || canManage && saved.reviewTask?.status === 'waiting_input') ? <div className="enterprise-callout enterprise-callout--warning"><strong>{saved.reviewTask?.agent_state?.pending_question || 'Agent 需要补充信息'}</strong><textarea value={agentAnswer} onChange={(event) => setAgentAnswer(event.target.value)} placeholder="直接回答 Agent 的问题即可" rows={3} /><small>回答会按来源单独记录，不会改写已冻结事实；如需更正事实，请更新事实并重新提交。</small><button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !agentAnswer.trim()} onClick={() => resumeAgent()}>{operation === 'answer' ? '正在提交…' : '直接回答'}</button>{onEditMaterial ? <button type="button" className="case-header__action-btn" disabled={operation !== null} onClick={onEditMaterial}>上传或更新材料</button> : null}</div> : null}
-    </div>
-  );
-
-  if (compact) {
-    return <div className="case-header__workflow">{controls}{error ? <div className="case-header__workflow-error" role="alert">{error}</div> : null}</div>;
-  }
-
-  return (
-    <section className="card workflow-actions" aria-label="审核流程操作">
-      <div className="workflow-actions__copy">
-        <span>{canManage ? '审核人操作' : '申报人补充'}</span>
-        <strong>{canAnswerAgent ? 'Agent 等待申报人补充信息' : workflowActionTitle(saved)}</strong>
-        <small>{canAnswerAgent ? '请直接回答下方问题；回答会进入本次审查过程。' : workflowActionHint(saved)}</small>
-      </div>
-      {controls}
-      {error ? <div className="workflow-actions__error" role="alert">{error}</div> : null}
-    </section>
-  );
-}
-
-function workflowActionTitle(saved: SavedCase): string {
-  if (saved.status === 'pending_source_verification') return '最新官方法源核验与案件复核';
-  if (saved.status === 'pending_review') {
-    if (saved.reviewTask?.status === 'queued') return '审查任务排队中';
-    if (saved.reviewTask?.status === 'running' || saved.reviewTask?.status === 'waiting_input') return 'Agent 正在审查';
-    return '材料已提交，等待进入审查队列';
-  }
-  if (saved.status === 'run_failed') return hasUnresolvedGuidedActionSyncFailure(saved)
-    ? '审查结果已保存，整改清单生成失败'
-    : '失败记录已保留，可以人工重试';
-  if (saved.status === 'pending_feishu_approval') return saved.feishuApproval ? '飞书审批已发起，等待权威回写' : '审查已完成，可以发起飞书审批';
-  return '流程状态已更新';
-}
-
-function workflowActionHint(saved: SavedCase): string {
-  if (saved.status === 'pending_source_verification') return saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '官方法源已完成核验，待负责人复核当前案件。' : '核验期间不发起最终审批。';
-  if (saved.status === 'pending_review') {
-    if (saved.reviewTask?.status === 'queued') return '任务已进入队列，等待 Worker 执行，无需手动启动。';
-    if (saved.reviewTask?.status === 'running' || saved.reviewTask?.status === 'waiting_input') return 'Agent 正在调查材料、检索法源并核验证据，完成后自动更新结论。';
-    return '正常提交会自动进入审查队列；若任务未开始，可由审核人重新入队。';
-  }
-  if (saved.status === 'run_failed') return hasUnresolvedGuidedActionSyncFailure(saved)
-    ? '可以单独重试整改清单保存，不会重新运行审查模型。'
-    : `失败节点：${saved.reviewTask?.current_node || '未记录'}；重试不会覆盖历史尝试。`;
-  if (saved.status === 'pending_feishu_approval') return '最终通过、退回或撤回状态仅接受飞书验签事件。';
-  return '流程状态已更新。';
-}
-
-function hasUnresolvedGuidedActionSyncFailure(saved: SavedCase): boolean {
-  if (saved.status === 'run_failed' && saved.reviewTask?.status === 'succeeded') return true;
-  const taskId = saved.reviewTask?.id;
-  if (!taskId) return false;
-  const syncEvents = saved.events.filter((event) =>
-    ['guided_action_list_failed', 'guided_action_list_reconciled'].includes(event.event_type)
-    && event.payload.task_id === taskId,
-  );
-  return syncEvents[syncEvents.length - 1]?.event_type === 'guided_action_list_failed';
 }
 
 function approvalStatusLabel(status: NonNullable<SavedCase['feishuApproval']>['status']): string {

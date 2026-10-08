@@ -50,7 +50,12 @@ class MaterialEvidenceDraft(StrictModel):
 class ReviewIssueDraft(StrictModel):
     """Issue proposed by the model before deterministic grounding."""
 
-    kind: IssueKind
+    kind: IssueKind = Field(description=(
+        "material_conflict 用于两段冻结材料原文之间的矛盾；"
+        "填报、人工陈述与材料不一致且尚待核实时，用 missing_information 描述待确认事项，"
+        "双方来源保留在 fact_ledger 和 finding 中，不把事实快照当成材料原文。"
+        "legal_gap 用于材料事实和正式法条共同支持的法律问题。"
+    ))
     title: str
     finding: str
     material_evidence: list[MaterialEvidenceDraft]
@@ -213,12 +218,17 @@ def _sanitize_markdown_text(text: str) -> str:
     return text
 
 
+def validate_plain_text_summary(summary: str) -> str:
+    value = summary.strip()
+    if re.search(r"[\n\r#*`]|(?<!\w)(_+)(?=\S)(.+?)(?<=\S)\1(?!\w)", value):
+        raise ValueError("decision_summary must be one plain-text paragraph")
+    return value
+
+
 def validate_decision_summary(summary: str, *, supported_text: str) -> str:
     """Keep the approval summary plain and bounded by reviewed material/evidence."""
 
-    value = summary.strip()
-    if re.search(r"[\n\r#*_`]", value):
-        raise ValueError("decision_summary must be one plain-text paragraph")
+    value = validate_plain_text_summary(summary)
     normalized_support = re.sub(r"\s+", "", supported_text)
     unsupported_tokens = [
         token
