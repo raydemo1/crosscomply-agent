@@ -1,4 +1,9 @@
-"""Production composition for one persistent compliance Agent run."""
+"""Production review runtime: one persistent compliance Agent per ReviewTask.
+
+Invoked by the independent worker in ``review.worker``. The fixed pipeline in
+``review.service`` serves only the retrieval benchmark, CLI and offline eval;
+it is not a production entry point.
+"""
 
 from __future__ import annotations
 

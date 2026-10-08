@@ -10,7 +10,6 @@ from __future__ import annotations
 import html
 import os
 import re
-import tempfile
 import threading
 from contextlib import asynccontextmanager
 from dataclasses import asdict
@@ -61,7 +60,6 @@ from law_agent.review.http.revisions import register_revision_routes
 from law_agent.review.http.system import register_system_routes
 from law_agent.review.http.templates import register_template_routes
 from law_agent.review.http.users import register_user_routes
-from law_agent.review.io import read_review_results
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
 from law_agent.review.remediation import (
     InMemoryRemediationAssessmentStore,
@@ -80,7 +78,6 @@ from law_agent.review.schemas import (
     ReviewResult,
     SourceEvidencePacket,
 )
-from law_agent.review.service import create_review_case, run_service_retrieval
 from law_agent.review.template_store import (
     InMemoryTemplateStore,
     PostgresTemplateStore,
@@ -102,38 +99,6 @@ class ReviewResponse(BaseModel):
     retrieval_queries: list[RetrievalQuery] = Field(default_factory=list)
     evidence_chunks: list[RetrievalHit] = Field(default_factory=list)
     source_evidence_packets: list[SourceEvidencePacket] = Field(default_factory=list)
-
-
-def _intake_context(intake: dict[str, Any]) -> str:
-    labels = {
-        "business_activity": "业务活动",
-        "data_types": "数据类型",
-        "sensitive_personal_info": "敏感个人信息",
-        "cross_border_transfer": "跨境传输",
-        "important_data_status": "重要数据识别状态",
-        "ciio_status": "关键信息基础设施运营者状态",
-        "annual_non_sensitive_count": "非敏感个人信息数量区间",
-        "annual_sensitive_count": "敏感个人信息数量区间",
-        "count_period": "人数统计口径",
-        "overseas_recipient": "境外接收方",
-        "destination_region": "目的地",
-        "processing_purpose": "处理目的",
-        "transfer_mechanism": "拟采用的出境路径",
-        "vendor_name": "供应商",
-        "contract_status": "合同状态",
-        "legal_basis_or_consent": "法律依据或同意",
-        "notes": "补充说明",
-    }
-    lines: list[str] = []
-    for key, value in intake.items():
-        if value in (None, "", [], "unknown"):
-            continue
-        if isinstance(value, bool):
-            value = "是" if value else "否"
-        if isinstance(value, list):
-            value = "、".join(str(item) for item in value)
-        lines.append(f"- {labels.get(key, key)}：{value}")
-    return "\n【申请人已确认的案件要素】\n" + "\n".join(lines) if lines else ""
 
 
 def _case_summary(case: dict[str, Any]) -> dict[str, Any]:
@@ -327,42 +292,6 @@ def _feishu_approval_form(
         {"id": "case_url", "type": "input", "value": case_url},
         {"id": "task_id", "type": "input", "value": task.id},
     ]
-
-
-def _run_review(app: FastAPI, case: dict[str, Any]) -> ReviewResponse:
-    material = case["material_text"] + _intake_context(case.get("intake") or {})
-    with tempfile.TemporaryDirectory() as tmpdir:
-        output_dir = Path(tmpdir)
-        created = create_review_case(
-            question=case["question"],
-            material_text=material,
-            output_dir=output_dir,
-        )
-        trace = run_service_retrieval(
-            case_id=created.review_case.review_case_id,
-            chunks_path=app.state.chunks_path,
-            output_dir=output_dir,
-            rerank_mode=case["rerank_mode"],
-            output_format="markdown",
-        )
-        results = read_review_results(output_dir / "review_results.jsonl")
-        if not results:
-            raise RuntimeError("review result was not generated")
-        result = results[0]
-        from law_agent.review.service import flatten_source_evidence_packets
-
-        return ReviewResponse(
-            review_case_id=created.review_case.review_case_id,
-            trace_id=created.trace.trace_id,
-            review_facts=result.review_facts,
-            review_result=result,
-            evidence_self_check=trace.evidence_self_check,
-            citation_groups=result.applicable_evidence,
-            second_retrieval_triggered=trace.evidence_self_check.second_retrieval_triggered,
-            retrieval_queries=trace.queries,
-            evidence_chunks=flatten_source_evidence_packets(trace.source_evidence_packets),
-            source_evidence_packets=trace.source_evidence_packets,
-        )
 
 
 def create_app(

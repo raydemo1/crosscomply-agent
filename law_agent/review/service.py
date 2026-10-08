@@ -1,4 +1,12 @@
-"""Application services for material-driven review runs."""
+"""Fixed review pipeline for the retrieval benchmark, CLI and offline evaluation.
+
+This module is NOT the production review runtime: production runs go through
+``agent_runtime.execute_agent_task`` driven by ``review.worker``. The fixed
+pipeline here (create case skeleton -> service retrieval -> evidence
+self-check with one controlled second retrieval -> structured result) powers
+the ``run`` / ``retrieve`` CLI commands, ``review.evalset.runner`` and the
+retrieval-focused test suite. Do not add production callers here.
+"""
 
 from __future__ import annotations
 
