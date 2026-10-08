@@ -3,11 +3,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Self
 
-from law_agent.review.http.schemas import IntakePayload
-
 import pytest
 
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
+from law_agent.review.http.schemas import IntakePayload
 
 
 class ScriptedCursor:

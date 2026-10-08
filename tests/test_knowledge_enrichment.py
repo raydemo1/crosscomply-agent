@@ -245,7 +245,8 @@ def test_same_body_on_a_stale_index_is_republished_not_reported_unchanged(
     )
 
     class Store:
-        statuses = []
+        def __init__(self):
+            self.statuses: list[str] = []
 
         def record_raw(self, *_args, **_kwargs):
             pass

@@ -382,36 +382,17 @@ def _docling_rapidocr_available(artifacts_path: Path) -> bool:
 
 
 def _docling_tableformer_available(artifacts_path: Path | None) -> bool:
-    """Check whether the TableFormer model is available locally.
-
-    docling >= 2.x ships TableFormerV2 (repo ``docling-project/TableFormerV2``,
-    local folder ``docling-project--TableFormerV2``) which supersedes the
-    legacy ``docling-project--docling-models/model_artifacts/tableformer``
-    layout. We check the new path first and fall back to the legacy path so
-    the function stays compatible with both docling versions.
-    """
+    """Check whether the configured TableFormerV2 model is complete locally."""
     if artifacts_path is None:
         return False
 
-    # docling >= 2.x: TableFormerV2 (safetensors + tokenizer + config)
     v2_root = artifacts_path / "docling-project--TableFormerV2"
     v2_required = [
         v2_root / "model.safetensors",
         v2_root / "config.json",
         v2_root / "tokenizer.json",
     ]
-    if all(path.exists() for path in v2_required):
-        return True
-
-    # Legacy: docling-project--docling-models (old TableFormer fast variant)
-    legacy_root = (
-        artifacts_path / "docling-project--docling-models" / "model_artifacts" / "tableformer"
-    )
-    legacy_required = [
-        legacy_root / "fast" / "tm_config.json",
-        legacy_root / "fast" / "tableformer_fast.safetensors",
-    ]
-    return all(path.exists() for path in legacy_required)
+    return all(path.exists() for path in v2_required)
 
 
 def _mineru_to_text(path: Path, parser_output_dir: Path | None = None) -> ParsedText:

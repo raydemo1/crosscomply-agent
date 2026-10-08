@@ -13,10 +13,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from difflib import SequenceMatcher
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -61,7 +61,7 @@ class RemediationAssessmentError(ValueError):
 
 def _action_key(kind: str, text: str) -> str:
     normalized = re.sub(r"\s+", " ", text).strip().casefold()
-    digest = hashlib.sha256(f"{kind}:{normalized}".encode("utf-8")).hexdigest()[:24]
+    digest = hashlib.sha256(f"{kind}:{normalized}".encode()).hexdigest()[:24]
     return f"{kind}:{digest}"
 
 

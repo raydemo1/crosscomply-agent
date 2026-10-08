@@ -1,7 +1,4 @@
 """Behavior tests for the CrossComply case workbench API."""
-from law_agent.review.http.schemas import IntakePayload
-
-
 from pathlib import Path
 
 import pytest
@@ -10,6 +7,7 @@ from fastapi.testclient import TestClient
 from law_agent.review.api import ReviewResponse, _normalize_review_response_payload, create_app
 from law_agent.review.case_store import InMemoryCaseStore
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
+from law_agent.review.http.schemas import IntakePayload
 from law_agent.review.schemas import EvidenceSelfCheck, ReviewFacts, ReviewResult
 
 

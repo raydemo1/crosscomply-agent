@@ -1,7 +1,7 @@
-from law_agent.review.http.schemas import IntakePayload
 import pytest
 
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
+from law_agent.review.http.schemas import IntakePayload
 
 
 def test_material_versions_are_append_only_and_snapshots_are_immutable() -> None:

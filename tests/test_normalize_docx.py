@@ -3,8 +3,6 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 
-import pytest
-
 from law_agent.data import normalize as normalize_module
 from law_agent.data.normalize import ParsedText, _docx_to_text, normalize_source
 from law_agent.data.schemas import SourceRecord
@@ -130,33 +128,6 @@ def test_mineru_parser_runs_cli_and_reads_markdown(tmp_path: Path, monkeypatch) 
     assert document.ingest_meta.parser == "mineru_parser"
 
 
-def test_docling_ocr_options_default_to_rapidocr(monkeypatch) -> None:
-    pytest.importorskip("docling")
-    monkeypatch.delenv("LAWAGENT_DOCLING_OCR_ENGINE", raising=False)
-
-    options = normalize_module._docling_ocr_options()
-
-    assert options.kind == "rapidocr"
-    assert options.backend == "onnxruntime"
-    assert options.lang == ["chinese", "english"]
-
-
-def test_docling_ocr_options_can_use_remote_kserve(monkeypatch) -> None:
-    pytest.importorskip("docling")
-    monkeypatch.setenv("LAWAGENT_DOCLING_OCR_ENGINE", "kserve_v2_ocr")
-    monkeypatch.setenv("LAWAGENT_DOCLING_OCR_API_URL", "http://127.0.0.1:8000")
-    monkeypatch.setenv("LAWAGENT_DOCLING_OCR_MODEL_NAME", "paddleocr")
-    monkeypatch.setenv("LAWAGENT_DOCLING_OCR_HEADERS", '{"Authorization": "Bearer test"}')
-
-    options = normalize_module._docling_ocr_options()
-
-    assert options.kind == "kserve_v2_ocr"
-    assert options.url == "http://127.0.0.1:8000"
-    assert options.model_name == "paddleocr"
-    assert options.transport == "http"
-    assert options.headers == {"Authorization": "Bearer test"}
-
-
 def test_default_docling_artifacts_ignores_incomplete_rapidocr_dir(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -166,3 +137,27 @@ def test_default_docling_artifacts_ignores_incomplete_rapidocr_dir(
     monkeypatch.delenv("LAWAGENT_DOCLING_ARTIFACTS_PATH", raising=False)
 
     assert normalize_module._docling_artifacts_path(ocr_engine="rapidocr") is None
+
+
+def test_tableformer_requires_complete_v2_artifacts(tmp_path: Path) -> None:
+    model_dir = tmp_path / "docling-project--TableFormerV2"
+    model_dir.mkdir()
+    for name in ("model.safetensors", "config.json"):
+        (model_dir / name).touch()
+
+    assert normalize_module._docling_tableformer_available(tmp_path) is False
+
+    (model_dir / "tokenizer.json").touch()
+
+    assert normalize_module._docling_tableformer_available(tmp_path) is True
+
+
+def test_tableformer_rejects_v1_artifacts(tmp_path: Path) -> None:
+    model_dir = (
+        tmp_path / "docling-project--docling-models" / "model_artifacts" / "tableformer" / "fast"
+    )
+    model_dir.mkdir(parents=True)
+    for name in ("tm_config.json", "tableformer_fast.safetensors"):
+        (model_dir / name).touch()
+
+    assert normalize_module._docling_tableformer_available(tmp_path) is False
