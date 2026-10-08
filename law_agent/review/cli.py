@@ -186,6 +186,62 @@ def _cmd_eval(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_agent_eval(args: argparse.Namespace) -> int:
+    from law_agent.config import require_llm_config
+    from law_agent.review.evalset.agent_cases import get_agent_cases
+    from law_agent.review.evalset.agent_runner import (
+        format_summary_markdown as format_agent_markdown,
+    )
+    from law_agent.review.evalset.agent_runner import format_summary_text, run_agent_evaluation
+
+    try:
+        llm_config = require_llm_config()
+        suite_cases = get_agent_cases(args.suite)
+        if not suite_cases:
+            raise ValueError(
+                f"agent eval suite {args.suite!r} has no cases yet "
+                "(core golden cases arrive in Slice 2B)"
+            )
+        if args.case_ids:
+            wanted = set(args.case_ids)
+            selected = [case for case in suite_cases if case.case_id in wanted]
+            unknown = wanted - {case.case_id for case in selected}
+            if unknown:
+                raise ValueError(f"unknown case ids in suite {args.suite}: {sorted(unknown)}")
+        else:
+            # No explicit filter: let the runner resolve the named suite so the
+            # report keeps the real suite label instead of "custom".
+            selected = None
+        summary = run_agent_evaluation(
+            cases=selected,
+            suite=args.suite,
+            agent_model=args.agent_model or llm_config.model,
+            judge_model=args.judge_model,
+            use_judge=not args.no_judge,
+            chunks_path=Path(args.chunks),
+            rerank_mode=args.rerank_mode,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    print(format_summary_text(summary))
+
+    if args.output:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(summary.model_dump_json(indent=2), encoding="utf-8")
+        print(f"\nSaved JSON summary to {output_path}")
+
+    if args.report:
+        report_path = Path(args.report)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(format_agent_markdown(summary), encoding="utf-8")
+        print(f"Saved Markdown report to {report_path}")
+
+    return 0
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     try:
         import uvicorn
@@ -354,6 +410,48 @@ def build_parser() -> argparse.ArgumentParser:
         help="Frozen facts/query JSONL shared by comparable LLM evaluation runs",
     )
     eval_parser.set_defaults(func=_cmd_eval)
+
+    agent_eval = subparsers.add_parser(
+        "agent-eval",
+        help="Run Production Agent eval (execute_agent_task) on golden cases",
+    )
+    agent_eval.add_argument(
+        "--suite",
+        choices=["smoke", "core"],
+        default="smoke",
+        help="Agent eval suite. smoke is the 2-case framework self-check; "
+        "core is the hand-picked golden set (Slice 2B).",
+    )
+    agent_eval.add_argument("--case", action="append", dest="case_ids", default=None)
+    agent_eval.add_argument(
+        "--chunks",
+        default=str(DEFAULT_CHUNKS_PATH),
+        help="Path to chunks.jsonl corpus file",
+    )
+    agent_eval.add_argument(
+        "--rerank-mode",
+        choices=["off", "embedding"],
+        default="off",
+    )
+    agent_eval.add_argument(
+        "--agent-model",
+        default=None,
+        help="Model id for the Agent under test. Defaults to OPENAI_COMPATIBLE_MODEL.",
+    )
+    agent_eval.add_argument(
+        "--judge-model",
+        default=None,
+        help="Model id for the eval-only judge. Defaults to the agent model; "
+        "use a different model to avoid same-model self-confirmation.",
+    )
+    agent_eval.add_argument(
+        "--no-judge",
+        action="store_true",
+        help="Run deterministic checks only.",
+    )
+    agent_eval.add_argument("--output", default=None, help="Save JSON summary to this path")
+    agent_eval.add_argument("--report", default=None, help="Save Markdown report to this path")
+    agent_eval.set_defaults(func=_cmd_agent_eval)
 
     serve = subparsers.add_parser("serve", help="Start the local FastAPI review API server")
     serve.add_argument(

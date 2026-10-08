@@ -47,7 +47,31 @@ cd frontend; npm test
 
 ## 质量验证入口
 
-### Retrieval benchmark（当前唯一在库指标）
+两套评测长期共存，回答不同问题，不共用指标结构：
+
+| | 测什么 | 入口 |
+| --- | --- | --- |
+| **Retrieval benchmark** | 固定检索流水线（`service.py`）的搜索召回 | `python -m law_agent.review eval` |
+| **Production Agent Eval** | 交付给用户的生产 Agent（`agent_runtime.execute_agent_task`）端到端表现：完成/abstain、必须法源、非法条款引用、freshness、预算行为、追问质量 | `python -m law_agent.review agent-eval` |
+
+### Production Agent Eval
+
+直接运行时（冻结 MaterialSnapshot/IntakeSnapshot/ReviewTask + InMemoryEnterpriseStore），真实经过 Agent 决策、引用门禁与独立语义校验；支持 `request_input → waiting_input → 预设人工回答 → resume` 场景。指标分两层：
+
+- **确定性指标**（无需另一个模型）：是否完成、abstain 是否正确、必须法源是否覆盖、是否把标准/指南当条款引用、freshness hold、turns/searches/reads/web、追问次数、预算耗尽、workflow failure；
+- **语义 judge**（仅评测使用，不进生产链路）：`legal_correctness / exception_coverage / fact_grounding / clarification_quality / overall_pass`，默认与受测 Agent 同模型，可用 `--judge-model` 指定不同模型；`--no-judge` 只跑确定性检查。
+
+每个案例的总评是三态：`PASS`（已评测通过）/ `FAIL`（已评测失败，含 workflow failure）/ `UNEVALUATED`（judge 基础设施故障——既不算 Agent 失败，也绝不算通过）。
+
+```powershell
+python -m law_agent.review agent-eval --suite smoke --no-judge
+python -m law_agent.review agent-eval --suite core --judge-model <judge-model> `
+  --output data/review_runs/agent_eval_core.json --report data/review_runs/agent_eval_core.md
+```
+
+> 当前状态：框架（harness、指标、judge、CLI、JSON/Markdown 报告）已就绪，`smoke` 含 2 个自检案例——一个提供 scripted answer 用于覆盖 `request_input → resume` 路径（该回答仍属未核实 applicant statement，恢复后以证据不足诚实收口；rubric 不强制 Agent 必须追问，直接谨慎 abstain 同样合格），一个 out-of-corpus 正确 abstain；15–20 个人工 golden cases（`core`）在下一步补齐后才有第一批在库指标。Rubric 只描述"必须判断对什么"，不规定执行步骤。
+
+### Retrieval benchmark
 
 `law_agent/review/evalset` 维护冻结的场景集，跑的是 `service.py` 的固定检索流水线，衡量**检索层**召回质量，不代表 Production Agent 的端到端结论正确率。
 
