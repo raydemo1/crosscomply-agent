@@ -12,7 +12,13 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from law_agent.config import load_service_config, load_web_search_api_key, require_llm_config
+from law_agent.config import (
+    load_service_config,
+    load_web_search_api_key,
+    require_agent_llm_config,
+    require_llm_config,
+    require_semantic_llm_config,
+)
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
 from law_agent.review.evalset.agent_cases import get_agent_cases
 from law_agent.review.evalset.agent_review import cases_from_selection
@@ -225,7 +231,15 @@ def main() -> int:
     write_json(args.output_dir / "manifest.json", {
         "started_at": utc_now_iso(), "round": args.round,
         "agent_model": config.model, "judge_model": args.judge_model or config.model,
-        "reasoning_effort": config.reasoning_effort, "structured_output_mode": config.structured_output_mode,
+        "reasoning_effort": {
+            "agent": require_agent_llm_config().reasoning_effort,
+            "semantic_verifier": require_semantic_llm_config().reasoning_effort,
+            "judge": config.reasoning_effort,
+        },
+        "structured_output_mode": {
+            "agent": "json_object", "semantic_verifier": "json_object",
+            "judge": config.structured_output_mode,
+        },
         "rerank_mode": "off", "workers": args.workers,
         "judge_protocol": "final_delivery_cited_evidence_fact_ledger_rubric_v2",
         "working_tree_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()),

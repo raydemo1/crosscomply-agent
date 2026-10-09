@@ -17,7 +17,12 @@ from unittest.mock import patch
 
 from run_agent_baseline import run_one, write_json, write_report
 
-from law_agent.config import load_service_config, require_llm_config
+from law_agent.config import (
+    load_service_config,
+    require_agent_llm_config,
+    require_llm_config,
+    require_semantic_llm_config,
+)
 from law_agent.review import agent, agent_tools
 from law_agent.review.evalset.agent_review import review_groups
 from law_agent.review.evalset.agent_schemas import AgentCase
@@ -136,7 +141,15 @@ def main() -> int:
         "started_at": utc_now_iso(), "base_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "working_tree_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()),
         "agent_model": config.model, "judge_model": config.model,
-        "reasoning_effort": config.reasoning_effort, "structured_output_mode": config.structured_output_mode,
+        "reasoning_effort": {
+            "agent": require_agent_llm_config().reasoning_effort,
+            "semantic_verifier": require_semantic_llm_config().reasoning_effort,
+            "judge": config.reasoning_effort,
+        },
+        "structured_output_mode": {
+            "agent": "json_object", "semantic_verifier": "json_object",
+            "judge": config.structured_output_mode,
+        },
         "embedding_provider": service.embedding.provider, "embedding_model": service.embedding.model,
         "es_index": service.elasticsearch.index_name, "pg_table": service.postgres.table_name,
         "workers": 1,

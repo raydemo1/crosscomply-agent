@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from law_agent.data.schemas import Chunk
 from law_agent.review.agent import AgentDecision, AgentState, run_agent
 from law_agent.review.result_builder import LLMReviewResultDraft
@@ -27,6 +29,19 @@ def _draft() -> LLMReviewResultDraft:
         recommended_actions=["核查例外"],
         risk_boundaries=[],
     )
+
+
+@pytest.mark.parametrize("status", ["uncertain", "unsupported"])
+def test_unresolved_claim_cannot_be_overridden_by_supported_summary(status):
+    verdict = SemanticVerdict(
+        status="supported",
+        claim_checks=[{"claim_index": 0, "status": status, "reason": "义务适用关系尚未证明"}],
+        conclusion_reason="主路径正确",
+    )
+    assert verdict.status == status
+    assert "claim:0" in verdict.conclusion_reason
+    assert "义务适用关系" in verdict.conclusion_reason
+    assert verdict.missing_facts == []
 
 
 def test_verifier_receives_full_article_and_rejects_unresolved_exemptions() -> None:

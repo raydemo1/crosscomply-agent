@@ -6,9 +6,9 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
-from law_agent.config import require_llm_config
+from law_agent.config import require_semantic_llm_config
 from law_agent.data.schemas import Chunk, StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.llm import StructuredLLMNode
@@ -28,6 +28,24 @@ class SemanticVerdict(StrictModel):
     claim_checks: list[ClaimCheck]
     conclusion_reason: str
     missing_facts: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def aggregate_checks(self) -> SemanticVerdict:
+        statuses = {self.status, *(check.status for check in self.claim_checks)}
+        if "unsupported" in statuses:
+            status = "unsupported"
+        elif "uncertain" in statuses:
+            status = "uncertain"
+        else:
+            status = "supported"
+        if status != self.status:
+            self.status = status
+            details = [
+                f"claim:{check.claim_index}: {check.reason}"
+                for check in self.claim_checks if check.status != "supported"
+            ]
+            self.conclusion_reason += "\n未获支持的断言：\n" + "\n".join(details)
+        return self
 
 
 class SemanticGroundingRejected(ValueError):
@@ -65,7 +83,7 @@ class SemanticGroundingVerifier:
         self.node = StructuredLLMNode(
             node_name="semantic_grounding",
             output_model=SemanticVerdict,
-            client=client or OpenAICompatibleClient(require_llm_config()),
+            client=client or OpenAICompatibleClient(require_semantic_llm_config()),
             structured_output_mode="json_object",
             max_retries=1,
         )
@@ -128,6 +146,4 @@ class SemanticGroundingVerifier:
         indices = [item.claim_index for item in verdict.claim_checks]
         if sorted(indices) != list(range(len(draft.claims))):
             raise ValueError("语义校验未覆盖全部法律主张")
-        if verdict.status == "supported" and any(item.status != "supported" for item in verdict.claim_checks):
-            raise ValueError("语义校验整体结论与逐条结果冲突")
         return verdict

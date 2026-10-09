@@ -61,6 +61,7 @@ class OpenAICompatibleClient:
             "response_format": {"type": "json_object"},
         }
         if self.config.reasoning_effort != "none":
+            payload.pop("temperature")
             payload["thinking"] = {"type": "enabled"}
             payload["reasoning_effort"] = self.config.reasoning_effort
         else:
@@ -101,8 +102,8 @@ class OpenAICompatibleClient:
         }
         if self.config.reasoning_effort != "none":
             raise RuntimeError(
-                "DeepSeek strict tool calling does not support thinking mode; "
-                "set OPENAI_COMPATIBLE_REASONING_EFFORT=none"
+                "DeepSeek thinking mode does not support forced named tool_choice; "
+                "use json_object output or reasoning_effort=none"
             )
         payload["thinking"] = {"type": "disabled"}
         data = self._post_chat(payload, self.config.beta_base_url)

@@ -4,7 +4,7 @@ import json
 
 from pydantic import Field, JsonValue
 
-from law_agent.config import require_llm_config
+from law_agent.config import require_agent_llm_config
 from law_agent.data.schemas import StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.llm import StructuredLLMNode
@@ -93,7 +93,8 @@ def answer_matter(question, context, *, client=None, verifier=None, chunks_path=
     content = json.dumps({"question": question, "matter": context}, ensure_ascii=False)
     if len(content) > 120_000:
         raise ValueError("案件材料超过当前问答容量，请使用正式审查或缩小材料范围")
-    client = client or OpenAICompatibleClient(require_llm_config())
+    verifier_client = client
+    client = client or OpenAICompatibleClient(require_agent_llm_config())
     node = StructuredLLMNode(
         node_name="matter_agent", output_model=MatterReply, client=client,
         structured_output_mode="json_object", max_retries=1,
@@ -126,7 +127,7 @@ def answer_matter(question, context, *, client=None, verifier=None, chunks_path=
         conclusion=reply.answer, trigger_reasons=[], missing_information=[],
         recommended_actions=[], risk_boundaries=["解释性问答，不改写正式结果"],
     )
-    verifier = verifier or SemanticGroundingVerifier(model_id=context["model_id"], client=client)
+    verifier = verifier or SemanticGroundingVerifier(model_id=context["model_id"], client=verifier_client)
     verdict = verifier(
         review_goal=question,
         draft=draft, confirmed_intake=context["confirmed_intake"],

@@ -5,9 +5,9 @@ from __future__ import annotations
 import os
 import socket
 import urllib.parse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 _PROXY_ENV_VARS = (
     "HTTP_PROXY",
@@ -18,6 +18,14 @@ _PROXY_ENV_VARS = (
     "all_proxy",
 )
 _DEFAULT_PROXY_PORTS = {"http": 80, "https": 443}
+ReasoningEffort = Literal["none", "low", "high", "max"]
+
+
+def _reasoning_effort(name: str, default: ReasoningEffort) -> ReasoningEffort:
+    value = os.getenv(name, default)
+    if value not in ("none", "low", "high", "max"):
+        raise RuntimeError(f"{name} must be none, low, high, or max")
+    return cast(ReasoningEffort, value)
 
 
 def _proxy_endpoint(proxy: str) -> tuple[str, int] | None:
@@ -84,7 +92,7 @@ class LLMConfig:
     model: str
     timeout_seconds: int
     structured_output_mode: Literal["json_object", "strict_tool"]
-    reasoning_effort: Literal["none", "low", "medium", "high", "max"]
+    reasoning_effort: ReasoningEffort
 
     @property
     def enabled(self) -> bool:
@@ -100,11 +108,7 @@ def load_llm_config() -> LLMConfig:
     structured_output_mode = os.getenv("OPENAI_COMPATIBLE_STRUCTURED_OUTPUT", "strict_tool")
     if structured_output_mode not in ("json_object", "strict_tool"):
         raise RuntimeError("OPENAI_COMPATIBLE_STRUCTURED_OUTPUT must be json_object or strict_tool")
-    reasoning_effort = os.getenv("OPENAI_COMPATIBLE_REASONING_EFFORT", "none")
-    if reasoning_effort not in ("none", "low", "medium", "high", "max"):
-        raise RuntimeError(
-            "OPENAI_COMPATIBLE_REASONING_EFFORT must be none, low, medium, high, or max"
-        )
+    reasoning_effort = _reasoning_effort("OPENAI_COMPATIBLE_REASONING_EFFORT", "none")
     return LLMConfig(
         base_url=base_url,
         beta_base_url=os.getenv("OPENAI_COMPATIBLE_BETA_BASE_URL", f"{base_url}/beta").rstrip("/"),
@@ -112,7 +116,7 @@ def load_llm_config() -> LLMConfig:
         model=os.getenv("OPENAI_COMPATIBLE_MODEL", "deepseek-flash"),
         timeout_seconds=int(timeout),
         structured_output_mode=structured_output_mode,  # type: ignore[arg-type]
-        reasoning_effort=reasoning_effort,  # type: ignore[arg-type]
+        reasoning_effort=reasoning_effort,
     )
 
 
@@ -129,6 +133,16 @@ def require_llm_config() -> LLMConfig:
     if not config.model:
         raise RuntimeError("OPENAI_COMPATIBLE_MODEL is required")
     return config
+
+
+def require_agent_llm_config() -> LLMConfig:
+    config = require_llm_config()
+    return replace(config, reasoning_effort=_reasoning_effort("LAWAGENT_AGENT_REASONING_EFFORT", "low"))
+
+
+def require_semantic_llm_config() -> LLMConfig:
+    config = require_llm_config()
+    return replace(config, reasoning_effort=_reasoning_effort("LAWAGENT_SEMANTIC_REASONING_EFFORT", "low"))
 
 
 # ---------------------------------------------------------------------------

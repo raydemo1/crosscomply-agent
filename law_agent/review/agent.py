@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import Field, JsonValue, model_validator
 
-from law_agent.config import require_llm_config
+from law_agent.config import require_agent_llm_config
 from law_agent.data.schemas import StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.fact_provenance import append_fact, record_material_facts
@@ -205,7 +205,7 @@ class AgentModel:
     def __init__(self, *, model_id: str, client: OpenAICompatibleClient | None = None):
         self.node = StructuredLLMNode(
             node_name="compliance_agent", output_model=AgentDecision,
-            client=client or OpenAICompatibleClient(require_llm_config()),
+            client=client or OpenAICompatibleClient(require_agent_llm_config()),
             structured_output_mode="json_object",
         )
         self.node.model = model_id
