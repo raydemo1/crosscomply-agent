@@ -24,6 +24,9 @@ def filter_hits_as_of(
 ) -> list[RetrievalHit]:
     latest: dict[str, date] = {}
     for chunk in chunks_by_id.values():
+        published = _parsed(chunk.publish_date)
+        if published and published > as_of:
+            continue
         effective = _parsed(chunk.effective_date)
         if effective is None or effective > as_of:
             continue
@@ -38,8 +41,11 @@ def filter_hits_as_of(
         chunk = chunks_by_id.get(hit.chunk_id)
         if chunk is None:
             continue
+        published = _parsed(chunk.publish_date)
         effective = _parsed(chunk.effective_date)
         expires = _parsed(chunk.valid_to)
+        if published and published > as_of:
+            continue
         if effective and effective > as_of:
             continue
         if expires and expires <= as_of:

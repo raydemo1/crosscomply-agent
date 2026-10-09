@@ -538,6 +538,73 @@ def test_evidence_returned_to_the_agent_stays_citable_in_the_report() -> None:
     assert {"c1", "c2", "c3"} <= {hit["chunk_id"] for hit in result["evidence_chunks"]}
 
 
+def test_search_excludes_future_references_in_candidates_and_neighbors() -> None:
+    from types import SimpleNamespace
+
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+    from law_agent.review.schemas import RetrievalQuery
+
+    current = _chunk("c1", "第一条", "第一条 当前规则。", index=0, next_id="c2").model_copy(
+        update={"publish_date": "2024-03-22"},
+    )
+    future = _chunk("c2", "", "未来参考说明。", index=1, prev="c1").model_copy(
+        update={"publish_date": "2025-06-27", "can_cite_clause": False},
+    )
+    tools = _tools_with([current, future])
+    search = SimpleNamespace(search_many=lambda *_args, **_kwargs: [[
+        hit_from_chunk(current, 0), hit_from_chunk(future, 1),
+    ]])
+    tools._adapters = SimpleNamespace(keyword=search, vector=search)
+    tools._rerank_config = SimpleNamespace(window=0)
+    tools._rerank_mode = "off"
+    tools._top_k = 10
+    tools._question = "历史判断"
+    tools._material_text = ""
+    tools._neighbor_hits = {}
+
+    hits = tools.search(
+        [RetrievalQuery(query_id="q", text="示例规则", query_type="legal_issue")],
+        ReviewFacts(as_of_date="2024-03-23"),
+    )
+    assert {hit.chunk_id for hit in hits} == {"c1"}
+    assert "c2" not in tools._candidate_hits
+    assert "c2" not in tools._neighbor_hits
+
+
+def test_final_report_rechecks_date_and_never_adds_unseen_cached_evidence() -> None:
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+    from law_agent.review.schemas import GroundedClaim
+
+    chunks = [
+        _chunk("c1", "第一条", "第一条 当前规则。", index=0),
+        _chunk("future", "", "未来指南。", index=1).model_copy(
+            update={"publish_date": "2025-06-27", "can_cite_clause": False},
+        ),
+        _chunk("unseen", "第二条", "第二条 未返回的候选。", index=2),
+    ]
+    tools = _tools_with(chunks)
+    tools._candidate_hits = {chunk.chunk_id: hit_from_chunk(chunk, 0) for chunk in chunks}
+    tools._neighbor_hits = dict(tools._candidate_hits)
+    tools._top_k = 10
+    tools._material_text = ""
+    tools._material_versions_by_id = {}
+    tools._semantic_verifier = object()
+    state = AgentState(
+        goal="历史审查", facts=ReviewFacts(as_of_date="2024-03-23"),
+        evidence=[tools._candidate_hits["c1"], tools._candidate_hits["future"]],
+    )
+    payload = tools.finalize(
+        _draft(), state, case_id="case", intake_snapshot={"facts": {}}, system_abstention=True,
+    )
+    assert {hit["chunk_id"] for hit in payload["evidence_chunks"]} == {"c1"}
+    assert {citation["chunk_id"] for citation in payload["review_result"]["citations"]} == {"c1"}
+    draft = _draft().model_copy(update={
+        "claims": [GroundedClaim(text="未来内容", supporting_chunk_ids=["future"])],
+    })
+    with pytest.raises(ValueError, match="审查时点 2024-03-23 不可用"):
+        tools.finalize(draft, state, case_id="case", intake_snapshot={"facts": {}}, system_abstention=True)
+
+
 def _chunk(
     chunk_id: str,
     article_no: str,

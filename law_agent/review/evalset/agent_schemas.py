@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from law_agent.data.schemas import StrictModel
 
@@ -116,12 +116,27 @@ class JudgeVerdict(StrictModel):
     fact_grounding: JudgeGrade = "not_applicable"
     clarification_quality: JudgeGrade = "not_applicable"
     overall_pass: bool | None = None
+    rubric_violations: list[str] = Field(
+        default_factory=list,
+        description="明确违反禁止判断、缺少必要例外或擅自假设事实的具体内容；轻微表达问题不列入。",
+    )
     # Short, parseable justifications — one line each, no chain of thought.
     reasons: list[str] = Field(default_factory=list)
     judge_model: str = ""
     # Set when the judge call itself failed; overall_pass stays None so an
     # infra error is not counted as an Agent failure.
     error: str | None = None
+
+    @model_validator(mode="after")
+    def consistent_overall(self) -> JudgeVerdict:
+        if self.error is not None:
+            self.overall_pass = None
+        elif self.rubric_violations or "fail" in (
+            self.legal_correctness, self.exception_coverage,
+            self.fact_grounding, self.clarification_quality,
+        ):
+            self.overall_pass = False
+        return self
 
 
 class AgentCaseResult(StrictModel):

@@ -43,3 +43,23 @@ def test_new_version_shares_legacy_title_group() -> None:
     chunks = {"old": old, "new": new}
     assert filter_hits_as_of([old_hit, new_hit], chunks, as_of=date(2026, 9, 25)) == [old_hit]
     assert filter_hits_as_of([old_hit, new_hit], chunks, as_of=date(2026, 10, 2)) == [new_hit]
+
+
+def test_reference_publication_date_limits_historical_availability() -> None:
+    chunk, hit = pair("guide", "2025-01-01")
+    chunk = chunk.model_copy(update={
+        "doc_type": "guideline", "effective_date": None, "publish_date": "2025-06-27",
+        "citation_role": "implementation_reference", "can_cite_clause": False,
+    })
+    hit = hit.model_copy(update={"citation_role": chunk.citation_role, "can_cite_clause": False})
+    assert filter_hits_as_of([hit], {"guide": chunk}, as_of=date(2024, 3, 23)) == []
+    assert filter_hits_as_of([hit], {"guide": chunk}, as_of=date(2025, 6, 27)) == [hit]
+
+
+def test_unpublished_retroactive_version_does_not_displace_available_version() -> None:
+    old, old_hit = pair("old", "2020-01-01")
+    new, new_hit = pair("new", "2024-01-01")
+    new = new.model_copy(update={"publish_date": "2024-06-01"})
+    chunks = {"old": old, "new": new}
+    assert filter_hits_as_of([old_hit, new_hit], chunks, as_of=date(2024, 3, 23)) == [old_hit]
+    assert filter_hits_as_of([old_hit, new_hit], chunks, as_of=date(2024, 6, 1)) == [new_hit]

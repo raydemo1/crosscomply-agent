@@ -142,6 +142,8 @@ python scripts/run_agent_baseline.py --round 2 --workers 1 --output-dir data/rev
 
 失败分类允许多选：法律推理、遗漏例外、事实 grounding、法源覆盖、引用、澄清、abstention、freshness、预算耗尽、运行/评测基础设施。缺少法源只证明覆盖不足，不能直接归因为检索失败；要结合 checkpoint 中已检索/已阅读的证据区分“没找到”“找到了没采用”“采用了但理解错”。若 rubric 不明确、题目矛盾或 judge 错判，应记录为评测问题，不通过修改生产 Agent 迎合题目。
 
+Judge将明确违反候选判断约束的内容记入`rubric_violations`；任一维度为`fail`或存在违规项时，总评不能为PASS。轻微表达问题仍可为`minor_issue`，程序不根据报告文本匹配法律规则。Judge故障仍记UNEVALUATED。此评分协议单列为`final_delivery_cited_evidence_fact_ledger_rubric_v2`；旧实跑评分不回写，明确违规的识别仍依赖judge及离线复核，结构一致性检查不能保证模型不再漏判。
+
 第二轮题目根据首轮真实失败选择，保留首轮输入、rubric 与结果，不能悄悄改题后覆盖旧分数。新增 freshness/new-source 题必须保证新官方材料真的未进入其受控证据环境；若使用可重复的法源留出或 Web fixture，须单列为受控边界测试，不能称为自主发现新法源的线上表现。
 
 ## 验收

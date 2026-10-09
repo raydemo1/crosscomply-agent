@@ -490,6 +490,8 @@ _JUDGE_SYSTEM = """你是企业数据出境合规评测员，只评测单个 Age
 - fact_grounding: 是否把未经确认的事实当作已确认（对照 must_not_assume）。
 - clarification_quality: 追问或报告明确披露的事实缺口与核实建议是否对准 clarification_expectations；它描述需澄清的内容，不自动要求调用 request_input。只有案件问题明确要求先追问时，才检查这一交互要求；无澄清必要时给 not_applicable。
 allowed_judgments、forbidden_judgments 是法律判断边界，不是固定答案句式；不得按字面匹配评分。
+逐项核对forbidden_judgments、required_exceptions及must_not_assume。明确违反判断边界或遗漏必要例外时，把具体断言与所违反的约束记入rubric_violations，相应维度标fail，总评不通过；不能因主机制正确就降为minor_issue。minor_issue只用于不违反这些约束且不改变义务或路径的轻微问题，不能用它接受报告自行增加的错误义务。
+核查范围包括摘要、主结论、legal_path、问题发现、recommended_actions及risk_boundaries中的假设分支。事实变化时须保留未改变且仍成立的例外；不要将案情中恰好具备的事实当作法定必要条件。理由中识别的明确违反应与rubric_violations、维度和总评一致。
 按问题限定的范围判断；确定一个出境机制不等于确定整个业务合规。风险等级不能替代法律路径正确性。
 should_abstain=null 表示按 allowed_judgments 与 forbidden_judgments 评估是否诚实保留不确定性，不要求固定风险等级。法条引用准确仍须检查个案推理：未确认某个例外要件不等于已确认其不满足；区分条件性判断、暂行准备建议与确定法律义务。核对摘要、主结论、legal_path、issues 与条件说明是否一致，不能仅凭末尾“以后可能改变”的说明接受前文的确定结论。
 不规定检索、阅读顺序或必须追问；直接披露阻塞性缺口并诚实abstain也可满足澄清要求。

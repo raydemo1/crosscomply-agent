@@ -85,6 +85,8 @@ def failure_categories(result: AgentCaseResult) -> list[str]:
     if result.judge:
         if result.judge.error:
             categories.add("judge_infrastructure")
+        if result.judge.rubric_violations:
+            categories.add("rubric_violation")
         for field, category in [("legal_correctness", "legal_reasoning"), ("exception_coverage", "missed_exception"), ("fact_grounding", "fact_grounding"), ("clarification_quality", "clarification")]:
             if getattr(result.judge, field) in ("minor_issue", "fail"):
                 categories.add(category)
@@ -125,6 +127,7 @@ def write_report(root: Path, cases: list[AgentCase], records: dict[str, dict], *
             lines.extend([f"运行问题：{r.get('error') or r['failure_message']}", ""])
         judge = r.get("judge") or {}
         lines.extend(f"- Judge：{reason}" for reason in judge.get("reasons", []))
+        lines.extend(f"- Rubric违规：{reason}" for reason in judge.get("rubric_violations", []))
         if judge.get("error"):
             lines.extend([f"- Judge故障：{judge['error']}"])
         retrieved = {e["source_id"] for e in state.get("evidence", [])}
@@ -224,7 +227,7 @@ def main() -> int:
         "agent_model": config.model, "judge_model": args.judge_model or config.model,
         "reasoning_effort": config.reasoning_effort, "structured_output_mode": config.structured_output_mode,
         "rerank_mode": "off", "workers": args.workers,
-        "judge_protocol": "final_delivery_cited_evidence_fact_ledger_v1",
+        "judge_protocol": "final_delivery_cited_evidence_fact_ledger_rubric_v2",
         "working_tree_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()),
         "embedding_provider": service_config.embedding.provider,
         "embedding_model": service_config.embedding.model,

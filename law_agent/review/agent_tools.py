@@ -295,7 +295,10 @@ class ComplianceAgentTools:
             mode=self._rerank_mode,
             config=self._rerank_config,
         ).hits
-        neighbors = expand_neighbors(reranked[:5], self._chunks_by_id)
+        neighbors = filter_hits_as_of(
+            expand_neighbors(reranked[:5], self._chunks_by_id),
+            self._chunks_by_id, as_of=as_of,
+        )
         self._candidate_hits.update({hit.chunk_id: hit for hit in fused})
         self._neighbor_hits.update({hit.chunk_id: hit for hit in neighbors})
         packets = build_source_evidence_packets(
@@ -450,7 +453,18 @@ class ComplianceAgentTools:
             raise ValueError("可能改变核心法律路径的新法源尚未核验，必须暂缓确定结论")
         if draft.risk_level == "insufficient_evidence" and draft.legal_path is not None:
             raise ValueError("证据不足时不能确定法律路径")
-        primary_evidence = [hit for hit in state.evidence if hit.rank >= 0]
+        as_of = state.facts.as_of_date or datetime.now(UTC).date()
+        result_evidence = filter_hits_as_of(state.evidence, self._chunks_by_id, as_of=as_of)
+        evidence_ids = {hit.chunk_id for hit in result_evidence}
+        cited_ids = {chunk_id for claim in draft.claims for chunk_id in claim.supporting_chunk_ids}
+        cited_ids.update(chunk_id for issue in draft.issues for chunk_id in issue.supporting_chunk_ids)
+        invalid_date_ids = cited_ids & {hit.chunk_id for hit in state.evidence} - evidence_ids
+        if invalid_date_ids:
+            raise ValueError(
+                f"以下引用在审查时点 {as_of.isoformat()} 不可用：{sorted(invalid_date_ids)}。"
+                "请依据该时点已发布且有效的证据重新判断。"
+            )
+        primary_evidence = [hit for hit in result_evidence if hit.rank >= 0]
         representatives = source_aware_fuse(
             primary_evidence,
             top_k=self._top_k,
@@ -458,24 +472,10 @@ class ComplianceAgentTools:
         )
         source_packets: list[SourceEvidencePacket] = build_source_evidence_packets(
             representative_hits=representatives,
-            candidate_hits=list(self._candidate_hits.values()) or primary_evidence,
-            neighbor_hits=list(self._neighbor_hits.values()),
+            candidate_hits=result_evidence,
+            neighbor_hits=[hit for hit in self._neighbor_hits.values() if hit.chunk_id in evidence_ids],
             chunks_by_id=self._chunks_by_id,
         )
-        # The report may cite what this run actually returned to the model. The
-        # packet pass above is a presentation collapse — one representative per
-        # source plus two supporting chunks — so re-deriving the citable set from
-        # it dropped chunks the model had already been shown (the clause it read
-        # back explicitly, or an earlier search result). A claim citing one of
-        # those was rejected as "未检索到", and the run retried the same claim
-        # until its budget ran out.
-        evidence_by_chunk = {
-            hit.chunk_id: hit for hit in flatten_source_evidence_packets(source_packets)
-        }
-        evidence_by_chunk.update(
-            {hit.chunk_id: hit for hit in state.evidence if hit.chunk_id not in evidence_by_chunk}
-        )
-        result_evidence = list(evidence_by_chunk.values()) or primary_evidence
         claims = validate_grounded_claims(draft.claims, result_evidence)
         if draft.risk_level != "insufficient_evidence" and not claims:
             raise ValueError("正式风险结论至少需要一条可引用法条支持")

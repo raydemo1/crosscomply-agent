@@ -767,6 +767,38 @@ def test_required_law_mentioned_only_as_context_does_not_satisfy_clause_coverage
     assert result.deterministic_pass is False
 
 
+@pytest.mark.parametrize("dimension", [
+    "legal_correctness", "exception_coverage", "fact_grounding", "clarification_quality",
+])
+def test_failed_judge_dimension_cannot_be_overridden_by_overall_pass(dimension) -> None:
+    verdict = JudgeVerdict(overall_pass=True, **{dimension: "fail"})
+    result = run_agent_case(
+        _case(), execute=lambda *_args: _completed_state(_payload()),
+        judge=lambda *_args: verdict,
+    )
+    assert verdict.overall_pass is False
+    assert result.overall_pass is False
+
+
+def test_explicit_rubric_violation_is_not_a_passing_minor_issue() -> None:
+    verdict = JudgeVerdict(
+        overall_pass=True, legal_correctness="minor_issue", exception_coverage="minor_issue",
+        rubric_violations=["报告断言无条件取得单独同意，与必须区分非同意处理依据的约束相反。"],
+    )
+    result = run_agent_case(
+        _case(), execute=lambda *_args: _completed_state(_payload()),
+        judge=lambda *_args: verdict,
+    )
+    assert verdict.overall_pass is False
+    assert result.overall_pass is False
+    assert JudgeVerdict(overall_pass=True, legal_correctness="minor_issue").overall_pass is True
+
+
+def test_judge_infrastructure_error_stays_unevaluated_with_partial_grades() -> None:
+    verdict = JudgeVerdict(overall_pass=True, legal_correctness="fail", error="HTTP 402")
+    assert verdict.overall_pass is None
+
+
 def test_unknown_suite_rejected() -> None:
     from law_agent.review.evalset.agent_cases import get_agent_cases
 
