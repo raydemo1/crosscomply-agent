@@ -149,3 +149,5 @@ python scripts/run_agent_baseline.py --round 2 --workers 1 --output-dir data/rev
 本轮交付以案例、实跑证据与 bad-case 报告为主，不预设通过率目标。报告逐案列出判断边界、最终交付、证据、失败类别与可能原因，并标明 rubric/judge/运行设施的不确定性。最终人工审定后，才形成“当前 Production Agent 在一组人工审定的高风险案件上，哪里可靠、哪里不可靠、为什么”的能力基线。
 
 Fact Provenance完成后的17案基线、授权的通用判断修复及相同案例复测见[当前基线说明](agent-baseline-post-provenance-20261009.md)。16个候选PASS中包含预算耗尽的系统abstain；HR题存在judge与候选约束分歧，不能将这个计数称为法律准确率。
+
+全23案来源复核之后，按增量清单实跑了10案，跳过13个此前通过且判断边界未变的案例，见[增量实跑与bad-case复核](agent-baseline-incremental-20261009.md)。原始自动评分10个PASS、运行阻断和预算耗尽为0，但逐份复核发现HR同意义务例外遗漏、条件分支错误和历史引用污染；judge对已有禁止判断存在漏判，不能称为100%法律准确率，也不能与旧结果合并成23案当前版本成绩。
