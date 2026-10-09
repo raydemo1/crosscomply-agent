@@ -52,3 +52,27 @@ def test_contrast_context_has_limits_and_does_not_truncate_articles(experiment):
     assert len(selected) <= 8
     assert sum(len(item["article_text"]) for item in selected) <= 12000
     assert all(item["article_text"] == "正文" * 900 for item in selected)
+
+
+def test_prompt_comparison_freezes_identical_inputs_and_rejects_tampering(experiment, monkeypatch, tmp_path):
+    probe = importlib.import_module("run_prompt_probe")
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "data/review_runs/grounding_probe_20261010"
+    source.mkdir(parents=True)
+    context = {"draft": _draft().model_dump(mode="json"), "confirmed_intake": {"count": 0}, "report_items": {"unused": "text"}}
+    for _, filename, _ in probe.SOURCES:
+        (source / filename).write_text(json.dumps({"messages": [
+            {"role": "system", "content": "old"},
+            {"role": "user", "content": json.dumps(context)},
+        ]}), encoding="utf-8")
+    output = tmp_path / "comparison"
+    output.mkdir()
+    requests = probe.freeze_requests(output)
+    assert len(requests) == 6
+    for case in {request["case"] for request in requests}:
+        pair = [request for request in requests if request["case"] == case]
+        assert pair[0]["messages"][1] == pair[1]["messages"][1]
+    assert probe.freeze_requests(output) == requests
+    (output / "requests.json").write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="changed"):
+        probe.freeze_requests(output)

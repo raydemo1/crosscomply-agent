@@ -105,6 +105,7 @@ class ProbeClient(OpenAICompatibleClient):
                 "provider_model": data.get("model"), "usage": data.get("usage", {}),
                 "peak_usd_estimate": peak_cost(data.get("usage", {})),
                 "finish_reason": choice["finish_reason"], "response": choice["message"].get("content"),
+                "provider_reasoning": choice["message"].get("reasoning_content"),
             })
             if choice["finish_reason"] != "stop":
                 raise RuntimeError(f"Incomplete probe output: {choice['finish_reason']}")
@@ -112,6 +113,10 @@ class ProbeClient(OpenAICompatibleClient):
             if isinstance(parsed, ProbeVerdict):
                 context = json.loads(payload["messages"][1]["content"])
                 validate_verdict_coverage(parsed, LLMReviewResultDraft.model_validate(context["draft"]))
+            elif isinstance(parsed, SemanticVerdict):
+                context = json.loads(payload["messages"][1]["content"])
+                if sorted(check.claim_index for check in parsed.claim_checks) != list(range(len(context["draft"]["claims"]))):
+                    raise ValueError("Probe did not check every claim")
             record.update(status="completed", output=parsed.model_dump(mode="json"))
             return data
         except Exception as exc:
@@ -135,7 +140,7 @@ def main() -> None:
         client = ProbeClient(
             replace(config, reasoning_effort=request["reasoning_effort"], timeout_seconds=120),
             args.output_dir, request["label"],
-            {"semantic": ProbeVerdict, "agent": AgentDecision}[request.get("output_type", "semantic")],
+            {"semantic": ProbeVerdict, "verifier": SemanticVerdict, "agent": AgentDecision}[request.get("output_type", "semantic")],
         )
         raw = client.chat_json([ChatMessage(**message) for message in request["messages"]], structured_output_mode="json_object")
         output = client.output_model.model_validate(raw, strict=True).model_dump(mode="json")
