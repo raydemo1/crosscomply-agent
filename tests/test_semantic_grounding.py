@@ -104,6 +104,47 @@ def test_verifier_sees_the_applicability_boundary_of_each_cited_authority() -> N
     assert payload["cited_authorities"][0]["applicable_subjects"] == ["再保险"]
 
 
+def test_verifier_receives_returned_legal_interpretations_without_granting_clause_authority():
+    client = FakeClient(outputs=[{
+        "status": "supported", "conclusion_reason": "依据法条及解释资料核对",
+        "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "支持"}],
+    }])
+    explanation = _hit().model_copy(update={
+        "chunk_id": "faq", "citation_role": "interpretation_auxiliary",
+        "can_cite_clause": False, "doc_type": "faq", "authority": "public_interpretation",
+        "text": "官方解释说明一般规定与例外的关系。", "full_article_text": None,
+        "publish_date": "2026-07-24",
+    })
+    internal = explanation.model_copy(update={"chunk_id": "internal"})
+    unregistered = explanation.model_copy(update={"chunk_id": "unknown"})
+    uncited_law = _hit().model_copy(update={"chunk_id": "uncited"})
+    chunks = {
+        hit.chunk_id: Chunk(
+            chunk_id=hit.chunk_id, doc_id=hit.doc_id, source_id=hit.source_id,
+            title=hit.title, text=hit.text, chunk_index=0, source_url=hit.source_url,
+            char_count=len(hit.text), doc_type="faq", citation_role="interpretation_auxiliary",
+            library_kind=library, applicable_region="CN", applicable_subjects=["数据处理者"],
+        )
+        for hit, library in [(explanation, "legal"), (internal, "internal_policy")]
+    }
+    SemanticGroundingVerifier(model_id="test-model", client=client)(
+        review_goal="审查", draft=_draft(), confirmed_intake={}, extracted_facts=ReviewFacts(),
+        material="材料", evidence=[_hit(), explanation, internal, unregistered, uncited_law],
+        chunks_by_id=chunks,
+    )
+    payload = json.loads(client.calls[0][1].content)
+    assert [a["chunk_id"] for a in payload["cited_authorities"]] == ["c1"]
+    assert [a["chunk_id"] for a in payload["interpretation_authorities"]] == ["faq"]
+    context = payload["interpretation_authorities"][0]
+    assert context["can_cite_clause"] is False
+    assert context["doc_type"] == "faq"
+    assert context["article_text"] == explanation.text
+    assert context["publish_date"] == "2026-07-24"
+    assert context["applicable_region"] == "CN"
+    assert context["applicable_subjects"] == ["数据处理者"]
+    assert payload["draft"]["claims"][0]["supporting_chunk_ids"] == ["c1"]
+
+
 def test_semantic_rejection_returns_to_agent_then_budget_abstains() -> None:
     verdict = SemanticVerdict(
         status="unsupported",

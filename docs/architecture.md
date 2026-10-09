@@ -46,13 +46,15 @@ flowchart LR
 - **冻结输入不可变**：`MaterialSnapshot`（材料版本 + 解析文本）与 `IntakeSnapshot`（申请人确认事实）一经冻结只能新增版本，Agent 不能修改；补充分改变硬事实时必须重新冻结。
 - **固定预算**：16 轮、5 次检索、8 次按来源读取、2 次 Web 搜索、2 条补库提交。预算耗尽只允许以 `insufficient_evidence` 收口。
 - **引用门禁**（`agent_tools.ComplianceAgentTools.finalize`）：法律 claim 只能由 `can_cite_clause=true` 的 chunk 支持；材料引用的版本必须属于本次冻结快照且原文唯一精确命中；风险结论非证据不足时至少一条可引用法条。
-- **独立语义校验**（`semantic_grounding.SemanticGroundingVerifier`）：另一次模型调用依据审查目标、冻结事实与完整法条逐条核验 claim 与结论，同时接收被引法源的时效与效力元数据；地域/行业适用性不满足判 unsupported，必要事实不足判 uncertain；不通过则把裁决退回 Agent 补证或修正，不产出报告。机制选择、整体合规与手续完成按用户目标区分，额外法律断言仍须获得支持。新旧法源冲突由模型依据时点、范围与衔接原文判断，程序不编码门槛或法律路径。
+- **独立语义校验**（`semantic_grounding.SemanticGroundingVerifier`）：另一次模型调用依据审查目标、冻结事实与完整法条逐条核验 claim 与结论，同时接收被引法源的时效与效力元数据，以及本轮已返回、属于治理后法律库的解释辅助资料。`interpretation_authorities` 保留问答等资料的效力、日期、地域及对象范围，辅助理解法条，不升级为正式法条引用；未检索到的资料不自动注入。地域/行业适用性不满足判 unsupported，必要事实不足判 uncertain；不通过则把裁决退回 Agent 补证或修正，不产出报告。机制选择、整体合规与手续完成按用户目标区分，额外法律断言仍须获得支持。新旧法源冲突由模型依据时点、范围与衔接原文判断，程序不编码门槛或法律路径。
 
 Agent 与语义校验器区分关键条件未知、已确认不满足条件和核实前的审慎建议。条件性判断不要求固定风险等级或必须追问；摘要、主结论、法律路径和问题发现应与事实的确定程度一致。校验不止核对法条转述，也核对事实到个案结论的推导，不能用末尾的条件说明掩盖主结论过度确定。
 
 语义校验的逐项 `claim_checks` 与总评保持一致：模型已判 unsupported/uncertain 的主张不能被总体 supported 放过。程序只收紧矛盾总评并保留具体原因，反馈交给原 Agent 自主补证或修改，没有新增检索执行流程或法律路径规则。要求全部报告片段返回结构化核验结果的方案经[小样本诊断](agent-ab-20261010.md)出现误拦，保留在隔离实验脚本，未加入生产门禁。
 
 主 Agent 和案件追问通过 `LAWAGENT_AGENT_REASONING_EFFORT` 配置思考强度，独立语义校验通过 `LAWAGENT_SEMANTIC_REASONING_EFFORT` 配置，两者默认 low，支持 none/low/high/max。上述节点使用 JSON 输出；其余节点继续使用 `OPENAI_COMPATIBLE_REASONING_EFFORT`（默认 none）。[DeepSeek 思考模式](https://api-docs.deepseek.com/guides/thinking_mode/)支持工具调用，但不支持强制指定工具的 tool_choice；当前 strict_tool 实现使用这种指定方式，因此该模式须使用 none。项目不设置输出 token 上限；供应商自身的默认和模型容量仍然生效。high 作为疑难问题的手动配置选项，不按业务条件自动升级。
+
+主 Agent 使用单轮 `AgentDecision` JSON 决策接口，由程序执行动作，不注册 API tools。提示明确这一区别，避免模型将动作名称输出成工具调用标记或在 JSON 后追加执行描述；解析失败仍按节点既有重试机制处理，不增加宽松解析或兼容层。
 
 处理合法性基础、出境机制、同意及其他保护义务由Agent分别核对一般依据与例外；建议和边界中的假设分支同样接受语义校验，事实变化不会自动取消未改变的例外。程序不编码这些法律结论。历史证据须在审查时点已发布且生效，检索、相邻扩展、读取和最终报告均复查日期；没有生效日期的指南或问答仍受发布时间限制。最终引用只来自实际返回给Agent且该时点可用的证据，不从检索候选缓存补入未展示的内容。
 

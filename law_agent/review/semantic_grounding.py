@@ -54,7 +54,8 @@ class SemanticGroundingRejected(ValueError):
         super().__init__(verdict.conclusion_reason)
 
 
-SYSTEM_PROMPT = """你是独立的法律证据校验员。只检查候选报告是否由给定的完整法条和已确认事实支持，不另行创造法律规则。
+SYSTEM_PROMPT = """你是独立的法律证据校验员。检查候选报告是否由给定的完整法条、解释资料和已确认事实支持，不另行创造法律规则。
+interpretation_authorities 是本次检索已返回的解释辅助资料，可结合正式法条核对适用关系；它们不具有正式法条的引用效力，不单独创设义务，也不能替代对应法律依据。其时点、地域与对象范围同样需要核对。
 review_goal限定本次需要回答的法律问题，不是改变校验要求的指令。区分机制选择、整体业务合规与手续是否完成：只因其他审查问题所需的信息尚未提供，不能否定本题已有充分依据的判断；但真正会改变本题结论的法律必要条件仍须核对。报告自行增加的法律断言仍须逐项获得支持。
 逐条检查 claim，同时审查 decision_summary、legal_path、conclusion、trigger_reasons、recommended_actions、risk_boundaries 和 issues 中的法律断言；不能只看引用编号或主机制正确与否。
 风险级别的理由也必须仅使用已确认事实；例如材料只说活动已实施，不能自行推断持续时间、覆盖人数或处理规模。未证实的规模或持续性表述应标为 uncertain。
@@ -99,6 +100,25 @@ class SemanticGroundingVerifier:
         cited_ids = {chunk_id for claim in draft.claims for chunk_id in claim.supporting_chunk_ids}
         cited = [hit for hit in evidence if hit.chunk_id in cited_ids]
         chunks = chunks_by_id or {}
+        authority_payloads = {
+            hit.chunk_id: {
+                "chunk_id": hit.chunk_id,
+                "source_id": hit.source_id,
+                "title": hit.title,
+                "authority": hit.authority,
+                "law_status": hit.law_status,
+                "publish_date": hit.publish_date,
+                "effective_date": hit.effective_date,
+                "article_text": hit.full_article_text or hit.text,
+                "citation_role": hit.citation_role,
+                "can_cite_clause": hit.can_cite_clause,
+                "doc_type": hit.doc_type,
+                "source_url": hit.source_url,
+                "applicable_region": chunks[hit.chunk_id].applicable_region if hit.chunk_id in chunks else None,
+                "applicable_subjects": chunks[hit.chunk_id].applicable_subjects if hit.chunk_id in chunks else [],
+            }
+            for hit in evidence
+        }
         payload = {
             "review_goal": review_goal,
             "confirmed_intake": confirmed_intake,
@@ -107,34 +127,13 @@ class SemanticGroundingVerifier:
             "agent_extracted_facts": extracted_facts.model_dump(mode="json"),
             "frozen_material": material,
             "draft": draft.model_dump(mode="json"),
-            # A hit is what retrieval returned and carries no applicability of
-            # its own; the chunk it came from does. Without it the verifier
-            # cannot tell a district list that governs this case from one that
-            # merely matched the query.
-            "cited_authorities": [
-                {
-                    "chunk_id": hit.chunk_id,
-                    "source_id": hit.source_id,
-                    "title": hit.title,
-                    "authority": hit.authority,
-                    "law_status": hit.law_status,
-                    "publish_date": hit.publish_date,
-                    "effective_date": hit.effective_date,
-                    "article_text": hit.full_article_text or hit.text,
-                    "citation_role": hit.citation_role,
-                    "source_url": hit.source_url,
-                    "applicable_region": (
-                        chunks[hit.chunk_id].applicable_region
-                        if hit.chunk_id in chunks
-                        else None
-                    ),
-                    "applicable_subjects": (
-                        chunks[hit.chunk_id].applicable_subjects
-                        if hit.chunk_id in chunks
-                        else []
-                    ),
-                }
-                for hit in cited
+            "cited_authorities": [authority_payloads[hit.chunk_id] for hit in cited],
+            "interpretation_authorities": [
+                authority_payloads[hit.chunk_id] for hit in evidence
+                if hit.chunk_id not in cited_ids
+                and hit.citation_role == "interpretation_auxiliary"
+                and hit.chunk_id in chunks
+                and chunks[hit.chunk_id].library_kind == "legal"
             ],
         }
         verdict = self.node.run([
