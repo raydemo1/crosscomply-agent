@@ -36,9 +36,13 @@ def review_groups() -> dict[str, list[AgentCase]]:
     return groups
 
 
-def case_hash(case: AgentCase) -> str:
-    value = json.dumps(case.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
+def _json_hash(value: dict) -> str:
+    value = json.dumps(value, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def case_hash(case: AgentCase) -> str:
+    return _json_hash(case.model_dump(mode="json"))
 
 
 def reviewed_selection(groups: dict[str, list[AgentCase]]) -> tuple[dict, dict]:
@@ -60,7 +64,7 @@ def reviewed_selection(groups: dict[str, list[AgentCase]]) -> tuple[dict, dict]:
     plan = {
         "purpose": "incremental_candidate_eval",
         "evaluation_performed": False,
-        "review_record_sha256": hashlib.sha256(REVIEW_RECORD_PATH.read_bytes()).hexdigest(),
+        "review_record_sha256": _json_hash(record),
         "selected_count": len(selected),
         "skipped_count": len(skipped),
         "selected": selected,
@@ -73,7 +77,7 @@ def reviewed_selection(groups: dict[str, list[AgentCase]]) -> tuple[dict, dict]:
 def cases_from_selection(plan: dict) -> list[AgentCase]:
     if plan["purpose"] != "incremental_candidate_eval":
         raise ValueError("not an incremental candidate selection")
-    expected_hash = hashlib.sha256(REVIEW_RECORD_PATH.read_bytes()).hexdigest()
+    expected_hash = _json_hash(json.loads(REVIEW_RECORD_PATH.read_text(encoding="utf-8")))
     if plan["review_record_sha256"] != expected_hash:
         raise ValueError("review record changed; export a new selection")
     groups = review_groups()

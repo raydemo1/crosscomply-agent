@@ -80,3 +80,16 @@ def test_baseline_dry_run_never_loads_paid_model_config(tmp_path, monkeypatch, c
     assert result["evaluation_performed"] is False
     assert result["model_calls"] == 0
     assert all(case_id.startswith("holdout_") for case_id in result["case_ids"][-6:])
+
+
+def test_selection_is_portable_across_review_record_line_endings(tmp_path, monkeypatch):
+    _record, plan = agent_review.reviewed_selection(agent_review.review_groups())
+    portable_record = tmp_path / "review.json"
+    text = agent_review.REVIEW_RECORD_PATH.read_text(encoding="utf-8")
+    original = agent_review.REVIEW_RECORD_PATH.read_bytes()
+    newline = "\n" if b"\r\n" in original else "\r\n"
+    portable_record.write_bytes(text.replace("\n", newline).encode())
+    assert portable_record.read_bytes() != original
+    monkeypatch.setattr(agent_review, "REVIEW_RECORD_PATH", portable_record)
+
+    assert len(agent_review.cases_from_selection(plan)) == plan["selected_count"]
