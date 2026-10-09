@@ -71,7 +71,15 @@ python -m law_agent.review agent-eval --suite core --judge-model <judge-model> `
   --output data/review_runs/agent_eval_core.json --report data/review_runs/agent_eval_core.md
 ```
 
-> 当前状态：`smoke` 含 2 个框架自检案例；`core` 已有首轮 8 个合成候选，全部标为 `candidate`，尚未人工审定。首轮真实运行完成 4 个评分（3 PASS、1 FAIL），另有 1 个已交付但 judge 被余额不足阻断，3 个运行被同一原因中断。实跑没有触发 `request_input → resume`，不能将预设回答存在当作该路径已验证。完成首轮复核与剩余评测后，再按真实失败扩至约 15–20 个。Rubric 只描述判断边界，不规定执行步骤。
+> 当前状态：`smoke` 含 2 个框架自检案例；`core` 含 17 个已参与诊断和修复的合成候选，作为回归集维护。另有 6 个未实跑的留出候选，尚未接入模型运行入口。两组均未人工法律审定，不能报告 Golden 准确率。历史实跑及定向修复见[基线说明](docs/agent-baseline-post-provenance-20261009.md)。`--no-judge` 仍会调用生产 Agent 模型，不是免费离线模式。
+
+不调用模型的人工审定包可以单独导出，包含题目、原材料、确认填报、即时回答、rubric、法源依据、待审定记录与文件散列：
+
+```powershell
+python -m law_agent.review.evalset.agent_review --output-dir data/review_runs/agent_review_package
+```
+
+已有目录不会被覆盖。本地校验只证明输入结构可用，不形成模型分数或人工审定；划分与指标口径见[评测说明](docs/production-agent-golden-set.md)。
 
 ### Retrieval benchmark
 

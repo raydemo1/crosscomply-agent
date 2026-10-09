@@ -1,0 +1,48 @@
+import json
+import socket
+
+import pytest
+
+from law_agent.llm.openai_compatible import OpenAICompatibleClient
+from law_agent.review.evalset import agent_review
+
+
+def test_review_export_is_offline_and_keeps_pending_decisions(tmp_path, monkeypatch):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("offline review must not call a model or network")
+
+    monkeypatch.setattr(OpenAICompatibleClient, "_post_chat", forbidden)
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    directory = tmp_path / "review"
+    manifest = agent_review.export_review_package(directory)
+    cases = json.loads((directory / "cases.json").read_text(encoding="utf-8"))
+    reviews = json.loads((directory / "review.json").read_text(encoding="utf-8"))
+
+    assert manifest["evaluation_performed"] is False
+    assert manifest["approved_cases"] == 0
+    assert manifest["production_hashes"]
+    assert all(case["review_status"] == "candidate" for group in cases.values() for case in group)
+    assert len(reviews) == sum(len(group) for group in cases.values())
+    assert all(review["decision"] == "pending" and not review["reviewer"] for review in reviews)
+    for group in cases.values():
+        for case in group:
+            parsed = agent_review.AgentCase.model_validate(case)
+            assert manifest["case_hashes"][parsed.case_id] == agent_review.case_hash(parsed)
+    with pytest.raises(FileExistsError):
+        agent_review.export_review_package(directory)
+
+
+def test_review_rejects_overlap_between_regression_and_holdout(monkeypatch):
+    regression = agent_review.get_agent_cases("core")
+    monkeypatch.setattr(agent_review, "build_holdout_cases", lambda: [regression[0]])
+
+    with pytest.raises(ValueError, match="duplicate review case"):
+        agent_review.review_groups()
+
+
+def test_review_fingerprint_changes_when_rubric_changes():
+    case = agent_review.build_holdout_cases()[0]
+    original = agent_review.case_hash(case)
+    case.rubric.forbidden_judgments.append("另一个待审定判断约束")
+
+    assert agent_review.case_hash(case) != original
