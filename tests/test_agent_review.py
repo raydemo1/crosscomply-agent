@@ -46,3 +46,37 @@ def test_review_fingerprint_changes_when_rubric_changes():
     case.rubric.forbidden_judgments.append("另一个待审定判断约束")
 
     assert agent_review.case_hash(case) != original
+
+
+def test_incremental_selection_cannot_use_changed_case_or_tampered_plan(monkeypatch):
+    groups = agent_review.review_groups()
+    _record, plan = agent_review.reviewed_selection(groups)
+    assert len(agent_review.cases_from_selection(plan)) == plan["selected_count"]
+    plan["selected"][0]["case_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="differs from the reviewed case list"):
+        agent_review.cases_from_selection(plan)
+
+    groups["regression"][0].rubric.forbidden_judgments.append("尚未审定的新边界")
+    monkeypatch.setattr(agent_review, "review_groups", lambda: groups)
+    with pytest.raises(ValueError, match="case changed after review"):
+        agent_review.reviewed_selection(groups)
+
+
+def test_baseline_dry_run_never_loads_paid_model_config(tmp_path, monkeypatch, capsys):
+    from scripts import run_agent_baseline
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("dry run must not configure or execute a paid model")
+
+    agent_review.export_review_package(tmp_path / "review")
+    monkeypatch.setattr(run_agent_baseline, "require_llm_config", forbidden)
+    monkeypatch.setattr(run_agent_baseline, "run_one", forbidden)
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.setattr("sys.argv", ["run_agent_baseline.py", "--selection-plan",
+                                     str(tmp_path / "review" / "selection.json"), "--dry-run"])
+
+    assert run_agent_baseline.main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["evaluation_performed"] is False
+    assert result["model_calls"] == 0
+    assert all(case_id.startswith("holdout_") for case_id in result["case_ids"][-6:])

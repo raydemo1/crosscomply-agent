@@ -1,0 +1,425 @@
+{
+  "review_kind": "ai_assisted_source_audit",
+  "reviewer": "Codex",
+  "reviewed_at": "2026-10-09",
+  "independent_human_approval": false,
+  "model_api_calls": 0,
+  "boundary": "逐案核对合成输入、rubric及官方来源；AI复核不是独立专家人工法律审定，源码review_status仍为candidate。原始实跑结果未覆盖；不同输入/rubric/生产版本结果不合并。",
+  "source_urls": {
+    "flow_2024": "https://www.cac.gov.cn/2024-03/22/c_1712776611775634.htm",
+    "flow_qna_2024": "https://www.cac.gov.cn/2024-03/22/c_1712776611649184.htm",
+    "assessment_2022": "https://www.cac.gov.cn/2022-07/07/c_1658811536396503.htm",
+    "pipl": "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm",
+    "network_data_regulation": "https://www.cac.gov.cn/2024-09/30/c_1729384452307680.htm",
+    "qna_2026_07": "https://www.cac.gov.cn/2026-07/24/c_1786638883119336.htm",
+    "qna_2026_09": "https://www.cac.gov.cn/2026-09/11/c_1790876549989064.htm",
+    "automotive_notice_2026": "https://www.miit.gov.cn/jgsj/waj/wjfb/art/2026/art_4d98b542f9ba44d3b4ecf50cd034e14b.html",
+    "recommended_standard": "https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=F9F3A2EBF49E9B4D73AD8C8912986D5A"
+  },
+  "cases": [
+    {
+      "case_id": "eval_cross_border_008",
+      "partition": "regression",
+      "case_sha256": "6172f5370bf402e624461dc54a04ea6558c071979dd2eeb46d95e86ce693b383",
+      "disposition": "usable_candidate",
+      "legal_review": "确认12万人当年累计普通信息、非CIIO、非重要数据且特殊免予已排除时，机制判断为合同或认证；填报已经澄清原材料过去一年的口径，不把手续完成当机制前提。",
+      "source_keys": [
+        "flow_2024",
+        "qna_2026_09"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_round1/eval_cross_border_008/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "eval_standard_contract_003",
+      "partition": "regression",
+      "case_sha256": "0aa0a436f2d09510a39e71e40da9da7a829b8a00c524b8dccf4111fc7379c8e4",
+      "disposition": "usable_candidate",
+      "legal_review": "HR必要性、劳动规章制度、集体合同均已确认，适用HR免予；仍区分告知和影响评估。不一概要求单独同意，非同意处理依据须结合PIPL第十三条。",
+      "source_keys": [
+        "flow_2024",
+        "pipl",
+        "qna_2026_07"
+      ],
+      "findings_and_resolutions": [
+        "旧3000人同时满足小量普通信息免予，不能隔离HR例外能力；改为12万人且材料与填报一致。",
+        "旧PASS报告一概要求单独同意，遗漏非同意处理依据；补充允许/禁止判断及关键法源。原结果保留。"
+      ],
+      "next_run_reason": "revised_case_and_missed_exception",
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_round1/eval_standard_contract_003/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "eval_cross_border_001",
+      "partition": "regression",
+      "case_sha256": "01a10f41edc592a5eb0d2afa068156693e063db7fcbc7aeec25ad8bf48e110e4",
+      "disposition": "usable_candidate",
+      "legal_review": "日均处理量不是累计去重出境人数；定位性质、身份与重要数据未核实。即时估计仅为未核实补充说明，允许条件化说明或保留，不允许确定路径。",
+      "source_keys": [
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_round1/eval_cross_border_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "eval_shanghai_001",
+      "partition": "regression",
+      "case_sha256": "924c380c487717c25f2d93ddca6d7fe01f2a1a2e82e221bcbd5b56f940dc083c",
+      "disposition": "usable_candidate",
+      "legal_review": "问题提到临港而材料只称上海自贸区，不足以确认具体清单及行业/数据适用范围。只评缺口与地域边界，不把地方清单的实体结论编成唯一答案。",
+      "source_keys": [
+        "flow_2024",
+        "flow_qna_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_round1/eval_shanghai_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "eval_sensitive_002",
+      "partition": "regression",
+      "case_sha256": "7b5b01afc8f9b2bced8175cb0c364a1f2430c4470d6700c4a8c38b352e5cc33c",
+      "disposition": "usable_candidate",
+      "legal_review": "连续精确定位与到店记录在已确认可识别个人、敏感属性下评估处理义务与引用角色。此题已给敏感属性，不作为独立分类准确率；推荐性标准不能冒充强制法律条款。",
+      "source_keys": [
+        "pipl",
+        "recommended_standard"
+      ],
+      "findings_and_resolutions": [
+        "官网核对GB/T 45574-2025编号及实施日期；TC260 PDF本轮返回502，角色通过本地manifest复核，未声称重读官方PDF全文。"
+      ],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_round1/eval_sensitive_002/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_material_conflict_001",
+      "partition": "regression",
+      "case_sha256": "d31d27bd9be69a634b5f2f04d1ce093e25a0a3b655ec9a935d52615f1e03fecd",
+      "disposition": "usable_candidate",
+      "legal_review": "同主体同期间同口径12万与120万互斥且会改变机制；允许解释两个分支并保留，不允许平均或按材料标题擅自取一。追问只是可选消解手段。",
+      "source_keys": [
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_round1/agent_material_conflict_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_historical_001",
+      "partition": "regression",
+      "case_sha256": "21d01a850273185185a3e8e7be12ffea239b02f99e80d951f16632c2fdadb701",
+      "disposition": "usable_candidate",
+      "legal_review": "2023-12-31应适用当时的2022办法，统计自2022-01-01累计12万人普通信息，触发旧办法第四条第三项。不能追溯使用2024门槛。",
+      "source_keys": [
+        "assessment_2022",
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_round1/agent_historical_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "eval_out_of_corpus_001",
+      "partition": "regression",
+      "case_sha256": "12f2e3408e904cf2999032bef9aa4cb6d9519459aba608788afdfdc35921e50a",
+      "disposition": "usable_candidate",
+      "legal_review": "只评当前受控库的库外法域边界，不审定EU AI Act实体规则。不能以中国法替代或凭记忆给无受控依据的确定结论；将来受控库覆盖EU法时须重审本题前提。",
+      "source_keys": [],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_round1/eval_out_of_corpus_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_aligned_intake_001",
+      "partition": "regression",
+      "case_sha256": "b9d599f165d1de6b0289b6276fbef93650602bc8ec956b20466c469720299214",
+      "disposition": "usable_candidate",
+      "legal_review": "材料与冻结事实明确12万人当年累计去重、无敏感信息、无重要数据、非CIIO且免予排除，机制可判断；不能无证据重复追问或用未完成手续否定机制判断。",
+      "source_keys": [
+        "flow_2024",
+        "flow_qna_2024",
+        "qna_2026_09"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_controls/agent_aligned_intake_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_historical_dedup_001",
+      "partition": "regression",
+      "case_sha256": "364e2bf74299d7de78f195e19ebd270c7b2d44b54e84ef6aeb8e1db94c48cf15",
+      "disposition": "usable_candidate",
+      "legal_review": "显式去重与历史统计起点排除题目口径歧义，与历史母题一起保留为原因对照，不将两题视为独立业务样本。",
+      "source_keys": [
+        "assessment_2022",
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_controls/agent_historical_dedup_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_confirmed_material_conflict_001",
+      "partition": "regression",
+      "case_sha256": "71e2dcdf62c8f1433a8a108606a59a6702ca975605fc6b1e94e2ee3b6dd53374",
+      "disposition": "usable_candidate",
+      "legal_review": "冻结非CIIO与同主体通知称CIIO冲突，效力未核实；允许保留及说明身份分支，不允许按来源标签选边。历史系统abstain掩盖预算异常，虽后续定向成功仍列入增量复测。",
+      "source_keys": [
+        "flow_2024",
+        "flow_qna_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": "previous_execution_failure",
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_boundaries/agent_confirmed_material_conflict_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": true,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_requester_resume_001",
+      "partition": "regression",
+      "case_sha256": "ac5635a62033d146fbaed5a79c6f148a950f1b44fd0d1f803023f062c783763f",
+      "disposition": "usable_candidate",
+      "legal_review": "用户明确要求先询问身份，作为交互任务目标有效；未核实回答不升级确认。法律安全与实际暂停恢复分开评价，历史运行确有交互记录，不以预设答复存在代替执行证据。",
+      "source_keys": [
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_boundaries/agent_requester_resume_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_reviewer_instruction_001",
+      "partition": "regression",
+      "case_sha256": "2d98aa37a7cfcf3b04fb0b7b7f21aee4aff59b9625de099982a8748bd890b578",
+      "disposition": "usable_candidate",
+      "legal_review": "操作指引不解决身份事实；确认快照保持未知。与申请人回答案组成来源对照，不把Reviewer角色当事实验证权。",
+      "source_keys": [
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_boundaries/agent_reviewer_instruction_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_hr_exception_missing_001",
+      "partition": "regression",
+      "case_sha256": "4d014602d84179a35bfeb707359c5ea507f56c635b80425799016b7060f874ce",
+      "disposition": "usable_candidate",
+      "legal_review": "集体合同要件未知不是不存在；允许有明确条件的HR免予/普通机制分析及标明性质的准备建议，禁止把未知推成确定的安全评估义务。不强制risk_level。",
+      "source_keys": [
+        "flow_2024",
+        "network_data_regulation"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": "previous_legal_failure",
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_boundaries/agent_hr_exception_missing_001/result.json",
+        "candidate_pass": false,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_important_data_001",
+      "partition": "regression",
+      "case_sha256": "3a770cf8d7bc097bc351e7f061d739a805ae3870b4eed77d730653440077a74e",
+      "disposition": "usable_candidate",
+      "legal_review": "针对本数据集且有效的识别通知已确认，数量很小及零个人信息不能消除重要数据安全评估触发；不等于已经批准。原材料已排除其他适用免予。",
+      "source_keys": [
+        "flow_2024",
+        "network_data_regulation"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_boundaries/agent_important_data_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_small_sensitive_001",
+      "partition": "regression",
+      "case_sha256": "23d35c9fc12d7d22173fce53dc07a6544dfc73d085b8a7ce8d4a96d7caf810a1",
+      "disposition": "usable_candidate",
+      "legal_review": "24人敏感信息、无其他免予，不能套普通信息不满10万人免予；属于合同或认证范围，不仅因敏感就申报安全评估。",
+      "source_keys": [
+        "flow_2024",
+        "qna_2026_09"
+      ],
+      "findings_and_resolutions": [
+        "填报原为境外客服供应商，材料为德国商业分析供应商；统一填报，原PASS不作为改题后执行证据。"
+      ],
+      "next_run_reason": "revised_intake",
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_controls/agent_small_sensitive_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "agent_freshness_holdout_001",
+      "partition": "regression",
+      "case_sha256": "a5268dc2b52cf1aecdce2d9edb12a785be1eaed2a594b7afc1d66b64ab03fe70",
+      "disposition": "usable_candidate",
+      "legal_review": "官方2026汽车指引发布已核对，行业身份与测绘情况未查清，留出全文、固定Web摘要下保持核心判断及freshness hold。只评受控发现后的边界，不评真实搜索召回。",
+      "source_keys": [
+        "automotive_notice_2026",
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [
+        "原reference_basis误用通用数量案例模板；改为实际汽车通知。此元数据修正不改变输入、rubric、fixture或原法律评分。"
+      ],
+      "next_run_reason": null,
+      "previous_run": {
+        "result_path": "data/review_runs/agent_core_20261009_fixed_boundaries/agent_freshness_holdout_001/result.json",
+        "candidate_pass": true,
+        "budget_exhausted": false,
+        "scope": "historical_snapshot_only"
+      }
+    },
+    {
+      "case_id": "holdout_foreign_origin_001",
+      "partition": "holdout_candidate",
+      "case_sha256": "e1d2341c317bb009c9c8746c5e4be55e4488512f8b1c688a34f4cdbfbbe8ab45",
+      "disposition": "usable_candidate",
+      "legal_review": "境外收集产生、境内处理未引入境内信息或重要数据均确认，适用第四条例外；80万人不能脱离来源条件机械选择机制。统计原始提供数量不等于免予排除后的机制计数。",
+      "source_keys": [
+        "flow_2024",
+        "flow_qna_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": "new_candidate"
+    },
+    {
+      "case_id": "holdout_mixed_origin_001",
+      "partition": "holdout_candidate",
+      "case_sha256": "99abbd4f7ed9f04c98b769babbf7df3797186aaca266c1933114874785da8aeb",
+      "disposition": "usable_candidate",
+      "legal_review": "已引入境内画像，但范围和可分离性未知，不能确认整批第四条例外；澄清混合范围及相应出境口径即可，不预定具体人数和机制。",
+      "source_keys": [
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": "new_candidate"
+    },
+    {
+      "case_id": "holdout_personal_booking_001",
+      "partition": "holdout_candidate",
+      "case_sha256": "ad92929ab90344c51753ed62c3a722d214e6b306e52598f6334ec101a4c2c8dd",
+      "disposition": "usable_candidate",
+      "legal_review": "个人为合同当事人且向酒店提供确为履约所必需，适用个人合同例外；不扩大至营销，也不在主动讨论同意义务时遗漏PIPL第十三条的非同意依据。",
+      "source_keys": [
+        "flow_2024",
+        "pipl"
+      ],
+      "findings_and_resolutions": [
+        "补充同意义务例外边界；审查时点2024-03-23，只以当时PIPL和2024规定为依据，不追溯使用2026问答作生效依据。"
+      ],
+      "next_run_reason": "new_candidate"
+    },
+    {
+      "case_id": "holdout_business_contract_001",
+      "partition": "holdout_candidate",
+      "case_sha256": "e78d6c10120236b0b1e6443bdbacc6513472ab48f0673b3129234d8e5139830e",
+      "disposition": "usable_candidate",
+      "legal_review": "企业采购合同与个人合同当事人/必要性不同；250万人普通信息、其他免予明确排除，应讨论安全评估。企业合同也不是完成出境标准合同手续的证明。",
+      "source_keys": [
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": "new_candidate"
+    },
+    {
+      "case_id": "holdout_nonpersonal_trade_001",
+      "partition": "holdout_candidate",
+      "case_sha256": "005d59a4300f5f1d2b85c33e2f41fa485b8819d1908e4a2fc0ebfcf7eb0324e9",
+      "disposition": "usable_candidate",
+      "legal_review": "确认贸易数据不含个人信息或重要数据，适用第三条；不等于无需数据安全保护或企业所有业务都免予。",
+      "source_keys": [
+        "flow_2024"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": "new_candidate"
+    },
+    {
+      "case_id": "holdout_pseudonymous_data_001",
+      "partition": "holdout_candidate",
+      "case_sha256": "127d6d1c6c4c2cccab2c6eca1bf1f3923e23ed8a0bd521984d1e2f6945cb180c",
+      "disposition": "usable_candidate",
+      "legal_review": "保留实名对应且已确认属于个人信息，不能将编码化宣传当匿名化。30万人普通信息且无特殊免予，机制为合同或认证。",
+      "source_keys": [
+        "flow_2024",
+        "pipl"
+      ],
+      "findings_and_resolutions": [],
+      "next_run_reason": "new_candidate"
+    }
+  ]
+}

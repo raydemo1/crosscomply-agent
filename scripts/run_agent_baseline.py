@@ -15,6 +15,7 @@ from pathlib import Path
 from law_agent.config import load_service_config, load_web_search_api_key, require_llm_config
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
 from law_agent.review.evalset.agent_cases import get_agent_cases
+from law_agent.review.evalset.agent_review import cases_from_selection
 from law_agent.review.evalset.agent_runner import (
     StructuredAgentJudge,
     infrastructure_http_status,
@@ -177,24 +178,44 @@ def run_one(case: AgentCase, directory: Path, *, model: str, judge_model: str, b
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--round", type=int, choices=[1, 2], required=True)
-    parser.add_argument("--output-dir", type=Path, required=True)
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--round", type=int, choices=[1, 2])
+    selection.add_argument("--selection-plan", type=Path)
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--dry-run", action="store_true", help="validate selection without model calls")
     parser.add_argument("--workers", type=int, default=2, choices=[1, 2])
     parser.add_argument("--judge-model", default=None)
     parser.add_argument("--case", action="append", dest="case_ids", default=None)
     args = parser.parse_args()
-    config = require_llm_config()
-    cases = [c for c in get_agent_cases("core") if c.construction_round == args.round]
+    plan = None
+    if args.selection_plan:
+        try:
+            plan = json.loads(args.selection_plan.read_text(encoding="utf-8"))
+            cases = cases_from_selection(plan)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            parser.error(str(exc))
+    else:
+        cases = [c for c in get_agent_cases("core") if c.construction_round == args.round]
     if args.case_ids:
         unknown = set(args.case_ids) - {c.case_id for c in cases}
         if unknown:
-            parser.error(f"unknown case IDs in round {args.round}: {sorted(unknown)}")
+            parser.error(f"unknown case IDs in selected set: {sorted(unknown)}")
         cases = [c for c in cases if c.case_id in args.case_ids]
     if not cases:
-        parser.error("this construction round has no cases")
+        parser.error("this selection has no cases")
     if args.workers != 1 and any(c.controlled_web for c in cases):
         parser.error("controlled Web fixtures require --workers 1")
+    if args.dry_run:
+        print(json.dumps({"mode": "dry_run", "case_count": len(cases),
+                          "case_ids": [c.case_id for c in cases], "model_calls": 0,
+                          "evaluation_performed": False}, ensure_ascii=False))
+        return 0
+    if args.output_dir is None:
+        parser.error("--output-dir is required for a model run")
+    config = require_llm_config()
     args.output_dir.mkdir(parents=True, exist_ok=False)
+    if plan is not None:
+        write_json(args.output_dir / "selection.json", plan)
     production_files = sorted(p for p in Path("law_agent").rglob("*.py") if "evalset" not in p.parts)
     production_hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in production_files}
     service_config = load_service_config()

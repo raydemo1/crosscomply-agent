@@ -35,6 +35,38 @@ python -m law_agent.review.evalset.agent_review --output-dir data/review_runs/ag
 
 审定者应逐案核对事实前提、允许与禁止判断、例外、必要澄清和关键法源，记录`approved / revise / rejected`。审定记录须绑定当前案例散列，修改材料、答案或rubric后重新审定。程序不会代填审定身份、自动升级案例或将本地校验当作法律审定；正式采用时将审定记录与对应案例一起纳入Git。没有外部或独立专业复核时，应披露仍是作者自审。
 
+## 23案复核与增量运行
+
+2026-10-09完成全部23案的AI逐案复核，核对问题、材料、填报、允许/禁止判断、例外、关键法源及既存运行记录。持久记录见[agent-case-review.json](agent-case-review.json)，包括逐案散列、复核结论、来源、修正内容、历史结果路径与本次是否需要运行。复核身份明确为Codex，独立专家人工审定仍未完成，不将源码的`candidate`升级为`approved`。
+
+发现并处理了三处题目问题：
+
+- HR正例原有3000人，同时满足小量普通信息免予，不能隔离HR例外能力。修改为当年累计12万人、材料与填报一致，保留HR必要性、劳动规章制度和集体合同。原PASS报告一概要求单独同意，遗漏[个人信息保护法第十三条](https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm)的非同意处理依据；[2026年7月官方问答第1问](https://www.cac.gov.cn/2026-07/24/c_1786638883119336.htm)明确此类出境无需取得个人同意、仍需履行告知。补充rubric后，旧PASS不能验证新题。
+- 小量敏感信息案例的材料为商业分析供应商，填报误写客服供应商，现已统一填报；该输入变化需重跑。
+- freshness题的法源核对记录误用普通数量场景模板，改为实际汽车指引发布通知。只改法源说明，未改材料、rubric或受控Web fixture，不因此追加模型调用。
+
+HR正例与HR缺口案例人数不同，不能作为只改变集体合同一个变量的受控实验。敏感信息案例已在填报提供敏感属性，评测义务理解与来源角色，不以其PASS证明独立分类能力。库外欧盟案例依赖受控语料缺少该法域的前提；freshness案例依赖完整来源留出与固定Web返回，两者均不构成线上搜索能力指标。TC260官方PDF本次抓取返回502，引用角色已核对本地manifest与GB/T官方页面，未宣称重新核验该PDF全文。
+
+后续只选10案：
+
+| 类型 | 案例 |
+| --- | --- |
+| 既存法律失败 | `agent_hr_exception_missing_001` |
+| 既存执行异常 | `agent_confirmed_material_conflict_001` |
+| 本次修正后的输入/评分边界 | `eval_standard_contract_003`、`agent_small_sensitive_001` |
+| 新增未实跑候选 | 6个`holdout_*`案例 |
+
+前两案已有不同生产快照的定向成功记录，但保留为已发生失败的复测题，不能用旧成功拼成现版本完整分数。其余13案判断边界未变且曾正常通过，本批跳过；历史结果保持原样，本次没有调用Agent或judge。
+
+离线导出会保存`ai_review.json`与`selection.json`。清单绑定案例和复核记录散列，题目改动后重新复核、导出，防止静默使用旧清单。免费验证：
+
+```powershell
+python -m law_agent.review.evalset.agent_review --output-dir data/review_runs/agent_review_package
+python scripts/run_agent_baseline.py --selection-plan data/review_runs/agent_review_package/selection.json --dry-run
+```
+
+实际模型运行时使用同一`--selection-plan`、新`--output-dir`与`--workers 1`，去掉`--dry-run`；会调用付费模型，应在另行授权的运行轮执行。本清单只是选题，正式运行仍记录当次生产代码、模型配置和语料。仅报本次10案结果，不能与跳过的13案历史PASS相加为当前23案通过率，也不能声称获得现版本完整回归基线。
+
 ## 简历与面试的指标口径
 
 检索和法律判断分开报告。检索Recall@5按前5条命中中的来源覆盖计算逐案比例，再对有标签场景取平均；Must-have Recall@5只计算有核心法源标签的场景。它们不代表法条适用正确率、整个案件准确率或生产Agent完成率。引用可定位也不等于引用足以支持判断。
@@ -49,7 +81,7 @@ python -m law_agent.review.evalset.agent_review --output-dir data/review_runs/ag
 
 ## 案例与轻量 rubric
 
-题目和原材料优先通过 `source_case_id` 复用 retrieval eval，不复制其 `expected_sources`、`should_abstain` 或法律判断。只有材料冲突、历史时点等 Agent 能力需要新增材料；已确认事实通过与生产相同的冻结 intake 提供。评测事实是合成输入，不能声称来自真实审核记录。
+题目和原材料优先通过 `source_case_id` 复用 retrieval eval，不复制其 `expected_sources`、`should_abstain` 或法律判断。材料冲突、历史时点等 Agent 能力需要新增材料；审校发现原输入不能隔离目标能力时，可修正Agent候选材料并保留旧运行。已确认事实通过与生产相同的冻结 intake 提供。评测事实是合成输入，不能声称来自真实审核记录。
 
 每个 rubric 只记录：
 

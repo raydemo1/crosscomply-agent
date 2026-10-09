@@ -121,7 +121,7 @@ def build_second_cases(first_round: list[AgentCase]) -> list[AgentCase]:
         candidate(
             "agent_small_sensitive_001", "只出境24人的敏感个人信息，可否按不满10万人直接免予机制？",
             "北京非自贸区普通企业，非CIIO、不涉及重要数据，拟向德国商业分析供应商提供可识别个人的精确行踪轨迹。2026-01-01至2026-10-08累计去重敏感个人信息24人、普通个人信息0人。用途为商业分析，已排除个人合同履行必要、HR必要、紧急救助、境外采集后回传等免予情形。只判断出境机制。",
-            {**facts, "sensitive_personal_info": True, "annual_non_sensitive_count": "0", "annual_sensitive_count": "24", "processing_purpose": "商业分析", "exemption_facts": "已排除个人合同履行、HR管理、紧急救助、境外采集后回传和自贸区等特殊免予情形。"},
+            {**facts, "sensitive_personal_info": True, "annual_non_sensitive_count": "0", "annual_sensitive_count": "24", "overseas_recipient": "德国商业分析供应商", "processing_purpose": "商业分析", "exemption_facts": "已排除个人合同履行、HR管理、紧急救助、境外采集后回传和自贸区等特殊免予情形。"},
             AgentRubric(
                 must_cover_sources=[flow],
                 allowed_judgments=["适用标准合同或认证；不满10万人的普通信息免予条件不覆盖这24人的敏感信息。"],
@@ -141,6 +141,7 @@ def build_second_cases(first_round: list[AgentCase]) -> list[AgentCase]:
                 notes="受控法源留出+固定官方Web返回；只测发现输入后的阻断边界，不代表真实Web召回能力。没有调用Web则记为发现覆盖缺口，不能归因于真实搜索零召回。",
             ),
             "首轮尚未覆盖freshness；将已核实的官方2026汽车指引从本案可引用库完整留出，不污染生产语料或索引。",
+            reference_basis=[f"工信部2026版汽车数据出境指引发布通知（2026-02-03）；{automotive_url}；仅核对正式发布及潜在核心影响，实体分类待受控全文核验。"],
             controlled_web=ControlledWebFixture(
                 held_out_source_ids=["cac_automotive_data_export_security_guide_2026"],
                 results=[ControlledWebResult(

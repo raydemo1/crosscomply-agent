@@ -15,14 +15,15 @@ def build_core_cases() -> list[AgentCase]:
 
     def reuse(case_id: str, **values) -> AgentCase:
         scenario = scenarios[case_id]
-        return AgentCase(
-            case_id=case_id,
-            source_case_id=case_id,
-            question=scenario.question,
-            material_text=scenario.material_text,
-            tags=[*scenario.tags, "candidate"],
-            **values,
-        )
+        fields = {
+            "case_id": case_id,
+            "source_case_id": case_id,
+            "question": scenario.question,
+            "material_text": scenario.material_text,
+            "tags": [*scenario.tags, "candidate"],
+        }
+        fields.update(values)
+        return AgentCase(**fields)
 
     confirmed_customer = {
         "contains_personal_information": True,
@@ -54,21 +55,22 @@ def build_core_cases() -> list[AgentCase]:
         reuse(
             "eval_standard_contract_003",
             selection_reason="避免看到员工数据就机械要求标准合同，检验第五条人力资源管理例外及剩余义务。",
+            material_text="北京非自贸区集团将境内员工姓名、手机号、邮箱同步至德国HR系统。2026年1月1日至2026年10月8日累计去重出境12万人，无敏感个人信息或重要数据，非CIIO。依法制定劳动规章制度、依法签订集体合同、出境确为跨境人力资源管理所必需均已确认；不存在其他特殊免予情形。员工告知书已说明用途，其他告知事项及影响评估是否完成尚未核实。请区分出境机制与剩余义务。",
             intake={
                 **confirmed_customer,
-                "annual_non_sensitive_count": "3000",
+                "annual_non_sensitive_count": "120000",
                 "overseas_recipient": "德国集团HR系统",
                 "processing_purpose": "跨境人力资源管理",
                 "exemption_facts": "已核实依法制定劳动规章制度、依法签订集体合同；本次提供员工通讯录确为跨境人力资源管理所必需，不包括重要数据。",
                 "notes": "审查时点2026-10-08；上述免予事实已确认。只判断出境机制，其他个人信息保护义务仍应依法核查。",
             },
             rubric=AgentRubric(
-                must_cover_sources=[FLOW],
+                must_cover_sources=[FLOW, PIPL],
                 allowed_judgments=["对已确认的跨境人力资源管理必要范围适用第五条第二项免予三种出境机制。"],
-                forbidden_judgments=["无视已确认的第五条例外，一律要求标准合同备案。", "免予出境机制就代表无需任何个人信息保护义务。"],
-                required_exceptions=["第五条第二项的劳动规章制度、集体合同、跨境HR管理必要性均已确认；免予机制不取消其他法定义务。"],
+                forbidden_judgments=["无视已确认的第五条例外，一律要求标准合同备案。", "免予出境机制就代表无需任何个人信息保护义务。", "忽略已成立的第十三条非同意处理依据，一概要求取得员工的单独同意。"],
+                required_exceptions=["第五条第二项的劳动规章制度、集体合同、跨境HR管理必要性均已确认；免予机制不取消其他法定义务。", "区分个人信息保护法第十三条的非同意处理依据与告知、影响评估等剩余义务。"],
             ),
-            reference_basis=[f"2024规定第五条第二项、第十条；{FLOW_URL}；2026-10-08核对官网及本地条款。"],
+            reference_basis=[f"2024规定第五条第二项、第十条；{FLOW_URL}；个人信息保护法第十三、三十九、五十五条；https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm；网信办2026年7月问答第1问明确非同意处理依据；https://www.cac.gov.cn/2026-07/24/c_1786638883119336.htm。"],
         ),
         reuse(
             "eval_cross_border_001",
