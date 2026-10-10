@@ -6,7 +6,9 @@ import pytest
 
 from law_agent.data.schemas import Chunk
 from law_agent.review.agent import AgentDecision, AgentState, run_agent
-from law_agent.review.result_builder import LLMReviewResultDraft
+from law_agent.review.llm import ReviewWorkflowFailed
+from law_agent.review.report_grounding import ReportCheck
+from law_agent.review.result_builder import LLMReviewResultDraft, ReviewIssueDraft
 from law_agent.review.schemas import GroundedClaim, ReviewFacts
 from law_agent.review.semantic_grounding import (
     SemanticGroundingRejected,
@@ -29,6 +31,13 @@ def _draft() -> LLMReviewResultDraft:
         recommended_actions=["核查例外"],
         risk_boundaries=[],
     )
+
+
+def _advice_supported() -> dict:
+    return {
+        "checks": [{"target": "recommended_actions:0", "status": "supported", "reason": "核实建议"}],
+        "conclusion_reason": "建议获得支持",
+    }
 
 
 @pytest.mark.parametrize("status", ["uncertain", "unsupported"])
@@ -67,6 +76,7 @@ def test_verifier_receives_full_article_and_rejects_unresolved_exemptions() -> N
     assert payload["confirmed_intake"]["count_period"] == "unknown"
     assert verdict.status == "uncertain"
     assert client.kwargs[0]["model"] == "test-model"
+    assert len(client.calls) == 1
 
 
 def test_verifier_sees_the_applicability_boundary_of_each_cited_authority() -> None:
@@ -76,7 +86,7 @@ def test_verifier_sees_the_applicability_boundary_of_each_cited_authority() -> N
         "status": "supported",
         "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "支持"}],
         "conclusion_reason": "已核查",
-    }])
+    }, _advice_supported()])
     verifier = SemanticGroundingVerifier(model_id="test-model", client=client)
     chunk = Chunk(
         chunk_id="c1",
@@ -108,7 +118,7 @@ def test_verifier_receives_returned_legal_interpretations_without_granting_claus
     client = FakeClient(outputs=[{
         "status": "supported", "conclusion_reason": "依据法条及解释资料核对",
         "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "支持"}],
-    }])
+    }, _advice_supported()])
     explanation = _hit().model_copy(update={
         "chunk_id": "faq", "citation_role": "interpretation_auxiliary",
         "can_cite_clause": False, "doc_type": "faq", "authority": "public_interpretation",
@@ -171,3 +181,112 @@ def test_semantic_rejection_returns_to_agent_then_budget_abstains() -> None:
     assert state.status == "completed"
     assert state.result["review_result"]["risk_level"] == "insufficient_evidence"
     assert "并列免予分支" in state.result["review_result"]["missing_information"][0]
+
+
+def _core_supported() -> dict:
+    return {
+        "status": "supported",
+        "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "核心有依据"}],
+        "conclusion_reason": "核心有依据",
+    }
+
+
+def test_boundary_failure_overrides_core_and_returns_located_feedback():
+    boundary = "若仅人数增加，就应改走申报。"
+    draft = _draft().model_copy(update={"risk_boundaries": [boundary]})
+    client = FakeClient(outputs=[_core_supported(), _advice_supported(), {
+        "checks": [{
+            "target": "risk_boundaries:0", "status": "unsupported",
+            "reason": "该变化未否定仍成立的例外", "quote": boundary,
+            "evidence_ids": ["c1"], "missing_facts": [],
+        }],
+        "conclusion_reason": "边界缺少例外衔接",
+    }])
+    intake = {"exemption_facts": "适用条件已确认"}
+    verdict = SemanticGroundingVerifier(model_id="test-model", client=client)(
+        review_goal="判断当前路径", draft=draft, confirmed_intake=intake,
+        extracted_facts=ReviewFacts(), material="冻结材料", evidence=[_hit()],
+    )
+    core, advice, boundaries = [json.loads(call[1].content) for call in client.calls]
+    assert "recommended_actions" not in core["draft"]
+    assert "risk_boundaries" not in core["draft"]
+    assert "issues" not in core["draft"]
+    assert advice["report_units"] == [{"target": "recommended_actions:0", "text": "核查例外"}]
+    assert boundaries["report_units"] == [{"target": "risk_boundaries:0", "text": boundary}]
+    assert advice["report_background"] == boundaries["report_background"] == {
+        "decision_summary": draft.decision_summary, "legal_path": draft.legal_path,
+    }
+    assert advice["authorities"] == boundaries["authorities"] == core["cited_authorities"]
+    assert all(payload["confirmed_intake"] == intake for payload in (core, advice, boundaries))
+    assert all(kwargs["model"] == "test-model" for kwargs in client.kwargs)
+    assert verdict.status == "unsupported"
+    assert len(verdict.report_checks) == 2
+    assert "risk_boundaries:0" in verdict.conclusion_reason
+    assert boundary in verdict.conclusion_reason
+    assert verdict.model_dump(mode="json")["report_checks"][1]["evidence_ids"] == ["c1"]
+
+
+def test_empty_report_groups_do_not_add_model_calls():
+    client = FakeClient(outputs=[_core_supported()])
+    SemanticGroundingVerifier(model_id="test-model", client=client)(
+        review_goal="只判断当前路径", draft=_draft().model_copy(update={"recommended_actions": []}),
+        confirmed_intake={}, extracted_facts=ReviewFacts(), material="材料", evidence=[_hit()],
+    )
+    assert len(client.calls) == 1
+
+
+def test_issue_fields_keep_their_sources_and_coverage_in_grouped_checks():
+    issue = ReviewIssueDraft(
+        kind="missing_information", title="接收方信息", finding="尚未确认接收方地区",
+        material_evidence=[], supporting_chunk_ids=["issue-law"], unknowns=["所在地区", " "],
+        recommended_action="确认接收方地区",
+    )
+    targets = ["issues:0:title", "issues:0:finding", "issues:0:recommended_action", "issues:0:unknowns:0"]
+    client = FakeClient(outputs=[_core_supported(), {
+        "checks": [{"target": target, "status": "supported", "reason": "忠实缺口说明"} for target in targets],
+        "conclusion_reason": "问题栏目支持",
+    }])
+    evidence = [_hit(), _hit().model_copy(update={"chunk_id": "issue-law"})]
+    SemanticGroundingVerifier(model_id="test-model", client=client)(
+        review_goal="核对缺口", draft=_draft().model_copy(update={"recommended_actions": [], "issues": [issue]}),
+        confirmed_intake={}, extracted_facts=ReviewFacts(), material="材料", evidence=evidence,
+    )
+    payload = json.loads(client.calls[1][1].content)
+    assert [unit["target"] for unit in payload["report_units"]] == targets
+    assert {entry["chunk_id"] for entry in payload["authorities"]} == {"c1", "issue-law"}
+
+
+@pytest.mark.parametrize("checks", [
+    [],
+    [{"target": "invented:0", "status": "supported", "reason": "支持"}],
+    [
+        {"target": "recommended_actions:0", "status": "supported", "reason": "支持"},
+        {"target": "recommended_actions:0", "status": "supported", "reason": "重复"},
+    ],
+    [{"target": "recommended_actions:0", "status": "unsupported", "reason": "错误"}],
+    [{"target": "recommended_actions:0", "status": "unsupported", "reason": "错误", "quote": "编造原句"}],
+    [{"target": "recommended_actions:0", "status": "unsupported", "reason": "错误", "quote": "核查例外", "evidence_ids": ["不存在的法源"]}],
+])
+def test_invalid_report_feedback_is_rejected_without_relaxing_contract(checks):
+    invalid = {"checks": checks, "conclusion_reason": "栏目反馈"}
+    client = FakeClient(outputs=[_core_supported(), invalid, invalid])
+    with pytest.raises(ReviewWorkflowFailed) as exc:
+        SemanticGroundingVerifier(model_id="test-model", client=client)(
+            review_goal="判断", draft=_draft(), confirmed_intake={},
+            extracted_facts=ReviewFacts(), material="材料", evidence=[_hit()],
+        )
+    assert exc.value.reason == "post_validation_failed"
+    assert len(client.calls) == 3
+
+
+def test_report_missing_facts_propagate_without_turning_unknown_into_negative():
+    check = ReportCheck(
+        target="issues:0:finding", status="uncertain", reason="关键事实仍未知",
+        quote="签订情况未知", missing_facts=["签订情况"],
+    )
+    verdict = SemanticVerdict(
+        status="supported", claim_checks=[], report_checks=[check], conclusion_reason="核心支持",
+    )
+    assert verdict.status == "uncertain"
+    assert verdict.missing_facts == ["签订情况"]
+    assert "issues:0:finding" in verdict.conclusion_reason

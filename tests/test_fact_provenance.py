@@ -337,7 +337,11 @@ def test_model_and_verifier_receive_the_ledger_as_structured_data():
     state = AgentState(goal="审查", fact_ledger=ledger)
     decider_client = FakeClient(outputs=[{"action": "request_input", "summary": "澄清", "question": "是否出境？"}])
     AgentModel(model_id="fake-model", client=decider_client)(state, {"facts": {}})
-    client = FakeClient(outputs=[{"status": "supported", "claim_checks": [], "conclusion_reason": "暂定"}])
+    client = FakeClient(outputs=[
+        {"status": "supported", "claim_checks": [], "conclusion_reason": "暂定"},
+        {"checks": [{"target": "recommended_actions:0", "status": "supported", "reason": "补充建议"}], "conclusion_reason": "建议支持"},
+        {"checks": [{"target": "risk_boundaries:0", "status": "supported", "reason": "范围说明"}], "conclusion_reason": "边界支持"},
+    ])
     SemanticGroundingVerifier(model_id="fake-model", client=client)(
         review_goal=state.goal,
         draft=_draft(), confirmed_intake={"cross_border_transfer": False},
@@ -348,6 +352,7 @@ def test_model_and_verifier_receive_the_ledger_as_structured_data():
     payload = json.loads(client.calls[0][1].content)
     assert payload["fact_ledger"] == expected
     assert payload["confirmed_intake"]["cross_border_transfer"] is False
+    assert all(json.loads(call[1].content)["fact_ledger"] == expected for call in client.calls)
 
 
 @pytest.mark.parametrize("system_abstention", [False, True])

@@ -82,7 +82,10 @@ class ReviewFacts(StrictModel):
     exemption_facts: str | None = None
     overseas_recipient: str | None = None
     processing_purpose: str | None = None
-    legal_basis_or_consent: str | None = None
+    legal_basis_or_consent: str | None = Field(default=None, description=(
+        "材料或申请人陈述的处理依据、同意及其履行情况，不记录 Agent 的法律适用结论。"
+        "未填报处理依据不自动构成业务事实缺口；应根据已知处理目的与实际业务事实判断法律适用。"
+    ))
     industry: str | None = None
     regions: list[str] = Field(default_factory=list)
     missing_information: list[str] = Field(default_factory=list)
@@ -196,6 +199,7 @@ class RetrievalHit(StrictModel):
     can_cite_clause: bool
     source_url: str
     matched_query_type: RetrievalQueryType | None = None
+    matched_query_ids: list[str] = Field(default_factory=list)
     # Chunk-level structured fields surfaced for citation cards and inline
     # clause references. ``article_no`` and ``citation_label`` allow the
     # frontend to render a proper legal citation (e.g. "《个人信息保护法》

@@ -139,6 +139,7 @@ def test_verified_legal_reply_preserves_applicability_and_checks_current_corpus(
     client = FakeClient(outputs=[
         reply(claims=[{"text": "该规则具有适用范围，仍需确认本案是否落入。", "supporting_chunk_ids": [hit.chunk_id]}]),
         {"status": "supported", "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "仅作条件性解释"}], "conclusion_reason": "保留适用边界"},
+        {"checks": [{"target": "risk_boundaries:0", "status": "supported", "reason": "说明问答权限"}], "conclusion_reason": "范围支持"},
     ])
     answer_matter("地方依据", context, client=client)
     check = json.loads(client.calls[1][1].content)["cited_authorities"][0]

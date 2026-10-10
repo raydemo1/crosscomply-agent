@@ -7,7 +7,7 @@ import pytest
 from law_agent.review.schemas import ReviewFacts
 from tests.test_review_llm import FakeClient
 from tests.test_review_result_builder import _hit
-from tests.test_semantic_grounding import _draft
+from tests.test_semantic_grounding import _advice_supported, _draft
 
 
 @pytest.fixture
@@ -31,7 +31,7 @@ def test_experiment_preserves_cited_authorities_and_only_b_adds_returned_contras
     client = FakeClient(outputs=[{
         "status": "supported", "conclusion_reason": "支持",
         "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "支持"}],
-    }])
+    }, _advice_supported()])
     verifier = experiment.ComparisonVerifier(variant=variant, directory=tmp_path, model_id="test", client=client)
     evidence = [_hit(), _hit().model_copy(update={"chunk_id": "c2", "article_no": "第十三条"}),
                 _hit().model_copy(update={"chunk_id": "guide", "can_cite_clause": False})]

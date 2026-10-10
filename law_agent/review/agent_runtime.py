@@ -79,6 +79,7 @@ def execute_agent_task(
             material_snapshot_id=task.material_snapshot_id,
             decide=AgentModel(model_id=task.model_id),
             search=tools.search,
+            search_navigation=tools.search_navigation,
             read_evidence=tools.read_evidence,
             web_search=tools.search_web,
             on_web_findings=on_web_findings,

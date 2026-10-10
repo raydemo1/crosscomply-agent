@@ -11,7 +11,7 @@ retrieval-focused test suite. Do not add production callers here.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -291,6 +291,7 @@ def build_source_evidence_packets(
     representative_hits: list[RetrievalHit],
     candidate_hits: list[RetrievalHit],
     neighbor_hits: list[RetrievalHit],
+    query_hits: Sequence[RetrievalHit] = (),
     supporting_per_source: int = DEFAULT_SUPPORTING_CHUNKS_PER_SOURCE,
     chunks_by_id: dict[str, object] | None = None,
 ) -> list[SourceEvidencePacket]:
@@ -311,13 +312,24 @@ def build_source_evidence_packets(
     for hit in enriched_neighbors:
         neighbors_by_source.setdefault(hit.source_id, []).append(hit)
 
+    anchors_by_source: dict[str, list[RetrievalHit]] = {}
+    for hit in query_hits:
+        anchors_by_source.setdefault(hit.source_id, []).append(_enrich_hit_for_citation(hit, lookup))
+
     packets: list[SourceEvidencePacket] = []
     for representative in enriched_representatives:
-        supporting = [
+        anchors = _dedupe_hits([
+            hit for hit in anchors_by_source.get(representative.source_id, [])
+            if hit.chunk_id != representative.chunk_id
+        ])
+        other_supporting = [
             hit
             for hit in candidates_by_source.get(representative.source_id, [])
             if hit.chunk_id != representative.chunk_id
-        ][:supporting_per_source]
+        ]
+        supporting = _dedupe_hits([*anchors, *other_supporting])[
+            :max(supporting_per_source, len(anchors))
+        ]
         neighbors = [
             hit
             for hit in neighbors_by_source.get(representative.source_id, [])

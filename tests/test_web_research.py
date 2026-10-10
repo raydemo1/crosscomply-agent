@@ -118,7 +118,7 @@ def test_known_official_url_returns_governed_source_id() -> None:
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert state.evidence == [hit]
-    assert state.queries == [query()]
+    assert state.queries == [query().model_copy(update={"query_id": "2:0"})]
     assert state.steps[0].observation["findings"][0]["known_source_id"] == "old"
 
 

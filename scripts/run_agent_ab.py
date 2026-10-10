@@ -92,7 +92,7 @@ class ComparisonVerifier(SemanticGroundingVerifier):
         ) if self.variant == "B" else []
         original_run = self.node.run
 
-        def run(messages):
+        def run(messages, **run_kwargs):
             messages = list(messages)
             if self.variant == "B":
                 messages[0] = replace(messages[0], content=messages[0].content + "\n" + B_VERIFIER_GUIDANCE)
@@ -105,7 +105,7 @@ class ComparisonVerifier(SemanticGroundingVerifier):
                 ]}, ensure_ascii=False) + "\n")
                 stream.flush()
                 os.fsync(stream.fileno())
-            return original_run(messages)
+            return original_run(messages, **run_kwargs)
 
         with patch.object(self.node, "run", run):
             return super().__call__(**kwargs)

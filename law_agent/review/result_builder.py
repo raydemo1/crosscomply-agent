@@ -66,18 +66,18 @@ class ReviewIssueDraft(StrictModel):
 
 
 class LLMReviewResultDraft(StrictModel):
-    """Required-field schema for LLM structured review generation (plain path)."""
+    """Structured legal report supplied by the review model."""
 
     risk_level: RiskLevel
     decision_summary: str = Field(min_length=40, max_length=240)
     legal_path: str | None = None
     conclusion: str
     claims: list[GroundedClaim] = Field(default_factory=list)
-    trigger_reasons: list[str]
-    missing_information: list[str]
+    trigger_reasons: list[str] = Field(default_factory=list)
+    missing_information: list[str] = Field(default_factory=list)
     missing_answer_types: dict[str, Literal["choice", "count", "text"]] = Field(default_factory=dict)
-    recommended_actions: list[str]
-    risk_boundaries: list[str]
+    recommended_actions: list[str] = Field(default_factory=list)
+    risk_boundaries: list[str] = Field(default_factory=list)
     issues: list[ReviewIssueDraft] = Field(default_factory=list)
     web_impact: Literal["none", "supplement", "execution_detail", "core"] = "none"
     material_web_urls: list[str] = Field(default_factory=list, max_length=2)

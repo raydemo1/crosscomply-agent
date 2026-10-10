@@ -13,7 +13,12 @@ from law_agent.config import (
     require_service_config,
 )
 from law_agent.data.chunking.law import article_ordinal
-from law_agent.review.agent import AgentState, EvidenceRead, web_findings_from_steps
+from law_agent.review.agent import (
+    AgentState,
+    EvidenceLocation,
+    EvidenceRead,
+    web_findings_from_steps,
+)
 from law_agent.review.citations import group_citations
 from law_agent.review.ids import make_id
 from law_agent.review.result_builder import (
@@ -242,6 +247,7 @@ class ComplianceAgentTools:
         self._rerank_mode = rerank_mode
         self._rerank_config = load_rerank_config(mode=rerank_mode)
         self._candidate_hits: dict[str, RetrievalHit] = {}
+        self._keyword_navigation: list[dict[str, Any]] = []
         self._neighbor_hits: dict[str, RetrievalHit] = {}
         self._adapters = build_service_adapters(require_service_config())
         self._web_research: WebResearch | None = None
@@ -274,10 +280,13 @@ class ComplianceAgentTools:
         vector = self._adapters.vector.search_many(query_pairs, top_k=candidate_top_k)
         as_of = facts.as_of_date or datetime.now(UTC).date()
         candidates: list[list[RetrievalHit]] = []
+        lexical_candidates: list[list[RetrievalHit]] = []
         sources: list[list[RetrievalHit]] = []
         for query, keyword_hits, vector_hits in zip(queries, keyword, vector, strict=True):
+            keyword_hits = filter_hits_as_of(keyword_hits, self._chunks_by_id, as_of=as_of)
+            lexical_candidates.append(keyword_hits[:10])
             keyword_hits = apply_boosts_to_hits(
-                filter_hits_as_of(keyword_hits, self._chunks_by_id, as_of=as_of),
+                keyword_hits,
                 self._chunks_by_id, facts,
             )
             vector_hits = apply_boosts_to_hits(
@@ -312,14 +321,46 @@ class ComplianceAgentTools:
             representative_hits=reranked,
             candidate_hits=fused,
             neighbor_hits=neighbors,
+            query_hits=[hit for query_sources in sources for hit in query_sources],
             chunks_by_id=self._chunks_by_id,
         )
-        return [
+        query_ids_by_chunk: dict[str, list[str]] = {}
+        for query, hits in zip(queries, candidates, strict=True):
+            for hit in hits:
+                query_ids_by_chunk.setdefault(hit.chunk_id, []).append(query.query_id)
+        results = [
             hit.model_copy(update={
                 "source_has_articles": hit.source_id in self._sources_with_articles,
+                "matched_query_ids": list(dict.fromkeys(query_ids_by_chunk.get(hit.chunk_id, []))),
             })
             for hit in flatten_source_evidence_packets(packets)
         ]
+
+        returned_locations = {
+            (hit.source_id, hit.article_no or hit.chunk_id) for hit in results
+        }
+        self._keyword_navigation = []
+        for query, hits in zip(queries, lexical_candidates, strict=True):
+            seen = set(returned_locations)
+            added = 0
+            for hit in hits:
+                location = (hit.source_id, hit.article_no or hit.chunk_id)
+                if location in seen:
+                    continue
+                seen.add(location)
+                self._keyword_navigation.append({
+                    "query_id": query.query_id, "source_id": hit.source_id, "title": hit.title,
+                    "article_no": hit.article_no, "chunk_id": hit.chunk_id,
+                    "source_has_articles": hit.source_id in self._sources_with_articles,
+                    "preview": hit.text[:180],
+                })
+                added += 1
+                if added == 4:
+                    break
+        return results
+
+    def search_navigation(self) -> list[dict[str, Any]]:
+        return [dict(entry) for entry in self._keyword_navigation]
 
     def read_evidence(
         self,
@@ -329,7 +370,7 @@ class ComplianceAgentTools:
         facts: ReviewFacts,
         offset: int = 0,
     ) -> EvidenceRead:
-        """Read one clause, or the paragraphs around one chunk, of a known source.
+        """Browse a known source, read a clause, or read paragraphs around a chunk.
 
         The first search returns a few fused chunks per source, which is not
         enough to check every parallel condition, exception and exemption in a
@@ -350,6 +391,27 @@ class ComplianceAgentTools:
         )
         if not source_chunks:
             raise ValueError(f"受控法律库中没有来源 {source_id}")
+
+        as_of = facts.as_of_date or datetime.now(UTC).date()
+        if not (article_no or chunk_id):
+            available = filter_hits_as_of(
+                [hit_from_chunk(chunk, rank) for rank, chunk in enumerate(source_chunks)],
+                self._chunks_by_id, as_of=as_of,
+            )
+            locations: dict[str, EvidenceLocation] = {}
+            for hit in available:
+                key = hit.article_no or hit.chunk_id
+                locations.setdefault(key, EvidenceLocation(
+                    article_no=hit.article_no, chunk_id=hit.chunk_id, preview=hit.text[:180],
+                ))
+            entries = list(locations.values())
+            page = entries[offset:offset + 30]
+            if not page:
+                raise ValueError(f"来源 {source_id} 在 {as_of.isoformat()} 没有 offset={offset} 的目录条目")
+            return EvidenceRead(
+                hits=[], outline=page,
+                next_offset=offset + len(page) if offset + len(page) < len(entries) else None,
+            )
 
         next_offset: int | None = None
         previous_chunk_id: str | None = None
@@ -387,7 +449,6 @@ class ComplianceAgentTools:
             if offset + len(selected) < len(matched):
                 next_offset = offset + len(selected)
 
-        as_of = facts.as_of_date or datetime.now(UTC).date()
         hits = [
             hit_from_chunk(chunk, rank) for rank, chunk in enumerate(selected)
         ]
