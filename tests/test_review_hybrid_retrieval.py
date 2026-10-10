@@ -9,10 +9,7 @@ from law_agent.data.schemas import Chunk
 from law_agent.review.retrieval.boosts import (
     CONDITIONAL_LOCAL_BASIS_BOOST,
     CONDITIONAL_LOCAL_MISMATCH_WEIGHT,
-    CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST,
-    INTERPRETATION_AUXILIARY_BOOST,
     MISSING_INFORMATION_QUERY_WEIGHT,
-    PRIMARY_LEGAL_BASIS_BOOST,
     apply_boosts_to_hits,
     compute_boost_for_hit,
     compute_boosts_summary,
@@ -60,69 +57,22 @@ def stub_llm_nodes(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_primary_legal_basis_gets_boost() -> None:
+@pytest.mark.parametrize("role,can_cite", [
+    ("primary_legal_basis", True), ("interpretation_auxiliary", False),
+])
+def test_authority_does_not_override_query_relevance(role, can_cite) -> None:
+    chunk = _make_chunk(chunk_id="c1", citation_role=role).model_copy(
+        update={"topic_tags": ["数据出境"], "can_cite_clause": can_cite},
+    )
     hit = RetrievalHit(
-        chunk_id="c1",
-        doc_id="d1",
-        source_id="s1",
-        title="t",
-        text="x",
-        score=1.0,
-        rank=0,
-        retriever="keyword",
-        citation_role="primary_legal_basis",
-        can_cite_clause=True,
-        source_url="u",
+        chunk_id="c1", doc_id="d1", source_id="s1", title="t", text="x",
+        score=1.0, rank=0, retriever="keyword", citation_role=role,
+        can_cite_clause=can_cite, source_url="u",
     )
-    chunk = _make_chunk(chunk_id="c1")
-    facts = ReviewFacts()
-
-    boost = compute_boost_for_hit(hit, chunk, facts)
-    assert boost == pytest.approx(PRIMARY_LEGAL_BASIS_BOOST)
-
-
-def test_cross_border_primary_legal_basis_gets_extra_soft_boost() -> None:
-    hit = RetrievalHit(
-        chunk_id="c1",
-        doc_id="d1",
-        source_id="s1",
-        title="t",
-        text="x",
-        score=1.0,
-        rank=0,
-        retriever="keyword",
-        citation_role="primary_legal_basis",
-        can_cite_clause=True,
-        source_url="u",
-    )
-    chunk = _make_chunk(chunk_id="c1").model_copy(update={"topic_tags": ["数据出境", "数据合规"]})
-    facts = ReviewFacts(cross_border_transfer=True)
-
-    boost = compute_boost_for_hit(hit, chunk, facts)
-    assert boost == pytest.approx(
-        PRIMARY_LEGAL_BASIS_BOOST * CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST
-    )
-
-
-def test_interpretation_auxiliary_gets_demoted() -> None:
-    hit = RetrievalHit(
-        chunk_id="c1",
-        doc_id="d1",
-        source_id="s1",
-        title="t",
-        text="x",
-        score=1.0,
-        rank=0,
-        retriever="keyword",
-        citation_role="interpretation_auxiliary",
-        can_cite_clause=False,
-        source_url="u",
-    )
-    chunk = _make_chunk(chunk_id="c1", citation_role="interpretation_auxiliary")
-    facts = ReviewFacts()
-
-    boost = compute_boost_for_hit(hit, chunk, facts)
-    assert boost == pytest.approx(INTERPRETATION_AUXILIARY_BOOST)
+    boosted = apply_boosts_to_hits([hit], {"c1": chunk}, ReviewFacts(cross_border_transfer=True))
+    assert boosted[0].score == hit.score
+    assert boosted[0].citation_role == role
+    assert boosted[0].can_cite_clause is can_cite
 
 
 def test_conditional_local_basis_boosted_when_region_matches() -> None:
@@ -329,8 +279,8 @@ def test_boosts_summary_records_active_rules() -> None:
     facts = ReviewFacts(regions=["上海"], industry="汽车")
     summary = compute_boosts_summary(facts, ["legal_issue", "missing_information"])
 
-    assert "primary_legal_basis" in summary
-    assert "interpretation_auxiliary" in summary
+    assert "primary_legal_basis" not in summary
+    assert "interpretation_auxiliary" not in summary
     assert "conditional_local_basis:CN-SH" in summary
     assert "conditional_industry_basis:汽车" in summary
     assert "query_type:missing_information" in summary
@@ -346,15 +296,18 @@ def test_apply_boosts_to_hits_multiplies_scores() -> None:
         score=2.0,
         rank=0,
         retriever="keyword",
-        citation_role="primary_legal_basis",
+        citation_role="conditional_local_basis",
         can_cite_clause=True,
         source_url="u",
     )
-    chunk = _make_chunk(chunk_id="c1")
-    facts = ReviewFacts()
+    chunk = _make_chunk(
+        chunk_id="c1", citation_role="conditional_local_basis", applicable_region="CN-SH",
+    )
+    facts = ReviewFacts(regions=["上海"])
 
     boosted = apply_boosts_to_hits([hit], {"c1": chunk}, facts)
-    assert boosted[0].score == pytest.approx(2.0 * PRIMARY_LEGAL_BASIS_BOOST, rel=1e-4)
+    assert boosted[0].score == pytest.approx(2.0 * CONDITIONAL_LOCAL_BASIS_BOOST, rel=1e-4)
+    assert hit.score == 2.0
 
 
 def test_missing_information_query_hits_are_downweighted() -> None:
@@ -378,7 +331,7 @@ def test_missing_information_query_hits_are_downweighted() -> None:
     boosted = apply_boosts_to_hits([hit], {"c1": chunk}, facts)
 
     assert boosted[0].score == pytest.approx(
-        2.0 * PRIMARY_LEGAL_BASIS_BOOST * MISSING_INFORMATION_QUERY_WEIGHT,
+        2.0 * MISSING_INFORMATION_QUERY_WEIGHT,
         rel=1e-4,
     )
 
@@ -887,7 +840,7 @@ def test_run_hybrid_retrieval_returns_all_components(tmp_path: Path) -> None:
     assert len(trace.vector_results) > 0
     assert len(trace.hybrid_results) > 0
     assert all(h.retriever == "hybrid" for h in trace.hybrid_results)
-    assert trace.metadata_boosts  # boost summary recorded
+    assert trace.metadata_boosts == {}
 
 
 def test_run_hybrid_retrieval_uses_wide_candidate_pool_before_final_top_k(
@@ -959,7 +912,7 @@ def test_run_hybrid_retrieval_persists_to_trace(tmp_path: Path) -> None:
     assert len(traces) == 1
     assert len(traces[0].hybrid_results) > 0
     assert len(traces[0].vector_results) > 0
-    assert traces[0].metadata_boosts
+    assert traces[0].metadata_boosts == {}
 
 
 def test_run_hybrid_retrieval_with_region_facts_boosts_local_evidence(tmp_path: Path) -> None:

@@ -19,7 +19,7 @@ def test_investigation_has_no_candidate_report_and_cannot_invent_references(monk
                "frozen_material": "冻结材料", "draft": _draft().model_dump(mode="json")}
     probe.write_json(tmp_path / "case.json", context)
     client = FakeClient(outputs=[
-        {"issues": [{"report_excerpt": "应采用标准合同。", "question": "适用条件是什么？"}]},
+        {"issues": [{"statement_ref": "conclusion", "question": "适用条件是什么？"}]},
         {"action": "search_evidence", "summary": "调查", "queries": [{"query_id": "q1", "text": "适用条件", "query_type": "legal_issue"}]},
         {"action": "finish", "summary": "完成", "findings": [{"answer": "条件性判断", "evidence_chunk_ids": [citation]}]},
     ])
@@ -44,7 +44,7 @@ def test_investigation_has_no_candidate_report_and_cannot_invent_references(monk
     else:
         assert probe.investigate(tmp_path, "case")["status"] == "completed"
     assert closed == [True]
-    assert json.loads(client.calls[0][1].content)["draft"] == context["draft"]
+    assert json.loads(client.calls[0][1].content)["report_statements"]["conclusion"] == context["draft"]["conclusion"]
     research = [json.loads(call[1].content) for call in client.calls[1:]]
     assert all("draft" not in payload for payload in research)
     assert research[0]["evidence"] == []

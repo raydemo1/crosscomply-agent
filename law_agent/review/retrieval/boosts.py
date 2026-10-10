@@ -1,27 +1,7 @@
-"""Metadata boost rules for hybrid retrieval.
+"""Soft retrieval weights for the case's region, industry and query purpose.
 
-Issue 6: Apply soft metadata boosts based on ``ReviewFacts`` and query type.
-Boosts are multipliers on the RRF score — they elevate matching evidence
-without hard-filtering other roles, per the implementation plan: "检索阶段
-默认软加权，引用阶段严格治理".
-
-Boost rules:
-- ``primary_legal_basis``: always slightly boosted (national law priority)
-- ``conditional_local_basis``: boosted when any explicit ``ReviewFacts.regions``
-  value matches the chunk's ``applicable_region``; lightly demoted when the
-  chunk sits in another explicit local region. Chunks scoped nationally are
-  left to the national rules, neither boosted nor demoted.
-- ``conditional_industry_basis``: boosted when ``ReviewFacts.industry``
-  matches the chunk's ``applicable_subjects`` or ``topic_tags``
-- ``interpretation_auxiliary``: always slightly demoted (keep retrievable
-  but lower authority)
-
-Rules were kept only where an ablation over the golden set showed a real
-effect on recall (see the delivery notes for this change): the
-industry-mismatch demotion left top-5 recall unchanged while pushing
-expected sources out of the 50-candidate pool, and the
-``implementation_reference`` boost was unreachable because no production
-caller passes ``query_type`` to ``apply_boosts_to_hits``.
+Citation authority remains metadata for legal judgment and formal citation
+gates; it does not replace query relevance in retrieval ranking.
 """
 
 from __future__ import annotations
@@ -72,15 +52,10 @@ _INDUSTRY_KEYWORD_MAP: dict[str, list[str]] = {
 # Boost factor constants
 # ---------------------------------------------------------------------------
 
-PRIMARY_LEGAL_BASIS_BOOST = 1.2
-CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST = 1.25
 CONDITIONAL_LOCAL_BASIS_BOOST = 1.5
 CONDITIONAL_LOCAL_MISMATCH_WEIGHT = 0.45
 CONDITIONAL_INDUSTRY_BASIS_BOOST = 1.4
-INTERPRETATION_AUXILIARY_BOOST = 0.85
 MISSING_INFORMATION_QUERY_WEIGHT = 0.7
-
-_CROSS_BORDER_TERMS: tuple[str, ...] = ("数据出境", "跨境", "境外", "跨境流动")
 
 
 def compute_boost_for_hit(
@@ -91,19 +66,11 @@ def compute_boost_for_hit(
 ) -> float:
     """Compute a multiplicative boost factor for a single hit.
 
-    Returns 1.0 when no boost applies. Multiple matching conditions
-    stack multiplicatively, but the total is capped to avoid runaway
-    inflation.
+    Returns 1.0 when no applicability or query-purpose weight applies.
     """
 
     boost = 1.0
     role = hit.citation_role
-
-    # Primary legal basis: always slightly elevated.
-    if role == "primary_legal_basis":
-        boost *= PRIMARY_LEGAL_BASIS_BOOST
-        if facts.cross_border_transfer and _chunk_mentions_any(chunk, _CROSS_BORDER_TERMS):
-            boost *= CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST
 
     # Conditional local basis: boost when any explicit region matches
     if role == "conditional_local_basis":
@@ -122,10 +89,6 @@ def compute_boost_for_hit(
         and _industry_matches(chunk, facts.industry)
     ):
         boost *= CONDITIONAL_INDUSTRY_BASIS_BOOST
-
-    # Interpretation auxiliary: always slightly demoted
-    if role == "interpretation_auxiliary":
-        boost *= INTERPRETATION_AUXILIARY_BOOST
 
     # Missing-information queries are intentionally broad and often retrieve
     # generic privacy-law clauses. Keep them as recall support, but stop them
@@ -148,12 +111,7 @@ def compute_boosts_summary(
     all trigger them.
     """
 
-    summary: dict[str, float] = {
-        "primary_legal_basis": PRIMARY_LEGAL_BASIS_BOOST,
-        "interpretation_auxiliary": INTERPRETATION_AUXILIARY_BOOST,
-    }
-    if facts.cross_border_transfer:
-        summary["primary_legal_basis:cross_border"] = CROSS_BORDER_PRIMARY_LEGAL_BASIS_BOOST
+    summary: dict[str, float] = {}
 
     fact_regions = _specific_regions(facts.regions)
     if fact_regions:
@@ -243,16 +201,3 @@ def _industry_matches(chunk: Chunk, industry: str) -> bool:
     keywords = _INDUSTRY_KEYWORD_MAP.get(industry, [industry])
     combined = " ".join([*chunk.applicable_subjects, *chunk.topic_tags])
     return any(keyword and keyword in combined for keyword in keywords)
-
-
-def _chunk_mentions_any(chunk: Chunk, terms: tuple[str, ...]) -> bool:
-    combined = " ".join(
-        [
-            chunk.title,
-            chunk.text[:500],
-            *chunk.legal_domain,
-            *chunk.applicable_subjects,
-            *chunk.topic_tags,
-        ]
-    )
-    return any(term in combined for term in terms)

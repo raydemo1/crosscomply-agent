@@ -26,8 +26,12 @@ from law_agent.review.result_builder import (
 )
 from law_agent.review.retrieval.boosts import apply_boosts_to_hits
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
-from law_agent.review.retrieval.fusion import rrf_fuse, source_aware_fuse
-from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
+from law_agent.review.retrieval.fusion import (
+    interleave_sources,
+    rrf_fuse,
+    rrf_fuse_many,
+    source_aware_fuse,
+)
 from law_agent.review.retrieval.neighbors import expand_neighbors, hit_from_chunk
 from law_agent.review.retrieval.rerank import rerank_hits
 from law_agent.review.retrieval.service_backends import build_service_adapters
@@ -266,35 +270,38 @@ class ComplianceAgentTools:
     ) -> list[RetrievalHit]:
         query_pairs = [(query.text, query.query_type) for query in queries]
         candidate_top_k = max(30, self._top_k, self._rerank_config.window)
-        keyword = merge_hits_by_chunk_id(
-            self._adapters.keyword.search_many(query_pairs, top_k=candidate_top_k),
-            top_k=candidate_top_k,
-        )
-        vector = merge_hits_by_chunk_id(
-            self._adapters.vector.search_many(query_pairs, top_k=candidate_top_k),
-            top_k=candidate_top_k,
-        )
+        keyword = self._adapters.keyword.search_many(query_pairs, top_k=candidate_top_k)
+        vector = self._adapters.vector.search_many(query_pairs, top_k=candidate_top_k)
         as_of = facts.as_of_date or datetime.now(UTC).date()
-        keyword = filter_hits_as_of(keyword, self._chunks_by_id, as_of=as_of)
-        vector = filter_hits_as_of(vector, self._chunks_by_id, as_of=as_of)
-        keyword = apply_boosts_to_hits(keyword, self._chunks_by_id, facts)
-        vector = apply_boosts_to_hits(vector, self._chunks_by_id, facts)
-        fused = rrf_fuse(keyword, vector, top_k=candidate_top_k)
-        representatives = source_aware_fuse(
-            fused,
-            top_k=max(self._top_k, self._rerank_config.window),
-            chunks_by_id=self._chunks_by_id,
-        )
-        reranked = rerank_hits(
-            representatives,
-            question=self._question,
-            material_text=self._material_text,
-            facts=facts,
-            queries=queries,
-            top_k=self._top_k,
-            mode=self._rerank_mode,
-            config=self._rerank_config,
-        ).hits
+        candidates: list[list[RetrievalHit]] = []
+        sources: list[list[RetrievalHit]] = []
+        for query, keyword_hits, vector_hits in zip(queries, keyword, vector, strict=True):
+            keyword_hits = apply_boosts_to_hits(
+                filter_hits_as_of(keyword_hits, self._chunks_by_id, as_of=as_of),
+                self._chunks_by_id, facts,
+            )
+            vector_hits = apply_boosts_to_hits(
+                filter_hits_as_of(vector_hits, self._chunks_by_id, as_of=as_of),
+                self._chunks_by_id, facts,
+            )
+            fused_query = rrf_fuse(keyword_hits, vector_hits, top_k=candidate_top_k)
+            candidates.append(fused_query)
+            representatives = source_aware_fuse(
+                fused_query, top_k=candidate_top_k, chunks_by_id=self._chunks_by_id,
+                support_decay=0, context_support_decay=0,
+            )
+            sources.append(rerank_hits(
+                representatives,
+                question=self._question,
+                material_text=self._material_text,
+                facts=facts,
+                queries=[query],
+                top_k=self._top_k,
+                mode=self._rerank_mode,
+                config=self._rerank_config,
+            ).hits)
+        reranked = interleave_sources(sources, top_k=self._top_k)
+        fused = rrf_fuse_many(candidates, top_k=sum(map(len, candidates)))
         neighbors = filter_hits_as_of(
             expand_neighbors(reranked[:5], self._chunks_by_id),
             self._chunks_by_id, as_of=as_of,

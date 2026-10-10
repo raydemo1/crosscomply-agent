@@ -571,6 +571,102 @@ def test_search_excludes_future_references_in_candidates_and_neighbors() -> None
     assert "c2" not in tools._neighbor_hits
 
 
+def test_search_preserves_small_query_sources_without_extra_adapter_calls() -> None:
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+
+    broad = [
+        _chunk(f"b{index}", "第一条", "通用依据", index=0).model_copy(
+            update={"source_id": f"broad{index}"},
+        ) for index in range(50)
+    ]
+    specific = _chunk("specific", "", "具体问题的官方解释", index=0).model_copy(update={
+        "source_id": "specific_source", "citation_role": "interpretation_auxiliary",
+        "can_cite_clause": False,
+    })
+    calls = []
+
+    def search_many(queries, *, top_k):
+        calls.append((queries, top_k))
+        return [
+            [hit_from_chunk(c, i).model_copy(update={"score": 1000 - i}) for i, c in enumerate(broad)],
+            [hit_from_chunk(specific, 0).model_copy(update={"score": 0.001})],
+        ]
+
+    tools = _search_tools([*broad, specific], search_many, top_k=2)
+    queries = [RetrievalQuery(query_id=str(i), text=f"查询{i}", query_type="legal_issue") for i in range(2)]
+    hits = tools.search(queries, ReviewFacts())
+    assert {h.source_id for h in hits} == {"broad0", "specific_source"}
+    assert tools._candidate_hits["specific"].can_cite_clause is False
+    assert len(calls) == 2
+    assert all(pairs == [(q.text, q.query_type) for q in queries] for pairs, _ in calls)
+
+
+def test_search_does_not_reward_source_length_over_a_specific_match() -> None:
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+
+    specific = _chunk("specific", "", "具体问题的官方解释", index=0).model_copy(update={
+        "source_id": "specific_source", "citation_role": "interpretation_auxiliary",
+        "can_cite_clause": False,
+    })
+    long_source = [
+        _chunk(f"long{i}", f"第{i + 1}条", text, index=i) for i, text in enumerate([
+            "处理安全的通用要求", "运营组织的一般职责", "管理流程与责任制度",
+        ])
+    ]
+    chunks = [specific, *long_source]
+    hits = [hit_from_chunk(c, i).model_copy(update={"score": 1 - i * 0.01}) for i, c in enumerate(chunks)]
+    tools = _search_tools(chunks, lambda *_args, **_kwargs: [hits], top_k=1)
+    result = tools.search(
+        [RetrievalQuery(query_id="q", text="具体问题", query_type="legal_issue")],
+        ReviewFacts(cross_border_transfer=True),
+    )
+    assert [h.chunk_id for h in result] == ["specific"]
+    assert result[0].citation_role == "interpretation_auxiliary"
+    assert result[0].can_cite_clause is False
+
+
+def test_search_reranks_queries_separately_with_one_shared_source_budget(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+
+    chunks = [
+        _chunk(name, "第一条", "示例依据", index=0).model_copy(update={"source_id": name})
+        for name in ["a", "b", "c"]
+    ]
+    hits = [hit_from_chunk(chunk, i) for i, chunk in enumerate(chunks)]
+    tools = _search_tools(chunks, lambda *_args, **_kwargs: [hits[:2], hits[1:]], top_k=2)
+    tools._rerank_mode = "embedding"
+    calls = []
+
+    def rerank(results, *, queries, top_k, **kwargs):
+        calls.append(queries)
+        return SimpleNamespace(hits=list(reversed(results))[:top_k])
+
+    monkeypatch.setattr("law_agent.review.agent_tools.rerank_hits", rerank)
+    queries = [RetrievalQuery(query_id=str(i), text=f"查询{i}", query_type="legal_issue") for i in range(2)]
+    result = tools.search(queries, ReviewFacts())
+    assert calls == [[queries[0]], [queries[1]]]
+    assert {hit.source_id for hit in result} == {"b", "c"}
+
+
+def _search_tools(chunks, search_many, *, top_k):
+    from types import SimpleNamespace
+
+    tools = _tools_with(chunks)
+    tools._adapters = SimpleNamespace(
+        keyword=SimpleNamespace(search_many=search_many),
+        vector=SimpleNamespace(search_many=search_many),
+    )
+    tools._rerank_config = SimpleNamespace(window=50)
+    tools._rerank_mode = "off"
+    tools._top_k = top_k
+    tools._question = "审查具体适用关系"
+    tools._material_text = ""
+    tools._neighbor_hits = {}
+    return tools
+
+
 def test_final_report_rechecks_date_and_never_adds_unseen_cached_evidence() -> None:
     from law_agent.review.retrieval.neighbors import hit_from_chunk
     from law_agent.review.schemas import GroundedClaim

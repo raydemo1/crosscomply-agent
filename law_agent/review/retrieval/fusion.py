@@ -2,7 +2,8 @@
 
 Fuse keyword and vector results using deterministic RRF scoring.
 RRF formula: ``rrf_score = sum(1 / (k + rank))`` over all retrievers where
-the chunk appears. Metadata boosts are applied as a post-RRF multiplier.
+the chunk appears. Each input list is ranked by its score, including any
+metadata weights already applied by the caller.
 
 The fused results are stored in ``RetrievalTrace.hybrid_results`` with
 component scores preserved for traceability.
@@ -12,6 +13,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping
+from itertools import zip_longest
 
 from law_agent.data.schemas import Chunk
 from law_agent.review.retrieval.text import tokenize
@@ -143,6 +145,25 @@ def rrf_fuse_many(
         )
         for rank, (chunk_id, score) in enumerate(ordered_scores[:top_k])
     ]
+
+
+def interleave_sources(
+    ranked_lists: list[list[RetrievalHit]], *, top_k: int,
+) -> list[RetrievalHit]:
+    """Share the source budget across queries without comparing their raw scores."""
+
+    selected: list[RetrievalHit] = []
+    seen: set[str] = set()
+    if top_k <= 0:
+        return selected
+    for row in zip_longest(*ranked_lists):
+        for hit in row:
+            if hit is not None and hit.source_id not in seen:
+                selected.append(hit.model_copy(update={"rank": len(selected)}))
+                seen.add(hit.source_id)
+                if len(selected) == top_k:
+                    return selected
+    return selected
 
 
 def source_aware_fuse(

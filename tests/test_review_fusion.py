@@ -165,3 +165,16 @@ def test_rrf_fuse_many_includes_issue_specific_candidates() -> None:
 
     assert len({hit.chunk_id for hit in fused}) == 50
     assert "issue_specific" in {hit.chunk_id for hit in fused}
+
+
+def test_query_source_budget_deduplicates_and_fills_from_uneven_lists() -> None:
+    from law_agent.review.retrieval.fusion import interleave_sources
+
+    hits = [_make_hit(name, score=1.0, rank=i) for i, name in enumerate(["a", "b", "c", "d"])]
+    hits = [hit.model_copy(update={"source_id": hit.chunk_id}) for hit in hits]
+    selected = interleave_sources([[hits[0], hits[1], hits[3]], [hits[0], hits[2]]], top_k=4)
+    assert [hit.source_id for hit in selected] == ["a", "b", "c", "d"]
+    assert [hit.rank for hit in selected] == [0, 1, 2, 3]
+    assert interleave_sources([hits, []], top_k=2) == selected[:2]
+    assert interleave_sources([hits], top_k=0) == []
+    assert interleave_sources([], top_k=10) == []
