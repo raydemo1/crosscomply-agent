@@ -291,9 +291,12 @@ class CitationGroup(StrictModel):
 
 
 class GroundedClaim(StrictModel):
-    """One conclusion claim and the evidence chunks that support it."""
+    """A case-specific legal judgment grounded in the returned legal evidence."""
 
-    text: str
+    text: str = Field(description=(
+        "本案的法律判断及其适用前提，说明事实与法源如何支持该判断，而不只是复述法条。"
+        "尚未确认的条件应保留为条件性判断。"
+    ))
     supporting_chunk_ids: list[str] = Field(default_factory=list)
     supporting_citation_refs: list[str] = Field(default_factory=list)
 

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
+from run_agent_baseline import write_json
 
 from law_agent.config import require_llm_config
 from law_agent.data.schemas import StrictModel
@@ -61,10 +62,6 @@ def validate_verdict_coverage(verdict: ProbeVerdict, draft: LLMReviewResultDraft
     targets = [check.target for check in verdict.report_checks]
     if len(targets) != len(set(targets)) or set(targets) != set(report_items(draft)):
         raise ValueError("Probe did not check every report item")
-
-
-def write_json(path: Path, value: object) -> None:
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def peak_cost(usage: dict) -> float | None:
