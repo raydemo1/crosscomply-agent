@@ -33,7 +33,7 @@ DEFAULT_DOCLING_ARTIFACTS_PATH = Path("data/models/docling")
 # Bumped whenever the routing below changes what a source is parsed from.
 # ``processing_signature`` reads it so a cached vector can never claim
 # compatibility with a body this pipeline would no longer produce.
-PARSER_PIPELINE_VERSION = "auto-text-first-v1"
+PARSER_PIPELINE_VERSION = "auto-text-first-v2"
 
 
 def _html_to_text(raw: str) -> str:
@@ -181,10 +181,24 @@ def _pdf_to_text(path: Path) -> ParsedText:
             structured = _docling_to_text(path, ocr=False, strategy="docling_no_ocr")
         except Exception:  # noqa: BLE001 - a usable text layer already exists
             return replace(native, strategy="native_text_fallback")
-        if not is_degraded(evaluate_text(structured.text), native_quality):
+        if (not is_degraded(evaluate_text(structured.text), native_quality)
+                and not _splits_numbered_headings(native.text, structured.text)):
             return structured
         return replace(native, strategy="native_text_fallback")
     return native
+
+
+def _splits_numbered_headings(native: str, structured: str) -> bool:
+    headings = [match.group(1).strip() for match in re.finditer(
+        r"(?m)^#{1,6}[ \t]+(.+?)[ \t]*$", structured,
+    )]
+    numbers = {heading for heading in headings if re.fullmatch(r"\d+(?:\.\d+){0,4}", heading)}
+    titles = {re.sub(r"\s+", "", heading) for heading in headings}
+    for match in re.finditer(r"(?m)^[ \t]*(\d+(?:\.\d+){0,4})[ \t]+([^\n]+)$", native):
+        if (match.group(1) in numbers
+                and re.sub(r"\s+", "", match.group(2)) in titles):
+            return True
+    return False
 
 
 def _docling_available() -> bool:

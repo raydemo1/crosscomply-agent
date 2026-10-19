@@ -15,7 +15,6 @@ from law_agent.config import (
 from law_agent.data.chunking.law import article_ordinal
 from law_agent.review.agent import (
     AgentState,
-    EvidenceLocation,
     EvidenceRead,
     web_findings_from_steps,
 )
@@ -43,6 +42,7 @@ from law_agent.review.retrieval.service_backends import build_service_adapters
 from law_agent.review.retrieval.temporal import filter_hits_as_of
 from law_agent.review.schemas import (
     CitationGroup,
+    EvidenceIssue,
     EvidenceSelfCheck,
     GroundedClaim,
     MaterialEvidenceRef,
@@ -62,6 +62,7 @@ from law_agent.review.service import (
     build_source_evidence_packets,
     flatten_source_evidence_packets,
 )
+from law_agent.review.source_navigation import SourceNavigation
 from law_agent.review.web_research import (
     WebFinding,
     WebResearch,
@@ -369,6 +370,9 @@ class ComplianceAgentTools:
         chunk_id: str | None,
         facts: ReviewFacts,
         offset: int = 0,
+        *,
+        node_id: str | None = None,
+        parent_node_id: str | None = None,
     ) -> EvidenceRead:
         """Browse a known source, read a clause, or read paragraphs around a chunk.
 
@@ -385,53 +389,75 @@ class ComplianceAgentTools:
         parallel conditions reads exactly like a complete one.
         """
 
+        if offset < 0:
+            raise ValueError("offset 必须大于或等于 0")
+        if any(value is not None and not value.strip() for value in (
+            article_no, chunk_id, node_id, parent_node_id,
+        )):
+            raise ValueError("证据定位参数不能为空")
+        if sum(value is not None for value in (
+            article_no, chunk_id, node_id, parent_node_id,
+        )) > 1:
+            raise ValueError("article_no、chunk_id、node_id、parent_node_id 最多指定一个")
         source_chunks = sorted(
             (chunk for chunk in self._chunks if chunk.source_id == source_id),
-            key=lambda chunk: chunk.chunk_index,
+            key=lambda chunk: (chunk.doc_id, chunk.chunk_index, chunk.chunk_id),
         )
         if not source_chunks:
             raise ValueError(f"受控法律库中没有来源 {source_id}")
 
         as_of = facts.as_of_date or datetime.now(UTC).date()
-        if not (article_no or chunk_id):
-            available = filter_hits_as_of(
-                [hit_from_chunk(chunk, rank) for rank, chunk in enumerate(source_chunks)],
-                self._chunks_by_id, as_of=as_of,
-            )
-            locations: dict[str, EvidenceLocation] = {}
-            for hit in available:
-                key = hit.article_no or hit.chunk_id
-                locations.setdefault(key, EvidenceLocation(
-                    article_no=hit.article_no, chunk_id=hit.chunk_id, preview=hit.text[:180],
-                ))
-            entries = list(locations.values())
+        available = filter_hits_as_of(
+            [hit_from_chunk(chunk, rank) for rank, chunk in enumerate(source_chunks)],
+            self._chunks_by_id, as_of=as_of,
+        )
+        available_chunks = [self._chunks_by_id[hit.chunk_id] for hit in available]
+        navigation = (
+            SourceNavigation(source_chunks, available_chunks, as_of)
+            if node_id or not (article_no or chunk_id) else None
+        )
+        if not (article_no or chunk_id or node_id):
+            assert navigation is not None
+            entries = navigation.children(parent_node_id)
             page = entries[offset:offset + 30]
-            if not page:
+            if not page and (offset or not available_chunks):
                 raise ValueError(f"来源 {source_id} 在 {as_of.isoformat()} 没有 offset={offset} 的目录条目")
             return EvidenceRead(
-                hits=[], outline=page,
+                hits=[], mode="outline", outline=page,
                 next_offset=offset + len(page) if offset + len(page) < len(entries) else None,
             )
 
         next_offset: int | None = None
         previous_chunk_id: str | None = None
         following_chunk_id: str | None = None
-        if chunk_id:
+        if node_id:
+            assert navigation is not None
+            matched = navigation.node(node_id).chunks
+            selected = matched[offset:offset + MAX_READ_CHUNKS]
+            if not selected:
+                raise ValueError(f"章节只有 {len(matched)} 块，offset={offset} 超出章节范围")
+            if offset + len(selected) < len(matched):
+                next_offset = offset + len(selected)
+        elif chunk_id:
             if offset:
                 raise ValueError("按 chunk_id 读取不使用 offset；请改用相邻 chunk_id 继续读取")
             anchor = self._chunks_by_id.get(chunk_id)
             if anchor is None or anchor.source_id != source_id:
                 raise ValueError(f"chunk {chunk_id} 不属于来源 {source_id}")
-            anchor_index = source_chunks.index(anchor)
+            if anchor not in available_chunks:
+                raise ValueError(f"chunk {chunk_id} 在 {as_of.isoformat()} 不是现行有效版本")
+            document_chunks = [chunk for chunk in available_chunks if chunk.doc_id == anchor.doc_id]
+            anchor_index = document_chunks.index(anchor)
             start = max(0, anchor_index - 1)
-            selected = source_chunks[start : start + MAX_READ_CHUNKS]
-            previous_chunk_id = selected[0].prev_chunk_id
-            following_chunk_id = selected[-1].next_chunk_id
+            selected = document_chunks[start : start + MAX_READ_CHUNKS]
+            previous_chunk_id = document_chunks[start - 1].chunk_id if start else None
+            end = start + len(selected)
+            following_chunk_id = document_chunks[end].chunk_id if end < len(document_chunks) else None
         else:
             requested = (article_no or "").strip()
             matched = [
                 chunk
-                for chunk in source_chunks
+                for chunk in available_chunks
                 if _is_requested_article(chunk.article_no, requested)
             ]
             if not matched:
@@ -634,7 +660,10 @@ class ComplianceAgentTools:
             "review_result": result.model_dump(mode="json"),
             "semantic_grounding": verdict.model_dump(mode="json"),
             "evidence_self_check": EvidenceSelfCheck(
-                status="insufficient" if draft.risk_level == "insufficient_evidence" else "sufficient",
+                status="insufficient" if draft.risk_level == "insufficient_evidence" or draft.missing_information or verdict.missing_facts else "sufficient",
+                issues=[EvidenceIssue(issue_type="critical_facts_missing", description=fact)
+                        for fact in dict.fromkeys([*draft.missing_information, *verdict.missing_facts])],
+                triggered_reasons=list(dict.fromkeys([*draft.missing_information, *verdict.missing_facts])),
             ).model_dump(mode="json"),
             "citation_groups": [item.model_dump(mode="json") for item in citation_groups],
             "second_retrieval_triggered": False,

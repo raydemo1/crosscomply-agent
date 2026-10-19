@@ -1,0 +1,2961 @@
+{
+  "artifacts": {
+    "data/review_runs/navigation_bugfix_scoped_20261019/publication.json": {
+      "corpus_before": "813b83548449e69f8b458688ec74d7b07faea52be9c7b283d6e60a2b27f5ff06",
+      "sources": [
+        {
+          "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+          "source_chunks": 91,
+          "changed_paths": [
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:a2341fb5773351e53c05d103",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "3 础设施网络安全保护情况，可被利用从"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "一、汽车行业",
+                "（一）需要通过数据出境安全评估的数据清单",
+                "3 础设施网络安全保护情况，可被利用从"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:66e1dd7294e8802427f6d5ea",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上个人信息（不含敏感个人"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "一、汽车行业",
+                "（一）需要通过数据出境安全评估的数据清单",
+                "100 万人以上个人信息（不含敏感个人"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:5aebe4802bed7ad4e5c91c53",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:e0e3285d06e47216c90ea016",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上个人信息（不含敏感个人",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "一、汽车行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:5730ba2aeff846ade0ba16e5",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:2e8474e57250579291723f77",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人个人信息"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "一、汽车行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人个人信息"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:421d075b1241532ca4b51aa8",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:317c5500eec5ce4cee7c1aab",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人个人信息"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "一、汽车行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人个人信息"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:820666e909b2938e2b4d9e3d",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "1000 万人以上的个人客户、企业客户、"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "1000 万人以上的个人客户、企业客户、"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:d4dddd4e35c16019b6724367",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人客户、企业客户、"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "100 万人以上的个人客户、企业客户、"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:b41e163ba6907f49a43e84c8",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人客户、企业客户内"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "100 万人以上的个人客户、企业客户内"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:7b86fcf48d5fd3db79862617",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "29 一项至第三项和行业标准规范或指导文件规定情形的，不计入累"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "29 一项至第三项和行业标准规范或指导文件规定情形的，不计入累"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:39ae6bf74540f7acafbbf847",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:c2dc984b0d7dc50827b0ee8f",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "100 万人以上的个人信息（不含敏感个"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:768ebb370c3144fca99eb066",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:f6caba5537aaae5ad2ff2059",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:0bed3702ea89b9b8c5bfc15a",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:dd0497ba748f3875411d453f",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上且不满 1000 万人的个人"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "100 万人以上且不满 1000 万人的个人"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:f1f1370b37db8a7001afcd96",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "30 10.自当年 1 月 1 日起累计向境外提供"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "30 10.自当年 1 月 1 日起累计向境外提供"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:d50f1c51f08c61c93f48d5d2",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:f359a27c28220d624cc9267a",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人的个人客"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人的个人客"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:e03917cefeaa3b2106b749fb",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:8fd4bc9e92788aea6f0c753b",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人的个人客"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人的个人客"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:32d3abb74078e21015135739",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:58040bb8b02843d17e77bdf7",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人的个人信"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "九、银行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人的个人信"
+              ]
+            }
+          ],
+          "root_outline": [
+            {
+              "title": "1 中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "一、汽车行业",
+              "chunk_count": 8,
+              "child_count": 2
+            },
+            {
+              "title": "二、医药行业",
+              "chunk_count": 2,
+              "child_count": 1
+            },
+            {
+              "title": "5 疗领域诊疗数据，10 万人以上的电子病历数据库、健康档案数",
+              "chunk_count": 3,
+              "child_count": 1
+            },
+            {
+              "title": "6 属于《促进和规范数据跨境流动规定》第三条、第四条、第五条",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "10 万人以上的患者个人基本资料、诊",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "20 万人以上的医疗卫生专业人士、临",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "10 万人以上的医疗卫生专业人士、临",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "100 万人以上个人信息（不含敏感个人",
+              "chunk_count": 2,
+              "child_count": 1
+            },
+            {
+              "title": "1 万人以上且不满 10 万人的患者个人",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "8 疗和健康生理信息包括病史、过敏史、生活习惯、不良反应事件",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "1 万人以上且不满 20 万人的医疗卫生",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "1 万人以上且不满 10 万人的医疗卫生",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "10 万人以上且不满 100 万人的个人信",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "9 息（不含敏感个人信息），或不满 1 万",
+              "chunk_count": 2,
+              "child_count": 1
+            },
+            {
+              "title": "三、民航业",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "500 万人以上的个人信息（不含敏感个",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "100 万人以上的个人信息（不含敏感个",
+              "chunk_count": 2,
+              "child_count": 1
+            },
+            {
+              "title": "50 万人以上且不满 500 万人的个人信",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "10 万人以上且不满 100 万人的个人信",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "11 3.负面清单涉及的行业、领域中，如涉及《中华人民共和国出口管制法》规定的管制物项相关技术资料或《中华人民",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "四、零售与现代服务业",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "1000 万人以上的个人消费者会员个人",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "12 3.自当年 1 月 1 日起累计向境外提供",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "100 万人以上的个人信息（不含敏感个",
+              "chunk_count": 2,
+              "child_count": 1
+            },
+            {
+              "title": "100 万人以上且不满 1000 万人的个人",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "10 万人以上且不满 100 万人的个人消",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "6. 自当年 1 月 1 日起累计向境外提供",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "10 万人以上且不满 100 万人的个人信",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "五、人工智能训练数据",
+              "chunk_count": 3,
+              "child_count": 1
+            }
+          ],
+          "text_changed": false,
+          "citation_qualification_changed": false
+        },
+        {
+          "source_id": "cac_automotive_data_export_security_guide_2026",
+          "source_chunks": 69,
+          "changed_paths": [
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:95407c1af9b1b2a61bf01157",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:d6f794fc8ae99860cc6a423b",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 物料清单 设计物料"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "1 物料清单 设计物料"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:4835dda23338ff2a51a19700",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:fe6045797d4fdbedc76a4e25",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "2 研发设计"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "2 研发设计"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:b6e51b4bb4654fda090e0d33",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:64bcd6f3f5ea8ffa01aa4f3c",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "3 开发"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "3 开发"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:c8cda92d234a8e434ae0e823",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:9ea27da763dd90617647e269",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 标注场景"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "1 标注场景"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:e840e35ccca82464d99d0950",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:7671297b95f3205d70c9f743",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "2 点云标注 产品测试过程中涉"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "2 点云标注 产品测试过程中涉"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:8247f4ec0bf7f54bbec1a614",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:f5ca8bd9add3e0314d526a18",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "3 多模态"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "3 多模态"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:5361bcff55ecb8ce8ccbed17",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:4d2b94a0299dbd28bb498e1d",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "4 视频标注 产品测试过程中涉"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "4 视频标注 产品测试过程中涉"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:a06e530fb08b49e82ce3f5ae",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:e23bb676275398b82d79981c",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "5 仿真场景"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "5 仿真场景"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:704c16e7d2371f3634f28a92",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:580d7291c16d9c092f2d4667",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "6 环境仿真"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "6 环境仿真"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:59c938b000ff6523e1239ed1",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:60feea3e2f26c3b95d9d6aa7",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "7 交通流量"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "7 交通流量"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:57a88a6c3244baa4b67c1ddf",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:f51e2fd1b1c32434dfc58097",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "8 仿真合成"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "8 仿真合成"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:5cd5edb0f80ab464cd6ff470",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:303a22af2ab18cf455193b6c",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "9 回灌仿真"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "9 回灌仿真"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:d768751c18094061832e2685",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:eb68e466b7eb046d11413025",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "10 测试场景"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "10 测试场景"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:14e7a8c899b58bd44b97f473",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:6e6fa118942c131004fe1164",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "10 测试场景",
+                "（二）生产制造场景"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（二）生产制造场景"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:504cb35cd6398721097cb78a",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:384e4d736bddd1d31338897c",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 物料清单 工艺物料"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（二）生产制造场景",
+                "1 物料清单 工艺物料"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:bbdab654c3426c354f75446a",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:0fb402794bc3162b971a15cc",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "2 生产控制"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（二）生产制造场景",
+                "2 生产控制"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:da69da58200fcd4b68f9e5b2",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:a9ceaed2e819e41784478717",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "3 工业机器"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（二）生产制造场景",
+                "3 工业机器"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:1969652d21e373469dc50839",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:e0e3d242df18bcb4b6289ace",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "3 工业机器",
+                "（三）驾驶自动化场景"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:30c65de6745b575591789deb",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:e5bf260e9e43881182493334",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 驾驶自动"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景",
+                "1 驾驶自动"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:523edaa7502368415db38898",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:d79b0cddf7545bfd6a1f1739",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "2 驾驶自动"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景",
+                "2 驾驶自动"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:cf00b7670aab325d244c7774",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:0ffb010e56aee5ad82f95652",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "3 驾驶自动"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景",
+                "3 驾驶自动"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:a745d757ab55b5e1e09e56f5",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:e26fd352e66894f86cbd53ef",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "4 驾驶自动"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景",
+                "4 驾驶自动"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:bfcbb4b96f3e539bc73fc60b",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:48aa34ddffbf75556e823931",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "5 组合驾驶"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景",
+                "5 组合驾驶"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:e3e5273a0706874a4ea34d6d",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:1bbf058f0a46ddb8cbe2ab69",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "6 运行"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景",
+                "6 运行"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:84baf3e7cb91df1934167e4a",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:3338a43e37c8f337ef477989",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "7 训练"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景",
+                "7 训练"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:2c3118ce8292887dcab9b629",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:356e2e604b3f66aa1b4b2136",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "8 驾驶自动"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景",
+                "8 驾驶自动"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:99c8533eeada7bb404381611",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:3e7463457133b698fcbfd902",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "9 点云"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（三）驾驶自动化场景",
+                "9 点云"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:5a9b07a1137233ba2586c388",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:afed59144f6305ceb8a93e8d",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "9 点云",
+                "（四）软件升级服务场景"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（四）软件升级服务场景"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:77a0a45d5dfef548bd3b1bba",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:0a62de79ba260f3a44604977",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 软件升级"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（四）软件升级服务场景",
+                "1 软件升级"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:eadfef0c7d0ce5f8c07b2df7",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:9d9e76e1bd75642aaede7cc8",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 软件升级",
+                "（五）联网运行场景"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:c5e60ee00630d961c246ada9",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:1ce56da820508c96990aae8f",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 车辆"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "1 车辆"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:0b69f3edfc4a189265553fcb",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:6acea05962f3b67107dd43b5",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "2 车联网卡"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "2 车联网卡"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:4e58e63a5d1c0f318c734ba8",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:44d7685fb2769caaa19160c4",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "3 车辆密钥"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "3 车辆密钥"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:0a1b54d44619169fb77e9d5e",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:aaacd08e3b47dc2f7122609b",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "5 车辆数字"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "5 车辆数字"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:920cac748dee50e5a39787f6",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:dc0e9bddafd0ece8f35a2773",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "6 控制指令 车辆控制"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "6 控制指令 车辆控制"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:8546494e216dcc6b48141044",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:a9852ab409dabda85118c19a",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 车外实景"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "1 车外实景"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:cb3f4307691c2bc64ec87b0b",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:b9898b25f69db3fcf015cb8b",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "2 摄像头"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "2 摄像头"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:a83b3573157aa9fe0f46a4d9",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:f0693beaf923be5f39ac8dbd",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "3 雷达数据"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "3 雷达数据"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:2ea3510b6ea533ae54568808",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:a82a9b262dc576da70daa455",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "4 结构化"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "4 结构化"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:5dce2d3bd37728857e566c2e",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:e685d1a2c7f8445f0dc4ad01",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "5 位置轨迹"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "5 位置轨迹"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:b02db6fbb7b85adedffe3121",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:12b189ff46624881fc5db68e",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "6 车辆高程"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "6 车辆高程"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:71393c64e95afc297afd447c",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:e9165e3e965ae3706850fb28",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "7 惯性导航"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "7 惯性导航"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:80e5d901b70831c78e0297a7",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:69fce865ff7267312cace8f4",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "8 自动驾驶"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "8 自动驾驶"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:c69b65934acf091d73a6969d",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:b3dc9a4cbe9d2787cfb7ae07",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "9 构图类"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "9 构图类"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:036d1beecbb65f2d60716eb2",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:abc3138b633049437716c0b3",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 融合计算"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "1 融合计算"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:ec0b7b2fb2d505ac8fa9a95f",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:5f976f59294e72cef1e60eba",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "2 车辆流量"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "2 车辆流量"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:19e527e93e6bb5496ee95ad6",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:cdff2d28d251c3bf8d312fc8",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "3 目标物"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "3 目标物"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:7e5c7ecc29ac370a5bf5a7bb",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:501160d186f301a77f6d94f8",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "4 交通流"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "4 交通流"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:f5bbf459e4ea12bf257530fb",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:0e96fda4affae757620b090e",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "1 网络规划"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "1 网络规划"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:3b4e27c91aae0e6b6c7d2dc2",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:6139608c1f1543bada6d57a2",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "2 网络拓扑"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "2 网络拓扑"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:060d455137d4d618033678c6",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:6d1d5252f3e6b18e85404cd8",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "3 充电运行"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "3 充电运行"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:c18138373969f59fbc0efbd4",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:dc7c2ee0be4dfc0e164d9bb6",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "4 车辆充电"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "4 车辆充电"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:a499fa67496956810b67a932",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:cef72c472633f1e0e7b3f574",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "5 充电数据"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "5 充电数据"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:dada3601712aff514db08ab7",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:09f1698c8891b35908474bc4",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "6 安全保障"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（五）联网运行场景",
+                "6 安全保障"
+              ]
+            },
+            {
+              "old_chunk_id": "cac_automotive_data_export_security_guide_2026:76e35b34505964af0ae6de46",
+              "new_chunk_id": "cac_automotive_data_export_security_guide_2026:a42516a2385011ade90cbf2f",
+              "old_path": [
+                "汽车数据出境安全指引（2026版）",
+                "6 安全保障",
+                "（六）其他情形"
+              ],
+              "new_path": [
+                "汽车数据出境安全指引（2026版）",
+                "二、重要数据判定",
+                "（六）其他情形"
+              ]
+            }
+          ],
+          "root_outline": [
+            {
+              "title": "正文片段 1",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "一、总则",
+              "chunk_count": 4,
+              "child_count": 2
+            },
+            {
+              "title": "二、重要数据判定",
+              "chunk_count": 56,
+              "child_count": 18
+            },
+            {
+              "title": "三、数据出境流程",
+              "chunk_count": 4,
+              "child_count": 3
+            },
+            {
+              "title": "四、汽车数据出境安全保护要求",
+              "chunk_count": 4,
+              "child_count": 3
+            }
+          ],
+          "text_changed": false,
+          "citation_qualification_changed": false
+        }
+      ],
+      "chunk_ranges": {
+        "beijing_free_trade_zone_data_export_negative_list_2025": [
+          [
+            1,
+            8
+          ],
+          [
+            79,
+            90
+          ]
+        ]
+      },
+      "publications": [
+        {
+          "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+          "generation_id": "e1e01130fd094a96816678a02c2cd527",
+          "cached_chunks": 91,
+          "embedded_chunks": 0
+        },
+        {
+          "source_id": "cac_automotive_data_export_security_guide_2026",
+          "generation_id": "0202e3f11bd74824afc4d24deec2b1d9",
+          "cached_chunks": 69,
+          "embedded_chunks": 0
+        }
+      ],
+      "corpus_after": "153c1fdf7169c46645a6614ab4ff6c303e51d586a8b552810bfd5c0ac673a120",
+      "other_sources_unchanged": true
+    },
+    "data/review_runs/navigation_boundary_fix_20261019/publication.json": {
+      "corpus_before": "153c1fdf7169c46645a6614ab4ff6c303e51d586a8b552810bfd5c0ac673a120",
+      "sources": [
+        {
+          "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+          "source_chunks": 91,
+          "changed_paths": [
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:248e06a7f7309bec7c0edb17",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:03392a5b8dd171a7c3a64492",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "5 疗领域诊疗数据，10 万人以上的电子病历数据库、健康档案数"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "5 疗领域诊疗数据，10 万人以上的电子病历数据库、健康档案数"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:14bbe6515487355c7eef11f9",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:e373037d0df966c0c442b10d",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "5 疗领域诊疗数据，10 万人以上的电子病历数据库、健康档案数",
+                "2.1 万人以上的特定领域、特定群体、"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "5 疗领域诊疗数据，10 万人以上的电子病历数据库、健康档案数",
+                "2.1 万人以上的特定领域、特定群体、"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:6deae870123161c4d5e87b42",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:a9684b520ea7058c6c900596",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "5 疗领域诊疗数据，10 万人以上的电子病历数据库、健康档案数",
+                "2.1 万人以上的特定领域、特定群体、"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "5 疗领域诊疗数据，10 万人以上的电子病历数据库、健康档案数",
+                "2.1 万人以上的特定领域、特定群体、"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:83225155609addf03f19e777",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:4ffe12bffe98e0a4bc9fd25f",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "6 属于《促进和规范数据跨境流动规定》第三条、第四条、第五条"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "6 属于《促进和规范数据跨境流动规定》第三条、第四条、第五条"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:8bd120825eef4508d8609c9d",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:0aef1d1058f3bbee0c3e8235",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上的患者个人基本资料、诊"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "10 万人以上的患者个人基本资料、诊"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:8c1badfd13f55f5bc2f78d21",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:d7a7fbea567970505b76b3ed",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "20 万人以上的医疗卫生专业人士、临"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "20 万人以上的医疗卫生专业人士、临"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:e4f9c2471ecbcc18ba58d7d6",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:79d13f29e41f5d0d0e971862",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上的医疗卫生专业人士、临"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "10 万人以上的医疗卫生专业人士、临"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:61994159d3b4d4914b1ea513",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:e42a7ff93a77048a6bd09879",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上个人信息（不含敏感个人"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "100 万人以上个人信息（不含敏感个人"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:d3ff8c3dccc9cf64ba2c6477",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:cf61896c55fe57705495c0a1",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上个人信息（不含敏感个人",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:ef5e7243407eaa5c98f23aee",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:4857a2b4b4eaeaa026f5381d",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "1 万人以上且不满 10 万人的患者个人"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "1 万人以上且不满 10 万人的患者个人"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:2ef9ca34f3f8910ace80753a",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:648b67dd2ecf8d768ac38aca",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "8 疗和健康生理信息包括病史、过敏史、生活习惯、不良反应事件"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "8 疗和健康生理信息包括病史、过敏史、生活习惯、不良反应事件"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:660ca28d297a91a18fc873e4",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:9a9ae49b17eebfcf9b855921",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "1 万人以上且不满 20 万人的医疗卫生"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "1 万人以上且不满 20 万人的医疗卫生"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:0dd9d1bc0f0e70883ff88440",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:5fcb9c700dc900b7daedc6f6",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "1 万人以上且不满 10 万人的医疗卫生"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "1 万人以上且不满 10 万人的医疗卫生"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:b4e497595948929aba102285",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:7f88130a3a9356197cf163d9",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人的个人信"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人的个人信"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:be09c906f6f42bddf84f82fa",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:1c68bc1d256b3fc6a2d51cea",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "9 息（不含敏感个人信息），或不满 1 万"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "9 息（不含敏感个人信息），或不满 1 万"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:d65368ff721a669a96c43bf0",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:8677295ae24af6fa3a9ead9b",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "9 息（不含敏感个人信息），或不满 1 万",
+                "（三）需要通过其他合法合规路径出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "二、医药行业",
+                "（三）需要通过其他合法合规路径出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:63d8593be31e85598e3db595",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:8946822bda7a5cf87afe4d3d",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "500 万人以上的个人信息（不含敏感个"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "三、民航业",
+                "500 万人以上的个人信息（不含敏感个"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:8e8be6631e213a1e5ba8358a",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:233e99ab7177fc153abd7896",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "三、民航业",
+                "100 万人以上的个人信息（不含敏感个"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:49097eb77a07fa2980477bf6",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:cdaca6a87507401c1b2b904f",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "三、民航业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:38779a6723df518c095ddc55",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:a2feba275097f559669eac50",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "50 万人以上且不满 500 万人的个人信"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "三、民航业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "50 万人以上且不满 500 万人的个人信"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:89d4c08e2a4e04f1ec6070c6",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:76735f88956a100d76c79cff",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人的个人信"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "三、民航业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人的个人信"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:b2b7ce041981820672144183",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:0a8185a5b7fb57f2ce541c3e",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "11 3.负面清单涉及的行业、领域中，如涉及《中华人民共和国出口管制法》规定的管制物项相关技术资料或《中华人民"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "三、民航业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "11 3.负面清单涉及的行业、领域中，如涉及《中华人民共和国出口管制法》规定的管制物项相关技术资料或《中华人民"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:33367ad070b9046dadf7f2d7",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:4835d4bc6338c8b10be8ab33",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "1000 万人以上的个人消费者会员个人"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "四、零售与现代服务业",
+                "1000 万人以上的个人消费者会员个人"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:ee909f61b6e46cb737496100",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:b7df77feddf7160f2fd5df66",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "12 3.自当年 1 月 1 日起累计向境外提供"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "四、零售与现代服务业",
+                "12 3.自当年 1 月 1 日起累计向境外提供"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:fcbbef583c5251af5eed1a9a",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:9053684ef5137a9537abe556",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "四、零售与现代服务业",
+                "100 万人以上的个人信息（不含敏感个"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:54cfcaf4d9b3c5eca89847bb",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:a4e764e4fbf98af35711e092",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "四、零售与现代服务业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:22ab8cdc73a27ea37da0104c",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:8f11fe31763beddaf53b7164",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上且不满 1000 万人的个人"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "四、零售与现代服务业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "100 万人以上且不满 1000 万人的个人"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:955b5e100dae4c83564b5875",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:985456281fb93946821b5c21",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人的个人消"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "四、零售与现代服务业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人的个人消"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:42aa406489bb2a272900048e",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:ca14ab2f9b74423a2c246880",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "6. 自当年 1 月 1 日起累计向境外提供"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "四、零售与现代服务业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "6. 自当年 1 月 1 日起累计向境外提供"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:0e277c9a058953e272807428",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:a2e8fc6d05eaee485855bc43",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人的个人信"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "四、零售与现代服务业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人的个人信"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:5df561fc0b10871fab1093fa",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:f688a3add4dea290f7b8a1f1",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "15 容中涉及 10 万人以上且不满 100 万人"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "五、人工智能训练数据",
+                "（一）需要通过数据出境安全评估的数据清单",
+                "15 容中涉及 10 万人以上且不满 100 万人"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:2fcd17da9dac3e0c887ace8f",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:aa24341b91626b72130213fa",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上个人信息（不含敏感个人"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "六、医疗器械行业",
+                "100 万人以上个人信息（不含敏感个人"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:e252e1c1a7693a2612434113",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:e7cdb1f3fc9009adad32693e",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上个人信息（不含敏感个人",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "六、医疗器械行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:2d90c716a8787b033cb39117",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:5db173599047ea349c970ac6",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上个人信息（不含敏感个人",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "六、医疗器械行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:bd772389fa3c13c9cbab0a9c",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:814d3534b4fa955654faea7f",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "19 13.自当年 1 月 1 日起累计向境外提供"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "六、医疗器械行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "19 13.自当年 1 月 1 日起累计向境外提供"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:5e7f1b748a28a079489736f7",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:7151f8f927eb2916e7ef7a9a",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人个人信息"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "六、医疗器械行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人个人信息"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:187e82007e79bcd3a9c0c830",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:286f6277db7911c772749539",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人个人信息",
+                "（三）需要通过其他合法合规路径出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "六、医疗器械行业",
+                "（三）需要通过其他合法合规路径出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:ace097dc481f39569c062ba5",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:00c5fa62f009923bb7a3993f",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "20 （一）需要通过数据出境安全评估的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "20 （一）需要通过数据出境安全评估的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:5cc54328d5d4734afff4a3a5",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:95bd03676eb72584aee671ca",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "20 （一）需要通过数据出境安全评估的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "20 （一）需要通过数据出境安全评估的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:c20a029fe936bf0726d57285",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:47fe590d7be39eb5422015b1",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "21 度一个月以上的能反映车辆流量、物流等经济运行情况的数据，如"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "21 度一个月以上的能反映车辆流量、物流等经济运行情况的数据，如"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:81b229d5bbd667181753a19f",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:62c1ae79b763b3bbd30b6ef7",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "21 度一个月以上的能反映车辆流量、物流等经济运行情况的数据，如"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "21 度一个月以上的能反映车辆流量、物流等经济运行情况的数据，如"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:59f7272a3c414ae1e96e9659",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:bba0c0751645d6ad122aff7e",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万台以上车辆的数字证书、车辆密钥（对称密钥、非对称私"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "10 万台以上车辆的数字证书、车辆密钥（对称密钥、非对称私"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:6c2bb579f9f30384f3c39acf",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:e04f54c200f42d47aafd252e",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上车主个人信息（不含敏感"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "100 万人以上车主个人信息（不含敏感"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:da283e3bbaf9bea0dc583216",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:adad515d6f7d0fbbb22a6107",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "100 万人以上的个人信息（不含敏感个"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:4c18e1fa4aa5611668fd63af",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:c47632921db89d20f1ad29b7",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:b314228396fd488e1970b486",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:622ceb590ae6f84ba230d77b",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人个人信息"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人个人信息"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:fd6fb821f12f39a0e4121e8f",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:f4d88589b76ae02292af0a6f",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人个人信息"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人个人信息"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:9f4d25a5f081f562e3813a43",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:fb107e4cbd792bb06e991471",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "24 3.负面清单涉及的行业、领域中，如涉及《中华人民共和国出口管制法》规定的管制物项相关技术资料或《中华人民"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "七、自动驾驶行业（智能网联汽车）",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "24 3.负面清单涉及的行业、领域中，如涉及《中华人民共和国出口管制法》规定的管制物项相关技术资料或《中华人民"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:3b03b5213b2cc32d65206242",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:6636a763f32daed11c8c5bb9",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "25 够反映重点领域经济运行状况和发展"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "八、贸易物流行业",
+                "（一）需要通过数据出境安全评估的数据清单",
+                "25 够反映重点领域经济运行状况和发展"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:58759c4f2db78437f0b8beeb",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:234de2c538175a7809f162f0",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "200 万人以上的企业客户联系人、供应"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "八、贸易物流行业",
+                "（一）需要通过数据出境安全评估的数据清单",
+                "200 万人以上的企业客户联系人、供应"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:14f0c33aa96766f99b95efbe",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:3e60133c6648e760b9b28c2b",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "200 万人以上的客户个人基本资料、通"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "八、贸易物流行业",
+                "（一）需要通过数据出境安全评估的数据清单",
+                "200 万人以上的客户个人基本资料、通"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:90e4a4163ee636f884e6ea45",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:1c8884fa71d30c5aec35bb3e",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "八、贸易物流行业",
+                "（一）需要通过数据出境安全评估的数据清单",
+                "100 万人以上的个人信息（不含敏感个"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:2a6671166e45870f65eb3cc7",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:217eb926efd650f65a5e9d17",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "100 万人以上的个人信息（不含敏感个",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "八、贸易物流行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:83fc9aa6039dd0ed950ad77d",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:35a3e8ffe8da02ba8d0ca370",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "26 个人信息"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "八、贸易物流行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "26 个人信息"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:6f2985b5d42f1440fe561459",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:ad62be0fe1b45615dc8f2593",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "50 万人以上且不满 200 万人的企业客"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "八、贸易物流行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "50 万人以上且不满 200 万人的企业客"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:b21943cf48b9c6bf5d575d1f",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:8bd9b06d8ddf45249644515c",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 200 万人的客户个"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "八、贸易物流行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 200 万人的客户个"
+              ]
+            },
+            {
+              "old_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:5ddb078eda09c74122333325",
+              "new_chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:15943a992c1cd197324ecf35",
+              "old_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "10 万人以上且不满 100 万人个人信息"
+              ],
+              "new_path": [
+                "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+                "八、贸易物流行业",
+                "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+                "10 万人以上且不满 100 万人个人信息"
+              ]
+            }
+          ],
+          "root_outline": [
+            {
+              "title": "1 中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区",
+              "chunk_count": 1,
+              "child_count": 0
+            },
+            {
+              "title": "一、汽车行业",
+              "chunk_count": 8,
+              "child_count": 2
+            },
+            {
+              "title": "二、医药行业",
+              "chunk_count": 18,
+              "child_count": 9
+            },
+            {
+              "title": "三、民航业",
+              "chunk_count": 7,
+              "child_count": 3
+            },
+            {
+              "title": "四、零售与现代服务业",
+              "chunk_count": 9,
+              "child_count": 4
+            },
+            {
+              "title": "五、人工智能训练数据",
+              "chunk_count": 4,
+              "child_count": 1
+            },
+            {
+              "title": "六、医疗器械行业",
+              "chunk_count": 10,
+              "child_count": 4
+            },
+            {
+              "title": "七、自动驾驶行业（智能网联汽车）",
+              "chunk_count": 11,
+              "child_count": 6
+            },
+            {
+              "title": "八、贸易物流行业",
+              "chunk_count": 11,
+              "child_count": 2
+            },
+            {
+              "title": "九、银行业",
+              "chunk_count": 12,
+              "child_count": 6
+            }
+          ],
+          "changed_text_chunks": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:286f6277db7911c772749539",
+            "beijing_free_trade_zone_data_export_negative_list_2025:00c5fa62f009923bb7a3993f"
+          ],
+          "source_content_changed": false,
+          "citation_qualification_changed": false
+        }
+      ],
+      "chunk_ranges": {},
+      "boundary_moves": {
+        "beijing_free_trade_zone_data_export_negative_list_2025": [
+          56
+        ]
+      },
+      "publications": [
+        {
+          "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+          "generation_id": "f25fd1ce5a6d474bab2d5871acaaca0a",
+          "cached_chunks": 89,
+          "embedded_chunks": 2
+        }
+      ],
+      "corpus_after": "7f03a7e3ade04fd6ce78e96d6b13cb0fe16b8761ef936f743f14ab7251c085bd",
+      "other_sources_unchanged": true
+    },
+    "data/review_runs/navigation_final_validation_20261019/navigation_audit.json": {
+      "corpus_sha256": "7f03a7e3ade04fd6ce78e96d6b13cb0fe16b8761ef936f743f14ab7251c085bd",
+      "tasks_sha256": "77f120c6b75f4be4bc3f3ed4bcd6354ebbd45bda0f8808183de610e24321bcb2",
+      "as_of_date": "2026-10-19",
+      "audit": [
+        {
+          "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+          "eligible_chunks": 91,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_automotive_data_export_security_guide_2026",
+          "eligible_chunks": 69,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_automotive_data_security_provisions_2021",
+          "eligible_chunks": 20,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_cross_border_data_flow_rules_2024",
+          "eligible_chunks": 15,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_cross_border_flow_rules_qna_2024",
+          "eligible_chunks": 10,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_cybersecurity_review_measures_2022",
+          "eligible_chunks": 24,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_data_export_assessment_qna_2022",
+          "eligible_chunks": 14,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_data_export_policy_qna_2025_04",
+          "eligible_chunks": 6,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_data_export_policy_qna_2025_05",
+          "eligible_chunks": 3,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_data_export_policy_qna_2025_10",
+          "eligible_chunks": 6,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_data_export_policy_qna_2026_01",
+          "eligible_chunks": 2,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_data_export_policy_qna_2026_07",
+          "eligible_chunks": 3,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_data_export_policy_qna_2026_09",
+          "eligible_chunks": 2,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_data_export_security_assessment_filing_guide_v3_2025",
+          "eligible_chunks": 29,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_data_export_security_assessment_measures_2022",
+          "eligible_chunks": 21,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_face_recognition_security_measures_2025",
+          "eligible_chunks": 21,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_financial_information_service_data_classification_guide_2026",
+          "eligible_chunks": 37,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_gba_hk_standard_contract_guide_2023",
+          "eligible_chunks": 6,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_gba_hk_standard_contract_template_2023",
+          "eligible_chunks": 17,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_gba_macao_standard_contract_guide_2024",
+          "eligible_chunks": 6,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_gba_macao_standard_contract_template_2024",
+          "eligible_chunks": 18,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_network_data_security_regulation_qna_2024",
+          "eligible_chunks": 8,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_network_data_security_risk_assessment_measures_2026",
+          "eligible_chunks": 26,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_network_data_security_risk_assessment_qna_2026_08",
+          "eligible_chunks": 1,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_personal_info_export_certification_basis_change_2025",
+          "eligible_chunks": 1,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_personal_info_export_certification_measures_2025",
+          "eligible_chunks": 20,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
+          "eligible_chunks": 31,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_personal_info_export_standard_contract_measures_2023",
+          "eligible_chunks": 14,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_personal_info_export_standard_contract_template_2023",
+          "eligible_chunks": 22,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_personal_info_policy_qna_2026_08",
+          "eligible_chunks": 2,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_personal_info_protection_certification_rules_2022",
+          "eligible_chunks": 9,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_pip_compliance_audit_guideline_2025",
+          "eligible_chunks": 24,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_pip_compliance_audit_measures_2025",
+          "eligible_chunks": 21,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "cac_small_pip_processor_simplified_measures_2026",
+          "eligible_chunks": 23,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "chongqing_free_trade_zone_data_export_negative_list_2025",
+          "eligible_chunks": 16,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "court_face_recognition_civil_cases_provisions_2021",
+          "eligible_chunks": 17,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "flk_npc_021e7d7684474107b8f3febbb1c4f8b5",
+          "eligible_chunks": 82,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "flk_npc_ff80818179f5e0800179f885c7e70392",
+          "eligible_chunks": 56,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "flk_npc_ff8081817b63b935017b7bcc49877e0b",
+          "eligible_chunks": 51,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+          "eligible_chunks": 75,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+          "eligible_chunks": 64,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "fujian_free_trade_zone_data_export_negative_list_2025",
+          "eligible_chunks": 27,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "guangdong_free_trade_zone_data_export_negative_list_2025",
+          "eligible_chunks": 12,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "guangxi_free_trade_zone_data_export_negative_list_2025",
+          "eligible_chunks": 20,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "hainan_free_trade_port_data_export_negative_list_2024",
+          "eligible_chunks": 19,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "jiangsu_free_trade_zone_data_export_negative_list_2025",
+          "eligible_chunks": 17,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "miit_industry_data_security_measures_trial_2022",
+          "eligible_chunks": 43,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2022",
+          "eligible_chunks": 3,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
+          "eligible_chunks": 3,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "samr_gbt_39335_2020_personal_info_security_impact_assessment",
+          "eligible_chunks": 82,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "samr_gbt_46068_2025_cross_border_personal_info_certification",
+          "eligible_chunks": 54,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+          "eligible_chunks": 21,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "shanghai_free_trade_zone_data_export_negative_list_qna_2024",
+          "eligible_chunks": 5,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "shenzhen_data_regulation_2021",
+          "eligible_chunks": 101,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "tc260_cross_border_certification_spec_2022",
+          "eligible_chunks": 18,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "tc260_gba_cross_border_pip_protection_2024",
+          "eligible_chunks": 32,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+          "eligible_chunks": 122,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "tc260_gbt_43697_2024_data_classification_rules",
+          "eligible_chunks": 82,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "tc260_network_data_classification_guide_2021",
+          "eligible_chunks": 71,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "tc260_sensitive_pip_identification_guide_2024",
+          "eligible_chunks": 21,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "tc260_sensitive_pip_processing_requirements_2025",
+          "eligible_chunks": 45,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "tianjin_free_trade_zone_data_export_negative_list_2024",
+          "eligible_chunks": 28,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        },
+        {
+          "source_id": "zhejiang_free_trade_zone_data_export_negative_list_2024",
+          "eligible_chunks": 23,
+          "owned_once": true,
+          "all_nodes_reachable": true,
+          "preview_hits": 0,
+          "section_errors": []
+        }
+      ],
+      "results": [
+        {
+          "task_id": "pipl_13",
+          "arm": "flat",
+          "budget": 8,
+          "complete": true,
+          "requests": 2,
+          "returned_chars": 7709,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "pipl_13",
+          "arm": "flat",
+          "budget": 10,
+          "complete": true,
+          "requests": 2,
+          "returned_chars": 7709,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "pipl_13",
+          "arm": "tree",
+          "budget": 10,
+          "complete": true,
+          "requests": 4,
+          "returned_chars": 14549,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "pipl_cross_border",
+          "arm": "flat",
+          "budget": 8,
+          "complete": true,
+          "requests": 8,
+          "returned_chars": 19542,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "pipl_cross_border",
+          "arm": "flat",
+          "budget": 10,
+          "complete": true,
+          "requests": 8,
+          "returned_chars": 19542,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "pipl_cross_border",
+          "arm": "tree",
+          "budget": 10,
+          "complete": true,
+          "requests": 3,
+          "returned_chars": 9922,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "spec_collection",
+          "arm": "flat",
+          "budget": 8,
+          "complete": true,
+          "requests": 5,
+          "returned_chars": 34120,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "tc260_gbt_35273_2020_pip_security_spec:0d62161bb66467fd92a28bef",
+            "tc260_gbt_35273_2020_pip_security_spec:2aac54d36f2001231beab23f",
+            "tc260_gbt_35273_2020_pip_security_spec:4897b96967946f6e83aff82a",
+            "tc260_gbt_35273_2020_pip_security_spec:5e7569929f4e7eed9e3a6e8d"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "spec_collection",
+          "arm": "flat",
+          "budget": 10,
+          "complete": true,
+          "requests": 5,
+          "returned_chars": 34120,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "tc260_gbt_35273_2020_pip_security_spec:0d62161bb66467fd92a28bef",
+            "tc260_gbt_35273_2020_pip_security_spec:2aac54d36f2001231beab23f",
+            "tc260_gbt_35273_2020_pip_security_spec:4897b96967946f6e83aff82a",
+            "tc260_gbt_35273_2020_pip_security_spec:5e7569929f4e7eed9e3a6e8d"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "spec_collection",
+          "arm": "tree",
+          "budget": 10,
+          "complete": true,
+          "requests": 3,
+          "returned_chars": 19290,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "spec_sharing",
+          "arm": "flat",
+          "budget": 8,
+          "complete": true,
+          "requests": 6,
+          "returned_chars": 42603,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "tc260_gbt_35273_2020_pip_security_spec:7dd2788cfc88e1d148f99c1e",
+            "tc260_gbt_35273_2020_pip_security_spec:ba54fa6e935698c155648936"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "spec_sharing",
+          "arm": "flat",
+          "budget": 10,
+          "complete": true,
+          "requests": 6,
+          "returned_chars": 42603,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "tc260_gbt_35273_2020_pip_security_spec:7dd2788cfc88e1d148f99c1e",
+            "tc260_gbt_35273_2020_pip_security_spec:ba54fa6e935698c155648936"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "spec_sharing",
+          "arm": "tree",
+          "budget": 10,
+          "complete": true,
+          "requests": 4,
+          "returned_chars": 21693,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "beijing_auto",
+          "arm": "flat",
+          "budget": 8,
+          "complete": true,
+          "requests": 3,
+          "returned_chars": 23038,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:1a99bd2cdb84ff3a04270ea3"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "beijing_auto",
+          "arm": "flat",
+          "budget": 10,
+          "complete": true,
+          "requests": 3,
+          "returned_chars": 23038,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:1a99bd2cdb84ff3a04270ea3"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "beijing_auto",
+          "arm": "tree",
+          "budget": 10,
+          "complete": true,
+          "requests": 3,
+          "returned_chars": 16382,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "beijing_bank",
+          "arm": "flat",
+          "budget": 8,
+          "complete": true,
+          "requests": 6,
+          "returned_chars": 47732,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:15943a992c1cd197324ecf35"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "beijing_bank",
+          "arm": "flat",
+          "budget": 10,
+          "complete": true,
+          "requests": 6,
+          "returned_chars": 47732,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:15943a992c1cd197324ecf35"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "beijing_bank",
+          "arm": "tree",
+          "budget": 10,
+          "complete": true,
+          "requests": 4,
+          "returned_chars": 21869,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "auto_flow",
+          "arm": "flat",
+          "budget": 8,
+          "complete": true,
+          "requests": 4,
+          "returned_chars": 22738,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "cac_automotive_data_export_security_guide_2026:a42516a2385011ade90cbf2f"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "auto_flow",
+          "arm": "flat",
+          "budget": 10,
+          "complete": true,
+          "requests": 4,
+          "returned_chars": 22738,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "cac_automotive_data_export_security_guide_2026:a42516a2385011ade90cbf2f"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "auto_flow",
+          "arm": "tree",
+          "budget": 10,
+          "complete": true,
+          "requests": 2,
+          "returned_chars": 6860,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        },
+        {
+          "task_id": "auto_protection",
+          "arm": "flat",
+          "budget": 8,
+          "complete": true,
+          "requests": 4,
+          "returned_chars": 22817,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "auto_protection",
+          "arm": "flat",
+          "budget": 10,
+          "complete": true,
+          "requests": 4,
+          "returned_chars": 22817,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [
+            "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+          ],
+          "errors": []
+        },
+        {
+          "task_id": "auto_protection",
+          "arm": "tree",
+          "budget": 10,
+          "complete": true,
+          "requests": 2,
+          "returned_chars": 7236,
+          "missing_target_chunk_ids": [],
+          "extra_chunk_ids": [],
+          "errors": []
+        }
+      ],
+      "limits": "Scripted known-target navigation; no LLM, search, or legal accuracy evaluation. Targets cover existing heading membership only. returned_chars counts compact JSON Unicode characters, not tokens or billing."
+    },
+    "data/review_runs/navigation_final_validation_20261019/service_audit.json": {
+      "sources": [
+        {
+          "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+          "rows": 91,
+          "file_es_pg_text_paths_labels_roles_equal": true
+        },
+        {
+          "source_id": "cac_automotive_data_export_security_guide_2026",
+          "rows": 69,
+          "file_es_pg_text_paths_labels_roles_equal": true
+        }
+      ],
+      "other_61_sources_unchanged": true,
+      "total_chunks": 1832,
+      "ordered_source_text_unchanged": true
+    },
+    "data/review_runs/navigation_report_guard_replay_20261019/result.json": {
+      "verdict": {
+        "status": "uncertain",
+        "claim_checks": [
+          {
+            "claim_index": 0,
+            "status": "supported",
+            "reason": "第六条原文确规定自贸试验区内数据处理者向境外提供负面清单外数据可免予安全评估、标准合同和认证；该claim将适用限定为经比对确属上海2025版负面清单外，未把材料中的‘上海自贸区’直接扩大为已确认清单外，条件性表述与原文和材料一致。",
+            "missing_facts": []
+          },
+          {
+            "claim_index": 1,
+            "status": "supported",
+            "reason": "第二条原文确规定未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估；claim同时指出该状态尚未确认、不能反推为数据非重要数据，属于对证明前提的谨慎保留，未与原文矛盾。",
+            "missing_facts": []
+          },
+          {
+            "claim_index": 2,
+            "status": "supported",
+            "reason": "第五条第（四）项及第二款原文确规定非CIIO累计向境外提供不满10万人非敏感个人信息可免予三项程序，且所称个人信息不包括重要数据；claim附加‘不含敏感个人信息与重要数据’等条件，与条文一致。",
+            "missing_facts": []
+          },
+          {
+            "claim_index": 3,
+            "status": "supported",
+            "reason": "第八条原文确规定10万人以上不满100万人非敏感或不满1万人敏感个人信息应订立标准合同或认证，第二款又规定属于第三至六条情形从其规定；claim据此说明该量级区间并非一律适用，条件性判断成立。",
+            "missing_facts": []
+          },
+          {
+            "claim_index": 4,
+            "status": "supported",
+            "reason": "第七条原文确规定CIIO提供个人信息或重要数据、非CIIO提供重要数据或达到100万人非敏感/1万人敏感门槛应申报安全评估，第二款保留第三至六条优先适用；claim未把‘在自贸区’或数量较小直接作为排除或纳入依据，与原文一致。",
+            "missing_facts": []
+          }
+        ],
+        "report_checks": [],
+        "conclusion_reason": "claims 0-4对《促进和规范数据跨境流动规定》第二、五、六、七、八条的转述和条件性适用基本忠实，未发现与原文或材料直接矛盾。但整体不能评为supported：draft.legal_path仍写成‘第一步比对清单、第二步清单外免予、第三步清单内或未覆盖行业回到三至八条分档’的分支流程，而关键事实（行业场景、数据项、个人信息属性与数量、CIIO与重要数据状态）尚未确认，按规则非空legal_path应留空并判uncertain；decision_summary及conclusion第3点将‘落入清单’与‘第六条负面清单外免予’并列叙述，容易让清单内数据也进入第六条免予分支，需明确清单内数据不能依第六条免予。另risk_level标为medium，但目标‘能否自由出境’因关键事实不足尚不能确定，应为insufficient_evidence，不能仅凭正文附有未知说明维持medium。",
+        "missing_facts": [
+          "业务所属具体行业、出境场景及涉及的数据项（用于逐项比对上海2025版负面清单）",
+          "出境数据是否包含个人信息，是否包含敏感个人信息",
+          "企业是否属于关键信息基础设施运营者；相关数据是否被相关部门、地区告知或公开发布为重要数据",
+          "自当年1月1日起累计向境外提供个人信息（去重自然人）的数量及其中敏感个人信息数量"
+        ]
+      },
+      "calls": 1
+    }
+  },
+  "sha256": {
+    "data/review_runs/navigation_bugfix_scoped_20261019/publication.json": "4d23fd4d9893b1ca93c3a8b903093a6a2b7443687a1693a9bffec700b356b26e",
+    "data/review_runs/navigation_boundary_fix_20261019/publication.json": "ef04e724a31841bebf5a5cbf5a01fb2ad8ddd45a02be617b5ff464071fb7fea2",
+    "data/review_runs/navigation_final_validation_20261019/navigation_audit.json": "5b65a8fb9c8134db6c488a47f42d0e2867c059717d2dc94297f646c00b6f5f29",
+    "data/review_runs/navigation_final_validation_20261019/service_audit.json": "60680639870e691f03eff3338021a4699af15e75bffe1594fb72e23bfc291d7d",
+    "data/review_runs/navigation_report_guard_replay_20261019/result.json": "4ab05058e2617008f736b5a1e3b1bfa431aa2fd71a6b2c8e0832120a62e7934b"
+  },
+  "checks": {
+    "backend_tests": 694,
+    "frontend_tests": 9,
+    "frontend_build": "passed",
+    "ruff": "passed",
+    "model_scope": "One frozen core-verifier replay, no new paired or full review runs"
+  }
+}

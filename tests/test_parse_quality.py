@@ -183,6 +183,25 @@ def test_degraded_structured_parse_falls_back_to_native_text(
     assert document.ingest_meta.ocr_used is False
 
 
+@pytest.mark.parametrize("number", ["6", "6.1"])
+def test_structured_parse_cannot_split_a_numbered_heading_from_native_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, number: str,
+) -> None:
+    body = f"5 个人信息的收集\n{_clean_body()}\n{number} 个人信息的存储\n{_clean_body()}"
+    damaged = (f"## 5 个人信息的收集\n{_clean_body()}\n## {number}\n"
+               f"上一节末尾的继续段落。\n## 个人信息的存储\n{_clean_body()}")
+    monkeypatch.setattr(normalize_module, "_pdf_native_text", lambda _: ParsedText(
+        body, "pdf_text_parser", "test", strategy="native_text",
+    ))
+    monkeypatch.setattr(normalize_module, "_docling_available", lambda: True)
+    monkeypatch.setattr(normalize_module, "_docling_to_text", lambda *a, **kw: ParsedText(
+        damaged, "docling_parser", "test", strategy="docling_no_ocr",
+    ))
+    document = normalize_source(_source_record(), tmp_path / "standard.pdf")
+    assert document.text == body
+    assert document.ingest_meta.parser == "pdf_text_parser"
+
+
 def test_ingest_records_parser_route_and_quality_provenance(tmp_path: Path) -> None:
     raw_path = tmp_path / "guide.txt"
     raw_path.write_text(_clean_body(), encoding="utf-8")

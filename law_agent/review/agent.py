@@ -25,6 +25,7 @@ from law_agent.review.schemas import (
     ReviewFacts,
 )
 from law_agent.review.semantic_grounding import SemanticGroundingRejected
+from law_agent.review.source_navigation import EvidenceLocation
 from law_agent.review.web_research import WebFinding, canonical_url
 
 
@@ -32,12 +33,22 @@ class EvidenceReadRequest(StrictModel):
     source_id: str = Field(min_length=1, max_length=200)
     article_no: str | None = Field(default=None, max_length=40)
     chunk_id: str | None = Field(default=None, max_length=200)
+    node_id: str | None = Field(default=None, min_length=1, max_length=200)
+    parent_node_id: str | None = Field(default=None, min_length=1, max_length=200)
     offset: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def validate_source(self) -> EvidenceReadRequest:
         if not self.source_id.strip():
             raise ValueError("read_evidence requires source_id")
+        if any(value is not None and not value.strip() for value in (
+            self.article_no, self.chunk_id, self.node_id, self.parent_node_id,
+        )):
+            raise ValueError("证据定位参数不能为空")
+        if sum(value is not None for value in (
+            self.article_no, self.chunk_id, self.node_id, self.parent_node_id,
+        )) > 1:
+            raise ValueError("article_no、chunk_id、node_id、parent_node_id 最多指定一个")
         return self
 
 
@@ -99,16 +110,11 @@ class AgentStep(StrictModel):
     observation: dict[str, Any] = Field(default_factory=dict)
 
 
-class EvidenceLocation(StrictModel):
-    article_no: str | None
-    chunk_id: str
-    preview: str
-
-
 class EvidenceRead(StrictModel):
     """Citable source passages or navigation previews, with continuation offsets."""
 
     hits: list[RetrievalHit]
+    mode: Literal["outline", "text"] = "text"
     outline: list[EvidenceLocation] = Field(default_factory=list)
     next_offset: int | None = None
     previous_chunk_id: str | None = None
@@ -121,7 +127,11 @@ class ReadEvidenceRecord(StrictModel):
     source_id: str
     article_no: str | None = None
     chunk_id: str | None = None
+    node_id: str | None = None
+    parent_node_id: str | None = None
     offset: int = 0
+    returned_node_ids: list[str] = Field(default_factory=list)
+    next_offset: int | None = None
     returned_chunk_ids: list[str] = Field(default_factory=list)
     previous_chunk_id: str | None = None
     following_chunk_id: str | None = None
@@ -145,7 +155,7 @@ class AgentState(StrictModel):
     enrichment_urls_submitted: list[str] = Field(default_factory=list)
     max_turns: int = 16
     max_searches: int = 5
-    max_reads: int = 8
+    max_reads: int = 10
     max_web_searches: int = 2
     pending_question: str | None = None
     fact_questions: list[FactQuestion] = Field(default_factory=list)
@@ -178,7 +188,7 @@ state.evidence保存证据原文与引用编号，state.evidence_sources按sourc
 - read_material(offset)：读取冻结材料，每页12000字符。保存实际材料编号和原文，供事实和引用核对。
 - record_facts(facts, material_facts)：facts更新完整工作投影；material_facts记录本轮材料明确支持的field/value，可包含未变化字段。综合判断未知时仍保留材料明确的观察，程序绑定材料快照并写extracted。人工陈述、指引和推断不登记为材料观察。
 - search_evidence(queries)：每次1至4个查询，发现受控法源和争点，可根据结果改写查询。query_results说明各查询命中，matched_query_ids不证明法律支持。keyword_candidates是可精读的候选定位，短预览不是引用依据。
-- read_evidence(read_requests)：每次1至4项，限已发现的受控来源。已知条款可直接按source_id和article_no读，不必重搜；source_has_articles=false时按chunk_id读，不猜条号。仅source_id浏览分页目录，目录不是证据。article_no模式用offset逐块读取，next_offset表示未读完；chunk_id模式读该块与相邻段落，不用offset翻页，previous_chunk_id/following_chunk_id定位尚未包含的相邻块。每项读取分别计预算；提交前核对state.read_history.returned_chunk_ids，避免重读已见窗口。读取结果与检索结果同等有效。
+- read_evidence(read_requests)：每次1至4项，限已发现的受控来源。已知条款可直接按source_id和article_no读，不必重搜；source_has_articles=false时按chunk_id读，不猜条号。仅source_id浏览根目录；source_id+parent_node_id展开该节点的分页子目录；source_id+node_id分页精读该章节及其子章节原文。node_id、parent_node_id、article_no、chunk_id最多指定一个。目录不是证据，不必先浏览目录才能精读。article_no模式用offset逐块读取，next_offset表示未读完；chunk_id模式读该块与相邻段落，不用offset翻页，previous_chunk_id/following_chunk_id定位尚未包含的相邻块。目录与正文每项读取共用预算（新任务默认10次）；提交前核对state.read_history.returned_chunk_ids，避免重读已见窗口。精读原文与检索结果同等有效，目录预览不可引用；有next_read_request时保留全部参数续读。
 - search_web(queries)：每次最多3个查询，限官方来源。受控库证据不足、需核对时效或有更新迹象时使用。Web finding是调查线索，不是claims引用证据；搜索摘录不能作为新版法条。
 - queue_enrichment(enrichment_urls)：从已发现的Web finding中提交与本案有关的新官方来源或refresh_needed URL，每次运行最多2条。已入库且无更新迹象的URL回到受控库检索。新来源待后台核验，不自行升级可信等级。
 - request_input(question, fact_questions)：只有会改变当前判断且尚未明确的业务事实需要追问并暂停。可选fact_questions声明字段与choice/count/text类型，不填答案或等级；自由文本可留空。申请人明确确认结构化事实后，程序新建快照和任务，旧任务不能接用更改后的事实。
@@ -187,6 +197,7 @@ state.evidence保存证据原文与引用编号，state.evidence_sources按sourc
 ## 报告与引用
 回答本次目标所需的问题，区分机制选择、整体合规与手续完成。已有依据的判断不因范围外信息缺失而阻塞；missing_information、recommended_actions、risk_boundaries可为空，不为填满栏目添加未来假设。未知不写成“不存在”或“未开启”；风险理由不补写未经确认的持续时间、人数和规模。
 确定路径有已确认事实和核验法源才填写draft.legal_path，否则null；不复制申请人主张。有法律结论须有claims，引用仅用实际已返回且can_cite_clause=true的chunk_id。清单、推荐性标准及解释可准确说明内容和待核条件，不放入法律claims或标legal_basis；不因不可作法条引用而隐去实际读到的门槛。
+条件分支流程可在正文说明，不能填入legal_path冒充个案确定路径。若关键事实缺失使本次问题无法确定回答，risk_level用insufficient_evidence，仍可保留有依据的条件说明与claims；不能用medium代替尚不能判断。若本次限定目标已经确定，范围外待核事项不改变该判断，也不列入missing_information。
 新官方材料可能改变核心判断时，web_impact=core、material_web_urls填写已发现URL、risk_level=insufficient_evidence，不能依据旧版本给确定结论；办理细节用execution_detail，补充说明用supplement。
 issues只记录重要问题：material_conflict引用两段冻结材料原文；legal_gap同时引用材料事实与可作法条的chunk_id；missing_information明确尚未确认的内容。填报/人工陈述与材料的未决冲突用missing_information说明来源，不将事实快照当材料。一般建议放recommended_actions，不制造问题数量。
 issue.answer_type用choice/count/text；missing_information的每个问题在missing_answer_types按原问题文本指定类型。material_evidence.material_version_id用材料头部编号或frozen_material_version_ids，不用事实快照ID；quote须逐字、在该材料中唯一，不编造。
@@ -255,7 +266,7 @@ def _material_version_ids(material: str) -> list[str]:
 
 def _read_evidence_request(
     state: AgentState, request: EvidenceReadRequest, *,
-    read_evidence: Callable[[str, str | None, str | None, ReviewFacts, int], EvidenceRead],
+    read_evidence: Callable[..., EvidenceRead],
     checkpoint: Callable[[AgentState], None],
 ) -> dict[str, Any]:
     if request.chunk_id and request.offset:
@@ -268,6 +279,8 @@ def _read_evidence_request(
     exact_read = any(
         record.article_no == request.article_no
         and record.chunk_id == request.chunk_id
+        and record.node_id == request.node_id
+        and record.parent_node_id == request.parent_node_id
         and record.offset == request.offset
         for record in prior_records
     )
@@ -315,9 +328,14 @@ def _read_evidence_request(
         )
     state.reads += 1
     checkpoint(state)
+    node_selectors = {
+        key: value for key, value in {
+            "node_id": request.node_id, "parent_node_id": request.parent_node_id,
+        }.items() if value is not None
+    }
     read = read_evidence(
         request.source_id, request.article_no, request.chunk_id,
-        state.facts, request.offset,
+        state.facts, request.offset, **node_selectors,
     )
     hits = read.hits
     merged = {hit.chunk_id: hit for hit in state.evidence}
@@ -327,6 +345,7 @@ def _read_evidence_request(
         "read_request": read_request,
         "chunk_ids": [hit.chunk_id for hit in hits],
         "read_index": state.reads,
+        "read_mode": read.mode,
         "citable_count": sum(hit.can_cite_clause for hit in hits),
         "previous_chunk_id": read.previous_chunk_id,
         "following_chunk_id": read.following_chunk_id,
@@ -339,24 +358,30 @@ def _read_evidence_request(
         source_id=request.source_id,
         article_no=request.article_no,
         chunk_id=request.chunk_id,
+        node_id=request.node_id,
+        parent_node_id=request.parent_node_id,
         offset=request.offset,
+        returned_node_ids=[entry.node_id for entry in read.outline],
+        next_offset=read.next_offset,
         returned_chunk_ids=[hit.chunk_id for hit in hits],
         previous_chunk_id=read.previous_chunk_id,
         following_chunk_id=read.following_chunk_id,
     ))
-    if read.outline:
+    if read.mode == "outline":
         observation["outline"] = [entry.model_dump(mode="json") for entry in read.outline]
-        observation["instruction"] = "目录预览仅用于定位，不是完整原文或引用证据；可按条号或 chunk_id 精读。"
+        observation["instruction"] = (
+            "目录预览仅用于定位，不是完整原文或引用证据；"
+            "用 parent_node_id 展开子目录，node_id 精读章节，也可按条号或 chunk_id 精读。"
+        )
     if read.next_offset is not None:
         observation["truncated"] = True
         observation["next_offset"] = read.next_offset
+        continuation = {**read_request, "offset": read.next_offset}
+        observation["next_read_request"] = continuation
         observation["instruction"] = (
-            f"目录尚未浏览完，可用相同 source_id、offset={read.next_offset} 继续浏览；预览不作为引用证据。"
-            if read.outline else
-            "该条尚未读完，以上只是前一部分。请用相同 source_id 与 article_no、"
-            f"offset={read.next_offset} 续读，未读完不得当作已读全文；"
-            "读完后依据全文核对并列条件、例外与免予情形。"
-        )
+            "目录尚未浏览完，预览不作为引用证据。"
+            if read.outline else "该部分尚未读完，未读完不得当作已读全文。"
+        ) + "请使用 next_read_request 中的完整参数继续读取。"
     return observation
 
 
@@ -365,9 +390,7 @@ def run_agent(
     decide: Callable[[AgentState, dict[str, Any]], AgentDecision],
     search: Callable[[list[RetrievalQuery], ReviewFacts], list[RetrievalHit]],
     search_navigation: Callable[[], list[dict[str, Any]]] | None = None,
-    read_evidence: Callable[
-        [str, str | None, str | None, ReviewFacts, int], EvidenceRead
-    ] | None = None,
+    read_evidence: Callable[..., EvidenceRead] | None = None,
     web_search: Callable[[list[RetrievalQuery], ReviewFacts], list[WebFinding]],
     finalize: Callable[[LLMReviewResultDraft, AgentState], dict[str, Any]],
     abstain: Callable[[LLMReviewResultDraft, AgentState], dict[str, Any]] | None = None,

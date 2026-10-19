@@ -1,0 +1,1254 @@
+{
+  "finished_at": "2026-10-19T12:52:38.224970+00:00",
+  "results": [
+    {
+      "task_id": "pipl_13",
+      "arm": "flat",
+      "finished": true,
+      "error": null,
+      "reads": 1,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "response_characters": 1254,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 4.301,
+      "errors": [],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 2768,
+        "completion_tokens": 642,
+        "total_tokens": 3410,
+        "prompt_cache_hit_tokens": 512,
+        "prompt_cache_miss_tokens": 2256
+      },
+      "model_calls": 2,
+      "target_count": 1,
+      "observed_target_count": 1,
+      "failure_category": null,
+      "first_complete_read_index": 1
+    },
+    {
+      "task_id": "pipl_13",
+      "arm": "tree",
+      "finished": true,
+      "error": null,
+      "reads": 1,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "response_characters": 1254,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 3.368,
+      "errors": [],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 2963,
+        "completion_tokens": 521,
+        "total_tokens": 3484,
+        "prompt_cache_hit_tokens": 768,
+        "prompt_cache_miss_tokens": 2195
+      },
+      "model_calls": 2,
+      "target_count": 1,
+      "observed_target_count": 1,
+      "failure_category": null,
+      "first_complete_read_index": 1
+    },
+    {
+      "task_id": "pipl_cross_border",
+      "arm": "tree",
+      "finished": true,
+      "error": null,
+      "reads": 8,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:22c6e44262a26b77a3b88405",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:58aad163f93346ed70478bd5",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:5abea5894361bd089e99e52a",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:78f554441f575c6e8c17dbd3",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:dce3bbcf7f1e4c40bbe4b770"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:22425664ca4193b8a05013cc",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:22c6e44262a26b77a3b88405",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:58aad163f93346ed70478bd5",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:5abea5894361bd089e99e52a",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:78f554441f575c6e8c17dbd3",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:ad3924941c4d6eb5da2a09c9",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:dce3bbcf7f1e4c40bbe4b770"
+      ],
+      "response_characters": 8443,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 13.678,
+      "errors": [],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 13598,
+        "completion_tokens": 2530,
+        "total_tokens": 16128,
+        "prompt_cache_hit_tokens": 1920,
+        "prompt_cache_miss_tokens": 11678
+      },
+      "model_calls": 3,
+      "target_count": 6,
+      "observed_target_count": 6,
+      "failure_category": null,
+      "first_complete_read_index": 6
+    },
+    {
+      "task_id": "pipl_cross_border",
+      "arm": "flat",
+      "finished": false,
+      "error": "ReviewWorkflowFailed: navigation_paired_reading LLM call failed: Extra data: line 1 column 507 (char 506)",
+      "reads": 0,
+      "target_complete": false,
+      "returned_target_chunk_ids": [],
+      "missing_target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:22c6e44262a26b77a3b88405",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:58aad163f93346ed70478bd5",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:5abea5894361bd089e99e52a",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:78f554441f575c6e8c17dbd3",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:dce3bbcf7f1e4c40bbe4b770"
+      ],
+      "returned_chunk_ids": [],
+      "response_characters": 0,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 2.57,
+      "errors": [],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 805,
+        "completion_tokens": 467,
+        "total_tokens": 1272,
+        "prompt_cache_hit_tokens": 512,
+        "prompt_cache_miss_tokens": 293
+      },
+      "model_calls": 1,
+      "target_count": 6,
+      "observed_target_count": 0,
+      "failure_category": "model_output_format",
+      "first_complete_read_index": null
+    },
+    {
+      "task_id": "spec_collection",
+      "arm": "flat",
+      "finished": true,
+      "error": null,
+      "reads": 5,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900",
+        "tc260_gbt_35273_2020_pip_security_spec:079c4bc4bffa8ecaaf91115c",
+        "tc260_gbt_35273_2020_pip_security_spec:0b7e59e2040fdefcb1f24ed6",
+        "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb",
+        "tc260_gbt_35273_2020_pip_security_spec:7e4f553ceed9d7b58786b3b4",
+        "tc260_gbt_35273_2020_pip_security_spec:ad55222c5dcbd9503f946b77",
+        "tc260_gbt_35273_2020_pip_security_spec:bf2e93bd32d54c59dd95d6ae",
+        "tc260_gbt_35273_2020_pip_security_spec:c53ab546574ede4eea74f0ad",
+        "tc260_gbt_35273_2020_pip_security_spec:fb91ab16ce05f9a3d20c3ada"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900",
+        "tc260_gbt_35273_2020_pip_security_spec:079c4bc4bffa8ecaaf91115c",
+        "tc260_gbt_35273_2020_pip_security_spec:0b7e59e2040fdefcb1f24ed6",
+        "tc260_gbt_35273_2020_pip_security_spec:0d62161bb66467fd92a28bef",
+        "tc260_gbt_35273_2020_pip_security_spec:2aac54d36f2001231beab23f",
+        "tc260_gbt_35273_2020_pip_security_spec:4897b96967946f6e83aff82a",
+        "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb",
+        "tc260_gbt_35273_2020_pip_security_spec:5e7569929f4e7eed9e3a6e8d",
+        "tc260_gbt_35273_2020_pip_security_spec:7e4f553ceed9d7b58786b3b4",
+        "tc260_gbt_35273_2020_pip_security_spec:ad55222c5dcbd9503f946b77",
+        "tc260_gbt_35273_2020_pip_security_spec:bf2e93bd32d54c59dd95d6ae",
+        "tc260_gbt_35273_2020_pip_security_spec:c53ab546574ede4eea74f0ad",
+        "tc260_gbt_35273_2020_pip_security_spec:fb91ab16ce05f9a3d20c3ada"
+      ],
+      "response_characters": 26531,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 25.4,
+      "errors": [
+        {
+          "request": {
+            "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+            "article_no": "5",
+            "offset": 0
+          },
+          "error": "所选位置没有可读目录或正文",
+          "executed": true,
+          "read_index": 2
+        },
+        {
+          "request": {
+            "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+            "chunk_id": "tc260_gbt_35273_2020_pip_security_spec:fb91ab16ce05f9a3d20c3ada",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+            "chunk_id": "tc260_gbt_35273_2020_pip_security_spec:0b7e59e2040fdefcb1f24ed6",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb"
+          ],
+          "executed": false
+        }
+      ],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 57716,
+        "completion_tokens": 4572,
+        "total_tokens": 62288,
+        "prompt_cache_hit_tokens": 3072,
+        "prompt_cache_miss_tokens": 54644
+      },
+      "model_calls": 6,
+      "target_count": 9,
+      "observed_target_count": 9,
+      "failure_category": null,
+      "first_complete_read_index": 5
+    },
+    {
+      "task_id": "spec_collection",
+      "arm": "tree",
+      "finished": true,
+      "error": null,
+      "reads": 5,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900",
+        "tc260_gbt_35273_2020_pip_security_spec:079c4bc4bffa8ecaaf91115c",
+        "tc260_gbt_35273_2020_pip_security_spec:0b7e59e2040fdefcb1f24ed6",
+        "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb",
+        "tc260_gbt_35273_2020_pip_security_spec:7e4f553ceed9d7b58786b3b4",
+        "tc260_gbt_35273_2020_pip_security_spec:ad55222c5dcbd9503f946b77",
+        "tc260_gbt_35273_2020_pip_security_spec:bf2e93bd32d54c59dd95d6ae",
+        "tc260_gbt_35273_2020_pip_security_spec:c53ab546574ede4eea74f0ad",
+        "tc260_gbt_35273_2020_pip_security_spec:fb91ab16ce05f9a3d20c3ada"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900",
+        "tc260_gbt_35273_2020_pip_security_spec:079c4bc4bffa8ecaaf91115c",
+        "tc260_gbt_35273_2020_pip_security_spec:0b7e59e2040fdefcb1f24ed6",
+        "tc260_gbt_35273_2020_pip_security_spec:0d62161bb66467fd92a28bef",
+        "tc260_gbt_35273_2020_pip_security_spec:2aac54d36f2001231beab23f",
+        "tc260_gbt_35273_2020_pip_security_spec:4897b96967946f6e83aff82a",
+        "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb",
+        "tc260_gbt_35273_2020_pip_security_spec:5e7569929f4e7eed9e3a6e8d",
+        "tc260_gbt_35273_2020_pip_security_spec:7e4f553ceed9d7b58786b3b4",
+        "tc260_gbt_35273_2020_pip_security_spec:ad55222c5dcbd9503f946b77",
+        "tc260_gbt_35273_2020_pip_security_spec:bf2e93bd32d54c59dd95d6ae",
+        "tc260_gbt_35273_2020_pip_security_spec:c53ab546574ede4eea74f0ad",
+        "tc260_gbt_35273_2020_pip_security_spec:fb91ab16ce05f9a3d20c3ada"
+      ],
+      "response_characters": 30140,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 25.504,
+      "errors": [
+        {
+          "request": {
+            "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+            "chunk_id": "tc260_gbt_35273_2020_pip_security_spec:7e4f553ceed9d7b58786b3b4",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+            "chunk_id": "tc260_gbt_35273_2020_pip_security_spec:079c4bc4bffa8ecaaf91115c",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900"
+          ],
+          "executed": false
+        }
+      ],
+      "section_reads": 0,
+      "child_directory_reads": 1,
+      "usage": {
+        "prompt_tokens": 59678,
+        "completion_tokens": 4998,
+        "total_tokens": 64676,
+        "prompt_cache_hit_tokens": 3200,
+        "prompt_cache_miss_tokens": 56478
+      },
+      "model_calls": 5,
+      "target_count": 9,
+      "observed_target_count": 9,
+      "failure_category": null,
+      "first_complete_read_index": 5
+    },
+    {
+      "task_id": "spec_sharing",
+      "arm": "tree",
+      "finished": true,
+      "error": null,
+      "reads": 4,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:1669b1eed13805b13c8238b6",
+        "tc260_gbt_35273_2020_pip_security_spec:5a1fc70e6f1b1127644c104a",
+        "tc260_gbt_35273_2020_pip_security_spec:62f6b39ff032eb94790bbacc",
+        "tc260_gbt_35273_2020_pip_security_spec:7f170aa29b955e7604535560",
+        "tc260_gbt_35273_2020_pip_security_spec:90bac4882d1b02ad89214a67",
+        "tc260_gbt_35273_2020_pip_security_spec:9a1ef258a997a41a0b49a1ee",
+        "tc260_gbt_35273_2020_pip_security_spec:acb00dbb5c1e2fc0feb0cf72",
+        "tc260_gbt_35273_2020_pip_security_spec:d248e2da59fa2fe28a82ea42",
+        "tc260_gbt_35273_2020_pip_security_spec:d5663c19617087d625816220",
+        "tc260_gbt_35273_2020_pip_security_spec:da3bf133eabafbbd8dc2d770",
+        "tc260_gbt_35273_2020_pip_security_spec:e31fe0078517db62069d5a13"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:1669b1eed13805b13c8238b6",
+        "tc260_gbt_35273_2020_pip_security_spec:5a1fc70e6f1b1127644c104a",
+        "tc260_gbt_35273_2020_pip_security_spec:62f6b39ff032eb94790bbacc",
+        "tc260_gbt_35273_2020_pip_security_spec:7f170aa29b955e7604535560",
+        "tc260_gbt_35273_2020_pip_security_spec:90bac4882d1b02ad89214a67",
+        "tc260_gbt_35273_2020_pip_security_spec:9a1ef258a997a41a0b49a1ee",
+        "tc260_gbt_35273_2020_pip_security_spec:acb00dbb5c1e2fc0feb0cf72",
+        "tc260_gbt_35273_2020_pip_security_spec:d248e2da59fa2fe28a82ea42",
+        "tc260_gbt_35273_2020_pip_security_spec:d5663c19617087d625816220",
+        "tc260_gbt_35273_2020_pip_security_spec:da3bf133eabafbbd8dc2d770",
+        "tc260_gbt_35273_2020_pip_security_spec:e31fe0078517db62069d5a13"
+      ],
+      "response_characters": 22136,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 16.083,
+      "errors": [],
+      "section_reads": 3,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 51018,
+        "completion_tokens": 3140,
+        "total_tokens": 54158,
+        "prompt_cache_hit_tokens": 3200,
+        "prompt_cache_miss_tokens": 47818
+      },
+      "model_calls": 5,
+      "target_count": 11,
+      "observed_target_count": 11,
+      "failure_category": null,
+      "first_complete_read_index": 4
+    },
+    {
+      "task_id": "spec_sharing",
+      "arm": "flat",
+      "finished": true,
+      "error": null,
+      "reads": 4,
+      "target_complete": false,
+      "returned_target_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:1669b1eed13805b13c8238b6",
+        "tc260_gbt_35273_2020_pip_security_spec:62f6b39ff032eb94790bbacc",
+        "tc260_gbt_35273_2020_pip_security_spec:7f170aa29b955e7604535560",
+        "tc260_gbt_35273_2020_pip_security_spec:90bac4882d1b02ad89214a67",
+        "tc260_gbt_35273_2020_pip_security_spec:9a1ef258a997a41a0b49a1ee",
+        "tc260_gbt_35273_2020_pip_security_spec:acb00dbb5c1e2fc0feb0cf72",
+        "tc260_gbt_35273_2020_pip_security_spec:d248e2da59fa2fe28a82ea42",
+        "tc260_gbt_35273_2020_pip_security_spec:da3bf133eabafbbd8dc2d770",
+        "tc260_gbt_35273_2020_pip_security_spec:e31fe0078517db62069d5a13"
+      ],
+      "missing_target_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:5a1fc70e6f1b1127644c104a",
+        "tc260_gbt_35273_2020_pip_security_spec:d5663c19617087d625816220"
+      ],
+      "returned_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:1669b1eed13805b13c8238b6",
+        "tc260_gbt_35273_2020_pip_security_spec:62f6b39ff032eb94790bbacc",
+        "tc260_gbt_35273_2020_pip_security_spec:7f170aa29b955e7604535560",
+        "tc260_gbt_35273_2020_pip_security_spec:90bac4882d1b02ad89214a67",
+        "tc260_gbt_35273_2020_pip_security_spec:9a1ef258a997a41a0b49a1ee",
+        "tc260_gbt_35273_2020_pip_security_spec:acb00dbb5c1e2fc0feb0cf72",
+        "tc260_gbt_35273_2020_pip_security_spec:d248e2da59fa2fe28a82ea42",
+        "tc260_gbt_35273_2020_pip_security_spec:da3bf133eabafbbd8dc2d770",
+        "tc260_gbt_35273_2020_pip_security_spec:e31fe0078517db62069d5a13"
+      ],
+      "response_characters": 27716,
+      "false_complete_claim": true,
+      "invalid_refs": [],
+      "latency_seconds": 20.964,
+      "errors": [
+        {
+          "request": {
+            "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+            "chunk_id": "tc260_gbt_35273_2020_pip_security_spec:d248e2da59fa2fe28a82ea42",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "tc260_gbt_35273_2020_pip_security_spec:62f6b39ff032eb94790bbacc"
+          ],
+          "executed": false
+        }
+      ],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 47530,
+        "completion_tokens": 3765,
+        "total_tokens": 51295,
+        "prompt_cache_hit_tokens": 2560,
+        "prompt_cache_miss_tokens": 44970
+      },
+      "model_calls": 5,
+      "target_count": 11,
+      "observed_target_count": 9,
+      "failure_category": "target_incomplete_false_complete",
+      "first_complete_read_index": null
+    },
+    {
+      "task_id": "beijing_auto",
+      "arm": "flat",
+      "finished": true,
+      "error": null,
+      "reads": 3,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:15dbb3c0d9294ccca75ad61e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:3f48672e3e1d130342fce853",
+        "beijing_free_trade_zone_data_export_negative_list_2025:421d075b1241532ca4b51aa8",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5730ba2aeff846ade0ba16e5",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5aebe4802bed7ad4e5c91c53",
+        "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:78ee310b683a760e249e0d67"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:15dbb3c0d9294ccca75ad61e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1a99bd2cdb84ff3a04270ea3",
+        "beijing_free_trade_zone_data_export_negative_list_2025:3f48672e3e1d130342fce853",
+        "beijing_free_trade_zone_data_export_negative_list_2025:421d075b1241532ca4b51aa8",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5730ba2aeff846ade0ba16e5",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5aebe4802bed7ad4e5c91c53",
+        "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:78ee310b683a760e249e0d67"
+      ],
+      "response_characters": 22906,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 25.524,
+      "errors": [
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:15dbb3c0d9294ccca75ad61e",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:3f48672e3e1d130342fce853",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33"
+          ],
+          "executed": false
+        }
+      ],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 35481,
+        "completion_tokens": 5491,
+        "total_tokens": 40972,
+        "prompt_cache_hit_tokens": 2048,
+        "prompt_cache_miss_tokens": 33433
+      },
+      "model_calls": 4,
+      "target_count": 8,
+      "observed_target_count": 8,
+      "failure_category": null,
+      "first_complete_read_index": 3
+    },
+    {
+      "task_id": "beijing_auto",
+      "arm": "tree",
+      "finished": true,
+      "error": null,
+      "reads": 5,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:15dbb3c0d9294ccca75ad61e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:3f48672e3e1d130342fce853",
+        "beijing_free_trade_zone_data_export_negative_list_2025:421d075b1241532ca4b51aa8",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5730ba2aeff846ade0ba16e5",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5aebe4802bed7ad4e5c91c53",
+        "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:78ee310b683a760e249e0d67"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:15dbb3c0d9294ccca75ad61e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:3f48672e3e1d130342fce853",
+        "beijing_free_trade_zone_data_export_negative_list_2025:421d075b1241532ca4b51aa8",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5730ba2aeff846ade0ba16e5",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5aebe4802bed7ad4e5c91c53",
+        "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:78ee310b683a760e249e0d67"
+      ],
+      "response_characters": 26504,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 24.23,
+      "errors": [],
+      "section_reads": 4,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 27921,
+        "completion_tokens": 4711,
+        "total_tokens": 32632,
+        "prompt_cache_hit_tokens": 1920,
+        "prompt_cache_miss_tokens": 26001
+      },
+      "model_calls": 3,
+      "target_count": 8,
+      "observed_target_count": 8,
+      "failure_category": null,
+      "first_complete_read_index": 5
+    },
+    {
+      "task_id": "beijing_bank",
+      "arm": "tree",
+      "finished": true,
+      "error": null,
+      "reads": 9,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:0bed3702ea89b9b8c5bfc15a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+        "beijing_free_trade_zone_data_export_negative_list_2025:32d3abb74078e21015135739",
+        "beijing_free_trade_zone_data_export_negative_list_2025:39ae6bf74540f7acafbbf847",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+        "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:768ebb370c3144fca99eb066",
+        "beijing_free_trade_zone_data_export_negative_list_2025:d50f1c51f08c61c93f48d5d2",
+        "beijing_free_trade_zone_data_export_negative_list_2025:e03917cefeaa3b2106b749fb",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1",
+        "beijing_free_trade_zone_data_export_negative_list_2025:f96b76945e3f1cb5fca493a9"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:0bed3702ea89b9b8c5bfc15a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+        "beijing_free_trade_zone_data_export_negative_list_2025:32d3abb74078e21015135739",
+        "beijing_free_trade_zone_data_export_negative_list_2025:39ae6bf74540f7acafbbf847",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+        "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:768ebb370c3144fca99eb066",
+        "beijing_free_trade_zone_data_export_negative_list_2025:d50f1c51f08c61c93f48d5d2",
+        "beijing_free_trade_zone_data_export_negative_list_2025:e03917cefeaa3b2106b749fb",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1",
+        "beijing_free_trade_zone_data_export_negative_list_2025:f96b76945e3f1cb5fca493a9"
+      ],
+      "response_characters": 55854,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 55.485,
+      "errors": [
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "node_id": "nav_ab09ceed9dc365c27ac9fb3c5ec84b1f4c4494f010f1a766516c4e763ad94ca8",
+            "offset": 0
+          },
+          "error": "节点不属于此来源、已失效或不适用于当前审查日期；请重新浏览来源目录",
+          "executed": true,
+          "read_index": 4
+        },
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:39ae6bf74540f7acafbbf847",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e"
+          ],
+          "executed": false
+        }
+      ],
+      "section_reads": 3,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 106756,
+        "completion_tokens": 11057,
+        "total_tokens": 117813,
+        "prompt_cache_hit_tokens": 3840,
+        "prompt_cache_miss_tokens": 102916
+      },
+      "model_calls": 6,
+      "target_count": 12,
+      "observed_target_count": 12,
+      "failure_category": null,
+      "first_complete_read_index": 9
+    },
+    {
+      "task_id": "beijing_bank",
+      "arm": "flat",
+      "finished": true,
+      "error": null,
+      "reads": 6,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:0bed3702ea89b9b8c5bfc15a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+        "beijing_free_trade_zone_data_export_negative_list_2025:32d3abb74078e21015135739",
+        "beijing_free_trade_zone_data_export_negative_list_2025:39ae6bf74540f7acafbbf847",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+        "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:768ebb370c3144fca99eb066",
+        "beijing_free_trade_zone_data_export_negative_list_2025:d50f1c51f08c61c93f48d5d2",
+        "beijing_free_trade_zone_data_export_negative_list_2025:e03917cefeaa3b2106b749fb",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1",
+        "beijing_free_trade_zone_data_export_negative_list_2025:f96b76945e3f1cb5fca493a9"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:0bed3702ea89b9b8c5bfc15a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+        "beijing_free_trade_zone_data_export_negative_list_2025:32d3abb74078e21015135739",
+        "beijing_free_trade_zone_data_export_negative_list_2025:39ae6bf74540f7acafbbf847",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+        "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5ddb078eda09c74122333325",
+        "beijing_free_trade_zone_data_export_negative_list_2025:768ebb370c3144fca99eb066",
+        "beijing_free_trade_zone_data_export_negative_list_2025:d50f1c51f08c61c93f48d5d2",
+        "beijing_free_trade_zone_data_export_negative_list_2025:e03917cefeaa3b2106b749fb",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1",
+        "beijing_free_trade_zone_data_export_negative_list_2025:f96b76945e3f1cb5fca493a9"
+      ],
+      "response_characters": 47618,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 34.101,
+      "errors": [
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:768ebb370c3144fca99eb066",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+            "chunk_id": "beijing_free_trade_zone_data_export_negative_list_2025:0bed3702ea89b9b8c5bfc15a",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e"
+          ],
+          "executed": false
+        }
+      ],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 83207,
+        "completion_tokens": 6900,
+        "total_tokens": 90107,
+        "prompt_cache_hit_tokens": 3072,
+        "prompt_cache_miss_tokens": 80135
+      },
+      "model_calls": 6,
+      "target_count": 12,
+      "observed_target_count": 12,
+      "failure_category": null,
+      "first_complete_read_index": 6
+    },
+    {
+      "task_id": "auto_flow",
+      "arm": "flat",
+      "finished": true,
+      "error": null,
+      "reads": 4,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:2d1a273a4eb0d5f9e33ddd35",
+        "cac_automotive_data_export_security_guide_2026:74228be944600c1ba9a8dcbe",
+        "cac_automotive_data_export_security_guide_2026:a4c3a8d634c900843d55d05a",
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:2d1a273a4eb0d5f9e33ddd35",
+        "cac_automotive_data_export_security_guide_2026:74228be944600c1ba9a8dcbe",
+        "cac_automotive_data_export_security_guide_2026:76e35b34505964af0ae6de46",
+        "cac_automotive_data_export_security_guide_2026:a4c3a8d634c900843d55d05a",
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "response_characters": 23097,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 13.848,
+      "errors": [
+        {
+          "request": {
+            "source_id": "cac_automotive_data_export_security_guide_2026",
+            "chunk_id": "cac_automotive_data_export_security_guide_2026:2d1a273a4eb0d5f9e33ddd35",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "cac_automotive_data_export_security_guide_2026",
+            "chunk_id": "cac_automotive_data_export_security_guide_2026:a4c3a8d634c900843d55d05a",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90"
+          ],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "cac_automotive_data_export_security_guide_2026",
+            "chunk_id": "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [
+            "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90"
+          ],
+          "executed": false
+        }
+      ],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 38431,
+        "completion_tokens": 2144,
+        "total_tokens": 40575,
+        "prompt_cache_hit_tokens": 2560,
+        "prompt_cache_miss_tokens": 35871
+      },
+      "model_calls": 5,
+      "target_count": 4,
+      "observed_target_count": 4,
+      "failure_category": null,
+      "first_complete_read_index": 4
+    },
+    {
+      "task_id": "auto_flow",
+      "arm": "tree",
+      "finished": true,
+      "error": null,
+      "reads": 4,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:2d1a273a4eb0d5f9e33ddd35",
+        "cac_automotive_data_export_security_guide_2026:74228be944600c1ba9a8dcbe",
+        "cac_automotive_data_export_security_guide_2026:a4c3a8d634c900843d55d05a",
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:2d1a273a4eb0d5f9e33ddd35",
+        "cac_automotive_data_export_security_guide_2026:74228be944600c1ba9a8dcbe",
+        "cac_automotive_data_export_security_guide_2026:a4c3a8d634c900843d55d05a",
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "response_characters": 27479,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 13.859,
+      "errors": [
+        {
+          "request": {
+            "source_id": "cac_automotive_data_export_security_guide_2026",
+            "offset": 60
+          },
+          "error": "来源 cac_automotive_data_export_security_guide_2026 在 2026-10-19 没有 offset=60 的目录条目",
+          "executed": true,
+          "read_index": 3
+        }
+      ],
+      "section_reads": 1,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 37102,
+        "completion_tokens": 2302,
+        "total_tokens": 39404,
+        "prompt_cache_hit_tokens": 2560,
+        "prompt_cache_miss_tokens": 34542
+      },
+      "model_calls": 4,
+      "target_count": 4,
+      "observed_target_count": 4,
+      "failure_category": null,
+      "first_complete_read_index": 4
+    },
+    {
+      "task_id": "auto_protection",
+      "arm": "tree",
+      "finished": true,
+      "error": null,
+      "reads": 3,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:11f7056465b9111d2888789f",
+        "cac_automotive_data_export_security_guide_2026:42adeaf4b3c95f5f0e236366",
+        "cac_automotive_data_export_security_guide_2026:bfbe4780aefaf6971d7fe3b7",
+        "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:11f7056465b9111d2888789f",
+        "cac_automotive_data_export_security_guide_2026:42adeaf4b3c95f5f0e236366",
+        "cac_automotive_data_export_security_guide_2026:bfbe4780aefaf6971d7fe3b7",
+        "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90"
+      ],
+      "response_characters": 27855,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 11.182,
+      "errors": [],
+      "section_reads": 1,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 37545,
+        "completion_tokens": 1674,
+        "total_tokens": 39219,
+        "prompt_cache_hit_tokens": 2560,
+        "prompt_cache_miss_tokens": 34985
+      },
+      "model_calls": 4,
+      "target_count": 4,
+      "observed_target_count": 4,
+      "failure_category": null,
+      "first_complete_read_index": 3
+    },
+    {
+      "task_id": "auto_protection",
+      "arm": "flat",
+      "finished": true,
+      "error": null,
+      "reads": 4,
+      "target_complete": true,
+      "returned_target_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:11f7056465b9111d2888789f",
+        "cac_automotive_data_export_security_guide_2026:42adeaf4b3c95f5f0e236366",
+        "cac_automotive_data_export_security_guide_2026:bfbe4780aefaf6971d7fe3b7",
+        "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90"
+      ],
+      "missing_target_chunk_ids": [],
+      "returned_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:11f7056465b9111d2888789f",
+        "cac_automotive_data_export_security_guide_2026:42adeaf4b3c95f5f0e236366",
+        "cac_automotive_data_export_security_guide_2026:bfbe4780aefaf6971d7fe3b7",
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457",
+        "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90"
+      ],
+      "response_characters": 23180,
+      "false_complete_claim": false,
+      "invalid_refs": [],
+      "latency_seconds": 12.274,
+      "errors": [
+        {
+          "request": {
+            "source_id": "cac_automotive_data_export_security_guide_2026",
+            "chunk_id": "cac_automotive_data_export_security_guide_2026:42adeaf4b3c95f5f0e236366",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "cac_automotive_data_export_security_guide_2026",
+            "chunk_id": "cac_automotive_data_export_security_guide_2026:bfbe4780aefaf6971d7fe3b7",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [],
+          "executed": false
+        },
+        {
+          "request": {
+            "source_id": "cac_automotive_data_export_security_guide_2026",
+            "chunk_id": "cac_automotive_data_export_security_guide_2026:11f7056465b9111d2888789f",
+            "offset": 0
+          },
+          "error": "目标chunk已在此前窗口返回，请使用尚未返回的相邻chunk_id",
+          "next_unread_chunk_ids": [],
+          "executed": false
+        }
+      ],
+      "section_reads": 0,
+      "child_directory_reads": 0,
+      "usage": {
+        "prompt_tokens": 38620,
+        "completion_tokens": 1827,
+        "total_tokens": 40447,
+        "prompt_cache_hit_tokens": 2560,
+        "prompt_cache_miss_tokens": 36060
+      },
+      "model_calls": 5,
+      "target_count": 4,
+      "observed_target_count": 4,
+      "failure_category": null,
+      "first_complete_read_index": 4
+    }
+  ],
+  "model_calls": 66,
+  "production_changed": false,
+  "corpus_changed": false,
+  "script_changed": false,
+  "fixture_changed": false,
+  "manifest": {
+    "started_at": "2026-10-19T12:47:34.916974+00:00",
+    "fixture_sha256": "b6ef19c507d10e192b34733736889b7be5e6a1a5d587b6bae133088be3a15d2f",
+    "model": "deepseek-flash",
+    "reasoning_effort": "low",
+    "base_commit": "ab81ea7586406bd6dac82f5d5ff87fecac7e07b2",
+    "production_sha256": {
+      "law_agent/__init__.py": "a4f387af029867a9a7349ae8998112bf075b940a206c9cc674f69b511a244788",
+      "law_agent/config.py": "dedc2eeed1cea8417f47a61663aa175f2f3e0ae7209a46a8b7ba50d17a455bd4",
+      "law_agent/data/__init__.py": "c226622cb24bc1d5888a0c754392a598b75f07d6b0d3a3ac109e3c69014e4bfb",
+      "law_agent/data/__main__.py": "5d79792f8c12ae8d1af8cb73f6a212d31801986b537540bea3f023a4a29f633e",
+      "law_agent/data/chunking/__init__.py": "1f8c285756edb796d88998f5532955dd5e6cb5b89742073caa5df76e84e5d884",
+      "law_agent/data/chunking/law.py": "ac3605737361f9f4e44f437e66db95e7c1d112a3069f43c9ffbe684adfdabaa7",
+      "law_agent/data/chunking/pipeline.py": "76d06c0da5914aed472e9a974f108626aacdb8fc043d6cbe74e1ed50ed9cfa30",
+      "law_agent/data/chunking/structured.py": "7a3f5024f2a154d6cdb84a856cf5649591e1cbd9d33a5ddcbd66f474b8658a07",
+      "law_agent/data/citation_policy.py": "83158c9871e7383a1199e699054124650fddcbaf4d8afb8e96a9558fe80c4166",
+      "law_agent/data/cleaners/__init__.py": "8d2f1ff0469792b7971991aacbdb50c10610a307f60eb2598706f0bed4c4eb59",
+      "law_agent/data/cleaners/common.py": "38714c0d0702815c7d6fad10c91f3183c6611650793fedc36547e80af14dd790",
+      "law_agent/data/cleaners/pipeline.py": "f2a25adf05844963ed5dc2c4ef9fe3da5e881092f0a81f5bbda4f41b6bf04762",
+      "law_agent/data/cli.py": "6fa219ba46ea57c8771b706558adc21817544a98e9fc035fe82016f97117e272",
+      "law_agent/data/enrichment/__init__.py": "8ba5303dec8290b10acfd11de31d9d25a552d6fd37a6f9ec33f49a51407460d4",
+      "law_agent/data/enrichment/generator.py": "3ef5fe210b87a7344fc8a546182f7f3825783e9320056c666462e8b8f33bcf32",
+      "law_agent/data/evalset/__init__.py": "4b7f2c57c5df8c70b66109eb381521b032ce530b3ddd09ffe3de82d1eba174b4",
+      "law_agent/data/evalset/build_cases.py": "01cc2279d6c754bb1439ed3042ec4d2400bc5887e2f3a2668a98b64886fea276",
+      "law_agent/data/fetchers/__init__.py": "b8719c71214ee37648ea66c4553ee7e35dd66b0fb20e0ba700f2c48e66b293f1",
+      "law_agent/data/fetchers/flk_npc.py": "7fa100f19db43bec0d75f726cd149d73e4dde5cb5f8a761b66d092df4c1168a8",
+      "law_agent/data/fetchers/generic.py": "cc2f2a2c6900d96a1b41157f551ac57f54f2d871927e57ef0517b62617356d66",
+      "law_agent/data/filters.py": "6c5c99a9da9b54e5b082dcd234ec8f48fc0ec69b0d1651b4a379262ebb80732a",
+      "law_agent/data/io.py": "be7b8cf72b63f229a59779dc8e900b556e85fd0c8ebdac4aaca24dafea06f09a",
+      "law_agent/data/manifest.py": "14bc64bc25bf83503dff2c56f9091f2ef2663ddad59cfaaae1a35bed55c835c1",
+      "law_agent/data/normalize.py": "eab5d1adb30fa2e0ade2daa6bfc77fc38401fe51dc59d9c36726fbaa942f0020",
+      "law_agent/data/quality.py": "aaa7a2ec0aa75a65b3fbb75e6dd77ba9958d0a3a8687a63589d0af765f39d0ec",
+      "law_agent/data/reports/__init__.py": "660bd8f8af89e53fdec68e3a5dded29d16879dc408887afef8f87041b217b7b5",
+      "law_agent/data/reports/governance_report.py": "9d434b803738db3941121be1c6c713c4e6c1a2f58eeebf50904ad8c033a82e1c",
+      "law_agent/data/schemas.py": "47a05fc62c64933ed47c179f3c508564cded8f212c5bf61faa7506c0963b1a0b",
+      "law_agent/external/__init__.py": "beadf12036368c30af75f3025c8520136791b3b444f064bfad7063f50f1a99d2",
+      "law_agent/external/legalbench_rag/__init__.py": "3de85c6e5f94cfae369a596975f12c543725f880809c235f38928a784bfbf7fd",
+      "law_agent/external/legalbench_rag/__main__.py": "556e5ea5fdc18364f0117e903df717e14045295a1337eb6d35d01187b045739a",
+      "law_agent/external/legalbench_rag/cli.py": "057762919bd1154981df2d805677c6e385de99021940808e76a6fc718cf726c7",
+      "law_agent/external/legalbench_rag/data.py": "3ba92e31f6332debb3c044eedf8e8cd65886fb2be31f374d0a8a6d6eba7788bb",
+      "law_agent/external/legalbench_rag/metrics.py": "d05244b444ccbb8346980a2a0fc1858557eff657119ccea34c5dda26a4765342",
+      "law_agent/external/legalbench_rag/schemas.py": "de58dc3643ca69aaeaf84cf8744b79cc1a3b96ef5ea88e61f2428f5eed9db69e",
+      "law_agent/external/legalbench_rag/service.py": "415b5785d8f1725e22a42604afeef1cc56d3b23198468cd2c11a00afb73d49ac",
+      "law_agent/kb/__init__.py": "f9f1c73b3fab1c7932641bb7d526d6563a999ccc97cee51ca58a0a1623a03365",
+      "law_agent/kb/__main__.py": "fe295028e9ddf491d55c329bcea778d9c2d0da57e73ad9071c5f82563aed860a",
+      "law_agent/kb/admin.py": "2bb1aa502d88f5dfc62a5338d4100a1677aca014f8351911de3fd634cd4dbc37",
+      "law_agent/kb/cli.py": "281a82875a0019414b94997888e5d1002e15a2ba790975487350766b71d0d548",
+      "law_agent/kb/enrichment.py": "2fd8d4750b62c8ac98692889ccc8a45c17d6922c6eb923f2c67b838f3a925351",
+      "law_agent/kb/enrichment_worker.py": "487a4bb28ef430e8637479a463374ad13a97fcb89b992b05cc86dc94721a55a1",
+      "law_agent/kb/ingestion.py": "c0f40364b7bbdb1381a4b418d5a8912d0d83b597f95f7684ea5705600b47a698",
+      "law_agent/kb/service.py": "6cd6737a32ff835821d2fe8ba352d5d952fe1686c6a2bb05bc32ead2760f55e9",
+      "law_agent/kb/service_index.py": "0e53ed15cadfa1c0b9f5258c06c8c0877a1fde08f1ec9c73226c4ad74756cf1a",
+      "law_agent/llm/__init__.py": "b0794916e1b42b2c737ec4f7e38fb5c8b07ba07f5cddd419eb64b98569f10b64",
+      "law_agent/llm/embeddings.py": "b44d7afc2bbb66eebd3e861bf2f579ebad10aeac0ce43caaa00a092df7040389",
+      "law_agent/llm/openai_compatible.py": "f3b97c265d0116e63111d9ccf3f5b673619cf9d168d80563cc6ecfccc6a74ea5",
+      "law_agent/review/__init__.py": "7bc66f286fc3ca3f5d960638f0c13f859bcba97c9e49ae5857e3d490337fb285",
+      "law_agent/review/__main__.py": "41179eed4a0d0cacfa13d11e0a703ff4a55d5de42abb6ef42c1d884e7c109e61",
+      "law_agent/review/agent.py": "30debb087be4497524865099aa00112da0be97ddae3bb8cb0a30f4fe5e98952e",
+      "law_agent/review/agent_context.py": "b3127d6d2449721db52577c4b0b367cca304af041d599ea37e642f740276965a",
+      "law_agent/review/agent_runtime.py": "4827251731916611650b35c7607eb8380b0531e1393db6cf32492122ee34723f",
+      "law_agent/review/agent_tools.py": "418d2aaae792e680f56edbcc7c46c08a5840c72e324986f4c5712042249ed4fa",
+      "law_agent/review/annotations.py": "08d2e113578a58ee4a7b31918ebe1c80d69702b3cc5cb933b65bce6e5afde3e7",
+      "law_agent/review/api.py": "64e143f81623be26dd267faf96adc914c3e4d4bc7b93666dab7f645e9e93ce78",
+      "law_agent/review/bootstrap_admin.py": "ad8d6d7ddf3166791760b8056ef0f196f652acc91b375b50c00fe6a54071eb21",
+      "law_agent/review/case_store.py": "c4f0f217bf5df0fba5c684bda5cdc26bd2f2adece731cec6a00dc88b7dff3250",
+      "law_agent/review/citations.py": "90282f68b7f06e61e483b17f60254d9e3e3192b2ba566c4e3419eb2cdee5b929",
+      "law_agent/review/cli.py": "c519f144cc38428b2c0d3d170ff5f2e8a6293c40a6217366056ed8cc264ef28b",
+      "law_agent/review/db_schema.py": "1078725568ca6dc53db1259a41d5c40bcb8ae3856adef7a85014b657500fe2b8",
+      "law_agent/review/enterprise_store.py": "6da32412bb3c294ba44bd42c43856c8333ef2889e03d2aa4edd3db2114fafe6f",
+      "law_agent/review/evalset/__init__.py": "8c9cdfee3dc22d3b6086ae55efe294abeb79b606d0e0d12ebf81719a2abca80b",
+      "law_agent/review/evalset/agent_cases.py": "0d0d8ec422579d9cd70fbbb8006fa8c5a3dc1326fe7d0545d60b55cabf8eb7de",
+      "law_agent/review/evalset/agent_cases_core.py": "d6d7ecf8edc0da5d99296d5c809334031dbb5d8c7a3682b8d2edd309fac880be",
+      "law_agent/review/evalset/agent_cases_holdout.py": "f9d623f5c21f2ea70fd76cb3a43598ccc27af86e98d4e44c8ca1c9e04551fdda",
+      "law_agent/review/evalset/agent_cases_second.py": "07ede305597fcdf563b03bc44d9d886a003e1ae16da632762378335391f65703",
+      "law_agent/review/evalset/agent_review.py": "a2bd6b6c0b116487c3c4a5255340bb0ad1a047efd62425eae9edb2dfc34e0a1c",
+      "law_agent/review/evalset/agent_runner.py": "9b5c14f26486bb33c1532d144ca64a6c8f0d61dfba546394252f1db5cb7b94f4",
+      "law_agent/review/evalset/agent_schemas.py": "78af505a375aa1838c63237fb756fa0cbce9168fd661404f81d09ed1dcb38c7a",
+      "law_agent/review/evalset/cases.py": "08b13de5df85b3fc9dd8124a324d99854f708e7fa1edf050f4417cd79cf79c66",
+      "law_agent/review/evalset/cases_full_extra.py": "5daf6a46e1eecb19f919bbb1fda372f5235c3def12d6edde0353e0e86724b922",
+      "law_agent/review/evalset/cases_quick.py": "52757327e6c9e68447d0714501be3e83d027dbff769937234770280f5dd6c1e5",
+      "law_agent/review/evalset/manual_labels.py": "50313d9f7b5be2fc68f289026ac5454074d406fd986fb08727e4382ac8d47bb4",
+      "law_agent/review/evalset/metrics.py": "aea3554e0b250ed7ba49fd3a3c8e34fab0d7b138217a9b212305c546b42232a7",
+      "law_agent/review/evalset/runner.py": "56324857247c23559227925ec790094b74b82daaf7cccf04ecc78e1c62178e41",
+      "law_agent/review/evalset/schemas.py": "9cd0f67c55ff1ab1d874404c8ecbc27f06ac68cdbe33a1bacdefc071c3104cb2",
+      "law_agent/review/evidence.py": "4182c1a430de0738fc67f799aabbcd423f3c1544b6d35b6540a34458503c81f3",
+      "law_agent/review/fact_confirmation.py": "d05359f3f50af5ea8de568d6bfb351976eb74881fa0f0cad40cdba9b7ef9d16d",
+      "law_agent/review/fact_provenance.py": "593808f3966758bb2dd2ce992bb9b507d0c219e51939b524bca97cebd0306425",
+      "law_agent/review/facts.py": "13bf750d323f7fd3e949734b93425c0741be8626c64aa43ee70e0b5a5c3fb060",
+      "law_agent/review/feishu.py": "06b02d4e3a4fd30130e7e95fc568d2ff1b1f0b4ebf524c0adb65c16832408533",
+      "law_agent/review/governance_store.py": "9e312da9dfdfc2a1ecdd344bb1b0d3b784f8b4e922960632eff499ca0ccde9c6",
+      "law_agent/review/http/__init__.py": "bd2aad218324e65afcb41a2f9eba42fb48ebc8a186021569beb50867df5046e7",
+      "law_agent/review/http/activity.py": "5eda184c9ca32fd998b767ce7e3a9180ceb701af3546ffb1b7ad7e84a1c0d40b",
+      "law_agent/review/http/annotations.py": "b966902952e6563579fd7aeb7c61e3a733d60bd580996e3c419cb24365b7ddc8",
+      "law_agent/review/http/auth.py": "2974a98ac833baf38927909e5ffe2193782dc5ae848000095ec85046dbe3e6f5",
+      "law_agent/review/http/cases.py": "aa24b579a33cd0f4927f83a73570a8617c73929780f4e499e795da08bf9482d2",
+      "law_agent/review/http/evaluation.py": "bff89d2570e9849b0a4e8627e27a553637860d9470f0947501d2dcae98dc84f1",
+      "law_agent/review/http/facts.py": "edff3f9573b5b793a82eefeba6e930ee237f0be36ac2a022f9839a40633159b9",
+      "law_agent/review/http/integrations.py": "435b26959212f394babc5b7211752948af90c471459e3eaa880c1d3030d5c5cc",
+      "law_agent/review/http/knowledge.py": "fb3c78bc4f3d1df2729718ff7f48d869c9d73d583932268cb32dd261442b2500",
+      "law_agent/review/http/matter.py": "d8a5a170ef55b8798902575ff829f7ae748d617a85389c3a48019435ac72f9a5",
+      "law_agent/review/http/remediation.py": "a36ed0c9907dbbbfa77f8363251806a3e733efb2c6ef00dfea7953c5cf352797",
+      "law_agent/review/http/reports.py": "58a0821057a23fd3505bc5b2962718a5d10648871c3e94558e199beae787de4f",
+      "law_agent/review/http/revisions.py": "262ae8a92e79587f01a75eb2bc7dd6f31d3136a89b5f801ea0d26b60062b377a",
+      "law_agent/review/http/schemas.py": "1af1f890f68c26040a18ba036d5aab30d64d10660eb41d9e9d883bea1281eb96",
+      "law_agent/review/http/system.py": "985e85c34a10a31e7da72d7a3ad10352f5e3fa7cd40d1a47d907794e8cc16262",
+      "law_agent/review/http/templates.py": "8b1f98f05d49a4c2d2c72a4e602fcfa683514e8033a70dca44dcaf65656c5e21",
+      "law_agent/review/http/users.py": "941dfd1fffa18f7db12416f6649914a145fbf04aa2d5dbf981026b152842977a",
+      "law_agent/review/ids.py": "3b7e43c24e6f7131fc900df7fb7506e0234080816041c0d1b57b15ed53e7925d",
+      "law_agent/review/io.py": "7e3668ef9eb64aee1ff11f4503a2dec94e0fab319ec4a62ef602ef51e5fd7965",
+      "law_agent/review/llm.py": "7d42275e48e0e0b1e9b7142b87b5f65a065289627fb1451a1be883a53abf2d2b",
+      "law_agent/review/materials.py": "a49e2ea4def06c3bc8fd2f387195e392b855c053156415bad16d02a8c73bd884",
+      "law_agent/review/matter_agent.py": "dc6d87bbd29e89ae3139d10f8bf133565f6e306bb10eb9f0db71106eff5db919",
+      "law_agent/review/object_store.py": "184d84517f696a810533745fe56cbba9b7bbab24a9bdc1b20d7ce5be2c575e20",
+      "law_agent/review/query_planner.py": "c13e976b29c926b57618d976f496a4d37dc507c21a1104ea0d875d8ad2217a12",
+      "law_agent/review/remediation.py": "5d561f06cc7791e5733c9aca6a5a01ed09be8b5c978db2fa0ba0803f3a176480",
+      "law_agent/review/report_data.py": "d54468e35cc14b8b345e3654a527cd3a18a2016510e850b8ed7e9a0b2d23e1e9",
+      "law_agent/review/report_grounding.py": "a9508e2bc7b02c221492ecc9914c60a65bfb39c108247316880b69e3dd795c1d",
+      "law_agent/review/report_service.py": "6c9034b923996316d7394457fd2b2899f86094cf8a4591e59f5c5d4240ba7b15",
+      "law_agent/review/reports.py": "a2d66e222c38b553d068dc6bf0bdc9c12261870680c910bba2b5d1ce79990e4c",
+      "law_agent/review/result_builder.py": "f2e2884028053db8d9312fdb47b547c48ca4b4a487e261dddeba278fae45b09f",
+      "law_agent/review/retrieval/__init__.py": "1c4eaaf24167156779dee0d047182fa6987ac725090d260eea1223f1bddf7c84",
+      "law_agent/review/retrieval/adapters.py": "2bb6fffbfb795ebdff976889b4ac08160b1ac8afc10266993a913d91c2c83f20",
+      "law_agent/review/retrieval/boosts.py": "ad580ac434b3f6368eeefec911eb0625f3826abbe4e0b06da201bb7353d25068",
+      "law_agent/review/retrieval/corpus.py": "84ec62d181342cf4592de8676f2eed0b390e4fc326eefb4923e3aa26f304241f",
+      "law_agent/review/retrieval/fusion.py": "a7c6db91d2c87ec5234fec6af8c7f4eea147fc6d14861e1db7b5477df6fba1a6",
+      "law_agent/review/retrieval/hits.py": "c4f1062e3d7d5b58c86a56bffc680b1aea7650ca1e436c8e842fcbacb5c62b1e",
+      "law_agent/review/retrieval/indexing.py": "8ce2a5a13c8bf02e81d5c605189cb3abe53f76eaf6c60e6e813dba9d08026288",
+      "law_agent/review/retrieval/neighbors.py": "60d2ea965bbaabb6e0ea23a8590cbc1a8117fd881a2d41645ddd6f9029489850",
+      "law_agent/review/retrieval/rerank.py": "20534f8c44dd2177368b371d67ffe05cb497db8f5e6f1edb656d2904569d4a83",
+      "law_agent/review/retrieval/service_backends.py": "84c46e8ce1d3706cb0753c44795ef9154ff3349336ec3ed46638e471f63473c2",
+      "law_agent/review/retrieval/temporal.py": "1e53f9d6349cdf9c2c0750575377e3701a59b1bbb1c7af75aa91e9f235b3ba0a",
+      "law_agent/review/retrieval/text.py": "8a976458eb788c25363186ffa5bd7d6f87d81637b078eb52856716b144f393a8",
+      "law_agent/review/revisions.py": "a10e7f7e5b3f82e53a02f3c2175cd66d1985d24efae1bbc3bb107adf2fb1fc12",
+      "law_agent/review/schemas.py": "fd72a6622db80b41b00b7f8d22d87b8354741c0e7756194c6619c18c69759cc6",
+      "law_agent/review/semantic_grounding.py": "07c973f01219107477a892e84e53e015e43af6b9cef99556f0fa6e7445531936",
+      "law_agent/review/service.py": "d1c62a6cfda872a000f4fe79b0cdb6d8b172f73586a2272278f5af4e12def9fd",
+      "law_agent/review/source_navigation.py": "534e2b497670f4b83d95f8ff0a6438d98acb7edf24a4d84517fa1af23fde36bd",
+      "law_agent/review/telemetry.py": "360c6449b6b8eb8ad42d20402e5acf4719c3ef7780f381394e121dc327cc3859",
+      "law_agent/review/template_store.py": "fb8a5672bc65c702ef94213d4cad2e722da8c6e5e115fcb346782c90aeb078b4",
+      "law_agent/review/transactions.py": "d4061528f352b92ffd2756adebb560f9ee43f9e82cb02af174a616a79b78c686",
+      "law_agent/review/user_admin.py": "10fa3152a27e494b702e182f780ef0848d3bb1cc18090c143ce95f77352b8ada",
+      "law_agent/review/web_research.py": "30bd80ad5e0b95dc179d853fa2f10062f9b6908696a3671daabb76a04d298517",
+      "law_agent/review/worker.py": "5e4a1232bd10150e62ba89ae9139d67a8a67e142da0cb65c2531cfacd6cfb91d",
+      "law_agent/review/workflow.py": "fe90664b8c452b8ac7ac1c09955ec5534b1696c7608ff7801bf5ec5d696e9837"
+    },
+    "script_sha256": "0bf20910bf98bd79b9da5151c49ec7ae182df20a6f40224309c2650eeaa80a2d",
+    "preflight": {
+      "body_read_parity_checks": 431,
+      "target_hashes_valid": true
+    },
+    "max_http_calls": 192,
+    "limits": "One run per task/arm; supplied source, no retrieval/DB/Judge. Prompts differ only in available tool contract/schema. Alternating arm order; no cache or sampling control."
+  },
+  "artifacts_sha256": {
+    "analyze.py": "906e5824a5b5c1182404bfe15680628ca0129f37ff20e0cc9ded5774472808fa",
+    "auto_flow__flat/events.jsonl": "dba2a3affec03fa12380176403e7f64509b0ece96b2dab7bbdab0f9458861007",
+    "auto_flow__flat/result.json": "f98c136dbe824647ec3ffbf7d1788ada69fbcf1b19296f0ab8d67c3b141fa042",
+    "auto_flow__flat/state.json": "7c4b64f56d0bcd82c23dd06714c3ea7bf71b8cfb55f3eb03cb406d06585a438f",
+    "auto_flow__tree/events.jsonl": "0b1acb9189be1effdc95cebec5702ced3fefa25a59c71dae0ee2e8b031d3e7a3",
+    "auto_flow__tree/result.json": "a3245537654151ac666de7dba6d5866d7407283c398f2e7ecd83b7c3adf5fb7f",
+    "auto_flow__tree/state.json": "d038de0745ad95db4eca78c172e1def179fcb5aa76b04c8bb13aaef4b5cc6b62",
+    "auto_protection__flat/events.jsonl": "e85bbc6aac6a69437815735e75edd8215141cab2e85dff3e0eb2305463c8cc53",
+    "auto_protection__flat/result.json": "237a9f6a10e9b7c616fa10fbd76054a416bd244741080fc90965f67db4b56c42",
+    "auto_protection__flat/state.json": "a4416641b454033306a6e9e331cab23b663fa8b5d4343ca25a098483605c1eba",
+    "auto_protection__tree/events.jsonl": "c7f3cde3589bc3da51cf92cf8b490694a7e737cfbcbc2cb3525ba0f8f14a8459",
+    "auto_protection__tree/result.json": "fdd4aaad1a88d7b383700002775906e8b426ed71baf2f971cf408a61ff535a0c",
+    "auto_protection__tree/state.json": "ec8f8b6f3c5a566ccba8142e70dba84eca3b39bbeaa19f000f67dc069f14f93e",
+    "beijing_auto__flat/events.jsonl": "f0373c4a340305748a64e873a1b05a0b8e0eb469b7c39df1cba2c744a628848b",
+    "beijing_auto__flat/result.json": "b2962b4a5d64b2fe5227002b840d81cdd5d5c4215f1e93237ab16c713241d3b9",
+    "beijing_auto__flat/state.json": "9d8b944e4d7d54f470410d7a8a80319e80f96647e3d73a6eb377ade085d3931a",
+    "beijing_auto__tree/events.jsonl": "c87c2bfd4e983e0f404832428e4a4a796b89d5f0c2b3c6485b979c50adc22daa",
+    "beijing_auto__tree/result.json": "7fc2a3edb003f8b7317938aa367e4b7d5bb06e9e10ff853d2b97e3910d741200",
+    "beijing_auto__tree/state.json": "a860b870834ffe3691f545a20d1b40a3c7cb020f69fc6fe63b357720836b674f",
+    "beijing_bank__flat/events.jsonl": "c184d8572e0398566be50ccedcf3a0d02da3072daadd08445ffb9ea347c0b6cb",
+    "beijing_bank__flat/result.json": "9cb304f177a7006fd5a657b82f07570bd2e54935218efb892ab74e11e294e60c",
+    "beijing_bank__flat/state.json": "c564213611d931e89f289866be699f964babea0983c2e5a2dcfee1744efe6a6a",
+    "beijing_bank__tree/events.jsonl": "01670f48b9ea48714b909fc24b64ecdf81732acc77a62a5371506730f637086f",
+    "beijing_bank__tree/result.json": "61308c3338d492b7ca1ee113471438e0837f022fb0b97d1b49449e6e66715e11",
+    "beijing_bank__tree/state.json": "4a8969739d57e08f00144602af80daacc71d7afa44cf1651e85ca9c88a0fc490",
+    "manifest.json": "260d69b7c17a81a704539d07d8e57ec19eceeb89ec5856eb601bedfa95404589",
+    "model_calls.jsonl": "e16b5f007d34763168c07733311c334708c84db6236a67267442fe6062a8fe02",
+    "pipl_13__flat/events.jsonl": "3b62a1ced5498e1e8d6f3b51d6c108bcf791f3623de1249b73da36ee6aaba443",
+    "pipl_13__flat/result.json": "bddf6c7a6fd4977ba9090adcd58ba5fee6daf5253b204d1e82bf533b6fead1fc",
+    "pipl_13__flat/state.json": "6d04be97e4f67fc81fe7c9de3dad4e8c782d792c44bdf55e9415304e8b14ef23",
+    "pipl_13__tree/events.jsonl": "bf364b323cc130ef7bfab6364fcf3d293407605b1a7c65b31df4d84b27c98bde",
+    "pipl_13__tree/result.json": "296c6a33b86478c4b7e124a94bf7a73d90b5c85d684cc549d157973e439eac72",
+    "pipl_13__tree/state.json": "dfc2f208855c1b4b770166e78c39b32fb3a80a4c8ba2eedcd36f6b15ba32e1a0",
+    "pipl_cross_border__flat/result.json": "2ba97d5e27f2d016786f19ca677bccd640762ed1c670bcff4ee55988c280de00",
+    "pipl_cross_border__flat/state.json": "5953d3be74806a11dec973d7de485889b85ed5b4129c02cf11415e6b6e4be47e",
+    "pipl_cross_border__tree/events.jsonl": "e2f1118fb2f9c467b968788c2a1cb1e95de3bdf3b2b4371845abc6c01e58945a",
+    "pipl_cross_border__tree/result.json": "90605e97f8a6d8ecf0294f789068f8582ad3e4783230f34fed96ee952be25eef",
+    "pipl_cross_border__tree/state.json": "62e4d956035308eaf6fcbe4989876ba7e30839fbc0e688e23592da26bf308dfd",
+    "spec_collection__flat/events.jsonl": "cded2c0f2c36717e04b0aa2b824aa9149e2cead6ae09bb870d20339b116b9d7d",
+    "spec_collection__flat/result.json": "aff3ec1b0310ec675becd12c64e028b64849420eadc73d1b0e248f2d9d9b9941",
+    "spec_collection__flat/state.json": "d0df109eba93f449b9456a3b6da1dd85b8265eea5bfc5492276e9ee66b40af3f",
+    "spec_collection__tree/events.jsonl": "64eccfe588dcebb8e06e1cf9e160d787fb369d56dd303734052420659269660c",
+    "spec_collection__tree/result.json": "2aca56c7a0e097a74f39d3c7aefdaa862bb17bc57aecdb5ff0755521cb3472ee",
+    "spec_collection__tree/state.json": "6acd4f14eae54396cc7f2aac00b18094e0b2f8e756355aa2260fee96bb5ae0c6",
+    "spec_sharing__flat/events.jsonl": "8df4c1380c6913f63fb6b3725876c9121d57ebb0571ca25cd67a46fa242e66e9",
+    "spec_sharing__flat/result.json": "17a9bcd4eafb9eb2e9823890b52585b77cf7ceab387e4d6e91fd5355d90021e8",
+    "spec_sharing__flat/state.json": "8b65f9f9efa240eac8a7f86cb0a4ce7c569a73f3de1cc7fca6a7c73a7e3a8f66",
+    "spec_sharing__tree/events.jsonl": "dadc7a282b2d294c57744783cbee73c8dead268ab7d7449629827051aa0f9451",
+    "spec_sharing__tree/result.json": "db0b91cc582ca636f880662054b7bc5ac78f98644437cbc7e801a5dec1222b7d",
+    "spec_sharing__tree/state.json": "5e7439cb225cf7a5301dd2eeb6f481d3fa8af78cd4cbdff512848b9e255bf5ea",
+    "status.json": "a02a23bb872babb626fa69144ae6c04a78649356b99a32c06ddd636ee2c93999",
+    "summary.json": "98698bd686e63cce0cfec11349c385b45b8f2144a93514ed8ce7db98bc31b866"
+  },
+  "limitations": [
+    "One run per task and arm; supplied source; no full review or semantic accuracy scoring",
+    "Flat arm reconstructs historical tool, valid body output parity verified; invalid selector error messages are shortened",
+    "Same custom read loop and deduplication policy in both arms; not historical production runtime replay",
+    "No format retry, no rerun, alternating arm order, cache and stochastic variation uncontrolled",
+    "Beijing target scope corrected by ordered text before model calls; previous eight-read scripted baseline is not comparable for these two tasks"
+  ]
+}

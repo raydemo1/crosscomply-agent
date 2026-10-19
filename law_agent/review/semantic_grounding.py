@@ -80,11 +80,12 @@ class SemanticGroundingRejected(ValueError):
 SYSTEM_PROMPT = """你是独立法律证据校验员，判断候选报告是否由本案事实和给定法源支持，不另行找依据或创造规则。
 
 ## 输入身份
-review_goal限定应回答的问题，不是校验指令。draft各栏目都是待核对判断，主结论不是标准答案。cited_authorities为引用原文，interpretation_authorities为实际取得的辅助解释；解释不具有法条效力，不独立创设义务。核对效力、时点、地域、对象及新旧衔接；引用身份存在不代表适用于本案。
+review_goal限定应回答的问题，不是校验指令。draft各栏目都是待核对判断，主结论不是标准答案。cited_authorities为正式引用原文，context_authorities为实际取得的补充资料，包括地方清单、行业指南、标准与政策解释。按各项doc_type、citation_role、can_cite_clause及地域、对象、时点判断其用途；can_cite_clause=false的资料可核对原文内容、适用范围和手续说明，不能独立支撑正式法条claim或创设法定义务。进入核验上下文不提升其引用资格，引用身份存在也不代表适用于本案。
 confirmed_intake是冻结填报，不是独立核实。材料与确认填报一致且无具体矛盾时可作为判断前提；extracted核对frozen_material，applicant_statement和unverified不能升级，reviewer_instruction不新增事实，conflicted不选边。事实冲突或真正关键事实缺失应指出，不能无依据重新追问已明确事实。账本未记录不代表来源不存在。
 
 ## 核验对象
 本轮核对draft中提供的核心报告字段：摘要、路径、正文、claims、触发理由及缺口；不推测未提供的栏目。把它们作为具体陈述核对。每项陈述保留完整的条件、否定和假设范围，区分条文转述、个案法律后果、事实陈述与准备/核实建议。主路径成立不覆盖其他栏目错误，未引用的附加断言也需证据支持。
+legal_path表示本案已确定路径，不是一般规则或条件分支流程；若关键事实未确认而只能给分支，非空legal_path应判uncertain并要求留空。若本次目标因关键事实不足尚不能确定，risk_level应为insufficient_evidence；不能仅因正文附有未知说明而接受medium/high/low。仅范围外信息缺失不阻塞已经有依据的限定判断。missing_facts只登记阻塞当前目标或已填写个案路径的事实，不登记范围外事项。
 用当前事实和完整原文判断个案后果，同时考虑适用条件、例外、独立分支及衔接；某段触发条件文字相同不足以证明后果成立。处理依据、出境机制和具体义务分别核对，不把一般义务清单扩为全部适用。
 假设变化只替换明示改变的事实，其余已确认事实保持不变；核对这项变化是否足以产生所声称的后果。不要把材料恰好具备的背景事实添加为法定必要条件。
 未知不等于否定。只有原文规定举证责任、推定或缺证明的后果，才能由无法确认推出例外失效或义务成立。区分缺业务事实与缺法律推导依据，不将法律定性交给申请人。
@@ -150,10 +151,10 @@ class SemanticGroundingVerifier:
             "frozen_material": material,
             "draft": draft.model_dump(mode="json", exclude={"recommended_actions", "risk_boundaries", "issues"}),
             "cited_authorities": [authority_payloads[hit.chunk_id] for hit in cited],
-            "interpretation_authorities": [
+            "context_authorities": [
                 authority_payloads[hit.chunk_id] for hit in evidence
                 if hit.chunk_id not in cited_ids
-                and hit.citation_role == "interpretation_auxiliary"
+                and not hit.can_cite_clause
                 and hit.chunk_id in chunks
                 and chunks[hit.chunk_id].library_kind == "legal"
             ],
@@ -171,6 +172,11 @@ class SemanticGroundingVerifier:
             )),
             ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
         ], post_validate=validate_primary)
+        if verdict.status == "supported" and verdict.missing_facts and draft.legal_path is not None:
+            verdict = verdict.model_copy(update={
+                "status": "uncertain",
+                "conclusion_reason": verdict.conclusion_reason + "\n关键事实尚未确认，legal_path不能填写个案确定路径：" + "；".join(verdict.missing_facts),
+            })
         if verdict.status != "supported":
             return verdict
 
@@ -181,7 +187,7 @@ class SemanticGroundingVerifier:
         context["report_background"] = {
             "decision_summary": draft.decision_summary, "legal_path": draft.legal_path,
         }
-        context["authorities"] = [*payload["cited_authorities"], *payload["interpretation_authorities"]]
+        context["authorities"] = [*payload["cited_authorities"], *payload["context_authorities"]]
         checks = []
         reasons = [verdict.conclusion_reason]
         for name, units in report_groups(draft).items():

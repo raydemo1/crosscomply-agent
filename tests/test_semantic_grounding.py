@@ -40,6 +40,20 @@ def _advice_supported() -> dict:
     }
 
 
+def test_supported_verdict_cannot_determine_path_with_blocking_missing_facts():
+    client = FakeClient(outputs=[{
+        "status": "supported", "conclusion_reason": "正文给出条件分支",
+        "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "条文准确"}],
+        "missing_facts": ["清单内外尚未确认"],
+    }])
+    verifier = SemanticGroundingVerifier(model_id="test-model", client=client)
+    verdict = verifier(review_goal="能否出境", draft=_draft(), confirmed_intake={},
+                       extracted_facts=ReviewFacts(), material="申请材料", evidence=[_hit()])
+    assert verdict.status == "uncertain"
+    assert "legal_path" in verdict.conclusion_reason
+    assert len(client.calls) == 1
+
+
 @pytest.mark.parametrize("status", ["uncertain", "unsupported"])
 def test_unresolved_claim_cannot_be_overridden_by_supported_summary(status):
     verdict = SemanticVerdict(
@@ -144,8 +158,8 @@ def test_verifier_receives_returned_legal_interpretations_without_granting_claus
     )
     payload = json.loads(client.calls[0][1].content)
     assert [a["chunk_id"] for a in payload["cited_authorities"]] == ["c1"]
-    assert [a["chunk_id"] for a in payload["interpretation_authorities"]] == ["faq"]
-    context = payload["interpretation_authorities"][0]
+    assert [a["chunk_id"] for a in payload["context_authorities"]] == ["faq"]
+    context = payload["context_authorities"][0]
     assert context["can_cite_clause"] is False
     assert context["doc_type"] == "faq"
     assert context["article_text"] == explanation.text
@@ -153,6 +167,46 @@ def test_verifier_receives_returned_legal_interpretations_without_granting_claus
     assert context["applicable_region"] == "CN"
     assert context["applicable_subjects"] == ["数据处理者"]
     assert payload["draft"]["claims"][0]["supporting_chunk_ids"] == ["c1"]
+
+
+@pytest.mark.parametrize("role", [
+    "conditional_local_basis", "conditional_industry_basis", "implementation_reference",
+])
+def test_returned_context_reaches_all_verifier_stages_without_clause_authority(role):
+    from law_agent.review.result_builder import validate_grounded_claims
+
+    client = FakeClient(outputs=[{
+        "status": "supported", "conclusion_reason": "核对正式法条与补充资料",
+        "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "支持"}],
+    }, _advice_supported()])
+    reference = _hit().model_copy(update={
+        "chunk_id": "reference", "source_id": "local_list", "citation_role": role,
+        "can_cite_clause": False, "doc_type": "guideline",
+        "text": "适用范围、行业清单与办理要求", "full_article_text": None,
+    })
+    chunk = Chunk(
+        chunk_id=reference.chunk_id, doc_id=reference.doc_id, source_id=reference.source_id,
+        title=reference.title, text=reference.text, chunk_index=0, source_url=reference.source_url,
+        char_count=len(reference.text), citation_role=role, doc_type="guideline",
+        can_cite_clause=False, applicable_region="CN-SH", applicable_subjects=["再保险"],
+    )
+    SemanticGroundingVerifier(model_id="test", client=client)(
+        review_goal="核对地方清单适用范围", draft=_draft(), confirmed_intake={},
+        extracted_facts=ReviewFacts(), material="材料", evidence=[_hit(), reference],
+        chunks_by_id={reference.chunk_id: chunk},
+    )
+    payload = json.loads(client.calls[0][1].content)
+    assert [a["chunk_id"] for a in payload["cited_authorities"]] == ["c1"]
+    context = payload["context_authorities"][0]
+    assert context["chunk_id"] == "reference" and context["citation_role"] == role
+    assert context["can_cite_clause"] is False and context["applicable_region"] == "CN-SH"
+    assert context["applicable_subjects"] == ["再保险"]
+    group = json.loads(client.calls[1][1].content)
+    assert group["authorities"][-1] == context
+    with pytest.raises(ValueError, match="法条|引用"):
+        validate_grounded_claims([
+            GroundedClaim(text="一项正式法律义务", supporting_chunk_ids=[reference.chunk_id]),
+        ], [reference])
 
 
 def test_semantic_rejection_returns_to_agent_then_budget_abstains() -> None:

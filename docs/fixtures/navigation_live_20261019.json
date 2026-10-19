@@ -1,0 +1,604 @@
+{
+  "model": "deepseek-flash",
+  "agent_reasoning": "low",
+  "semantic_reasoning": "low",
+  "model_calls": 36,
+  "failed_http_model_calls": 0,
+  "usage": {
+    "prompt_tokens": 597256,
+    "completion_tokens": 98367,
+    "total_tokens": 695623,
+    "prompt_cache_hit_tokens": 304256,
+    "prompt_cache_miss_tokens": 293000
+  },
+  "production_changed_during_run": false,
+  "corpus_changed_during_run": false,
+  "records": [
+    {
+      "case_id": "eval_standard_contract_003",
+      "review_status": "candidate",
+      "tags": [
+        "standard_contract",
+        "implicit",
+        "employee",
+        "candidate"
+      ],
+      "status": "succeeded",
+      "risk_level": "medium",
+      "abstain_correct": true,
+      "outcome_acceptable": null,
+      "freshness_hold": false,
+      "freshness_hold_correct": true,
+      "cited_source_ids": [
+        "cac_cross_border_data_flow_rules_2024",
+        "cac_cross_border_flow_rules_qna_2024",
+        "cac_data_export_assessment_qna_2022",
+        "cac_data_export_policy_qna_2025_10",
+        "cac_data_export_policy_qna_2026_01",
+        "cac_data_export_policy_qna_2026_07",
+        "cac_data_export_security_assessment_filing_guide_v3_2025",
+        "cac_pip_compliance_audit_guideline_2025",
+        "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "samr_gbt_46068_2025_cross_border_personal_info_certification"
+      ],
+      "missing_required_sources": [],
+      "illegal_clause_citations": [],
+      "turns": 7,
+      "searches": 1,
+      "reads": 3,
+      "web_searches": 0,
+      "enrichment_submissions": 0,
+      "request_inputs": 0,
+      "duplicate_read_denials": 0,
+      "budget_exhausted": false,
+      "scripted_answers_used": 0,
+      "scripted_answers_unused": 0,
+      "failure_node": null,
+      "failure_category": null,
+      "failure_message": null,
+      "deterministic_pass": true,
+      "deterministic_fail_reasons": [],
+      "overall_pass": true,
+      "total_latency_ms": 344305,
+      "failure_categories": [],
+      "kind": "production_review",
+      "model_calls": 16,
+      "usage": {
+        "prompt_tokens": 318129,
+        "completion_tokens": 72506,
+        "total_tokens": 390635,
+        "prompt_cache_hit_tokens": 165248,
+        "prompt_cache_miss_tokens": 152881
+      },
+      "outline_requests": 0,
+      "node_read_requests": 0,
+      "parent_expansion_requests": 0,
+      "read_request_errors": [],
+      "verifier_rejections": [
+        {
+          "step": 5,
+          "verdict": {
+            "status": "uncertain",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第五条第一款第(二)项确将“按照依法制定的劳动规章制度和依法签订的集体合同实施跨境人力资源管理，确需向境外提供员工个人信息”列为免予申报安全评估、订立标准合同、认证的情形，该款未设人数上限，且第二款仅排除重要数据。2024年答记者问Q11明确第五条第一款第一至三项情形不计入累计数量，故12万人不构成障碍，豁免不以人数为要件。已确认事实与适用条件一致。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第十条原文即为：向境外提供个人信息的，应当按照法律、行政法规的规定履行告知、取得个人单独同意、进行个人信息保护影响评估等义务。claim转述忠实。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "《个人信息保护法》第十三条第一款第(二)项涵盖“按照依法制定的劳动规章制度和依法签订的集体合同实施人力资源管理所必需”，第二款明定具有第二项至第七项情形的不需取得个人同意；2026年7月答记者问亦明确属第十三条第一款第二项至第七项的出境活动不需取得个人同意但仍应告知。故本案无需单独同意的结论有依据。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 3,
+                "status": "supported",
+                "reason": "第三十九条列举告知事项与第十七条处理前告知要求均为原文转述，内容一致。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 4,
+                "status": "supported",
+                "reason": "第五十五条第四项将“向境外提供个人信息”列为事前影响评估情形，第五十六条列明三项评估内容并规定报告与记录至少保存三年，claim转述准确。",
+                "missing_facts": []
+              }
+            ],
+            "report_checks": [],
+            "conclusion_reason": "draft.legal_path载“依《个人信息保护法》第十条、第三十九条、第十七条、第五十五条、第五十六条履行出境告知与个人信息保护影响评估等剩余义务”，结论二亦称“依第十条、第三十九条、第十七条……仍应向员工告知”。所引《个人信息保护法》第十条为禁止非法收集使用、买卖提供个人信息的规定，并不创设告知或影响评估义务，且该条未在given法源中提供原文，属误引；告知义务的正当依据是第三十九条、第十七条（及促进规定第十条）。五项claims本身均有原文支持且结论实质正确，但路径与正文存在上述引用瑕疵，故整体不能认定为全部核心断言获支持。",
+            "missing_facts": []
+          }
+        },
+        {
+          "step": 6,
+          "verdict": {
+            "status": "uncertain",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "冻结事实确认向德国HR系统提供员工姓名、手机号、邮箱，已依法制定劳动规章制度并签订集体合同，出境确为跨境人力资源管理所必需且不含重要数据，符合《促进和规范数据跨境流动规定》第五条第一款第（二）项。该条未设人数门槛，且答记者问明确第五条第一款第一至三项情形不计入累计数量，故累计12万人不影响豁免适用。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第十条原文确规定向境外提供个人信息仍应按法律、行政法规履行告知、取得个人单独同意、进行个人信息保护影响评估等义务；该表述保留“按照法律、行政法规”的条件，与后文依《个人信息保护法》第十三条第二款排除单独同意不矛盾。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "已确认按依法制定的劳动规章制度和依法签订的集体合同实施人力资源管理且出境确需，符合《个人信息保护法》第十三条第一款第（二）项；依同条第二款不需取得个人同意，故本案不需另行取得员工单独同意。2026年7月答记者问亦明确属于该条第一款第二项至第七项情形的不需取得个人同意但仍应履行出境告知义务。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 3,
+                "status": "supported",
+                "reason": "《个人信息保护法》第三十九条确要求告知境外接收方名称或姓名、联系方式、处理目的、处理方式、信息种类及个人行使权利的方式和程序等；第十七条确要求在處理前以显著方式、清晰易懂语言真实、准确、完整告知处理目的、方式、种类、保存期限及权利行使方式等。该claim仅陈述告知义务，未否定单独同意例外。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 4,
+                "status": "supported",
+                "reason": "《个人信息保护法》第五十五条第四项明确向境外提供个人信息应事前进行个人信息保护影响评估并记录处理情况；第五十六条明确三项评估内容及评估报告、处理情况记录至少保存三年。claim与原文一致。",
+                "missing_facts": []
+              }
+            ],
+            "report_checks": [
+              {
+                "target": "recommended_actions:0",
+                "status": "supported",
+                "reason": "第三十九条要求出境告知境外接收方、处理目的方式、信息种类及权利行使方式程序；第十七条要求告知处理者身份、保存期限等一般事项。本案依第十三条第二款不需单独同意，故该告知文件准备建议成立。",
+                "quote": null,
+                "evidence_ids": [
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:6f971835043eea642cb9523c",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:1",
+                "status": "supported",
+                "reason": "第五十五条要求向境外提供个人信息事前开展影响评估并记录处理情况；第五十六条列明评估三项内容，并规定报告和处理情况记录至少保存三年。",
+                "quote": null,
+                "evidence_ids": [
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:a3914b29e0578e303a2dccf5",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:886f7593cf58dfd025932836"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:2",
+                "status": "supported",
+                "reason": "第五条第一款第（二）项以依法制定劳动规章制度、依法签订集体合同并确需实施跨境人力资源管理为条件；事实已确认该等前提，留存材料及最小必要判断说明作为适用依据合理。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd",
+                  "intake_snapshot_973414c3f9fc4952",
+                  "cac_data_export_policy_qna_2025_10:e1ac6a8343075e8418efa68a"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:3",
+                "status": "supported",
+                "reason": "累计数量按自当年1月1日起自然人去重统计，达到门槛需评估申报；本案属第五条第一款第（二）项豁免情形，相关问答明确不计入累计数量，但持续统计并动态复核仍是合理建议。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_flow_rules_qna_2024:a9088a6c15b4283352735899",
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd",
+                  "cac_data_export_policy_qna_2026_01:cd33a564aaf8f8de4b76d3b4"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:4",
+                "status": "supported",
+                "reason": "事实符合第五条第一款第（二）项，免予安全评估申报、标准合同备案和认证申请；相关问答允许原已申报或备案者按原程序或向省级网信部门撤回，沟通后续处理为可行建议。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd",
+                  "cac_cross_border_flow_rules_qna_2024:3f9de20fe91d8f2cf9818f7b"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:5",
+                "status": "supported",
+                "reason": "第十条要求履行告知、影响评估等义务；材料显示告知完整性与影响评估尚未核实，将二者作为整体合规收口核查项合理。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:580bbc47ecd1efc0eef89581",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:a3914b29e0578e303a2dccf5",
+                  "intake_snapshot_973414c3f9fc4952"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:title",
+                "status": "supported",
+                "reason": "材料仅确认员工告知书说明用途，其他告知事项及影响评估是否完成尚未核实，故“剩余义务完成情况待核实”成立。",
+                "quote": null,
+                "evidence_ids": [
+                  "intake_snapshot_973414c3f9fc4952",
+                  "cac_cross_border_data_flow_rules_2024:580bbc47ecd1efc0eef89581"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:finding",
+                "status": "supported",
+                "reason": "材料确显示告知书仅说明用途、其他告知事项及影响评估未核实；这不改变免予申报机制，但影响剩余义务与文件完整性，结论成立。",
+                "quote": null,
+                "evidence_ids": [
+                  "intake_snapshot_973414c3f9fc4952",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:a3914b29e0578e303a2dccf5"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:recommended_action",
+                "status": "supported",
+                "reason": "第三十九条、第十七条要求补全出境告知事项；第五十五条、第五十六条要求事前影响评估、记录并至少保存三年，建议成立。",
+                "quote": null,
+                "evidence_ids": [
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:6f971835043eea642cb9523c",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:a3914b29e0578e303a2dccf5",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:886f7593cf58dfd025932836"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:unknowns:0",
+                "status": "supported",
+                "reason": "材料未确认员工告知是否覆盖第三十九条全部告知事项，仅称告知书说明用途，故该项列为待核实事项成立。",
+                "quote": null,
+                "evidence_ids": [
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+                  "intake_snapshot_973414c3f9fc4952"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:unknowns:1",
+                "status": "supported",
+                "reason": "材料明确影响评估是否完成尚未核实；第五十五条、第五十六条要求事前评估并保留报告和记录，故列为待核实事项成立。",
+                "quote": null,
+                "evidence_ids": [
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:a3914b29e0578e303a2dccf5",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:886f7593cf58dfd025932836",
+                  "intake_snapshot_973414c3f9fc4952"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:unknowns:2",
+                "status": "supported",
+                "reason": "事实仅确认依法制定劳动规章制度和签订集体合同，未记录其中是否载有跨境传输相关条款；相关问答要求其中规定符合必要、目的明确、最小化原则，故作为待核实项成立。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_data_export_policy_qna_2025_10:e1ac6a8343075e8418efa68a",
+                  "intake_snapshot_973414c3f9fc4952"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:0",
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第五条第一款第（二）项要求：按依法制定的劳动规章制度和依法签订的集体合同实施跨境人力资源管理，且确需向境外提供员工个人信息；第二款明确前款个人信息不包括重要数据。已确认事实满足这些前提；任一前提不成立，即不能适用该豁免，需按一般出境机制判断。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd",
+                  "intake_snapshot_973414c3f9fc4952"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:1",
+                "status": "supported",
+                "reason": "第五条仅免予申报安全评估、订立标准合同、通过个人信息保护认证三项程序；第十条要求向境外提供个人信息仍应依法履行告知、影响评估等义务，PIPL第五十五条也要求向境外提供个人信息事前开展影响评估并记录。故豁免不覆盖告知和影响评估等其他个人信息保护义务。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd",
+                  "cac_cross_border_data_flow_rules_2024:580bbc47ecd1efc0eef89581",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:a3914b29e0578e303a2dccf5"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:2",
+                "status": "supported",
+                "reason": "材料仅确认员工告知书已说明用途，其他告知事项和影响评估完成情况尚未核实；PIPL第三十九条要求向境外提供时告知境外接收方等事项，第五十五条要求向境外提供事前开展影响评估并记录。因此核实前不宜认定整体合规已完成。",
+                "quote": null,
+                "evidence_ids": [
+                  "intake_snapshot_973414c3f9fc4952",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+                  "flk_npc_ff8081817b6472a3017b656cc2040044:a3914b29e0578e303a2dccf5"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:3",
+                "status": "uncertain",
+                "reason": "第五条第二款明确重要数据不适用前款豁免，故涉及重要数据时门槛不同；但第五条第一款第（二）项未排除敏感个人信息，2025年10月问答对身份证、护照、银行账户等员工信息也要求结合必要性、目的明确和最小化具体判断，不能一概认定敏感个人信息必然改变出境机制。",
+                "quote": "如出境数据范围扩大至敏感个人信息或涉及重要数据，门槛与结论将不同。",
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd",
+                  "cac_data_export_policy_qna_2025_10:e1ac6a8343075e8418efa68a"
+                ],
+                "missing_facts": [
+                  "拟出境敏感个人信息的类型、数量和是否属于跨境人力资源管理确需范围"
+                ],
+                "missing_basis": "第五条第一款第（二）项未明确将敏感个人信息排除出豁免，缺乏“敏感即不同”的明文依据"
+              }
+            ],
+            "conclusion_reason": "摘要、法律路径、正文和触发理由的核心判断与冻结事实及所引原文一致：本案符合第五条第一款第（二）项跨境人力资源管理豁免，12万人不影响该豁免；第十条保留告知、影响评估等义务；第十三条第二款排除本案单独同意；第三十九、十七、五十五、五十六条支持告知和影响评估要求。材料已说明告知书仅载用途、影响评估是否完成等尚未核实，报告将其列为缺口而非当作已满足，不构成与事实矛盾。\n各报告单元总体成立：免予申报机制与剩余告知、影响评估义务的区分正确；告知与影响评估完成情况仍应核实。第3项累计统计建议需注意豁免情形不计入累计数量，但作为动态复核建议不构成错误。\n前三条风险边界有原文依据，可支持；第四条对重要数据部分明确，但对敏感个人信息是否必然改变出境机制依据不足，需结合具体必要性判断。\n未获支持的断言：\nrisk_boundaries:3「如出境数据范围扩大至敏感个人信息或涉及重要数据，门槛与结论将不同。」: 第五条第二款明确重要数据不适用前款豁免，故涉及重要数据时门槛不同；但第五条第一款第（二）项未排除敏感个人信息，2025年10月问答对身份证、护照、银行账户等员工信息也要求结合必要性、目的明确和最小化具体判断，不能一概认定敏感个人信息必然改变出境机制。",
+            "missing_facts": [
+              "员工告知书是否已完整覆盖《个人信息保护法》第三十九条的出境告知事项（境外接收方名称或联系方式、处理目的与方式、信息种类、个人行使权利的方式和程序）尚未核实",
+              "个人信息保护影响评估是否已在出境前完成并形成报告、处理情况记录是否已建立尚未核实",
+              "劳动规章制度和集体合同中是否载有跨境传输员工个人信息的相关规定尚未核实",
+              "拟出境敏感个人信息的类型、数量和是否属于跨境人力资源管理确需范围"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "eval_shanghai_001",
+      "review_status": "candidate",
+      "tags": [
+        "regional",
+        "shanghai",
+        "negative_list",
+        "candidate"
+      ],
+      "status": "unanswered_gate",
+      "risk_level": null,
+      "abstain_correct": null,
+      "outcome_acceptable": null,
+      "freshness_hold": false,
+      "freshness_hold_correct": null,
+      "cited_source_ids": [],
+      "missing_required_sources": [],
+      "illegal_clause_citations": [],
+      "turns": 9,
+      "searches": 1,
+      "reads": 6,
+      "web_searches": 0,
+      "enrichment_submissions": 0,
+      "request_inputs": 1,
+      "duplicate_read_denials": 0,
+      "budget_exhausted": false,
+      "scripted_answers_used": 0,
+      "scripted_answers_unused": 0,
+      "failure_node": null,
+      "failure_category": null,
+      "failure_message": null,
+      "deterministic_pass": false,
+      "deterministic_fail_reasons": [
+        "unanswered_gate"
+      ],
+      "overall_pass": null,
+      "total_latency_ms": 116061,
+      "failure_categories": [
+        "clarification_unanswered"
+      ],
+      "kind": "production_review",
+      "model_calls": 11,
+      "usage": {
+        "prompt_tokens": 189668,
+        "completion_tokens": 22154,
+        "total_tokens": 211822,
+        "prompt_cache_hit_tokens": 115968,
+        "prompt_cache_miss_tokens": 73700
+      },
+      "outline_requests": 1,
+      "node_read_requests": 0,
+      "parent_expansion_requests": 0,
+      "read_request_errors": [
+        {
+          "request": {
+            "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+            "article_no": null,
+            "chunk_id": "e954a6a4cc7539f73dc696ea",
+            "node_id": null,
+            "parent_node_id": null,
+            "offset": 0
+          },
+          "error": "chunk e954a6a4cc7539f73dc696ea 不属于来源 shanghai_free_trade_zone_data_export_negative_list_2025"
+        },
+        {
+          "request": {
+            "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+            "article_no": null,
+            "chunk_id": "ac80f437d009e7fca4d58b81",
+            "node_id": null,
+            "parent_node_id": null,
+            "offset": 0
+          },
+          "error": "chunk ac80f437d009e7fca4d58b81 不属于来源 shanghai_free_trade_zone_data_export_negative_list_2025"
+        },
+        {
+          "request": {
+            "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+            "article_no": null,
+            "chunk_id": "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+            "node_id": null,
+            "parent_node_id": null,
+            "offset": 0
+          },
+          "error": "目标 chunk 已在此前读取窗口中返回；再次读取不会得到新内容。请改用尚未返回的 following_chunk_id/其他 chunk_id，或依据已有证据交付。"
+        },
+        {
+          "request": {
+            "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+            "article_no": null,
+            "chunk_id": "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55",
+            "node_id": null,
+            "parent_node_id": null,
+            "offset": 0
+          },
+          "error": "目标 chunk 已在此前读取窗口中返回；再次读取不会得到新内容。请改用尚未返回的 following_chunk_id/其他 chunk_id，或依据已有证据交付。"
+        }
+      ],
+      "verifier_rejections": [
+        {
+          "step": 8,
+          "verdict": {
+            "status": "uncertain",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第六条原文支持自贸试验区负面清单的制定、批准备案程序及“负面清单外数据免予申报安全评估、订立标准合同、通过认证”的后果；材料亦载明公司在上海自贸区开展业务并涉及数据出境，故将“能否自由传”与是否落入现行负面清单范围挂钩的判断有依据。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "uncertain",
+                "reason": "第七条并非对CIIO、重要数据、累计人数三类条件一律并列核对：CIIO向境外提供个人信息或重要数据即触发安全评估，无人数门槛；非CIIO提供重要数据即触发；仅非CIIO提供个人信息才适用100万人非敏感或1万人敏感的门槛。将该条概括为“CIIO身份、重要数据属性、累计人数为并列触发条件，仍需核对数量门槛”，易被理解为所有情形均需人数门槛，表述不够精确；本案CIIO身份、重要数据属性和人数均未确认。",
+                "missing_facts": [
+                  "公司是否属于关键信息基础设施运营者",
+                  "出境数据是否包含重要数据",
+                  "自当年1月1日起累计向境外提供的个人信息人数及敏感个人信息人数"
+                ]
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "第五条原文列明订立履行个人作为一方当事人的合同、跨境人力资源管理、紧急情况保护生命财产安全、非CIIO累计不满10万人非敏感个人信息等免予情形，并明确所称个人信息不包括重要数据；报告以实际目的、人员范围和人数作为适用前提，属于忠实的条件性转述。",
+                "missing_facts": [
+                  "出境个人信息对应的具体处理目的和人员范围",
+                  "累计出境个人信息人数及敏感个人信息人数"
+                ]
+              },
+              {
+                "claim_index": 3,
+                "status": "supported",
+                "reason": "第二条原文规定数据处理者应识别、申报重要数据，未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估；报告据此说明材料未记载告知或发布情形时既不能推定也不能排除重要数据，未倒置举证责任，属于合理判断。",
+                "missing_facts": []
+              }
+            ],
+            "report_checks": [],
+            "conclusion_reason": "摘要、结论及触发理由将上海现行清单明确为《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》，并转述其说明中的适用范围和衔接规则；但本轮提供的法源只有2024版负面清单答记者问及2025年4月政策问答，未提供2025版清单原文、发布或备案文件，无法核实该版本名称、现行效力及具体适用范围，故整体不能认定为supported。另claim 1对第七条触发条件的“并列”概括不够精确，亦影响整体确定性。",
+            "missing_facts": [
+              "业务所属行业及具体出境场景",
+              "出境数据是否包含个人信息、敏感个人信息或重要数据",
+              "自当年1月1日起累计向境外提供的个人信息人数及敏感个人信息人数",
+              "公司是否属于关键信息基础设施运营者",
+              "出境数据是否包含重要数据",
+              "出境个人信息对应的具体处理目的和人员范围",
+              "累计出境个人信息人数及敏感个人信息人数"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "spec_collection",
+      "kind": "source_seeded_navigation",
+      "finished": true,
+      "turns": 5,
+      "reads": 4,
+      "target_complete": true,
+      "missing_target_chunk_ids": [],
+      "invalid_refs": [],
+      "latency_seconds": 17.136,
+      "boundary": "Real LLM and production read tool; known source supplied; not full production review.",
+      "model_calls": 5,
+      "usage": {
+        "prompt_tokens": 45228,
+        "completion_tokens": 2677,
+        "total_tokens": 47905,
+        "prompt_cache_hit_tokens": 12672,
+        "prompt_cache_miss_tokens": 32556
+      },
+      "outline_requests": 1,
+      "node_read_requests": 3,
+      "parent_expansion_requests": 0,
+      "read_request_errors": [],
+      "verifier_rejections": []
+    },
+    {
+      "case_id": "auto_flow",
+      "kind": "source_seeded_navigation",
+      "finished": true,
+      "turns": 4,
+      "reads": 3,
+      "target_complete": true,
+      "missing_target_chunk_ids": [],
+      "invalid_refs": [],
+      "latency_seconds": 9.475,
+      "boundary": "Real LLM and production read tool; known source supplied; not full production review.",
+      "model_calls": 4,
+      "usage": {
+        "prompt_tokens": 44231,
+        "completion_tokens": 1030,
+        "total_tokens": 45261,
+        "prompt_cache_hit_tokens": 10368,
+        "prompt_cache_miss_tokens": 33863
+      },
+      "outline_requests": 2,
+      "node_read_requests": 1,
+      "parent_expansion_requests": 0,
+      "read_request_errors": [],
+      "verifier_rejections": []
+    }
+  ],
+  "raw_artifacts": {
+    "data/review_runs/navigation_live_20261019/auto_flow/events.jsonl": "2d52177c9d66ad8a6dbed0c5cb08a978f545ab3556b53a68a20a37cbd5191c42",
+    "data/review_runs/navigation_live_20261019/auto_flow/result.json": "303d9a505062aa3a3e12dba51b7d8013717f8e696c24f3ae6e27aa9937154582",
+    "data/review_runs/navigation_live_20261019/auto_flow/state.json": "20a6e35dc0bb0293a19917bc848e85dbf4ff67e5fc5010012397d7da4a94a309",
+    "data/review_runs/navigation_live_20261019/auto_flow/task.json": "f9bc11307ed9ba69dd286e9ae5924a6f16442d36bd97dce5a21c3e6f99becbaf",
+    "data/review_runs/navigation_live_20261019/eval_shanghai_001/case.json": "fc36fc8034033bc057943c310de4927f2eb2d6fec130b053818646d4f425e29b",
+    "data/review_runs/navigation_live_20261019/eval_shanghai_001/events.jsonl": "e03504dd71f6b1d2299091bc65920605c5e5cddde9fcdf27410c3a8ad3df048f",
+    "data/review_runs/navigation_live_20261019/eval_shanghai_001/result.json": "ea0eecc8b632d5d66c659565ec6f0829f77699c591569fbed2e596cbf1a3bc30",
+    "data/review_runs/navigation_live_20261019/eval_shanghai_001/state.json": "d6d21f4aa1c6b7574e874edbdc8852b9aa9144220d3d0d7c159d1a6d12eebde9",
+    "data/review_runs/navigation_live_20261019/eval_standard_contract_003/case.json": "9538f67e50df421efa0414b0daceef80372201c93270c884225ce831f96c69ba",
+    "data/review_runs/navigation_live_20261019/eval_standard_contract_003/events.jsonl": "30bb637ff9f94849d5663888bfc4d2c4fa06fea46c3b94d471988235e0e9c6c2",
+    "data/review_runs/navigation_live_20261019/eval_standard_contract_003/judge_input.json": "a7077427873c1a07328d5af83e93fa17f734de8bda3e757815d2985fe9ac3b7c",
+    "data/review_runs/navigation_live_20261019/eval_standard_contract_003/payload.json": "71a28f91a4cb459b6b30cfc549a45d5c0f68754106a0cb0993fcbd85e3505594",
+    "data/review_runs/navigation_live_20261019/eval_standard_contract_003/result.json": "79b13e873bd6733a4f7220cb38a0726429c65aac78c58235f70d8b3f72433ba1",
+    "data/review_runs/navigation_live_20261019/eval_standard_contract_003/state.json": "573511af33a00c7ef1ee36b41c727f86a5c0fcaca620e0927f1af695e70d334b",
+    "data/review_runs/navigation_live_20261019/manifest.json": "c2c2abbe660f9da072ddc5b4b05f37da5c8b274d1678532bb1d1609d0dc03750",
+    "data/review_runs/navigation_live_20261019/model_calls.jsonl": "dcb5155e8bd46dc7b31a5c103d15cd11d1e6e9d3b4e646876e6972ac52a1cf4a",
+    "data/review_runs/navigation_live_20261019/run.py": "dcedf5c676791e0a68c39f6d9016b12a3f5c41071c02eb0e6a4bb9938b5dd443",
+    "data/review_runs/navigation_live_20261019/spec_collection/events.jsonl": "4e3a2a47fb6869544cb364a74ef3e4dfc8af42fd203738ef80998ad0f4057fc2",
+    "data/review_runs/navigation_live_20261019/spec_collection/result.json": "9fddb52167b23bd31679c2eecdbe840a9ec3db6df2c231a88271c3d9d331f7f7",
+    "data/review_runs/navigation_live_20261019/spec_collection/state.json": "106395c552838be7a2ea7897049a6c81938c92fe27a803403f82f44f8355ee64",
+    "data/review_runs/navigation_live_20261019/spec_collection/task.json": "4c8bff8ec36848667f3dc37a025ff1f25464a2837be0ccb75ff42d98eeb4e944",
+    "data/review_runs/navigation_live_20261019/status.json": "d423e0e4e455ec5810d648cc4fcdc5f98ba6c9a307fa394de29ef25183c00d7d",
+    "data/review_runs/navigation_live_20261019/summary.json": "46ebb6ee5f9a93413fb39561ab8d20d54b61f724ff45e921eb1d5f8fca547fc9"
+  },
+  "limits": [
+    "Each task ran once; no old/new model A/B. Two cases are synthetic candidates; judge is the same model, not expert adjudication.",
+    "Focused tasks supply known source and a separate diagnostic prompt; coverage is relative to frozen existing heading membership, not legal semantic completeness.",
+    "No live parent_node_id expansion occurred. Token totals include repeated context and cache hits; no billing amount inferred."
+  ]
+}

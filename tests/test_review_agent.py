@@ -542,7 +542,7 @@ def test_source_outline_is_paginated_temporal_and_not_citable() -> None:
     rest = tools.read_evidence("s1", None, None, facts, first.next_offset)
     assert first.hits == rest.hits == []
     assert len(first.outline) == 30 and first.next_offset == 30
-    assert [entry.chunk_id for entry in rest.outline] == ["c30"]
+    assert [entry.chunk_id for entry in rest.outline] == ["c30", "same-article"]
     assert rest.next_offset is None
     assert all(len(entry.preview) == 180 for entry in first.outline)
     assert "future" not in {entry.chunk_id for entry in first.outline + rest.outline}
@@ -565,7 +565,10 @@ def test_browsing_a_source_does_not_add_preview_to_claim_evidence() -> None:
         finalize=lambda *_args: {"ok": True}, checkpoint=lambda _state: None,
     )
     observation = state.steps[0].observation["read_results"][0]
-    assert observation["outline"] == [{"article_no": "第二条", "chunk_id": "new", "preview": "第二条 原文"}]
+    entry = observation["outline"][0]
+    assert entry["article_no"] == "第二条" and entry["chunk_id"] == "new"
+    assert entry["preview"] == "第二条 原文" and entry["child_count"] == 0
+    assert entry["node_id"] and entry["parent_node_id"] is None
     assert observation["chunk_ids"] == []
     assert [hit.chunk_id for hit in state.evidence] == ["found"]
     assert state.read_history[0].returned_chunk_ids == []
@@ -1008,6 +1011,33 @@ def _tools_with(chunks: list[Chunk]) -> ComplianceAgentTools:
     tools._candidate_hits = {}
     tools._keyword_navigation = []
     return tools
+
+
+@pytest.mark.parametrize("missing", [[], ["适用行业与清单内外尚未确认"]])
+def test_evidence_sufficiency_is_not_inferred_from_medium_risk(missing):
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+    from law_agent.review.schemas import GroundedClaim
+    from law_agent.review.semantic_grounding import SemanticVerdict
+
+    chunks = [_chunk("c1", "第一条", "第一条 适用规则。", index=0)]
+    tools = _tools_with(chunks)
+    tools._neighbor_hits = {}
+    tools._top_k = 10
+    tools._material_text = "申请材料"
+    tools._material_versions_by_id = {}
+    tools._semantic_verifier = lambda **kwargs: SemanticVerdict(
+        status="supported", claim_checks=[], conclusion_reason="有依据的条件说明",
+    )
+    draft = _draft().model_copy(update={
+        "risk_level": "medium", "missing_information": missing,
+        "claims": [GroundedClaim(text="适用规则", supporting_chunk_ids=["c1"])],
+    })
+    result = tools.finalize(draft, AgentState(goal="限定判断", evidence=[hit_from_chunk(chunks[0], 0)]),
+                            case_id="case", intake_snapshot={"facts": {}})
+    check = result["evidence_self_check"]
+    assert check["status"] == ("insufficient" if missing else "sufficient")
+    assert check["triggered_reasons"] == missing
+    assert [issue["description"] for issue in check["issues"]] == missing
 
 
 def test_agent_accepts_a_focused_report_without_auxiliary_sections():

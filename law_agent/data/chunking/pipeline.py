@@ -12,7 +12,7 @@ MAX_MERGED_CHUNK_CHARS = 650
 # Bumped whenever the splits below change the chunks a source is published
 # with. ``processing_signature`` reads it so cached vectors cannot outlive the
 # layout they were embedded for.
-CHUNKING_VERSION = "legal-structure-v3"
+CHUNKING_VERSION = "legal-structure-v4"
 
 # Instruments that are article-based by definition.
 LAW_DOC_TYPES = frozenset({"law", "regulation"})
@@ -113,7 +113,8 @@ def _normalize_tiny_chunks(document: Document, chunks: list[Chunk]) -> list[Chun
             if index + 1 < len(chunks):
                 next_chunk = chunks[index + 1]
                 merged_text = f"{chunk.text.strip()}\n{next_chunk.text.strip()}".strip()
-                if len(merged_text) <= MAX_MERGED_CHUNK_CHARS:
+                if (len(merged_text) <= MAX_MERGED_CHUNK_CHARS
+                        and next_chunk.heading_path[:len(chunk.heading_path)] == chunk.heading_path):
                     merged.append(
                         chunk.model_copy(
                             update={
@@ -128,7 +129,8 @@ def _normalize_tiny_chunks(document: Document, chunks: list[Chunk]) -> list[Chun
             if merged:
                 previous = merged[-1]
                 merged_text = f"{previous.text.strip()}\n{chunk.text.strip()}".strip()
-                if len(merged_text) <= MAX_MERGED_CHUNK_CHARS:
+                if (len(merged_text) <= MAX_MERGED_CHUNK_CHARS
+                        and previous.heading_path == chunk.heading_path):
                     merged[-1] = previous.model_copy(
                         update={
                             "text": merged_text,

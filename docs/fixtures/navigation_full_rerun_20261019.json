@@ -1,0 +1,1004 @@
+{
+  "manifest": {
+    "started_at": "2026-10-19T12:11:19.189854+00:00",
+    "base_commit": "ab81ea7586406bd6dac82f5d5ff87fecac7e07b2",
+    "model": "deepseek-flash",
+    "agent_reasoning": "low",
+    "semantic_reasoning": "low",
+    "production_sha256": {
+      "law_agent/__init__.py": "a4f387af029867a9a7349ae8998112bf075b940a206c9cc674f69b511a244788",
+      "law_agent/config.py": "dedc2eeed1cea8417f47a61663aa175f2f3e0ae7209a46a8b7ba50d17a455bd4",
+      "law_agent/data/__init__.py": "c226622cb24bc1d5888a0c754392a598b75f07d6b0d3a3ac109e3c69014e4bfb",
+      "law_agent/data/__main__.py": "5d79792f8c12ae8d1af8cb73f6a212d31801986b537540bea3f023a4a29f633e",
+      "law_agent/data/chunking/__init__.py": "1f8c285756edb796d88998f5532955dd5e6cb5b89742073caa5df76e84e5d884",
+      "law_agent/data/chunking/law.py": "ac3605737361f9f4e44f437e66db95e7c1d112a3069f43c9ffbe684adfdabaa7",
+      "law_agent/data/chunking/pipeline.py": "76d06c0da5914aed472e9a974f108626aacdb8fc043d6cbe74e1ed50ed9cfa30",
+      "law_agent/data/chunking/structured.py": "7a3f5024f2a154d6cdb84a856cf5649591e1cbd9d33a5ddcbd66f474b8658a07",
+      "law_agent/data/citation_policy.py": "83158c9871e7383a1199e699054124650fddcbaf4d8afb8e96a9558fe80c4166",
+      "law_agent/data/cleaners/__init__.py": "8d2f1ff0469792b7971991aacbdb50c10610a307f60eb2598706f0bed4c4eb59",
+      "law_agent/data/cleaners/common.py": "38714c0d0702815c7d6fad10c91f3183c6611650793fedc36547e80af14dd790",
+      "law_agent/data/cleaners/pipeline.py": "f2a25adf05844963ed5dc2c4ef9fe3da5e881092f0a81f5bbda4f41b6bf04762",
+      "law_agent/data/cli.py": "6fa219ba46ea57c8771b706558adc21817544a98e9fc035fe82016f97117e272",
+      "law_agent/data/enrichment/__init__.py": "8ba5303dec8290b10acfd11de31d9d25a552d6fd37a6f9ec33f49a51407460d4",
+      "law_agent/data/enrichment/generator.py": "3ef5fe210b87a7344fc8a546182f7f3825783e9320056c666462e8b8f33bcf32",
+      "law_agent/data/fetchers/__init__.py": "b8719c71214ee37648ea66c4553ee7e35dd66b0fb20e0ba700f2c48e66b293f1",
+      "law_agent/data/fetchers/flk_npc.py": "7fa100f19db43bec0d75f726cd149d73e4dde5cb5f8a761b66d092df4c1168a8",
+      "law_agent/data/fetchers/generic.py": "cc2f2a2c6900d96a1b41157f551ac57f54f2d871927e57ef0517b62617356d66",
+      "law_agent/data/filters.py": "6c5c99a9da9b54e5b082dcd234ec8f48fc0ec69b0d1651b4a379262ebb80732a",
+      "law_agent/data/io.py": "be7b8cf72b63f229a59779dc8e900b556e85fd0c8ebdac4aaca24dafea06f09a",
+      "law_agent/data/manifest.py": "14bc64bc25bf83503dff2c56f9091f2ef2663ddad59cfaaae1a35bed55c835c1",
+      "law_agent/data/normalize.py": "eab5d1adb30fa2e0ade2daa6bfc77fc38401fe51dc59d9c36726fbaa942f0020",
+      "law_agent/data/quality.py": "aaa7a2ec0aa75a65b3fbb75e6dd77ba9958d0a3a8687a63589d0af765f39d0ec",
+      "law_agent/data/reports/__init__.py": "660bd8f8af89e53fdec68e3a5dded29d16879dc408887afef8f87041b217b7b5",
+      "law_agent/data/reports/governance_report.py": "9d434b803738db3941121be1c6c713c4e6c1a2f58eeebf50904ad8c033a82e1c",
+      "law_agent/data/schemas.py": "47a05fc62c64933ed47c179f3c508564cded8f212c5bf61faa7506c0963b1a0b",
+      "law_agent/external/__init__.py": "beadf12036368c30af75f3025c8520136791b3b444f064bfad7063f50f1a99d2",
+      "law_agent/external/legalbench_rag/__init__.py": "3de85c6e5f94cfae369a596975f12c543725f880809c235f38928a784bfbf7fd",
+      "law_agent/external/legalbench_rag/__main__.py": "556e5ea5fdc18364f0117e903df717e14045295a1337eb6d35d01187b045739a",
+      "law_agent/external/legalbench_rag/cli.py": "057762919bd1154981df2d805677c6e385de99021940808e76a6fc718cf726c7",
+      "law_agent/external/legalbench_rag/data.py": "3ba92e31f6332debb3c044eedf8e8cd65886fb2be31f374d0a8a6d6eba7788bb",
+      "law_agent/external/legalbench_rag/metrics.py": "d05244b444ccbb8346980a2a0fc1858557eff657119ccea34c5dda26a4765342",
+      "law_agent/external/legalbench_rag/schemas.py": "de58dc3643ca69aaeaf84cf8744b79cc1a3b96ef5ea88e61f2428f5eed9db69e",
+      "law_agent/external/legalbench_rag/service.py": "415b5785d8f1725e22a42604afeef1cc56d3b23198468cd2c11a00afb73d49ac",
+      "law_agent/kb/__init__.py": "f9f1c73b3fab1c7932641bb7d526d6563a999ccc97cee51ca58a0a1623a03365",
+      "law_agent/kb/__main__.py": "fe295028e9ddf491d55c329bcea778d9c2d0da57e73ad9071c5f82563aed860a",
+      "law_agent/kb/admin.py": "2bb1aa502d88f5dfc62a5338d4100a1677aca014f8351911de3fd634cd4dbc37",
+      "law_agent/kb/cli.py": "281a82875a0019414b94997888e5d1002e15a2ba790975487350766b71d0d548",
+      "law_agent/kb/enrichment.py": "2fd8d4750b62c8ac98692889ccc8a45c17d6922c6eb923f2c67b838f3a925351",
+      "law_agent/kb/enrichment_worker.py": "487a4bb28ef430e8637479a463374ad13a97fcb89b992b05cc86dc94721a55a1",
+      "law_agent/kb/ingestion.py": "c0f40364b7bbdb1381a4b418d5a8912d0d83b597f95f7684ea5705600b47a698",
+      "law_agent/kb/service.py": "6cd6737a32ff835821d2fe8ba352d5d952fe1686c6a2bb05bc32ead2760f55e9",
+      "law_agent/kb/service_index.py": "0e53ed15cadfa1c0b9f5258c06c8c0877a1fde08f1ec9c73226c4ad74756cf1a",
+      "law_agent/llm/__init__.py": "b0794916e1b42b2c737ec4f7e38fb5c8b07ba07f5cddd419eb64b98569f10b64",
+      "law_agent/llm/embeddings.py": "b44d7afc2bbb66eebd3e861bf2f579ebad10aeac0ce43caaa00a092df7040389",
+      "law_agent/llm/openai_compatible.py": "f3b97c265d0116e63111d9ccf3f5b673619cf9d168d80563cc6ecfccc6a74ea5",
+      "law_agent/review/__init__.py": "7bc66f286fc3ca3f5d960638f0c13f859bcba97c9e49ae5857e3d490337fb285",
+      "law_agent/review/__main__.py": "41179eed4a0d0cacfa13d11e0a703ff4a55d5de42abb6ef42c1d884e7c109e61",
+      "law_agent/review/agent.py": "30debb087be4497524865099aa00112da0be97ddae3bb8cb0a30f4fe5e98952e",
+      "law_agent/review/agent_context.py": "b3127d6d2449721db52577c4b0b367cca304af041d599ea37e642f740276965a",
+      "law_agent/review/agent_runtime.py": "4827251731916611650b35c7607eb8380b0531e1393db6cf32492122ee34723f",
+      "law_agent/review/agent_tools.py": "418d2aaae792e680f56edbcc7c46c08a5840c72e324986f4c5712042249ed4fa",
+      "law_agent/review/annotations.py": "08d2e113578a58ee4a7b31918ebe1c80d69702b3cc5cb933b65bce6e5afde3e7",
+      "law_agent/review/api.py": "64e143f81623be26dd267faf96adc914c3e4d4bc7b93666dab7f645e9e93ce78",
+      "law_agent/review/bootstrap_admin.py": "ad8d6d7ddf3166791760b8056ef0f196f652acc91b375b50c00fe6a54071eb21",
+      "law_agent/review/case_store.py": "c4f0f217bf5df0fba5c684bda5cdc26bd2f2adece731cec6a00dc88b7dff3250",
+      "law_agent/review/citations.py": "90282f68b7f06e61e483b17f60254d9e3e3192b2ba566c4e3419eb2cdee5b929",
+      "law_agent/review/cli.py": "c519f144cc38428b2c0d3d170ff5f2e8a6293c40a6217366056ed8cc264ef28b",
+      "law_agent/review/db_schema.py": "1078725568ca6dc53db1259a41d5c40bcb8ae3856adef7a85014b657500fe2b8",
+      "law_agent/review/enterprise_store.py": "6da32412bb3c294ba44bd42c43856c8333ef2889e03d2aa4edd3db2114fafe6f",
+      "law_agent/review/evidence.py": "4182c1a430de0738fc67f799aabbcd423f3c1544b6d35b6540a34458503c81f3",
+      "law_agent/review/fact_confirmation.py": "d05359f3f50af5ea8de568d6bfb351976eb74881fa0f0cad40cdba9b7ef9d16d",
+      "law_agent/review/fact_provenance.py": "593808f3966758bb2dd2ce992bb9b507d0c219e51939b524bca97cebd0306425",
+      "law_agent/review/facts.py": "13bf750d323f7fd3e949734b93425c0741be8626c64aa43ee70e0b5a5c3fb060",
+      "law_agent/review/feishu.py": "06b02d4e3a4fd30130e7e95fc568d2ff1b1f0b4ebf524c0adb65c16832408533",
+      "law_agent/review/governance_store.py": "9e312da9dfdfc2a1ecdd344bb1b0d3b784f8b4e922960632eff499ca0ccde9c6",
+      "law_agent/review/http/__init__.py": "bd2aad218324e65afcb41a2f9eba42fb48ebc8a186021569beb50867df5046e7",
+      "law_agent/review/http/activity.py": "5eda184c9ca32fd998b767ce7e3a9180ceb701af3546ffb1b7ad7e84a1c0d40b",
+      "law_agent/review/http/annotations.py": "b966902952e6563579fd7aeb7c61e3a733d60bd580996e3c419cb24365b7ddc8",
+      "law_agent/review/http/auth.py": "2974a98ac833baf38927909e5ffe2193782dc5ae848000095ec85046dbe3e6f5",
+      "law_agent/review/http/cases.py": "aa24b579a33cd0f4927f83a73570a8617c73929780f4e499e795da08bf9482d2",
+      "law_agent/review/http/evaluation.py": "bff89d2570e9849b0a4e8627e27a553637860d9470f0947501d2dcae98dc84f1",
+      "law_agent/review/http/facts.py": "edff3f9573b5b793a82eefeba6e930ee237f0be36ac2a022f9839a40633159b9",
+      "law_agent/review/http/integrations.py": "435b26959212f394babc5b7211752948af90c471459e3eaa880c1d3030d5c5cc",
+      "law_agent/review/http/knowledge.py": "fb3c78bc4f3d1df2729718ff7f48d869c9d73d583932268cb32dd261442b2500",
+      "law_agent/review/http/matter.py": "d8a5a170ef55b8798902575ff829f7ae748d617a85389c3a48019435ac72f9a5",
+      "law_agent/review/http/remediation.py": "a36ed0c9907dbbbfa77f8363251806a3e733efb2c6ef00dfea7953c5cf352797",
+      "law_agent/review/http/reports.py": "58a0821057a23fd3505bc5b2962718a5d10648871c3e94558e199beae787de4f",
+      "law_agent/review/http/revisions.py": "262ae8a92e79587f01a75eb2bc7dd6f31d3136a89b5f801ea0d26b60062b377a",
+      "law_agent/review/http/schemas.py": "1af1f890f68c26040a18ba036d5aab30d64d10660eb41d9e9d883bea1281eb96",
+      "law_agent/review/http/system.py": "985e85c34a10a31e7da72d7a3ad10352f5e3fa7cd40d1a47d907794e8cc16262",
+      "law_agent/review/http/templates.py": "8b1f98f05d49a4c2d2c72a4e602fcfa683514e8033a70dca44dcaf65656c5e21",
+      "law_agent/review/http/users.py": "941dfd1fffa18f7db12416f6649914a145fbf04aa2d5dbf981026b152842977a",
+      "law_agent/review/ids.py": "3b7e43c24e6f7131fc900df7fb7506e0234080816041c0d1b57b15ed53e7925d",
+      "law_agent/review/io.py": "7e3668ef9eb64aee1ff11f4503a2dec94e0fab319ec4a62ef602ef51e5fd7965",
+      "law_agent/review/llm.py": "7d42275e48e0e0b1e9b7142b87b5f65a065289627fb1451a1be883a53abf2d2b",
+      "law_agent/review/materials.py": "a49e2ea4def06c3bc8fd2f387195e392b855c053156415bad16d02a8c73bd884",
+      "law_agent/review/matter_agent.py": "dc6d87bbd29e89ae3139d10f8bf133565f6e306bb10eb9f0db71106eff5db919",
+      "law_agent/review/object_store.py": "184d84517f696a810533745fe56cbba9b7bbab24a9bdc1b20d7ce5be2c575e20",
+      "law_agent/review/query_planner.py": "c13e976b29c926b57618d976f496a4d37dc507c21a1104ea0d875d8ad2217a12",
+      "law_agent/review/remediation.py": "5d561f06cc7791e5733c9aca6a5a01ed09be8b5c978db2fa0ba0803f3a176480",
+      "law_agent/review/report_data.py": "d54468e35cc14b8b345e3654a527cd3a18a2016510e850b8ed7e9a0b2d23e1e9",
+      "law_agent/review/report_grounding.py": "a9508e2bc7b02c221492ecc9914c60a65bfb39c108247316880b69e3dd795c1d",
+      "law_agent/review/report_service.py": "6c9034b923996316d7394457fd2b2899f86094cf8a4591e59f5c5d4240ba7b15",
+      "law_agent/review/reports.py": "a2d66e222c38b553d068dc6bf0bdc9c12261870680c910bba2b5d1ce79990e4c",
+      "law_agent/review/result_builder.py": "f2e2884028053db8d9312fdb47b547c48ca4b4a487e261dddeba278fae45b09f",
+      "law_agent/review/retrieval/__init__.py": "1c4eaaf24167156779dee0d047182fa6987ac725090d260eea1223f1bddf7c84",
+      "law_agent/review/retrieval/adapters.py": "2bb6fffbfb795ebdff976889b4ac08160b1ac8afc10266993a913d91c2c83f20",
+      "law_agent/review/retrieval/boosts.py": "ad580ac434b3f6368eeefec911eb0625f3826abbe4e0b06da201bb7353d25068",
+      "law_agent/review/retrieval/corpus.py": "84ec62d181342cf4592de8676f2eed0b390e4fc326eefb4923e3aa26f304241f",
+      "law_agent/review/retrieval/fusion.py": "a7c6db91d2c87ec5234fec6af8c7f4eea147fc6d14861e1db7b5477df6fba1a6",
+      "law_agent/review/retrieval/hits.py": "c4f1062e3d7d5b58c86a56bffc680b1aea7650ca1e436c8e842fcbacb5c62b1e",
+      "law_agent/review/retrieval/indexing.py": "8ce2a5a13c8bf02e81d5c605189cb3abe53f76eaf6c60e6e813dba9d08026288",
+      "law_agent/review/retrieval/neighbors.py": "60d2ea965bbaabb6e0ea23a8590cbc1a8117fd881a2d41645ddd6f9029489850",
+      "law_agent/review/retrieval/rerank.py": "20534f8c44dd2177368b371d67ffe05cb497db8f5e6f1edb656d2904569d4a83",
+      "law_agent/review/retrieval/service_backends.py": "84c46e8ce1d3706cb0753c44795ef9154ff3349336ec3ed46638e471f63473c2",
+      "law_agent/review/retrieval/temporal.py": "1e53f9d6349cdf9c2c0750575377e3701a59b1bbb1c7af75aa91e9f235b3ba0a",
+      "law_agent/review/retrieval/text.py": "8a976458eb788c25363186ffa5bd7d6f87d81637b078eb52856716b144f393a8",
+      "law_agent/review/revisions.py": "a10e7f7e5b3f82e53a02f3c2175cd66d1985d24efae1bbc3bb107adf2fb1fc12",
+      "law_agent/review/schemas.py": "fd72a6622db80b41b00b7f8d22d87b8354741c0e7756194c6619c18c69759cc6",
+      "law_agent/review/semantic_grounding.py": "07c973f01219107477a892e84e53e015e43af6b9cef99556f0fa6e7445531936",
+      "law_agent/review/service.py": "d1c62a6cfda872a000f4fe79b0cdb6d8b172f73586a2272278f5af4e12def9fd",
+      "law_agent/review/source_navigation.py": "534e2b497670f4b83d95f8ff0a6438d98acb7edf24a4d84517fa1af23fde36bd",
+      "law_agent/review/telemetry.py": "360c6449b6b8eb8ad42d20402e5acf4719c3ef7780f381394e121dc327cc3859",
+      "law_agent/review/template_store.py": "fb8a5672bc65c702ef94213d4cad2e722da8c6e5e115fcb346782c90aeb078b4",
+      "law_agent/review/transactions.py": "d4061528f352b92ffd2756adebb560f9ee43f9e82cb02af174a616a79b78c686",
+      "law_agent/review/user_admin.py": "10fa3152a27e494b702e182f780ef0848d3bb1cc18090c143ce95f77352b8ada",
+      "law_agent/review/web_research.py": "30bd80ad5e0b95dc179d853fa2f10062f9b6908696a3671daabb76a04d298517",
+      "law_agent/review/worker.py": "5e4a1232bd10150e62ba89ae9139d67a8a67e142da0cb65c2531cfacd6cfb91d",
+      "law_agent/review/workflow.py": "fe90664b8c452b8ac7ac1c09955ec5534b1696c7608ff7801bf5ec5d696e9837"
+    },
+    "corpus_sha256": "813b83548449e69f8b458688ec74d7b07faea52be9c7b283d6e60a2b27f5ff06",
+    "max_http_model_calls": 80,
+    "production_cases": [
+      {
+        "case_id": "eval_standard_contract_003",
+        "question": "海外 HR 系统同步员工通讯录，应该准备哪类文件和备案？",
+        "material_text": "北京非自贸区集团将境内员工姓名、手机号、邮箱同步至德国HR系统。2026年1月1日至2026年10月8日累计去重出境12万人，无敏感个人信息或重要数据，非CIIO。依法制定劳动规章制度、依法签订集体合同、出境确为跨境人力资源管理所必需均已确认；不存在其他特殊免予情形。员工告知书已说明用途，其他告知事项及影响评估是否完成尚未核实。请区分出境机制与剩余义务。",
+        "rubric": {
+          "should_abstain": false,
+          "acceptable_outcomes": [],
+          "must_cover_sources": [
+            "cac_cross_border_data_flow_rules_2024",
+            "flk_npc_ff8081817b6472a3017b656cc2040044"
+          ],
+          "forbidden_clause_sources": [],
+          "expect_freshness_hold": false,
+          "must_not_assume": [],
+          "required_exceptions": [
+            "第五条第二项的劳动规章制度、集体合同、跨境HR管理必要性均已确认；免予机制不取消其他法定义务。",
+            "区分个人信息保护法第十三条的非同意处理依据与告知、影响评估等剩余义务。"
+          ],
+          "clarification_expectations": [],
+          "allowed_judgments": [
+            "对已确认的跨境人力资源管理必要范围适用第五条第二项免予三种出境机制。"
+          ],
+          "forbidden_judgments": [
+            "无视已确认的第五条例外，一律要求标准合同备案。",
+            "免予出境机制就代表无需任何个人信息保护义务。",
+            "忽略已成立的第十三条非同意处理依据，一概要求取得员工的单独同意。"
+          ],
+          "notes": ""
+        },
+        "intake": {
+          "contains_personal_information": true,
+          "sensitive_personal_info": false,
+          "cross_border_transfer": true,
+          "important_data_status": "not_important",
+          "ciio_status": "not_ciio",
+          "annual_non_sensitive_count": "120000",
+          "annual_sensitive_count": "0",
+          "count_period": "current_year_cumulative",
+          "overseas_recipient": "德国集团HR系统",
+          "processing_purpose": "跨境人力资源管理",
+          "exemption_facts": "已核实依法制定劳动规章制度、依法签订集体合同；本次提供员工通讯录确为跨境人力资源管理所必需，不包括重要数据。",
+          "notes": "审查时点2026-10-08；上述免予事实已确认。只判断出境机制，其他个人信息保护义务仍应依法核查。"
+        },
+        "scripted_answers": [],
+        "tags": [
+          "standard_contract",
+          "implicit",
+          "employee",
+          "candidate"
+        ],
+        "review_status": "candidate",
+        "source_case_id": "eval_standard_contract_003",
+        "construction_round": 1,
+        "selection_reason": "避免看到员工数据就机械要求标准合同，检验第五条人力资源管理例外及剩余义务。",
+        "reference_basis": [
+          "2024规定第五条第二项、第十条；https://www.cac.gov.cn/2024-03/22/c_1712776611775634.htm；个人信息保护法第十三、三十九、五十五条；https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm；网信办2026年7月问答第1问明确非同意处理依据；https://www.cac.gov.cn/2026-07/24/c_1786638883119336.htm。"
+        ],
+        "controlled_web": null
+      },
+      {
+        "case_id": "eval_shanghai_001",
+        "question": "临港业务的数据能不能自由传到境外，上海这边要先看哪张清单？",
+        "material_text": "公司在上海自贸区开展业务，涉及用户数据出境，需要了解负面清单管理要求。",
+        "rubric": {
+          "should_abstain": true,
+          "acceptable_outcomes": [
+            "insufficient_evidence"
+          ],
+          "must_cover_sources": [],
+          "forbidden_clause_sources": [],
+          "expect_freshness_hold": false,
+          "must_not_assume": [
+            "材料未确认临港具体地点、适用行业、数据类型及清单内外。"
+          ],
+          "required_exceptions": [
+            "地方免予安排只在其适用范围内讨论；免予机制不等于整体合规。"
+          ],
+          "clarification_expectations": [
+            "具体业务所在地、清单适用范围、数据类别和出境数量。"
+          ],
+          "allowed_judgments": [
+            "列明自贸区适用范围、数据类别、具体清单及全国规则关系尚需确认，给条件化判断。"
+          ],
+          "forbidden_judgments": [
+            "仅凭上海自贸区字样认定所有用户数据自由出境。",
+            "未核对适用清单就确认清单外。"
+          ],
+          "notes": ""
+        },
+        "intake": {},
+        "scripted_answers": [],
+        "tags": [
+          "regional",
+          "shanghai",
+          "negative_list",
+          "candidate"
+        ],
+        "review_status": "candidate",
+        "source_case_id": "eval_shanghai_001",
+        "construction_round": 1,
+        "selection_reason": "检验地方清单的空间、行业与数据适用范围，注册在上海不等于免予。",
+        "reference_basis": [
+          "2024规定第六条；https://www.cac.gov.cn/2024-03/22/c_1712776611775634.htm；地方适用结论待人工审定。"
+        ],
+        "controlled_web": null
+      }
+    ],
+    "focused_tasks": [],
+    "max_reads": 10,
+    "previous_manifest": "data/review_runs/navigation_live_20261019/manifest.json",
+    "inputs_identical_to_previous": true,
+    "previous_corpus_sha256": "251d3dbba0ac83fe1e36ee590cbee26291aacbd0fd1d6365e466762fbbcbd95d",
+    "boundary": "Two full production cases once each after fixes. Frozen original cases, same model and budgets. No tuning during run; not a controlled attribution study."
+  },
+  "finished_at": "2026-10-19T12:20:11.401426+00:00",
+  "inputs_identical": true,
+  "production_changed_during_run": false,
+  "corpus_changed_during_run": false,
+  "model_calls": 30,
+  "model_http_failures": 0,
+  "usage": {
+    "prompt_tokens": 561488,
+    "completion_tokens": 111710,
+    "total_tokens": 673198,
+    "prompt_cache_hit_tokens": 262400,
+    "prompt_cache_miss_tokens": 299088
+  },
+  "cases": [
+    {
+      "case_id": "eval_standard_contract_003",
+      "before": {
+        "status": "succeeded",
+        "overall_pass": true,
+        "risk_level": "medium",
+        "turns": 7,
+        "reads": 3,
+        "total_latency_ms": 344305
+      },
+      "after": {
+        "case_id": "eval_standard_contract_003",
+        "review_status": "candidate",
+        "tags": [
+          "standard_contract",
+          "implicit",
+          "employee",
+          "candidate"
+        ],
+        "status": "succeeded",
+        "risk_level": "medium",
+        "abstain_correct": true,
+        "outcome_acceptable": null,
+        "freshness_hold": false,
+        "freshness_hold_correct": true,
+        "cited_source_ids": [
+          "beijing_free_trade_zone_data_export_negative_list_2025",
+          "cac_cross_border_data_flow_rules_2024",
+          "cac_cross_border_flow_rules_qna_2024",
+          "cac_data_export_assessment_qna_2022",
+          "cac_data_export_policy_qna_2025_10",
+          "cac_data_export_policy_qna_2026_07",
+          "cac_data_export_security_assessment_filing_guide_v3_2025",
+          "cac_network_data_security_regulation_qna_2024",
+          "flk_npc_ff8081817b6472a3017b656cc2040044",
+          "jiangsu_free_trade_zone_data_export_negative_list_2025"
+        ],
+        "missing_required_sources": [],
+        "illegal_clause_citations": [],
+        "turns": 4,
+        "searches": 1,
+        "reads": 4,
+        "web_searches": 0,
+        "enrichment_submissions": 0,
+        "request_inputs": 0,
+        "duplicate_read_denials": 0,
+        "budget_exhausted": false,
+        "questions_asked": [],
+        "scripted_answers_used": 0,
+        "scripted_answers_unused": 0,
+        "failure_node": null,
+        "failure_category": null,
+        "failure_message": null,
+        "deterministic_pass": true,
+        "deterministic_fail_reasons": [],
+        "judge": {
+          "legal_correctness": "pass",
+          "exception_coverage": "pass",
+          "fact_grounding": "pass",
+          "clarification_quality": "pass",
+          "overall_pass": true,
+          "rubric_violations": [],
+          "reasons": [
+            "出境机制判断正确：适用《促进和规范数据跨境流动规定》第五条第一款第（二）项人力资源管理豁免，免予安全评估、标准合同及备案、认证；并正确说明第七条、第八条'从其规定'使豁免优先于12万人落入的10万-100万区间。",
+            "未把12万人误判为需标准合同备案，也未因豁免而否定剩余义务，符合allowed_judgments。",
+            "required_exceptions逐项覆盖：明确第五条第二项三项要件（劳动规章制度、集体合同、跨境HR必要性）均已确认，且明确豁免不取消其他法定义务；并区分《个人信息保护法》第十三条第一款第（二）项非同意处理依据与第三十九条告知、第五十五条/五十六条影响评估等剩余义务。",
+            "未出现forbidden_judgments：未一律要求标准合同备案，未称豁免即无任何义务，未要求单独同意。",
+            "事实基础与确认事实一致（12万人、无敏感信息、非CIIO、非重要数据、豁免事实已确认），未将未核实事项当作已确认。",
+            "对告知完整性与影响评估完成情况作为缺口披露并给出补齐建议，与clarification_expectations一致。",
+            "轻微：引用清单含自贸区负面清单等与本案（北京非自贸区）无关材料，但不影响结论与义务，不构成违规。"
+          ],
+          "judge_model": "deepseek-flash",
+          "error": null
+        },
+        "overall_pass": true,
+        "total_latency_ms": 140469,
+        "failure_categories": []
+      },
+      "model_calls": 10,
+      "usage": {
+        "prompt_tokens": 178926,
+        "completion_tokens": 28729,
+        "total_tokens": 207655,
+        "prompt_cache_hit_tokens": 79488,
+        "prompt_cache_miss_tokens": 99438
+      },
+      "finish_attempts": 1,
+      "verifier_rejections": [],
+      "read_errors": [],
+      "navigation_requests": {
+        "outline": 0,
+        "node": 0,
+        "parent": 0
+      },
+      "verifier_contexts": [
+        {
+          "call_id": 7,
+          "shanghai_list_chunks": []
+        }
+      ],
+      "decision_summary": "本案为北京非自贸区企业向德国HR系统同步员工通讯录，年内累计12万人、无敏感个人信息及重要数据、非CIIO，且已具备依法制定的劳动规章制度和依法签订的集体合同、属跨境人力资源管理所必需，符合《促进和规范数据跨境流动规定》第五条豁免，免予申报安全评估、订立标准合同、通过认证，无需办理备案；但仍须履行出境告知与个人信息保护影响评估等剩余义务。",
+      "legal_path": "《促进和规范数据跨境流动规定》第五条第一款第（二）项、第二款（人力资源管理豁免：免予申报安全评估、订立标准合同、通过认证）；衔接第七条、第八条“从其规定”。剩余义务依《个人信息保护法》第十三条第一款第（二）项、第三十九条（告知）、第五十五条第四项、第五十六条（影响评估及记录保存）。",
+      "conclusion": "就出境机制而言，本案免予申报数据出境安全评估、免予订立个人信息出境标准合同及其备案、免予通过个人信息保护认证。理由：申请人已确认（1）同步内容为员工姓名、手机号、邮箱等员工个人信息，不含敏感个人信息、不含重要数据；（2）非关键信息基础设施运营者；（3）已依法制定劳动规章制度、依法签订集体合同，且本次提供确为跨境人力资源管理所必需。该情形正落入《促进和规范数据跨境流动规定》第五条第一款第（二）项，第二款并明确排除重要数据。虽然年内累计12万人落入第八条“10万人以上、不满100万人”本应订立标准合同或认证的区间，但第七条、第八条均规定“属于第三条至第六条规定情形的，从其规定”，第五条豁免优先，故无需订立标准合同或通过认证，亦未达第七条100万人的安全评估申报门槛。\n\n文件准备方面，无需提交安全评估申报材料或标准合同备案材料，而应留存并备查：①依法制定的劳动规章制度和依法签订的集体合同，以及本次出境确为人力资源管理所必需、最小必要的说明；②覆盖《个人信息保护法》第三十九条所列事项的出境告知记录（境外接收方名称或姓名、联系方式、处理目的、处理方式、个人信息种类、个人向境外接收方行使权利的方式和程序）；③事前个人信息保护影响评估报告（含第五十六条所列目的方式合法性正当必要性、对个人权益影响及安全风险、保护措施适当性三项）及处理情况记录，至少保存三年。\n\n剩余义务提示：依《个人信息保护法》第十三条第一款第（二）项，按劳动规章制度和集体合同实施人力资源管理所必需的处理不需取得个人同意，但依第三十九条仍应履行出境告知；第五十五条第四项、第五十六条要求向境外提供个人信息须事前影响评估并保存记录，上述义务不因机制豁免而免除。材料显示员工告知书已说明用途，但其他告知事项及影响评估完成情况尚未核实，建议先行补齐。",
+      "expected_should_abstain": false,
+      "expected_outcomes": []
+    },
+    {
+      "case_id": "eval_shanghai_001",
+      "before": {
+        "status": "unanswered_gate",
+        "overall_pass": null,
+        "risk_level": null,
+        "turns": 9,
+        "reads": 6,
+        "total_latency_ms": 116061
+      },
+      "after": {
+        "case_id": "eval_shanghai_001",
+        "review_status": "candidate",
+        "tags": [
+          "regional",
+          "shanghai",
+          "negative_list",
+          "candidate"
+        ],
+        "status": "succeeded",
+        "risk_level": "medium",
+        "abstain_correct": false,
+        "outcome_acceptable": false,
+        "freshness_hold": false,
+        "freshness_hold_correct": true,
+        "cited_source_ids": [
+          "cac_cross_border_data_flow_rules_2024",
+          "cac_cross_border_flow_rules_qna_2024",
+          "cac_data_export_assessment_qna_2022",
+          "cac_data_export_policy_qna_2026_01",
+          "cac_personal_info_export_standard_contract_measures_2023",
+          "cac_personal_info_export_standard_contract_template_2023",
+          "chongqing_free_trade_zone_data_export_negative_list_2025",
+          "shanghai_free_trade_zone_data_export_negative_list_2025",
+          "shanghai_free_trade_zone_data_export_negative_list_qna_2024",
+          "tianjin_free_trade_zone_data_export_negative_list_2024"
+        ],
+        "missing_required_sources": [],
+        "illegal_clause_citations": [],
+        "turns": 9,
+        "searches": 1,
+        "reads": 4,
+        "web_searches": 0,
+        "enrichment_submissions": 0,
+        "request_inputs": 0,
+        "duplicate_read_denials": 0,
+        "budget_exhausted": false,
+        "questions_asked": [],
+        "scripted_answers_used": 0,
+        "scripted_answers_unused": 0,
+        "failure_node": null,
+        "failure_category": null,
+        "failure_message": null,
+        "deterministic_pass": false,
+        "deterministic_fail_reasons": [
+          "expected_abstention",
+          "outcome_not_acceptable:medium"
+        ],
+        "judge": {
+          "legal_correctness": "pass",
+          "exception_coverage": "pass",
+          "fact_grounding": "pass",
+          "clarification_quality": "pass",
+          "overall_pass": true,
+          "rubric_violations": [],
+          "reasons": [
+            "法律路径正确：先比对上海2025版负面清单，清单外依《促进和规范数据跨境流动规定》第六条免予三项程序，清单内或未覆盖行业回到国家一般规则分档，符合第六条与第五至八条的衔接逻辑。",
+            "未把'上海自贸区'直接等同于自由出境，明确要求先经行业、场景、数据项比对确认清单外，未违反禁止判断。",
+            "未在未核对清单的情况下确认清单外，结论明确保留条件性。",
+            "例外覆盖到位：明确地方免予仅限第六条列明的三项程序，不等于整体合规，并提示其他合规义务需另行核对。",
+            "重要数据状态未确认时未推定为非重要数据，正确引用第二条并保留不确定性。",
+            "事实层面未擅自假设临港具体地点、行业、数据类别或清单内外，fact_ledger仅将'上海自贸区''用户数据''存在出境'标为extracted。",
+            "澄清缺口对准rubric：行业场景与数据项、个人信息/敏感属性与数量、CIIO与重要数据状态、目的地与接收方均已列明并给出核实建议。",
+            "风险等级medium与条件化结论一致，未以风险等级替代法律路径判断。"
+          ],
+          "judge_model": "deepseek-flash",
+          "error": null
+        },
+        "overall_pass": false,
+        "total_latency_ms": 391428,
+        "failure_categories": [
+          "abstention",
+          "legal_outcome"
+        ]
+      },
+      "model_calls": 20,
+      "usage": {
+        "prompt_tokens": 382562,
+        "completion_tokens": 82981,
+        "total_tokens": 465543,
+        "prompt_cache_hit_tokens": 182912,
+        "prompt_cache_miss_tokens": 199650
+      },
+      "finish_attempts": 4,
+      "verifier_rejections": [
+        {
+          "step": 5,
+          "verdict": {
+            "status": "uncertain",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第六条原文确规定自贸区可制定负面清单，区内数据处理者向境外提供清单外数据可免予安全评估、标准合同和认证；上海2025版清单说明将适用范围限于在上海市注册并开展出境活动的数据处理者且排除关键信息基础设施运营者。该claim以“经比对确属清单外”为条件，成立；行业场景与数据项仍待核实。",
+                "missing_facts": [
+                  "业务所属行业、出境场景及具体数据项"
+                ]
+              },
+              {
+                "claim_index": 1,
+                "status": "supported",
+                "reason": "第七条原文支持：非关键信息基础设施运营者提供重要数据或达到100万人以上非敏感个人信息、1万人以上敏感个人信息门槛，以及关键信息基础设施运营者提供个人信息或重要数据，均应申报安全评估。claim已作条件性表述；关键信息基础设施运营者部分实际对应第七条第（一）项，编号表述略不精确但内容无误。",
+                "missing_facts": [
+                  "企业是否属于关键信息基础设施运营者",
+                  "是否涉及重要数据",
+                  "累计出境个人信息及敏感个人信息数量"
+                ]
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "第五条第（四）项确规定非关键信息基础设施运营者自当年1月1日起累计向境外提供不满10万人非敏感个人信息的，可免予三项程序，且前款个人信息不含重要数据；结合第七条及答记者问，数量与敏感属性决定落入免予、标准合同/认证还是安全评估区间。",
+                "missing_facts": [
+                  "累计出境个人信息去重人数",
+                  "是否含敏感个人信息",
+                  "是否含重要数据"
+                ]
+              }
+            ],
+            "report_checks": [],
+            "conclusion_reason": "摘要、法律路径和三项claims基本有据，且正确指出行业场景、个人信息数量、关键信息基础设施运营者/重要数据状态缺失，不能直接得出可自由出境。但结论第3点“未达安全评估门槛的个人信息出境，需订立标准合同或通过认证”未保留第五条第（四）项不满10万人非敏感个人信息可免予的情形，属过度概括；因此整体不能评为supported。",
+            "missing_facts": [
+              "业务所属具体行业、出境场景及数据项",
+              "出境数据是否包含个人信息、是否包含敏感个人信息",
+              "企业是否属于关键信息基础设施运营者，相关数据是否被告知或发布为重要数据",
+              "自当年1月1日起累计向境外提供个人信息的去重人数及敏感个人信息数量",
+              "出境目的地及境外接收方情况",
+              "业务所属行业、出境场景及具体数据项",
+              "企业是否属于关键信息基础设施运营者",
+              "是否涉及重要数据",
+              "累计出境个人信息及敏感个人信息数量",
+              "累计出境个人信息去重人数",
+              "是否含敏感个人信息",
+              "是否含重要数据"
+            ]
+          }
+        },
+        {
+          "step": 7,
+          "verdict": {
+            "status": "uncertain",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "第六条原文与转述一致；本案确认在上海自贸区开展业务且涉及数据出境，报告将其限定为“经比对确属负面清单外”才可免予三项程序，条件表述准确，未越出原文。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "supported",
+                "reason": "第二条原文准确；报告仅说明该条关系到能否排除“以重要数据为触发条件”的安全评估义务，并明确重要数据状态尚未确认，未将未知事实当作已确认事实。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "第五条第（四）项及该条第二款“不包括重要数据”的转述准确；以去重自然人为统计单位亦有答记者问支持；报告将其表述为非CIIO、不含敏感个人信息与重要数据且累计不满10万才可免予，属恰当条件性判断。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 3,
+                "status": "uncertain",
+                "reason": "第八条第一款转述准确，但遗漏第二款“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”；因此“该量级区间应履行标准合同或认证，而非免予”过于绝对，若存在第五条其他免予情形或第六条负面清单外情形，仍可能免予。报告未保留该例外，法律推导不完整。",
+                "missing_facts": [
+                  "自当年1月1日起累计向境外提供个人信息（去重自然人）的数量及敏感个人信息数量",
+                  "是否存在第五条其他免予情形或第六条负面清单外情形"
+                ]
+              },
+              {
+                "claim_index": 4,
+                "status": "uncertain",
+                "reason": "第七条第一款转述基本准确，但遗漏第二款“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”。据此，若确属自贸区负面清单外数据，第六条仍可能适用；报告称“不能仅凭负面清单外或数量较小而免予申报”未处理该衔接，过于绝对。本案CIIO、重要数据及人数门槛均未确认，应作更严格条件限定。",
+                "missing_facts": [
+                  "企业是否属于关键信息基础设施运营者",
+                  "相关数据是否被相关部门、地区告知或公开发布为重要数据",
+                  "累计向境外提供个人信息及敏感个人信息的数量"
+                ]
+              }
+            ],
+            "report_checks": [],
+            "conclusion_reason": "多数法条转述与事实缺口说明有依据，但decision_summary及conclusion第3项将“清单内或清单未覆盖行业”统一纳入“三档门槛（免予、标准合同/认证、安全评估）”判断，未保留第八条、第七条第二款“属于第三条至第六条情形从其规定”的例外；同时“而非免予”“不能仅凭负面清单外”等表述与第六条负面清单外免予、第五条其他免予情形的衔接不完整。故核心报告不能整体评为supported。",
+            "missing_facts": [
+              "业务所属具体行业、出境场景与数据项（用于对照上海2025版负面清单的行业、场景和数据项）",
+              "出境数据是否包含个人信息，是否包含敏感个人信息",
+              "企业是否属于关键信息基础设施运营者；相关数据是否被相关部门、地区告知或公开发布为重要数据",
+              "自当年1月1日起累计向境外提供个人信息（去重自然人）的数量及敏感个人信息数量",
+              "出境目的地国家或地区及境外接收方情况",
+              "是否存在第五条其他免予情形或第六条负面清单外情形",
+              "企业是否属于关键信息基础设施运营者",
+              "相关数据是否被相关部门、地区告知或公开发布为重要数据",
+              "累计向境外提供个人信息及敏感个人信息的数量"
+            ]
+          }
+        },
+        {
+          "step": 8,
+          "verdict": {
+            "status": "unsupported",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "第六条原文确实规定自贸区可制定负面清单，区内数据处理者向境外提供负面清单外数据可免予安全评估、标准合同、认证三项程序。draft将该效果条件化于‘经逐项比对确属上海2025版负面清单之外’，并未直接断言本案可自由出境，与第六条及上海2025版清单说明相符。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "supported",
+                "reason": "第二条原文规定按相关规定识别、申报重要数据，未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估。draft据此说明本案重要数据状态未确认，不能反推为非重要数据，忠实于原文。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "第五条第一款第（四）项及第二款原文均与draft转述一致：非CIIO累计不满10万人非敏感个人信息免予三项程序，且该款个人信息不含重要数据。draft以本案CIIO、敏感及数量未确认作条件性适用，恰当。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 3,
+                "status": "supported",
+                "reason": "第八条原文的量级区间（10万至100万非敏感或不满1万敏感应订立标准合同/认证）及第二款‘属于第三条至第六条情形从其规定’均与draft转述一致，draft据此说明该区间非一律强制合格，正确。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 4,
+                "status": "supported",
+                "reason": "第七条原文的CIIO、重要数据、100万以上非敏感或1万以上敏感应申报安全评估，以及第二款从其规定，均与draft转述一致；draft以CIIO、重要数据、数量门槛未确认作条件判断，忠实于原文。",
+                "missing_facts": []
+              }
+            ],
+            "report_checks": [
+              {
+                "target": "recommended_actions:0",
+                "status": "supported",
+                "reason": "上海2025版负面清单及其说明要求按行业、场景和数据项判断是否落入清单；在材料未明行业场景与数据项时，先取得这些信息再逐项对照是合理前置步骤。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:1",
+                "status": "supported",
+                "reason": "上海2025版负面清单说明明确关键信息基础设施运营者不适用该清单；同时国家规则对CIIO向境外提供个人信息或重要数据设有安全评估要求，并需识别重要数据。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:2",
+                "status": "supported",
+                "reason": "第五条、第六条、第七条、第八条分别规定免予、负面清单外免予、安全评估以及标准合同/认证的适用区间，统计去重人数和敏感个人信息数量是逐档判断的必要步骤。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd",
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "cac_cross_border_data_flow_rules_2024:831451d59b580e98ce9a354d"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:3",
+                "status": "unsupported",
+                "reason": "第六条原文对负面清单外数据明确可以免予申报安全评估、订立标准合同、通过认证；在已可依第六条落在清单外的前提下，再建议完成标准合同备案或认证与该原文不符。合法性基础、告知、影响评估等剩余义务在本组authorities中亦无正式条文支撑。",
+                "quote": "并按需要完成标准合同备案或认证等手续",
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "missing_facts": [],
+                "missing_basis": "《个人信息保护法》关于合法性基础、告知、个人信息保护影响评估的条文（本组authorities未提供）"
+              },
+              {
+                "target": "recommended_actions:4",
+                "status": "supported",
+                "reason": "上海2025版负面清单说明第三点及答记者问均指出，负面清单未涉及的行业、领域数据按国家相关法律法规执行。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55",
+                  "shanghai_free_trade_zone_data_export_negative_list_qna_2024:da195c6ac4c3cdf092fec16c"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:title",
+                "status": "supported",
+                "reason": "冻结材料只载明上海自贸区业务、用户数据出境和需了解负面清单，未载明行业、场景与数据项，无法完成清单比对。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:finding",
+                "status": "supported",
+                "reason": "材料确未说明行业、场景与数据项；第六条将负面清单外数据与免予三项程序直接衔接，因此是否落入清单是判断能否依第六条免予的前置事实。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a",
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:recommended_action",
+                "status": "supported",
+                "reason": "补齐行业、场景与数据项是对照上海2025版负面清单的必要信息，建议与清单要求一致。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:unknowns:0",
+                "status": "supported",
+                "reason": "事实账本与冻结材料均未记录业务所属具体行业。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a"
+                ],
+                "missing_facts": [
+                  "业务所属具体行业"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:unknowns:1",
+                "status": "supported",
+                "reason": "冻结材料未记录具体出境场景。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a"
+                ],
+                "missing_facts": [
+                  "具体出境场景"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:0:unknowns:2",
+                "status": "supported",
+                "reason": "冻结材料仅称用户数据出境，未列明涉及的数据项。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a"
+                ],
+                "missing_facts": [
+                  "涉及的数据项"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:1:title",
+                "status": "supported",
+                "reason": "事实账本中个人信息属性、敏感个人信息、累计数量、CIIO和重要数据状态均未确认。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:1:finding",
+                "status": "supported",
+                "reason": "材料未说明个人信息/敏感个人信息属性、数量、CIIO和重要数据状态；这些事实分别关联第五条、第六条、第七条、第八条的适用，且上海清单明确排除CIIO，故CIIO状态不明会影响清单适用判断。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a",
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd",
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "cac_cross_border_data_flow_rules_2024:831451d59b580e98ce9a354d",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:1:recommended_action",
+                "status": "supported",
+                "reason": "确认个人信息属性、去重人数、敏感个人信息数量、CIIO和重要数据状态，是适用第五至第八条及判断上海清单能否适用的必要步骤。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:1:unknowns:0",
+                "status": "supported",
+                "reason": "事实账本未确认是否含个人信息或敏感个人信息。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a"
+                ],
+                "missing_facts": [
+                  "是否含个人信息或敏感个人信息"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:1:unknowns:1",
+                "status": "supported",
+                "reason": "事实账本未记录累计出境去重人数及敏感个人信息数量。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a"
+                ],
+                "missing_facts": [
+                  "累计出境个人信息去重人数及其中敏感个人信息数量"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:1:unknowns:2",
+                "status": "supported",
+                "reason": "事实账本中ciio_status为unknown。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a"
+                ],
+                "missing_facts": [
+                  "是否为CIIO"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "issues:1:unknowns:3",
+                "status": "supported",
+                "reason": "事实账本中important_data_status为unknown。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_e566d82d7103444a"
+                ],
+                "missing_facts": [
+                  "是否涉及重要数据"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:0",
+                "status": "supported",
+                "reason": "上海2025版负面清单将需纳入安全评估、标准合同或认证管理的数据列为负面清单；国家规定第七条、第八条分别对应重要数据/达量级个人信息的申报安全评估与标准合同或认证程序。该单元采用条件式表述，未断言所有清单内数据一律适用同一程序。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "cac_cross_border_data_flow_rules_2024:831451d59b580e98ce9a354d",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:1",
+                "status": "supported",
+                "reason": "第七条、第八条第二款均明确“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”，故未确认前端分支前不能直接得出必须标准合同或必须安全评估的结论。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "cac_cross_border_data_flow_rules_2024:831451d59b580e98ce9a354d"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:2",
+                "status": "supported",
+                "reason": "上海2025版负面清单说明明确“关键信息基础设施运营者不适用本清单”；国家规定第七条对关键信息基础设施运营者向境外提供个人信息或重要数据另有安全评估要求，故此类主体须回到国家一般规则判断。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:3",
+                "status": "uncertain",
+                "reason": "现有法源仅能证明负面清单外可免予申报安全评估、订立标准合同、通过认证三项程序；所给材料未包含《个人信息保护法》关于告知、合法性基础、影响评估等义务的条文，无法据现有原文核实该“不等于免除其他义务”的结论。",
+                "quote": "免予三项程序不等于免除《个人信息保护法》项下告知、取得合法性基础、影响评估等其他义务",
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "missing_facts": [],
+                "missing_basis": "《个人信息保护法》关于告知、合法性基础、个人信息保护影响评估等义务的条文未提供"
+              },
+              {
+                "target": "risk_boundaries:4",
+                "status": "supported",
+                "reason": "该单元是就现行上海2025版负面清单及国家规定作出的适用时点限定和修订后重新核对的提示，属于条件性、重新评估建议，未创设新的法定义务。",
+                "quote": null,
+                "evidence_ids": [],
+                "missing_facts": [],
+                "missing_basis": null
+              }
+            ],
+            "conclusion_reason": "摘要、路径、结论及触发理由均建立在正确的法源原文上：第六条负面清单外免予、第二条重要数据识别、第五条/第七条/第八条分档均与引文一致；对上海2025版负面清单‘适用于上海市注册且开展数据出境活动的数据处理者、CIIO不适用’的说明明确标注为指引性材料不作条款引用，属忠实处理。材料缺行业场景、数据项、个人信息属性与数量、CIIO与重要数据状态等，报告据此得出‘能否自由出境仍待确认’而未下绝对结论，属有依据的条件性判断，全部核心断言获支持。\n多数核对项与材料缺口及法条原文一致；recommended_actions:3在已可依第六条落在清单外的前提下仍建议完成标准合同备案或认证，与第六条免予后果冲突，且剩余义务缺正式条文依据，故列为unsupported。\n第0、1、2、4项有现行国家规定或上海2025版负面清单文本支撑；第3项因缺少《个人信息保护法》相关条文依据，作不确定处理。\n未获支持的断言：\nrecommended_actions:3「并按需要完成标准合同备案或认证等手续」: 第六条原文对负面清单外数据明确可以免予申报安全评估、订立标准合同、通过认证；在已可依第六条落在清单外的前提下，再建议完成标准合同备案或认证与该原文不符。合法性基础、告知、影响评估等剩余义务在本组authorities中亦无正式条文支撑。\nrisk_boundaries:3「免予三项程序不等于免除《个人信息保护法》项下告知、取得合法性基础、影响评估等其他义务」: 现有法源仅能证明负面清单外可免予申报安全评估、订立标准合同、通过认证三项程序；所给材料未包含《个人信息保护法》关于告知、合法性基础、影响评估等义务的条文，无法据现有原文核实该“不等于免除其他义务”的结论。",
+            "missing_facts": [
+              "业务所属具体行业、出境场景及涉及的具体数据项",
+              "出境数据是否包含个人信息、是否包含敏感个人信息",
+              "企业是否属于关键信息基础设施运营者，相关数据是否被告知或公开发布为重要数据",
+              "自当年1月1日起累计出境个人信息（去重自然人）数量及其中敏感个人信息数量",
+              "出境目的地国家或地区及境外接收方情况",
+              "业务所属具体行业",
+              "具体出境场景",
+              "涉及的数据项",
+              "是否含个人信息或敏感个人信息",
+              "累计出境个人信息去重人数及其中敏感个人信息数量",
+              "是否为CIIO",
+              "是否涉及重要数据"
+            ]
+          }
+        }
+      ],
+      "read_errors": [
+        {
+          "read_request": {
+            "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+            "article_no": null,
+            "chunk_id": "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55",
+            "node_id": null,
+            "parent_node_id": null,
+            "offset": 0
+          },
+          "error": "目标 chunk 已在此前读取窗口中返回；再次读取不会得到新内容。请改用尚未返回的 following_chunk_id/其他 chunk_id，或依据已有证据交付。",
+          "already_returned_chunk_id": "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55",
+          "next_unread_chunk_ids": [
+            "shanghai_free_trade_zone_data_export_negative_list_2025:dd128173a8c6d571b99b54d0"
+          ]
+        }
+      ],
+      "navigation_requests": {
+        "outline": 0,
+        "node": 0,
+        "parent": 0
+      },
+      "verifier_contexts": [
+        {
+          "call_id": 17,
+          "shanghai_list_chunks": [
+            "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+          ]
+        },
+        {
+          "call_id": 20,
+          "shanghai_list_chunks": [
+            "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+          ]
+        },
+        {
+          "call_id": 22,
+          "shanghai_list_chunks": [
+            "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+          ]
+        },
+        {
+          "call_id": 27,
+          "shanghai_list_chunks": [
+            "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+            "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+          ]
+        }
+      ],
+      "decision_summary": "先看上海2025版负面清单（含临港新片区、上海全域），判断出境数据是否在清单内；确属清单外可依《促进和规范数据跨境流动规定》第六条免予三项程序。清单内或清单未覆盖的行业领域，回到三至八条分档：是否免予、是否需标准合同/认证、是否申报安全评估，须逐档核对，且第八条、第七条均保留“属于第三至六条情形从其规定”的例外。材料缺行业场景与个人信息数量，能否自由出境仍待确认。",
+      "legal_path": "上海自贸区（含临港新片区）内、在上海市注册并开展数据出境活动、且不属于关键信息基础设施运营者的数据处理者：第一步，对照上海2025版数据出境负面清单所列行业、场景与数据项，判断拟出境数据是否在清单内；第二步，确属清单外的，依《促进和规范数据跨境流动规定》第六条免予申报安全评估、订立标准合同、通过认证；第三步，落入清单，或行业领域未被清单覆盖的，回到国家一般规则逐档核对：含重要数据或属CIIO的按第七条申报安全评估；非CIIO且不涉重要数据的，按累计出境个人信息（去重自然人）与敏感个人信息数量，分别在第五条、第六条、第七条、第八条的分支中判断免予、标准合同/认证或安全评估，并注意第五条的免予情形、第六条负面清单外免予对第八条、第七条的优先适用（各条第二款均规定属于第三条至第六条情形从其规定）。",
+      "conclusion": "1）先看哪张清单：应看《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》；该清单文本载明适用于在上海市注册且在上海市开展数据出境活动的数据处理者，关键信息基础设施运营者不适用（该表述来自清单说明文本，属指引性材料，不作条款引用，仍应以其正式文本及实施指南核对）。2）清单外的效果：依《促进和规范数据跨境流动规定》第六条，自贸试验区内数据处理者向境外提供负面清单外的数据，可以免予申报安全评估、订立标准合同、通过认证，在这个意义上“较自由出境”成立，但前提是经比对确属清单外。3）清单内或清单未覆盖行业的判断不是简单的三档：非CIIO且不含重要数据、不含敏感个人信息、自当年1月1日起累计出境不满10万人的，依第五条第（四）项免予三项程序；累计10万人以上不满100万人非敏感或者不满1万人敏感的，依第八条应订立标准合同或通过认证，但第八条第二款明确属于第三条至第六条情形的从其规定，因此若该数据确属负面清单外（第六条）或存在第五条其他免予情形，仍可免予；向境外提供重要数据、累计100万人以上非敏感或1万人以上敏感个人信息、或属CIIO向境外提供个人信息/重要数据的，依第七条应申报安全评估，但第七条第二款同样规定属于第三条至第六条情形的从其规定，故是否申报仍须先确认上述前端分支是否成立。4）重要数据维度：依第二条，未被相关部门、地区告知或者公开发布为重要数据的，不需要作为重要数据申报安全评估，本案该状态尚未确认，不能推定为“非重要数据”。5）本案材料仅表明公司在上海自贸区开展业务、涉及用户数据出境、需了解负面清单管理，未说明行业与场景、数据项、是否含个人信息及敏感个人信息、累计数量、CIIO与重要数据状态，故不能直接得出“可以自由出境”的结论。",
+      "expected_should_abstain": true,
+      "expected_outcomes": [
+        "insufficient_evidence"
+      ]
+    }
+  ],
+  "artifact_sha256": {
+    "data/review_runs/navigation_full_rerun_20261019/manifest.json": "a7a9fbcc1dae32b7505ad4ccb6cb2ffc2fb69b320a4e72ddb6a251ddcffe0a33",
+    "data/review_runs/navigation_full_rerun_20261019/model_calls.jsonl": "ec4a3d0d2f7611cdc7ee4a10b78b48abaa8f791c44d8f6d0c6c8c6ad1607601d",
+    "data/review_runs/navigation_full_rerun_20261019/run.py": "4de1705654f24c206af6380254abe278da97225276861251ec83f3d10f489cb3",
+    "data/review_runs/navigation_full_rerun_20261019/status.json": "603544372e192c63d89bb2209d3f6dc4db72625b0e4773d37ce63a5f39f3d8b3",
+    "data/review_runs/navigation_full_rerun_20261019/summary.json": "fe82618e41d15a68698115801a0f87f819a85ee4d0b77dd0a925c13940360f08",
+    "data/review_runs/navigation_full_rerun_20261019/eval_shanghai_001/case.json": "fc36fc8034033bc057943c310de4927f2eb2d6fec130b053818646d4f425e29b",
+    "data/review_runs/navigation_full_rerun_20261019/eval_shanghai_001/events.jsonl": "885f8e618dcb22f15f8af8e54d81ffac686ee52b115c8f9468cbcd4413d57f86",
+    "data/review_runs/navigation_full_rerun_20261019/eval_shanghai_001/judge_input.json": "20e1c3ba7b656754596252e44bbe53da85ab21ec82420645b1f9a8cbf416db23",
+    "data/review_runs/navigation_full_rerun_20261019/eval_shanghai_001/payload.json": "0643f60f3cac2a80f0a798ab30d905a7065c69a6ef95a6de7cb496518f55461e",
+    "data/review_runs/navigation_full_rerun_20261019/eval_shanghai_001/result.json": "05f5d3bdeb137799690202557faecf3e5672f181980e876b6696b2013ae9d04e",
+    "data/review_runs/navigation_full_rerun_20261019/eval_shanghai_001/state.json": "98415606a8406d9e395e53895c79cd61c02aee0d1ae6c7e6349be694510285ae",
+    "data/review_runs/navigation_full_rerun_20261019/eval_standard_contract_003/case.json": "9538f67e50df421efa0414b0daceef80372201c93270c884225ce831f96c69ba",
+    "data/review_runs/navigation_full_rerun_20261019/eval_standard_contract_003/events.jsonl": "24fdcab4cfb21ca0c335b8fea6e5eead08036421924856485d9f9e6fb0cf0295",
+    "data/review_runs/navigation_full_rerun_20261019/eval_standard_contract_003/judge_input.json": "c471664c1c27a0b834a71f2107fc62b63860bed2b49419dd06784f49d141dad9",
+    "data/review_runs/navigation_full_rerun_20261019/eval_standard_contract_003/payload.json": "c10ef45501c5e222031a0958f5c94f1d93eb9e97f993ccc3e590b8ef84ccccc3",
+    "data/review_runs/navigation_full_rerun_20261019/eval_standard_contract_003/result.json": "5027504aded597d205c5129553b8e5475c55a0a16dbf5913fd2449ce84132347",
+    "data/review_runs/navigation_full_rerun_20261019/eval_standard_contract_003/state.json": "867da63047e5688e9736489be02fd5bf3e81c2cfbd090de9ff6d3141fe04173d"
+  }
+}

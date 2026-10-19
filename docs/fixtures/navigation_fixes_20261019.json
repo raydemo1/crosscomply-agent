@@ -1,0 +1,522 @@
+{
+  "publication": {
+    "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+    "corpus_before": "251d3dbba0ac83fe1e36ee590cbee26291aacbd0fd1d6365e466762fbbcbd95d",
+    "raw_pdf_sha256": "d4ccf0e866c8e5922da8031e9e92d02dca068e46802af9b49fb1315a1066fa8a",
+    "source_chunks": 122,
+    "edits": [
+      {
+        "old_chunk_id": "tc260_gbt_35273_2020_pip_security_spec:cbfe76c22234d6a0ed1e8f10",
+        "old_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "5 个人信息的收集",
+          "6"
+        ],
+        "new_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "5 个人信息的收集",
+          "5.6 征得授权同意的例外"
+        ]
+      },
+      {
+        "old_chunk_id": "tc260_gbt_35273_2020_pip_security_spec:1035ea20ab9e7441505ecb25",
+        "old_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "5 个人信息的收集",
+          "个人信息的存储"
+        ],
+        "new_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "6 个人信息的存储"
+        ]
+      },
+      {
+        "old_chunk_id": "tc260_gbt_35273_2020_pip_security_spec:c67d99344224a7f7a5f8de0f",
+        "old_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "5 个人信息的收集",
+          "6.2 去标识化处理"
+        ],
+        "new_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "6 个人信息的存储",
+          "6.2 去标识化处理"
+        ]
+      },
+      {
+        "old_chunk_id": "tc260_gbt_35273_2020_pip_security_spec:aa65aeb269db96cdcf761a45",
+        "old_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "5 个人信息的收集",
+          "6.3"
+        ],
+        "new_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "6 个人信息的存储",
+          "6.3 个人敏感信息的传输和存储"
+        ]
+      },
+      {
+        "old_chunk_id": "tc260_gbt_35273_2020_pip_security_spec:9a2d75c0cd8e9396b63d043e",
+        "old_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "5 个人信息的收集",
+          "6.4 个人信息控制者停止运营"
+        ],
+        "new_path": [
+          "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+          "6 个人信息的存储",
+          "6.4 个人信息控制者停止运营"
+        ]
+      }
+    ],
+    "changed_ids": [
+      [
+        "tc260_gbt_35273_2020_pip_security_spec:cbfe76c22234d6a0ed1e8f10",
+        "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900"
+      ],
+      [
+        "tc260_gbt_35273_2020_pip_security_spec:1035ea20ab9e7441505ecb25",
+        "tc260_gbt_35273_2020_pip_security_spec:0d62161bb66467fd92a28bef"
+      ],
+      [
+        "tc260_gbt_35273_2020_pip_security_spec:c67d99344224a7f7a5f8de0f",
+        "tc260_gbt_35273_2020_pip_security_spec:2aac54d36f2001231beab23f"
+      ],
+      [
+        "tc260_gbt_35273_2020_pip_security_spec:aa65aeb269db96cdcf761a45",
+        "tc260_gbt_35273_2020_pip_security_spec:4897b96967946f6e83aff82a"
+      ],
+      [
+        "tc260_gbt_35273_2020_pip_security_spec:9a2d75c0cd8e9396b63d043e",
+        "tc260_gbt_35273_2020_pip_security_spec:29739e5a34f7c8204905ef34"
+      ]
+    ],
+    "signature": "d89b2872366d91be",
+    "body_hash": "164e0194fedca792554c24ee8dba5bb30e6a58270d07bdd8009f78a5d29f4efd",
+    "collection_chunks": 9,
+    "storage_chunks": 4,
+    "text_changed": false,
+    "citation_eligibility_changed": false,
+    "action": "updated",
+    "generation_id": "9b3beeebdc8a4f9da4b172bc0bff51fc",
+    "embedded_chunks": 0,
+    "cached_chunks": 122,
+    "corpus_after": "813b83548449e69f8b458688ec74d7b07faea52be9c7b283d6e60a2b27f5ff06",
+    "other_sources_unchanged": true
+  },
+  "runtime_verification": {
+    "es_active_source_chunks": 122,
+    "pg_active_source_chunks": 122,
+    "metadata_and_text_match": true,
+    "sections": {
+      "5 个人信息的收集": 9,
+      "6 个人信息的存储": 4
+    },
+    "corpus_chunks": 1832
+  },
+  "corpus_audit": {
+    "sources": 63,
+    "eligible_chunks": 1832,
+    "passed": true
+  },
+  "comparison_results": [
+    {
+      "task_id": "pipl_13",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 7709,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_13",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 7709,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_13",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 14549,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_cross_border",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 8,
+      "returned_chars": 19542,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_cross_border",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 8,
+      "returned_chars": 19542,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_cross_border",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 3,
+      "returned_chars": 9922,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "spec_collection",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 5,
+      "returned_chars": 34120,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:0d62161bb66467fd92a28bef",
+        "tc260_gbt_35273_2020_pip_security_spec:2aac54d36f2001231beab23f",
+        "tc260_gbt_35273_2020_pip_security_spec:4897b96967946f6e83aff82a",
+        "tc260_gbt_35273_2020_pip_security_spec:5e7569929f4e7eed9e3a6e8d"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "spec_collection",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 5,
+      "returned_chars": 34120,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:0d62161bb66467fd92a28bef",
+        "tc260_gbt_35273_2020_pip_security_spec:2aac54d36f2001231beab23f",
+        "tc260_gbt_35273_2020_pip_security_spec:4897b96967946f6e83aff82a",
+        "tc260_gbt_35273_2020_pip_security_spec:5e7569929f4e7eed9e3a6e8d"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "spec_collection",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 3,
+      "returned_chars": 19290,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "spec_sharing",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 6,
+      "returned_chars": 42603,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:7dd2788cfc88e1d148f99c1e",
+        "tc260_gbt_35273_2020_pip_security_spec:ba54fa6e935698c155648936"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "spec_sharing",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 6,
+      "returned_chars": 42603,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:7dd2788cfc88e1d148f99c1e",
+        "tc260_gbt_35273_2020_pip_security_spec:ba54fa6e935698c155648936"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "spec_sharing",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 21693,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_auto",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 15847,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1a99bd2cdb84ff3a04270ea3"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_auto",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 15847,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1a99bd2cdb84ff3a04270ea3"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_auto",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 19416,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_bank",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 33162,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5ddb078eda09c74122333325",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_bank",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 33162,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5ddb078eda09c74122333325",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_bank",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 3,
+      "returned_chars": 31335,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "auto_flow",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 22734,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:76e35b34505964af0ae6de46"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "auto_flow",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 22734,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:76e35b34505964af0ae6de46"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "auto_flow",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 3,
+      "returned_chars": 27330,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "auto_protection",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 22817,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "auto_protection",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 22817,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "auto_protection",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 3,
+      "returned_chars": 27706,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    }
+  ],
+  "verifier_replay": {
+    "model_calls": 1,
+    "shanghai_list_chunks_in_verifier": [
+      "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+      "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+      "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55",
+      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+      "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+    ],
+    "verdict": {
+      "status": "unsupported",
+      "claim_checks": [
+        {
+          "claim_index": 0,
+          "status": "supported",
+          "reason": "《促进和规范数据跨境流动规定》第六条原文与该项关于自贸试验区负面清单制定、备案及清单外数据免予三项程序的表述一致；上海2025版清单说明也确认其作为负面清单适用于在上海市注册并开展数据出境活动的数据处理者（关键信息基础设施运营者除外）。材料事实为上海自贸区业务且涉及数据出境，故“能否自由传取决于是否落入现行负面清单范围”有依据。",
+          "missing_facts": []
+        },
+        {
+          "claim_index": 1,
+          "status": "unsupported",
+          "reason": "该项称“未落入清单但涉及个人信息，仍需核对数量门槛”，与第六条第二款不符：自贸试验区内数据处理者向境外提供负面清单外数据，可以免予申报安全评估、订立标准合同、通过认证；第七条末句也明确“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”。因此清单外涉及个人信息不能直接回到第七条数量门槛。另第七条各触发项为并列备选情形，不是要求同时满足的累积条件。",
+          "missing_facts": []
+        },
+        {
+          "claim_index": 2,
+          "status": "supported",
+          "reason": "该项逐项转述第五条免予情形、关键信息基础设施运营者以外主体不满10万人非敏感个人信息的门槛，并保留“不包括重要数据”的限定，与原文一致；以实际目的、人员范围和人数作为适用前提也属合理条件。",
+          "missing_facts": []
+        },
+        {
+          "claim_index": 3,
+          "status": "supported",
+          "reason": "第二条原文规定数据处理者应识别、申报重要数据，未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估；材料未记载告知或发布情形，故不能推定也不能排除，判断忠实。",
+          "missing_facts": []
+        }
+      ],
+      "report_checks": [],
+      "conclusion_reason": "整体不能评为supported。核心问题在正文第三部分及claim 1：其把“未落入清单但涉及个人信息”仍纳入第七条数量门槛，并称自由传边界为“是否落入清单”加“是否属于重要数据或达到门槛的个人信息”，这与第六条第二款及第七条“属于第六条规定情形的从其规定”的豁免逻辑矛盾。另missing_information将“气象”列为2025版清单场景示例，但给定上海2025清单片段和2024版答记者问仅能支持再保险、国际航运、商贸零售餐饮住宿等，未支持“气象”。摘要中“先看2025版清单”及清单外可免三项程序的部分基本有据，但不能覆盖上述错误。",
+      "missing_facts": [
+        "业务所属行业和具体出境场景，以及是否与2025版负面清单列明的场景对应",
+        "出境数据中是否包含个人信息、敏感个人信息或重要数据",
+        "自当年1月1日起累计向境外提供的个人信息人数及敏感个人信息人数",
+        "公司是否为关键信息基础设施运营者",
+        "数据出境目的地国家或地区及境外接收方"
+      ]
+    },
+    "boundary": "Same frozen report and evidence, updated verifier context/prompt; one replay only."
+  },
+  "focus_recheck": {
+    "case_id": "spec_collection_fixed_live",
+    "kind": "source_seeded_navigation",
+    "finished": true,
+    "turns": 4,
+    "reads": 3,
+    "target_complete": true,
+    "missing_target_chunk_ids": [],
+    "invalid_refs": [],
+    "latency_seconds": 19.817,
+    "boundary": "Real LLM and production read tool; known source supplied; not full production review.",
+    "model_calls": 4
+  },
+  "model_calls": 5,
+  "usage": {
+    "prompt_tokens": 44417,
+    "completion_tokens": 12006,
+    "total_tokens": 56423,
+    "prompt_cache_hit_tokens": 12032,
+    "prompt_cache_miss_tokens": 32385
+  },
+  "changed_production_sha256": {
+    "law_agent/data/normalize.py": "eab5d1adb30fa2e0ade2daa6bfc77fc38401fe51dc59d9c36726fbaa942f0020",
+    "law_agent/review/semantic_grounding.py": "07c973f01219107477a892e84e53e015e43af6b9cef99556f0fa6e7445531936",
+    "law_agent/review/report_grounding.py": "a9508e2bc7b02c221492ecc9914c60a65bfb39c108247316880b69e3dd795c1d"
+  },
+  "artifact_sha256": {
+    "data/review_runs/navigation_fix_20261019/comparison.json": "c136df0527372d584d6bfbd9c8958815a0a1a971acaddaf8a0b92d2daa46f3a4",
+    "data/review_runs/navigation_fix_20261019/native_document.json": "686ae293ff98229a3959b74163abe6bb2bf276ecd0faf53eb8836207cdc1a627",
+    "data/review_runs/navigation_fix_20261019/publication.json": "1ee7f4762911752675b2d618822d918183b45e11c0992930adb491dab129915d",
+    "data/review_runs/navigation_fix_20261019/repair_source.py": "4791d41b9dee4fa464c92e67a9396e0c26b44142cc5d405b586e341354eabf07",
+    "data/review_runs/navigation_fix_20261019/runtime_verification.json": "4106226a61658ad576f27278a7021f8b2fcdbd23c6917078f7514dc6ebbb8f37",
+    "data/review_runs/navigation_fix_20261019/source_preview.json": "bbe343f02e1d38c7efe37d131d7089633aa3b6371caffcc806dabee59b8c8b31",
+    "data/review_runs/navigation_fix_20261019/validate_fix.py": "bc571aa6301c26e5853df44cbb6e68696ac101f1ecdf04f47b83cab723b07845",
+    "data/review_runs/navigation_fix_20261019/model_recheck/focus_calls.jsonl": "48fc2592f08f81a8adf3ffedfcaf599339c31fc90987681458ba49af5808c1a7",
+    "data/review_runs/navigation_fix_20261019/model_recheck/focus_result.json": "3602a3f53c2d91ecb04049e7222712ded54b373cefed53690e1d86fe77f79b49",
+    "data/review_runs/navigation_fix_20261019/model_recheck/verifier_calls.jsonl": "08a5ee3a3008898002356abdd20f5649d35b91a3650d55305dd49281fc27aa5b",
+    "data/review_runs/navigation_fix_20261019/model_recheck/verifier_result.json": "e9f72540e727c97045293833b7fd343d70be43bb91f3293adf5168e4851e47d6",
+    "data/review_runs/navigation_fix_20261019/model_recheck/spec_collection_fixed/task.json": "6b279f326f4e689402242c5ed34eb8fae08fe21b2ac005c59e091d1197752488",
+    "data/review_runs/navigation_fix_20261019/model_recheck/spec_collection_fixed_live/events.jsonl": "13712b03d361044b6942e256970dadb32f5c64dd2e036b3107ca87d17c8b38d7",
+    "data/review_runs/navigation_fix_20261019/model_recheck/spec_collection_fixed_live/result.json": "c79a7b4a4a30899a91a3ef10a84df4f708e85058207a1db850d991e9ad53b126",
+    "data/review_runs/navigation_fix_20261019/model_recheck/spec_collection_fixed_live/state.json": "4b29ae57f8780000b82417eacd5b3f94d4e9e977c4825512627aa633a496e343",
+    "data/review_runs/navigation_fix_20261019/model_recheck/spec_collection_fixed_live/task.json": "a599bf8b02b41fade915cdd571426a8c8ea00a660e044f0f3a543df6d67632b8"
+  }
+}

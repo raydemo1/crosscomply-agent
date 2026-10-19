@@ -1,0 +1,167 @@
+{
+  "as_of_date": "2026-10-19",
+  "corpus_path": "data/corpus/legal_docs_20260702/chunks.jsonl",
+  "corpus_sha256": "813b83548449e69f8b458688ec74d7b07faea52be9c7b283d6e60a2b27f5ff06",
+  "target_definition": "Existing heading membership, not independently adjudicated legal completeness. Paths frozen before navigation implementation.",
+  "tasks": [
+    {
+      "id": "pipl_13",
+      "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+      "title": "中华人民共和国个人信息保护法",
+      "heading": "第十三条",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "target_sha256": {
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32": "fc813f56f921d9b236d3c7756fdb5307303e05f08d99ff0b6c6f9fd3fb3eb134"
+      }
+    },
+    {
+      "id": "pipl_cross_border",
+      "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+      "title": "中华人民共和国个人信息保护法",
+      "heading": "第三章　个人信息跨境提供的规则",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:22c6e44262a26b77a3b88405",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:58aad163f93346ed70478bd5",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:dce3bbcf7f1e4c40bbe4b770",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:5abea5894361bd089e99e52a",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:78f554441f575c6e8c17dbd3"
+      ],
+      "target_sha256": {
+        "flk_npc_ff8081817b6472a3017b656cc2040044:22c6e44262a26b77a3b88405": "451fbeb234e8435325fc662d728cd999fe62da659577779e5aba72959d345aea",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06": "9adcf81de80dd7e15107fc25b7e631cc63f2a3f669c9beb0a0f1e141b67e20b2",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:58aad163f93346ed70478bd5": "93061cb4f03d277c874aaae9adcfbb9b970afe109defebbe0a4e17e04a2e4c6b",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:dce3bbcf7f1e4c40bbe4b770": "0b12424319548498676e956244b105e8548b2c9176c5dd270f8b1e72c6683a8a",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:5abea5894361bd089e99e52a": "a2c5764525d9551ad9e4eb40c4016a91c80f8ac71fb9483d356068f4c7ef717e",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:78f554441f575c6e8c17dbd3": "c053ebd4bfb55905fb6a80c60ca9fb0b68cf66399232aa748ea3001dffaf8805"
+      }
+    },
+    {
+      "id": "spec_collection",
+      "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+      "title": "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+      "heading": "5 个人信息的收集",
+      "target_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:c53ab546574ede4eea74f0ad",
+        "tc260_gbt_35273_2020_pip_security_spec:fb91ab16ce05f9a3d20c3ada",
+        "tc260_gbt_35273_2020_pip_security_spec:0b7e59e2040fdefcb1f24ed6",
+        "tc260_gbt_35273_2020_pip_security_spec:bf2e93bd32d54c59dd95d6ae",
+        "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb",
+        "tc260_gbt_35273_2020_pip_security_spec:7e4f553ceed9d7b58786b3b4",
+        "tc260_gbt_35273_2020_pip_security_spec:ad55222c5dcbd9503f946b77",
+        "tc260_gbt_35273_2020_pip_security_spec:079c4bc4bffa8ecaaf91115c",
+        "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900"
+      ],
+      "target_sha256": {
+        "tc260_gbt_35273_2020_pip_security_spec:c53ab546574ede4eea74f0ad": "700741f8a582f27741c99525af0cc5ac7c7e5b1b1f07e6a2ee39a78aaa60c583",
+        "tc260_gbt_35273_2020_pip_security_spec:fb91ab16ce05f9a3d20c3ada": "0c8720da162ec93ccf36fdf1c584ad6de7b6acef4a0a63c32d8a98851f5a7dca",
+        "tc260_gbt_35273_2020_pip_security_spec:0b7e59e2040fdefcb1f24ed6": "a70c5831db690c13084e5553939434e0ae1706fcb1ae0bc1dcd911f414ae812a",
+        "tc260_gbt_35273_2020_pip_security_spec:bf2e93bd32d54c59dd95d6ae": "a726677fe25bcf60888fced5d614c9e5f8bcb09f8ca7621dae367313b51464b9",
+        "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb": "6b37712c4be67d77c8e3ccac1b4321f4fbeadae7576037fca953af905ab39e28",
+        "tc260_gbt_35273_2020_pip_security_spec:7e4f553ceed9d7b58786b3b4": "f7d34a5c33ccce0f8794ad2cb8062ca2603611e597676e78370c8afa937a4c90",
+        "tc260_gbt_35273_2020_pip_security_spec:ad55222c5dcbd9503f946b77": "119208100100983c287c995f0746a94124a05a2e9a2da50ee9c7441afa600769",
+        "tc260_gbt_35273_2020_pip_security_spec:079c4bc4bffa8ecaaf91115c": "364f9681f632cd7c7ffaa8662035daa597400a564c4e3947a09f6bf494a434d2",
+        "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900": "c67d77ec2be6d16bd7f40e6167ff07b626023595d6617917bcd0114a992fe363"
+      }
+    },
+    {
+      "id": "spec_sharing",
+      "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+      "title": "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+      "heading": "9 个人信息的委托处理、共享、转让、公开披露",
+      "target_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:da3bf133eabafbbd8dc2d770",
+        "tc260_gbt_35273_2020_pip_security_spec:e31fe0078517db62069d5a13",
+        "tc260_gbt_35273_2020_pip_security_spec:d248e2da59fa2fe28a82ea42",
+        "tc260_gbt_35273_2020_pip_security_spec:7f170aa29b955e7604535560",
+        "tc260_gbt_35273_2020_pip_security_spec:1669b1eed13805b13c8238b6",
+        "tc260_gbt_35273_2020_pip_security_spec:62f6b39ff032eb94790bbacc",
+        "tc260_gbt_35273_2020_pip_security_spec:9a1ef258a997a41a0b49a1ee",
+        "tc260_gbt_35273_2020_pip_security_spec:90bac4882d1b02ad89214a67",
+        "tc260_gbt_35273_2020_pip_security_spec:acb00dbb5c1e2fc0feb0cf72",
+        "tc260_gbt_35273_2020_pip_security_spec:5a1fc70e6f1b1127644c104a",
+        "tc260_gbt_35273_2020_pip_security_spec:d5663c19617087d625816220"
+      ],
+      "target_sha256": {
+        "tc260_gbt_35273_2020_pip_security_spec:da3bf133eabafbbd8dc2d770": "7435cf22eb59c232206fbe3a5fbede0e723c5f43db407e778f60657bcdab3a8e",
+        "tc260_gbt_35273_2020_pip_security_spec:e31fe0078517db62069d5a13": "21576c17162f3020a1ad44be57a683127451fa22145f3e323ec760153f5752cc",
+        "tc260_gbt_35273_2020_pip_security_spec:d248e2da59fa2fe28a82ea42": "c9bac9e2033e3b8dc11954cabd096e2db6d568eff61c9f2fb29d0484bf683c8a",
+        "tc260_gbt_35273_2020_pip_security_spec:7f170aa29b955e7604535560": "db8cb162b88b1fc727564997f4e432bb13b984688e7b4520cd408abb21af036b",
+        "tc260_gbt_35273_2020_pip_security_spec:1669b1eed13805b13c8238b6": "cc4cefd60f4450f0cb18717a096a530328f6f77c7384dcafc1a947eef1e66344",
+        "tc260_gbt_35273_2020_pip_security_spec:62f6b39ff032eb94790bbacc": "e3d5d279214789ee34ee135c837a8124be3d2e365675f5d08afd4f1c74690fcc",
+        "tc260_gbt_35273_2020_pip_security_spec:9a1ef258a997a41a0b49a1ee": "b9e0762d4185aabd746ac0215c15157ff32577f1abd2c7ad7f15db468bef7bca",
+        "tc260_gbt_35273_2020_pip_security_spec:90bac4882d1b02ad89214a67": "dde34ae97a35524c87ee803ee2d1fc139e5a35e28062bec9e6db79f4092779a3",
+        "tc260_gbt_35273_2020_pip_security_spec:acb00dbb5c1e2fc0feb0cf72": "91a1f4f263c3df69d57419d4ec08e7b0037f175f5ca1c09460d2cccf92ad82c9",
+        "tc260_gbt_35273_2020_pip_security_spec:5a1fc70e6f1b1127644c104a": "4d0aa0b7c3685f10eed8c255f30afdccad53fb91a0970fbff062ab8584f4dd7a",
+        "tc260_gbt_35273_2020_pip_security_spec:d5663c19617087d625816220": "2f9d4963ca83ad5631d91dfcd3320523235eb72be590d29064a84d95cdc32c03"
+      }
+    },
+    {
+      "id": "beijing_auto",
+      "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+      "title": "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+      "heading": "一、汽车行业",
+      "target_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:78ee310b683a760e249e0d67",
+        "beijing_free_trade_zone_data_export_negative_list_2025:15dbb3c0d9294ccca75ad61e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:3f48672e3e1d130342fce853"
+      ],
+      "target_sha256": {
+        "beijing_free_trade_zone_data_export_negative_list_2025:78ee310b683a760e249e0d67": "37d394e5822ce531343c9165b4a69adaf1ac00abdfbd9e13a3a45ab0a386ac6d",
+        "beijing_free_trade_zone_data_export_negative_list_2025:15dbb3c0d9294ccca75ad61e": "929457fcbb760a3f1c555a23e2bf5ddddbcd38decc8b0165e64fc01f9cffe4c9",
+        "beijing_free_trade_zone_data_export_negative_list_2025:3f48672e3e1d130342fce853": "3fda8889548da3c3ef70e11950c5f132bcf4e7893ca09ce4598e988c7baa44ad"
+      }
+    },
+    {
+      "id": "beijing_bank",
+      "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+      "title": "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+      "heading": "九、银行业",
+      "target_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:f96b76945e3f1cb5fca493a9"
+      ],
+      "target_sha256": {
+        "beijing_free_trade_zone_data_export_negative_list_2025:f96b76945e3f1cb5fca493a9": "e002c02af3f6a3c724856abcd8de97791b4ac613fa11d3a68e2bc7dd67c8622e"
+      }
+    },
+    {
+      "id": "auto_flow",
+      "source_id": "cac_automotive_data_export_security_guide_2026",
+      "title": "汽车数据出境安全指引（2026版）",
+      "heading": "三、数据出境流程",
+      "target_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:74228be944600c1ba9a8dcbe",
+        "cac_automotive_data_export_security_guide_2026:2d1a273a4eb0d5f9e33ddd35",
+        "cac_automotive_data_export_security_guide_2026:a4c3a8d634c900843d55d05a",
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "target_sha256": {
+        "cac_automotive_data_export_security_guide_2026:74228be944600c1ba9a8dcbe": "288e2661cc4f32d0f30efc90cb12e39c421d38b9a3f3ea887d3eb32a19816418",
+        "cac_automotive_data_export_security_guide_2026:2d1a273a4eb0d5f9e33ddd35": "d1b70617c9232e2e859b7a798b96cfa250c7a96c5030ccfdd56f9c5dd1bd9db6",
+        "cac_automotive_data_export_security_guide_2026:a4c3a8d634c900843d55d05a": "e9073810489917992e1d1480a417798b050889451d4da24503d02799f3cfda38",
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457": "71a24d9c24944eb9a29b388c98b5fbc92a2b435b52e62e51d5c2fe2b67bc6bf8"
+      }
+    },
+    {
+      "id": "auto_protection",
+      "source_id": "cac_automotive_data_export_security_guide_2026",
+      "title": "汽车数据出境安全指引（2026版）",
+      "heading": "四、汽车数据出境安全保护要求",
+      "target_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90",
+        "cac_automotive_data_export_security_guide_2026:42adeaf4b3c95f5f0e236366",
+        "cac_automotive_data_export_security_guide_2026:bfbe4780aefaf6971d7fe3b7",
+        "cac_automotive_data_export_security_guide_2026:11f7056465b9111d2888789f"
+      ],
+      "target_sha256": {
+        "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90": "d9ad876cc3967eb35acae1fd0a1378d21259ada8a0f5e150094ee56f7e59a031",
+        "cac_automotive_data_export_security_guide_2026:42adeaf4b3c95f5f0e236366": "2dd3d0264dadc2c64c9d5cba14913610b7b200a727742b75032d97f546ff4be1",
+        "cac_automotive_data_export_security_guide_2026:bfbe4780aefaf6971d7fe3b7": "f6e0ba4403f4636fba75ff8608c435e72c802f94057cb43ace6d693cd0bfdf77",
+        "cac_automotive_data_export_security_guide_2026:11f7056465b9111d2888789f": "a29f0a50a88644427bd9abb6fb722759c85695d28bc6ca5c19ab6a3081db6aaa"
+      }
+    }
+  ],
+  "previous_manifest_sha256": "3b686a835bb8186f91975bc5af5d28ab6ba6121aadd7c990ac0198f562aa5853"
+}

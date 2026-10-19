@@ -1,0 +1,631 @@
+{
+  "corpus_sha256": "251d3dbba0ac83fe1e36ee590cbee26291aacbd0fd1d6365e466762fbbcbd95d",
+  "tasks_sha256": "3b686a835bb8186f91975bc5af5d28ab6ba6121aadd7c990ac0198f562aa5853",
+  "as_of_date": "2026-10-19",
+  "audit": {
+    "sources": 63,
+    "eligible_chunks": 1832,
+    "all_owned_once": true,
+    "all_nodes_reachable": true,
+    "preview_hits": 0,
+    "section_errors": []
+  },
+  "results": [
+    {
+      "task_id": "pipl_13",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 7709,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_13",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 7709,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_13",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 14549,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_cross_border",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 8,
+      "returned_chars": 19542,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_cross_border",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 8,
+      "returned_chars": 19542,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "pipl_cross_border",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 3,
+      "returned_chars": 9922,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "spec_collection",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 6,
+      "returned_chars": 40110,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:5e7569929f4e7eed9e3a6e8d",
+        "tc260_gbt_35273_2020_pip_security_spec:c76753e9651f4c6baf2cd065",
+        "tc260_gbt_35273_2020_pip_security_spec:c854e5730dcfde47e65787e3",
+        "tc260_gbt_35273_2020_pip_security_spec:c923b43f55b322d4093e6975"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "spec_collection",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 6,
+      "returned_chars": 40110,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:5e7569929f4e7eed9e3a6e8d",
+        "tc260_gbt_35273_2020_pip_security_spec:c76753e9651f4c6baf2cd065",
+        "tc260_gbt_35273_2020_pip_security_spec:c854e5730dcfde47e65787e3",
+        "tc260_gbt_35273_2020_pip_security_spec:c923b43f55b322d4093e6975"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "spec_collection",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 23195,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "spec_sharing",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 6,
+      "returned_chars": 42603,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:7dd2788cfc88e1d148f99c1e",
+        "tc260_gbt_35273_2020_pip_security_spec:ba54fa6e935698c155648936"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "spec_sharing",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 6,
+      "returned_chars": 42603,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:7dd2788cfc88e1d148f99c1e",
+        "tc260_gbt_35273_2020_pip_security_spec:ba54fa6e935698c155648936"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "spec_sharing",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 21253,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_auto",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 15847,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1a99bd2cdb84ff3a04270ea3"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_auto",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 15847,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1a99bd2cdb84ff3a04270ea3"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_auto",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 2,
+      "returned_chars": 19416,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_bank",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 33162,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5ddb078eda09c74122333325",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_bank",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 33162,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5ddb078eda09c74122333325",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "beijing_bank",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 3,
+      "returned_chars": 31335,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "auto_flow",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 22734,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:76e35b34505964af0ae6de46"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "auto_flow",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 22734,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:76e35b34505964af0ae6de46"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "auto_flow",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 3,
+      "returned_chars": 27330,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    },
+    {
+      "task_id": "auto_protection",
+      "arm": "flat",
+      "budget": 8,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 22817,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "auto_protection",
+      "arm": "flat",
+      "budget": 10,
+      "complete": true,
+      "requests": 4,
+      "returned_chars": 22817,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "errors": []
+    },
+    {
+      "task_id": "auto_protection",
+      "arm": "tree",
+      "budget": 10,
+      "complete": true,
+      "requests": 3,
+      "returned_chars": 27706,
+      "missing_target_chunk_ids": [],
+      "extra_chunk_ids": [],
+      "errors": []
+    }
+  ],
+  "history_counts": {
+    "source_discovered_target_not_returned": 5,
+    "insufficient_record": 5,
+    "text_returned_with_reviewed_error": 2,
+    "text_returned": 1
+  },
+  "history": [
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/A/agent_hr_exception_missing_001",
+      "variant": "A",
+      "case_id": "agent_hr_exception_missing_001",
+      "state_status": "completed",
+      "state_sha256": "80a2200ec9b8f6cc47108c35db95356f01572b8d5411ec0f3c6204e4ce21e4ff",
+      "verifier_sha256": "99ff076a5ae3e3ffe3d0fa9cf116bd1108e83edd1a760f74e5906358de09fbed",
+      "target_basis": "PIPL article 13; prior offline assessment",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "source_discovery_steps": [
+        10
+      ],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "source_discovered_target_not_returned",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/A/agent_small_sensitive_001",
+      "variant": "A",
+      "case_id": "agent_small_sensitive_001",
+      "state_status": "completed",
+      "state_sha256": "60463419224d5a2fe6387bdac81c8fe06c743c000cc7ceeac9a4f7713fae6c43",
+      "verifier_sha256": "28523eb10a2d7b5c0b8720c0366d0a4a44803a2bc7da6546e3218b04a2d3f0b0",
+      "target_basis": null,
+      "target_chunk_ids": [],
+      "source_discovery_steps": [],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "insufficient_record",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/A/eval_standard_contract_003",
+      "variant": "A",
+      "case_id": "eval_standard_contract_003",
+      "state_status": "completed",
+      "state_sha256": "8192dabc885ea823a7b51e3142c7fe72fe039548a1c5f82701674d589d6b0c89",
+      "verifier_sha256": "33b852ef7422b573b19a3768c4bd40374096b50a16564230310684d4707aea6c",
+      "target_basis": "PIPL article 13; prior offline assessment",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "source_discovery_steps": [
+        4,
+        5
+      ],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "source_discovered_target_not_returned",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/A/holdout_foreign_origin_001",
+      "variant": "A",
+      "case_id": "holdout_foreign_origin_001",
+      "state_status": "completed",
+      "state_sha256": "917a59d94476b36a90c2188139260bf33061c421f38546e290f303978fc11fc5",
+      "verifier_sha256": "6844b836ee0d9f4ab65d9112d548fe1935aa14a1eaa07dc5240779ce8fbab412",
+      "target_basis": null,
+      "target_chunk_ids": [],
+      "source_discovery_steps": [],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "insufficient_record",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/A/holdout_personal_booking_001",
+      "variant": "A",
+      "case_id": "holdout_personal_booking_001",
+      "state_status": "completed",
+      "state_sha256": "665ba8f5cf498fda4384bfbb644f4ebd4fd340a7bdccefc95987eebe701615d7",
+      "verifier_sha256": "e73a91fbdf51c4df981d317f1019c28fb70f964693e709f43efe856a4d01f7fc",
+      "target_basis": "PIPL article 13; prior offline assessment",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "source_discovery_steps": [
+        4
+      ],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "source_discovered_target_not_returned",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/B/agent_hr_exception_missing_001",
+      "variant": "B",
+      "case_id": "agent_hr_exception_missing_001",
+      "state_status": "completed",
+      "state_sha256": "bd895fe6031ec01fefc013f78e109287b0798d32c2a34ca1e45afb49f3b17307",
+      "verifier_sha256": "242b98488dccaba8ba18464a5fd8bbb086a8e8fe871e08427e1659bd0c1436d5",
+      "target_basis": "PIPL article 13; prior offline assessment",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "source_discovery_steps": [
+        6,
+        7
+      ],
+      "target_returned_steps": [
+        7
+      ],
+      "verifier_target_calls": [
+        {
+          "line": 1,
+          "at": "2026-10-09T16:48:45.727600+00:00",
+          "target_chunk_ids": [
+            "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+          ]
+        }
+      ],
+      "category": "text_returned_with_reviewed_error",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/B/agent_small_sensitive_001",
+      "variant": "B",
+      "case_id": "agent_small_sensitive_001",
+      "state_status": "running",
+      "state_sha256": "6c08f9be9a5712e213061d27a6136a229bf6446a8c358a93bca21129f8fce5b3",
+      "verifier_sha256": null,
+      "target_basis": null,
+      "target_chunk_ids": [],
+      "source_discovery_steps": [],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "insufficient_record",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/B/eval_standard_contract_003",
+      "variant": "B",
+      "case_id": "eval_standard_contract_003",
+      "state_status": "completed",
+      "state_sha256": "9571fd7a3589fa6324da41ee83cf47d9d8fd4765de9ed51b4259a2f72a788908",
+      "verifier_sha256": "e155ed44d8aee6c1c8673539b461fdee92467908adfe6be200cd91393494e5b1",
+      "target_basis": "PIPL article 13; prior offline assessment",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "source_discovery_steps": [
+        10
+      ],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "source_discovered_target_not_returned",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/B/holdout_foreign_origin_001",
+      "variant": "B",
+      "case_id": "holdout_foreign_origin_001",
+      "state_status": "completed",
+      "state_sha256": "ee97089df34fcbe8805ead573ea602bffde717181045b1458ff3fe4c7198fb30",
+      "verifier_sha256": "e23ebfb065f876fe1bb19b5896c60d2872460297bc1c78e13b221c241af4b3a1",
+      "target_basis": null,
+      "target_chunk_ids": [],
+      "source_discovery_steps": [],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "insufficient_record",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010/B/holdout_personal_booking_001",
+      "variant": "B",
+      "case_id": "holdout_personal_booking_001",
+      "state_status": "completed",
+      "state_sha256": "f9494a348ee84861a6f2f901c5db35ea318811dd851f0343152fcb6d6eb2c4a7",
+      "verifier_sha256": "11a76041d9a6372edaf6af9c3f42d1ba582a37c997747d981f4ab140969783fb",
+      "target_basis": "PIPL article 13; prior offline assessment",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "source_discovery_steps": [
+        4,
+        5
+      ],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "source_discovered_target_not_returned",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010_continuation/A/ab_hr_count_invariance_001",
+      "variant": "A",
+      "case_id": "ab_hr_count_invariance_001",
+      "state_status": "completed",
+      "state_sha256": "07847411fbde2b62b6046028b6ea747cade2457c10384cf61c32deec45def1e6",
+      "verifier_sha256": "eaa64d9f56c998498090a2b3f3f6ad2a836461dbc463e0100ad881b7b42874df",
+      "target_basis": "PIPL article 13; prior offline assessment",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "source_discovery_steps": [
+        4,
+        5,
+        8,
+        9,
+        10,
+        13
+      ],
+      "target_returned_steps": [
+        10
+      ],
+      "verifier_target_calls": [
+        {
+          "line": 2,
+          "at": "2026-10-09T17:00:07.234407+00:00",
+          "target_chunk_ids": [
+            "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+          ]
+        },
+        {
+          "line": 3,
+          "at": "2026-10-09T17:00:25.014479+00:00",
+          "target_chunk_ids": [
+            "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+          ]
+        },
+        {
+          "line": 4,
+          "at": "2026-10-09T17:00:43.308222+00:00",
+          "target_chunk_ids": [
+            "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+          ]
+        }
+      ],
+      "category": "text_returned_with_reviewed_error",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010_continuation/B/ab_hr_count_invariance_001",
+      "variant": "B",
+      "case_id": "ab_hr_count_invariance_001",
+      "state_status": "completed",
+      "state_sha256": "ca963d71886ab9881e4d5072269c90f9f2184f1827f2c80f4dd4029972824e04",
+      "verifier_sha256": "36382ff32dd2634b1015d381909ce5e46b22cb02d69ae5aa65dbeb331d7a8162",
+      "target_basis": "PIPL article 13; prior offline assessment",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "source_discovery_steps": [
+        5,
+        8,
+        9
+      ],
+      "target_returned_steps": [
+        8,
+        9
+      ],
+      "verifier_target_calls": [
+        {
+          "line": 1,
+          "at": "2026-10-09T17:01:24.866931+00:00",
+          "target_chunk_ids": [
+            "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+          ]
+        }
+      ],
+      "category": "text_returned",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    },
+    {
+      "artifact_dir": "data/review_runs/agent_ab_20261010_continuation/B/agent_small_sensitive_001",
+      "variant": "B",
+      "case_id": "agent_small_sensitive_001",
+      "state_status": "completed",
+      "state_sha256": "8dd1cf1997d55835c4595d20eaf1f019ce79e12b4932805ea1a16aa81dd23997",
+      "verifier_sha256": "411ad1c5ed5e120676793257577aa21b85d2ed30502cfeec1356692a0a437f92",
+      "target_basis": null,
+      "target_chunk_ids": [],
+      "source_discovery_steps": [],
+      "target_returned_steps": [],
+      "verifier_target_calls": [],
+      "category": "insufficient_record",
+      "unmatched_chunk_ids": [],
+      "text_mismatches": []
+    }
+  ],
+  "raw_artifacts": {
+    "data/review_runs/navigation_20261019/comparison.json": "9501e974687af7aeca741ed9947759c18f5b596cbefc32224cce2b0f8720668f",
+    "data/review_runs/navigation_20261019/history_analysis.json": "a2479e6fadc7def8aa46fd4d8b5ede2df9611deebda7bc6efe0c01ff42069dc3",
+    "data/review_runs/navigation_20261019/history_baseline.json": "5aa4f952cf1c5f02a30d82e848e4664b5b12754e9351f998dd95c7378aa6c98e"
+  },
+  "limits": [
+    "Scripted known-target navigation; no LLM, search, or legal accuracy evaluation. Targets cover existing heading membership only. returned_chars counts compact JSON Unicode characters, not tokens or billing.",
+    "Article 13 targets only for previously reviewed consent issues; other cases remain unattributed. Prior findings are AI review, not expert labels. Returned text does not prove it survived every model context projection."
+  ]
+}

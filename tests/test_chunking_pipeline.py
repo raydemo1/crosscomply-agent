@@ -1,5 +1,31 @@
 from law_agent.data.chunking.pipeline import chunk_document, should_chunk_as_law
+from law_agent.data.chunking.structured import split_heading_units
 from law_agent.data.schemas import Document, IngestMeta
+
+
+def test_numeric_table_fragments_do_not_end_chinese_industry_section():
+    text = (
+        "一、汽车行业\n（一）安全评估清单\n1 重要数据\n车辆数据描述\n"
+        "3 础设施网络安全保护情况，可被利用从\n表格续行\n"
+        "（二）标准合同清单\n100 万人以上个人信息（不含敏感个人\n表格续行\n"
+        "二、银行业\n（一）安全评估清单\n1000 万人以上的个人客户\n表格续行"
+    )
+    units = split_heading_units(text)
+    auto = [unit for unit in units if "汽车行业" in unit.text or "表格续行" in unit.text and "银行业" not in " ".join(unit.heading_path)]
+    assert auto
+    assert all(unit.heading_path[0] == "一、汽车行业" for unit in auto)
+    assert any(unit.heading_path[:2] == ["一、汽车行业", "（二）标准合同清单"] for unit in units)
+    assert units[-1].heading_path[:2] == ["二、银行业", "（一）安全评估清单"]
+    assert all(line in "\n".join(unit.text for unit in units) for line in text.splitlines())
+
+
+def test_short_industry_heading_is_not_merged_into_previous_industry():
+    chunks = chunk_document(_document(text=(
+        "六、医疗器械行业\n" + "上一行业正文" * 30 + "\n七、自动驾驶行业（智能网联汽车）\n"
+        "（一）安全评估清单\n" + "下一行业正文" * 100
+    )))
+    assert any(c.heading_path[1] == "七、自动驾驶行业（智能网联汽车）" for c in chunks)
+    assert not any("七、自动驾驶行业" in c.text and c.heading_path[1] == "六、医疗器械行业" for c in chunks)
 
 
 def _document(**overrides: object) -> Document:

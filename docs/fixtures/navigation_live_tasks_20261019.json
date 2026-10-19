@@ -1,0 +1,350 @@
+{
+  "frozen_at": "2026-10-19T12:46:35.382364+00:00",
+  "as_of_date": "2026-10-19",
+  "corpus_path": "data/corpus/legal_docs_20260702/chunks.jsonl",
+  "corpus_sha256": "813b83548449e69f8b458688ec74d7b07faea52be9c7b283d6e60a2b27f5ff06",
+  "previous_fixture_sha256": "1e93f3ad4cf0464a653e568d5fba58a69e222a064bef4f532fbb418cdc3426de",
+  "tasks": [
+    {
+      "id": "pipl_13",
+      "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+      "title": "中华人民共和国个人信息保护法",
+      "heading": "第十三条",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32"
+      ],
+      "target_sha256": {
+        "flk_npc_ff8081817b6472a3017b656cc2040044:96efd25f0bcbe52930a20a32": "fc813f56f921d9b236d3c7756fdb5307303e05f08d99ff0b6c6f9fd3fb3eb134"
+      },
+      "question": "阅读《个人信息保护法》第十三条的完整原文，概括处理个人信息的合法性基础及该条的同意规则。",
+      "target_index_range": [
+        13,
+        13
+      ],
+      "boundary_audit": {
+        "basis": "Manual check of ordered governed full text and next section boundary; not heading membership alone",
+        "first_text": "第十三条　符合下列情形之一的，个人信息处理者方可处理个人信息：\n（一）取得个人的同意；\n（二）为订立、履行个人作为一方当事人的合同所必需，或者按照依法制定的劳动规章制度和依法签订的集体合同实施人力资源管理所必需；\n（三）为履行法定职责或者法定义务所必需；\n（四）为应对突发公共卫生事件，或者紧急情况下为保护自然人的生命健康和财产安全所必需；\n（五）为公共利益实",
+        "last_text": "，或者紧急情况下为保护自然人的生命健康和财产安全所必需；\n（五）为公共利益实施新闻报道、舆论监督等行为，在合理的范围内处理个人信息；\n（六）依照本法规定在合理的范围内处理个人自行公开或者其他已经合法公开的个人信息；\n（七）法律、行政法规规定的其他情形。\n依照本法其他有关规定，处理个人信息应当取得个人同意，但是有前款第二项至第七项规定情形的，不需取得个人同意。",
+        "previous_text": "第十二条　国家积极参与个人信息保护国际规则的制定，促进个人信息保护方面的国际交流与合作，推动与其他国家、地区、国际组织之间的个人信息保护规则、标准等互认。",
+        "next_text": "第十四条　基于个人同意处理个人信息的，该同意应当由个人在充分知情的前提下自愿、明确作出。法律、行政法规规定处理个人信息应当取得个人单独同意或者书面同意的，从其规定。\n个人信息的处理目的、处理方式和处理的个人信息种类发生变更的，应当重新取得个人同意。",
+        "upstream_defect": null,
+        "changed_from_previous_target": false
+      },
+      "arm_order": [
+        "flat",
+        "tree"
+      ]
+    },
+    {
+      "id": "pipl_cross_border",
+      "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+      "title": "中华人民共和国个人信息保护法",
+      "heading": "第三章　个人信息跨境提供的规则",
+      "target_chunk_ids": [
+        "flk_npc_ff8081817b6472a3017b656cc2040044:22c6e44262a26b77a3b88405",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:58aad163f93346ed70478bd5",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:dce3bbcf7f1e4c40bbe4b770",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:5abea5894361bd089e99e52a",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:78f554441f575c6e8c17dbd3"
+      ],
+      "target_sha256": {
+        "flk_npc_ff8081817b6472a3017b656cc2040044:22c6e44262a26b77a3b88405": "451fbeb234e8435325fc662d728cd999fe62da659577779e5aba72959d345aea",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:3ce6dfcee279545bc607ff06": "9adcf81de80dd7e15107fc25b7e631cc63f2a3f669c9beb0a0f1e141b67e20b2",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:58aad163f93346ed70478bd5": "93061cb4f03d277c874aaae9adcfbb9b970afe109defebbe0a4e17e04a2e4c6b",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:dce3bbcf7f1e4c40bbe4b770": "0b12424319548498676e956244b105e8548b2c9176c5dd270f8b1e72c6683a8a",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:5abea5894361bd089e99e52a": "a2c5764525d9551ad9e4eb40c4016a91c80f8ac71fb9483d356068f4c7ef717e",
+        "flk_npc_ff8081817b6472a3017b656cc2040044:78f554441f575c6e8c17dbd3": "c053ebd4bfb55905fb6a80c60ca9fb0b68cf66399232aa748ea3001dffaf8805"
+      },
+      "question": "完整阅读《个人信息保护法》中个人信息跨境提供的规则这一章，概括各项规则、条件和例外。",
+      "target_index_range": [
+        38,
+        43
+      ],
+      "boundary_audit": {
+        "basis": "Manual check of ordered governed full text and next section boundary; not heading membership alone",
+        "first_text": "第三十八条　个人信息处理者因业务等需要，确需向中华人民共和国境外提供个人信息的，应当具备下列条件之一：\n（一）依照本法第四十条的规定通过国家网信部门组织的安全评估；\n（二）按照国家网信部门的规定经专业机构进行个人信息保护认证；\n（三）按照国家网信部门制定的标准合同与境外接收方订立合同，约定双方的权利和义务；\n（四）法律、行政法规或者国家网信部门规定的其他条件",
+        "last_text": "第四十三条　任何国家或者地区在个人信息保护方面对中华人民共和国采取歧视性的禁止、限制或者其他类似措施的，中华人民共和国可以根据实际情况对该国家或者地区对等采取措施。",
+        "previous_text": "第三十七条　法律、法规授权的具有管理公共事务职能的组织为履行法定职责处理个人信息，适用本法关于国家机关处理个人信息的规定。",
+        "next_text": "第四十四条　个人对其个人信息的处理享有知情权、决定权，有权限制或者拒绝他人对其个人信息进行处理；法律、行政法规另有规定的除外。",
+        "upstream_defect": null,
+        "changed_from_previous_target": false
+      },
+      "arm_order": [
+        "tree",
+        "flat"
+      ]
+    },
+    {
+      "id": "spec_collection",
+      "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+      "title": "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+      "heading": "5 个人信息的收集",
+      "target_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:c53ab546574ede4eea74f0ad",
+        "tc260_gbt_35273_2020_pip_security_spec:fb91ab16ce05f9a3d20c3ada",
+        "tc260_gbt_35273_2020_pip_security_spec:0b7e59e2040fdefcb1f24ed6",
+        "tc260_gbt_35273_2020_pip_security_spec:bf2e93bd32d54c59dd95d6ae",
+        "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb",
+        "tc260_gbt_35273_2020_pip_security_spec:7e4f553ceed9d7b58786b3b4",
+        "tc260_gbt_35273_2020_pip_security_spec:ad55222c5dcbd9503f946b77",
+        "tc260_gbt_35273_2020_pip_security_spec:079c4bc4bffa8ecaaf91115c",
+        "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900"
+      ],
+      "target_sha256": {
+        "tc260_gbt_35273_2020_pip_security_spec:c53ab546574ede4eea74f0ad": "700741f8a582f27741c99525af0cc5ac7c7e5b1b1f07e6a2ee39a78aaa60c583",
+        "tc260_gbt_35273_2020_pip_security_spec:fb91ab16ce05f9a3d20c3ada": "0c8720da162ec93ccf36fdf1c584ad6de7b6acef4a0a63c32d8a98851f5a7dca",
+        "tc260_gbt_35273_2020_pip_security_spec:0b7e59e2040fdefcb1f24ed6": "a70c5831db690c13084e5553939434e0ae1706fcb1ae0bc1dcd911f414ae812a",
+        "tc260_gbt_35273_2020_pip_security_spec:bf2e93bd32d54c59dd95d6ae": "a726677fe25bcf60888fced5d614c9e5f8bcb09f8ca7621dae367313b51464b9",
+        "tc260_gbt_35273_2020_pip_security_spec:49a87c5c47937a68946d75cb": "6b37712c4be67d77c8e3ccac1b4321f4fbeadae7576037fca953af905ab39e28",
+        "tc260_gbt_35273_2020_pip_security_spec:7e4f553ceed9d7b58786b3b4": "f7d34a5c33ccce0f8794ad2cb8062ca2603611e597676e78370c8afa937a4c90",
+        "tc260_gbt_35273_2020_pip_security_spec:ad55222c5dcbd9503f946b77": "119208100100983c287c995f0746a94124a05a2e9a2da50ee9c7441afa600769",
+        "tc260_gbt_35273_2020_pip_security_spec:079c4bc4bffa8ecaaf91115c": "364f9681f632cd7c7ffaa8662035daa597400a564c4e3947a09f6bf494a434d2",
+        "tc260_gbt_35273_2020_pip_security_spec:03639fb4ec0961e8b1306900": "c67d77ec2be6d16bd7f40e6167ff07b626023595d6617917bcd0114a992fe363"
+      },
+      "question": "完整阅读《个人信息安全规范》中个人信息收集这一章，概括要求、限制与授权同意的例外。",
+      "target_index_range": [
+        27,
+        35
+      ],
+      "boundary_audit": {
+        "basis": "Manual check of ordered governed full text and next section boundary; not heading membership alone",
+        "first_text": "5 个人信息的收集\n5.1 收集个人信息的合法性\n对个人信息控制者的要求包括：\n- a) 不应以欺诈、诱骗、误导的方式收集个人信息；\n- b) 不应隐瞒产品或服务所具有的收集个人信息的功能；\n- c) 不应从非法渠道获取个人信息。",
+        "last_text": "6\n- k) 个人信息控制者为学术研究机构，出于公共利益开展统计或学术研究所必要，且其对外提供学术研究或描述的结果时，对结果中所包含的个人信息进行去标 识化处理的。",
+        "previous_text": "- e) 公开透明 --以明确、易懂和合理的方式公开处理个人信息的范围、目的、规 则等，并接受外部监督；\n- f) 确保安全 --具备与所面临的安全风险相匹配的安全能力，并采取足够的管理 措施和技术手段，保护个人信息的保密性、完整性、可用性；\n- g) 主体参与 --向个人信息主体提供能够查询、更正、删除其个人信息，以及撤 回授权同意、注销账户、投诉等方法。",
+        "next_text": "个人信息的存储\n6.1 个人信息存储时间最小化\n对个人信息控制者的要求包括：\n- a)\n- 个人信息存储期限应为实现个人信息主体授权使用的目的所必需的最短时间，法律法规另有规定或者个人信息主体另行授权同意的除外；\n- b) 超出上述个人信息存储期限后，应对个人信息进行删除或匿名化处理。",
+        "upstream_defect": null,
+        "changed_from_previous_target": false
+      },
+      "arm_order": [
+        "flat",
+        "tree"
+      ]
+    },
+    {
+      "id": "spec_sharing",
+      "source_id": "tc260_gbt_35273_2020_pip_security_spec",
+      "title": "GB/T 35273-2020 信息安全技术 个人信息安全规范",
+      "heading": "9 个人信息的委托处理、共享、转让、公开披露",
+      "target_chunk_ids": [
+        "tc260_gbt_35273_2020_pip_security_spec:da3bf133eabafbbd8dc2d770",
+        "tc260_gbt_35273_2020_pip_security_spec:e31fe0078517db62069d5a13",
+        "tc260_gbt_35273_2020_pip_security_spec:d248e2da59fa2fe28a82ea42",
+        "tc260_gbt_35273_2020_pip_security_spec:7f170aa29b955e7604535560",
+        "tc260_gbt_35273_2020_pip_security_spec:1669b1eed13805b13c8238b6",
+        "tc260_gbt_35273_2020_pip_security_spec:62f6b39ff032eb94790bbacc",
+        "tc260_gbt_35273_2020_pip_security_spec:9a1ef258a997a41a0b49a1ee",
+        "tc260_gbt_35273_2020_pip_security_spec:90bac4882d1b02ad89214a67",
+        "tc260_gbt_35273_2020_pip_security_spec:acb00dbb5c1e2fc0feb0cf72",
+        "tc260_gbt_35273_2020_pip_security_spec:5a1fc70e6f1b1127644c104a",
+        "tc260_gbt_35273_2020_pip_security_spec:d5663c19617087d625816220"
+      ],
+      "target_sha256": {
+        "tc260_gbt_35273_2020_pip_security_spec:da3bf133eabafbbd8dc2d770": "7435cf22eb59c232206fbe3a5fbede0e723c5f43db407e778f60657bcdab3a8e",
+        "tc260_gbt_35273_2020_pip_security_spec:e31fe0078517db62069d5a13": "21576c17162f3020a1ad44be57a683127451fa22145f3e323ec760153f5752cc",
+        "tc260_gbt_35273_2020_pip_security_spec:d248e2da59fa2fe28a82ea42": "c9bac9e2033e3b8dc11954cabd096e2db6d568eff61c9f2fb29d0484bf683c8a",
+        "tc260_gbt_35273_2020_pip_security_spec:7f170aa29b955e7604535560": "db8cb162b88b1fc727564997f4e432bb13b984688e7b4520cd408abb21af036b",
+        "tc260_gbt_35273_2020_pip_security_spec:1669b1eed13805b13c8238b6": "cc4cefd60f4450f0cb18717a096a530328f6f77c7384dcafc1a947eef1e66344",
+        "tc260_gbt_35273_2020_pip_security_spec:62f6b39ff032eb94790bbacc": "e3d5d279214789ee34ee135c837a8124be3d2e365675f5d08afd4f1c74690fcc",
+        "tc260_gbt_35273_2020_pip_security_spec:9a1ef258a997a41a0b49a1ee": "b9e0762d4185aabd746ac0215c15157ff32577f1abd2c7ad7f15db468bef7bca",
+        "tc260_gbt_35273_2020_pip_security_spec:90bac4882d1b02ad89214a67": "dde34ae97a35524c87ee803ee2d1fc139e5a35e28062bec9e6db79f4092779a3",
+        "tc260_gbt_35273_2020_pip_security_spec:acb00dbb5c1e2fc0feb0cf72": "91a1f4f263c3df69d57419d4ec08e7b0037f175f5ca1c09460d2cccf92ad82c9",
+        "tc260_gbt_35273_2020_pip_security_spec:5a1fc70e6f1b1127644c104a": "4d0aa0b7c3685f10eed8c255f30afdccad53fb91a0970fbff062ab8584f4dd7a",
+        "tc260_gbt_35273_2020_pip_security_spec:d5663c19617087d625816220": "2f9d4963ca83ad5631d91dfcd3320523235eb72be590d29064a84d95cdc32c03"
+      },
+      "question": "完整阅读《个人信息安全规范》中个人信息的委托处理、共享、转让、公开披露这一章，概括不同情形及其限制与例外。",
+      "target_index_range": [
+        57,
+        67
+      ],
+      "boundary_audit": {
+        "basis": "Manual check of ordered governed full text and next section boundary; not heading membership alone",
+        "first_text": "9 个人信息的委托处理、共享、转让、公开披露",
+        "last_text": "9.8 个人信息跨境传输\n在中华人民共和国境内运营中收集和产生的个人信息向境外提供的，个人信息控制 者应遵循国家相关规定和相关标准的要求。",
+        "previous_text": "8.8 投诉管理\n个人信息控制者应建立投诉管理机制和投诉跟踪流程，并在合理的时间内对投诉进 行响应。",
+        "next_text": "10 个人信息安全事件处置\n10.1 个人信息安全事件应急处置和报告\n对个人信息控制者的要求包括：\n- a) 应制定个人信息安全事件应急预案；\n- b) 应定期（至少每年一次）组织内部相关人员进行应急响应培训和应急演练，使 其掌握岗位职责和应急处置策略和规程；\n- c) 发生个人信息安全事件后，个人信息控制者应根据应急响应预案进行以下处 置：\n- 1) 记录",
+        "upstream_defect": null,
+        "changed_from_previous_target": false
+      },
+      "arm_order": [
+        "tree",
+        "flat"
+      ]
+    },
+    {
+      "id": "beijing_auto",
+      "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+      "title": "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+      "heading": "一、汽车行业",
+      "target_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:78ee310b683a760e249e0d67",
+        "beijing_free_trade_zone_data_export_negative_list_2025:15dbb3c0d9294ccca75ad61e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:3f48672e3e1d130342fce853",
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5aebe4802bed7ad4e5c91c53",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5730ba2aeff846ade0ba16e5",
+        "beijing_free_trade_zone_data_export_negative_list_2025:421d075b1241532ca4b51aa8"
+      ],
+      "target_sha256": {
+        "beijing_free_trade_zone_data_export_negative_list_2025:78ee310b683a760e249e0d67": "37d394e5822ce531343c9165b4a69adaf1ac00abdfbd9e13a3a45ab0a386ac6d",
+        "beijing_free_trade_zone_data_export_negative_list_2025:15dbb3c0d9294ccca75ad61e": "929457fcbb760a3f1c555a23e2bf5ddddbcd38decc8b0165e64fc01f9cffe4c9",
+        "beijing_free_trade_zone_data_export_negative_list_2025:3f48672e3e1d130342fce853": "3fda8889548da3c3ef70e11950c5f132bcf4e7893ca09ce4598e988c7baa44ad",
+        "beijing_free_trade_zone_data_export_negative_list_2025:012125121a6637ebd169642a": "dd9d974e63b8b6e37d45533ae37185ee462c6db07b0ab0b4a96f5f42c41a5972",
+        "beijing_free_trade_zone_data_export_negative_list_2025:73144a57e5995befb6ce7f33": "5c363ef4865c916ffc56ad000ca6ffb70a22fab4fa64aeaaf9e556e6014d1d42",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5aebe4802bed7ad4e5c91c53": "9320c5ca3286e90c553e0a4301943bbd8277f1aa7dac413bb44871e168b601d7",
+        "beijing_free_trade_zone_data_export_negative_list_2025:5730ba2aeff846ade0ba16e5": "87fa586c14ad3bdb851a9dc67c5c264545dbde51445c3c15c862da25d60a32b8",
+        "beijing_free_trade_zone_data_export_negative_list_2025:421d075b1241532ca4b51aa8": "361e5966dfd7223076f4f1b37b5f75220d3451ec287ea7c610b2bc5a0665e88a"
+      },
+      "question": "完整阅读北京2025版数据出境负面清单的汽车行业部分，包括两类程序对应的数据清单及说明，概括数据范围、场景、门槛和例外。",
+      "target_index_range": [
+        1,
+        8
+      ],
+      "boundary_audit": {
+        "basis": "Manual check of ordered governed full text and next section boundary; not heading membership alone",
+        "first_text": "一、汽车行业\n（一）需要通过数据出境安全评估的数据清单\n数据类别 数据子类 数据基本特征与描述\n重要数据\n1.涉及或经汇聚、分析后能够推算出军\n事管理区、国防科工单位以及县级以上\n党政机关等重要敏感区域的车外实景\n影像、地理信息、人员流量、车辆流量\n等数据；经汇聚、分析后能够推算出涉\n密、敏感地理信息的数据；涉及国家安\n全要害部门、重要民用设施等数据；在\n向",
+        "last_text": "等受到歧视或者人身、财\n产安全受到严重危害的个人信息，包括车辆行踪轨迹、音频、视频、图像和生物识别特征等信息。\n6.负面清单涉及的行业、领域中，如涉及《中华人民共和国出口管制法》规定的管制物项相关技术资料或《中华人民\n共和国对外贸易法》规定的技术出口管理事项等数据出境的，按照《中华人民共和国出口管制法》《中华人民共和国对外贸\n易法》等法律法规、规章规定执行。",
+        "previous_text": "1 中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区\n数据出境管理清单（负面清单）（2025 版）",
+        "next_text": "二、医药行业\n（一）需要通过数据出境安全评估的数据清单\n数据类别 数据子类 数据基本特征与描述\n重要数据",
+        "upstream_defect": "Industry text split across unrelated heading paths; full contiguous text remains required",
+        "changed_from_previous_target": true
+      },
+      "arm_order": [
+        "flat",
+        "tree"
+      ]
+    },
+    {
+      "id": "beijing_bank",
+      "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+      "title": "中国（北京）自由贸易试验区、国家服务业扩大开放综合示范区数据出境管理清单（负面清单）（2025版）",
+      "heading": "九、银行业",
+      "target_chunk_ids": [
+        "beijing_free_trade_zone_data_export_negative_list_2025:f96b76945e3f1cb5fca493a9",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708",
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1",
+        "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:39ae6bf74540f7acafbbf847",
+        "beijing_free_trade_zone_data_export_negative_list_2025:768ebb370c3144fca99eb066",
+        "beijing_free_trade_zone_data_export_negative_list_2025:0bed3702ea89b9b8c5bfc15a",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:d50f1c51f08c61c93f48d5d2",
+        "beijing_free_trade_zone_data_export_negative_list_2025:e03917cefeaa3b2106b749fb",
+        "beijing_free_trade_zone_data_export_negative_list_2025:32d3abb74078e21015135739"
+      ],
+      "target_sha256": {
+        "beijing_free_trade_zone_data_export_negative_list_2025:f96b76945e3f1cb5fca493a9": "e002c02af3f6a3c724856abcd8de97791b4ac613fa11d3a68e2bc7dd67c8622e",
+        "beijing_free_trade_zone_data_export_negative_list_2025:4d8388b758503490bf0b2708": "b000c5e43bf1eec1a0d3283bdf0269279b9931e6d919f9994aed114374751f63",
+        "beijing_free_trade_zone_data_export_negative_list_2025:26103ef0935a753e81d02855": "0c1821f53b5809c1e4a4c491a02441bf6f2469db8d41ae3a9c5c9f24e6d95d5d",
+        "beijing_free_trade_zone_data_export_negative_list_2025:ed685caf3bf51a71c54df3b1": "4ebbb485d34d45394d600e6764d3455fb8f5a174c62e5469e1f9877c123f6199",
+        "beijing_free_trade_zone_data_export_negative_list_2025:59aba11e9268dd6750c9ad33": "2dcb9939574d09378459179c3af6525ee5731bffbf4718fece63ce5c8a532d33",
+        "beijing_free_trade_zone_data_export_negative_list_2025:39ae6bf74540f7acafbbf847": "30858d65beb967741150c784efb90327b9b206ba46a8998111df43a5ce88ae42",
+        "beijing_free_trade_zone_data_export_negative_list_2025:768ebb370c3144fca99eb066": "99ef2e73156cde0046838aaa26451c2dc081642aa9d2c327979e2c7a56213001",
+        "beijing_free_trade_zone_data_export_negative_list_2025:0bed3702ea89b9b8c5bfc15a": "9c7dfca2ca1c45e8e4d2a1cf314a21641d15c269c3a4e7ad34f776cdb4fac755",
+        "beijing_free_trade_zone_data_export_negative_list_2025:1240a9b0d7377e56ccb26a2e": "facd44f85ceef141a229f4222befc9841c41da2efde28d2d9dbb11fbef4a1a88",
+        "beijing_free_trade_zone_data_export_negative_list_2025:d50f1c51f08c61c93f48d5d2": "40df9bfca4de8de43fe7f7b4f008673198d6c3f7a3becee2d4e7b624ccef8ba4",
+        "beijing_free_trade_zone_data_export_negative_list_2025:e03917cefeaa3b2106b749fb": "417a7f81685afd5ee34c0a6e8260a8e2fa73f22639c4992d0803dbf2d75dce49",
+        "beijing_free_trade_zone_data_export_negative_list_2025:32d3abb74078e21015135739": "ce995aa054e5fcf56cce523f8862adea4d152dce6b816904d77832d3d771ac4b"
+      },
+      "question": "完整阅读北京2025版数据出境负面清单的银行业部分，包括两类程序对应的数据清单及说明，概括不同场景、门槛和例外。",
+      "target_index_range": [
+        79,
+        90
+      ],
+      "boundary_audit": {
+        "basis": "Manual check of ordered governed full text and next section boundary; not heading membership alone",
+        "first_text": "九、银行业\n（一）需要通过数据出境安全评估的数据清单\n数据类别 数据子类 数据基本特征与描述\n重要数据 1.涉及党政军机构的单位身份鉴别信 所有场景。包括银行卡磁道（或芯片等效信息）、卡片验证码（CVN\n27 息。和 CVN2）、卡片有效期、银行卡密码、支付密码等支付敏感信\n息、账户的登录密码、交易密码、查询密码等用于验证单位是否\n具有访问或使用权限的数据。",
+        "last_text": "处理等活动涉及的重要数据和个人信息，\n上述银行业数据应按照行业数据跨境流动相关指南的要求进行脱敏、脱密等处理。\n3.负面清单涉及的行业、领域中，如涉及《中华人民共和国出口管制法》规定的管制物项相关技术资料或《中华人民\n共和国对外贸易法》规定的技术出口管理事项等数据出境的，按照《中华人民共和国出口管制法》《中华人民共和国对外贸\n易法》等法律法规、规章规定执行。",
+        "previous_text": "数字化平台\n等企业。\n2.本清单所称贸易物流领域数据是指在运输、仓储分拣、报关、清关、配送等环节中产生的数据。\n3.负面清单涉及的行业、领域中，如涉及《中华人民共和国出口管制法》规定的管制物项相关技术资料或《中华人民\n共和国对外贸易法》规定的技术出口管理事项等数据出境的，按照《中华人民共和国出口管制法》《中华人民共和国对外贸\n易法》等法律法规、规章规定执行。",
+        "next_text": null,
+        "upstream_defect": "Industry text split across unrelated heading paths; full contiguous text remains required",
+        "changed_from_previous_target": true
+      },
+      "arm_order": [
+        "tree",
+        "flat"
+      ]
+    },
+    {
+      "id": "auto_flow",
+      "source_id": "cac_automotive_data_export_security_guide_2026",
+      "title": "汽车数据出境安全指引（2026版）",
+      "heading": "三、数据出境流程",
+      "target_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:74228be944600c1ba9a8dcbe",
+        "cac_automotive_data_export_security_guide_2026:2d1a273a4eb0d5f9e33ddd35",
+        "cac_automotive_data_export_security_guide_2026:a4c3a8d634c900843d55d05a",
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457"
+      ],
+      "target_sha256": {
+        "cac_automotive_data_export_security_guide_2026:74228be944600c1ba9a8dcbe": "288e2661cc4f32d0f30efc90cb12e39c421d38b9a3f3ea887d3eb32a19816418",
+        "cac_automotive_data_export_security_guide_2026:2d1a273a4eb0d5f9e33ddd35": "d1b70617c9232e2e859b7a798b96cfa250c7a96c5030ccfdd56f9c5dd1bd9db6",
+        "cac_automotive_data_export_security_guide_2026:a4c3a8d634c900843d55d05a": "e9073810489917992e1d1480a417798b050889451d4da24503d02799f3cfda38",
+        "cac_automotive_data_export_security_guide_2026:e2694a37f3db64c8b371a457": "71a24d9c24944eb9a29b388c98b5fbc92a2b435b52e62e51d5c2fe2b67bc6bf8"
+      },
+      "question": "完整阅读《汽车数据出境安全指引（2026版）》的数据出境流程这一章，概括办理方式、条件与衔接。",
+      "target_index_range": [
+        61,
+        64
+      ],
+      "boundary_audit": {
+        "basis": "Manual check of ordered governed full text and next section boundary; not heading membership alone",
+        "first_text": "三、数据出境流程\n数据出境流程如下：\n（一）数据识别\n汽车数据处理者在重要数据目录备案基础上，按照本指引\n识别需申报出境安全评估、订立个人信息出境标准合同、通过\n个人信息出境认证的汽车数据。",
+        "last_text": "（四）通过个人信息出境认证\n汽车数据处理者按照《个人信息出境认证办法》，开展个人\n信息保护影响评估并整改风险问题，向具备资质的专业认证机\n构申请认证，配合完成认证工作。通过认证后，汽车数据处理\n者方可开展个人信息出境活动。\n- 19 -\n个人信息出境情况不再符合认证要求的，汽车数据处理者\n应当重新开展个人信息保护影响评估并申请认证。",
+        "previous_text": "报主体\n开展自评估\n申报评估\n开展汽车数据出境活动\n数据识别\n订立个人信息出境标准合同 通过个人信息出境认证\n开展个人信息保护影响评估\n签订合同\n获得备案编号\n申请认证\n免予申报数据出境安全评估、\n订立个人信息出境标准合同\n和通过个人信息出境认证\n配合认证\n取得认证证书\n重\n新\n认\n证\n评估结果 认证结果备案结果\n开展个人信息保护影响评估\n合同备案\n管理方式",
+        "next_text": "四、汽车数据出境安全保护要求\n（一）管理要求\n1.部门要求\n汽车数据处理者应当明确汽车数据出境管理部门，统筹协\n调推进数据出境安全管理，监督检查数据出境相关管理要求的\n落实情况。\n2.人员要求\n汽车数据处理者应当明确汽车数据出境安全负责人，对数\n据出境活动以及采取的保护措施进行监督，对数据出境活动的\n安全负责。\n3.制度要求\n汽车数据处理者应当明确网络安全、",
+        "upstream_defect": null,
+        "changed_from_previous_target": false
+      },
+      "arm_order": [
+        "flat",
+        "tree"
+      ]
+    },
+    {
+      "id": "auto_protection",
+      "source_id": "cac_automotive_data_export_security_guide_2026",
+      "title": "汽车数据出境安全指引（2026版）",
+      "heading": "四、汽车数据出境安全保护要求",
+      "target_chunk_ids": [
+        "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90",
+        "cac_automotive_data_export_security_guide_2026:42adeaf4b3c95f5f0e236366",
+        "cac_automotive_data_export_security_guide_2026:bfbe4780aefaf6971d7fe3b7",
+        "cac_automotive_data_export_security_guide_2026:11f7056465b9111d2888789f"
+      ],
+      "target_sha256": {
+        "cac_automotive_data_export_security_guide_2026:f93e0c36cc95daf0c3b32e90": "d9ad876cc3967eb35acae1fd0a1378d21259ada8a0f5e150094ee56f7e59a031",
+        "cac_automotive_data_export_security_guide_2026:42adeaf4b3c95f5f0e236366": "2dd3d0264dadc2c64c9d5cba14913610b7b200a727742b75032d97f546ff4be1",
+        "cac_automotive_data_export_security_guide_2026:bfbe4780aefaf6971d7fe3b7": "f6e0ba4403f4636fba75ff8608c435e72c802f94057cb43ace6d693cd0bfdf77",
+        "cac_automotive_data_export_security_guide_2026:11f7056465b9111d2888789f": "a29f0a50a88644427bd9abb6fb722759c85695d28bc6ca5c19ab6a3081db6aaa"
+      },
+      "question": "完整阅读《汽车数据出境安全指引（2026版）》的汽车数据出境安全保护要求这一章，概括管理、技术、日志和应急处置要求。",
+      "target_index_range": [
+        65,
+        68
+      ],
+      "boundary_audit": {
+        "basis": "Manual check of ordered governed full text and next section boundary; not heading membership alone",
+        "first_text": "四、汽车数据出境安全保护要求\n（一）管理要求\n1.部门要求\n汽车数据处理者应当明确汽车数据出境管理部门，统筹协\n调推进数据出境安全管理，监督检查数据出境相关管理要求的\n落实情况。\n2.人员要求\n汽车数据处理者应当明确汽车数据出境安全负责人，对数\n据出境活动以及采取的保护措施进行监督，对数据出境活动的\n安全负责。\n3.制度要求\n汽车数据处理者应当明确网络安全、",
+        "last_text": "（四）应急处置要求\n汽车数据处理者应当建立汽车数据违规出境的处置能力，\n发现异常行为时应及时处置，并按有关要求向本地区行业监管\n部门报告。",
+        "previous_text": "（四）通过个人信息出境认证\n汽车数据处理者按照《个人信息出境认证办法》，开展个人\n信息保护影响评估并整改风险问题，向具备资质的专业认证机\n构申请认证，配合完成认证工作。通过认证后，汽车数据处理\n者方可开展个人信息出境活动。\n- 19 -\n个人信息出境情况不再符合认证要求的，汽车数据处理者\n应当重新开展个人信息保护影响评估并申请认证。",
+        "next_text": null,
+        "upstream_defect": null,
+        "changed_from_previous_target": false
+      },
+      "arm_order": [
+        "tree",
+        "flat"
+      ]
+    }
+  ],
+  "max_reads": 10,
+  "max_turns": 12,
+  "max_http_calls": 192,
+  "scope": "8 paired source-seeded reading tasks, one attempt per arm; no full legal review or model judge",
+  "targets_hidden_from_model": true,
+  "source_discovery_measured": false,
+  "target_limits": "Coverage of audited governed text; not a PDF extraction completeness or legal accuracy verdict"
+}

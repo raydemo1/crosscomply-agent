@@ -244,7 +244,7 @@ def _with_table_header(header: str, units: list[StructuredUnit]) -> list[Structu
 
 # A heading's own section number states its depth: "4.1" is a subsection of "4"
 # whatever Markdown level the parser flattened it to.
-SECTION_NUMBER_RE = re.compile(r"^([A-Z]?\.?\d+(?:\.\d+){0,4})[\.、]?\s")
+SECTION_NUMBER_RE = re.compile(r"^([A-Z]?\.?\d+(?:\.\d+){0,4})[\.、]?(?:\s|$)")
 
 
 def _heading_level(value: str, markdown_level: int) -> int:
@@ -291,11 +291,7 @@ def split_heading_units(text: str) -> list[StructuredUnit]:
         if heading is not None:
             flush()
             level, value = heading
-            if level <= len(heading_stack):
-                heading_stack = heading_stack[: level - 1]
-            while len(heading_stack) < level - 1:
-                heading_stack.append("")
-            heading_stack.append(value)
+            heading_stack = _push_heading(heading_stack, level, value)
             current_heading = value
             current_path = [item for item in heading_stack if item]
             current_lines = [value]
@@ -306,6 +302,15 @@ def split_heading_units(text: str) -> list[StructuredUnit]:
 
     flush()
     return _merge_tiny_units(units)
+
+
+def _push_heading(stack: list[str], level: int, value: str) -> list[str]:
+    if stack and re.match(r"^[一二三四五六七八九十]+、", stack[0]) and SECTION_NUMBER_RE.match(value):
+        level = min(level + 2, 6)
+    updated = stack[:level - 1]
+    while len(updated) < level - 1:
+        updated.append("")
+    return [*updated, value]
 
 
 def split_plain_units(text: str, heading_path: list[str]) -> list[StructuredUnit]:
@@ -489,7 +494,7 @@ def _last_context_heading(text: str, fallback: list[str]) -> list[str]:
     for line in _meaningful_lines(text):
         heading = _heading_from_line(line)
         if heading:
-            path = [heading[1]]
+            path = _push_heading(path, *heading)
     return path
 
 

@@ -70,11 +70,11 @@ class LLMReviewResultDraft(StrictModel):
 
     risk_level: RiskLevel
     decision_summary: str = Field(min_length=40, max_length=240)
-    legal_path: str | None = None
+    legal_path: str | None = Field(default=None, description="仅填写事实和法源已支持的个案确定路径；条件分支流程写正文，此字段留空")
     conclusion: str
     claims: list[GroundedClaim] = Field(default_factory=list)
     trigger_reasons: list[str] = Field(default_factory=list)
-    missing_information: list[str] = Field(default_factory=list)
+    missing_information: list[str] = Field(default_factory=list, description="影响本次判断的待核事实；范围外的后续核查建议放recommended_actions")
     missing_answer_types: dict[str, Literal["choice", "count", "text"]] = Field(default_factory=dict)
     recommended_actions: list[str] = Field(default_factory=list)
     risk_boundaries: list[str] = Field(default_factory=list)
