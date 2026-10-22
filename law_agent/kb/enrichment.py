@@ -28,7 +28,7 @@ from law_agent.review.web_research import (
     WebFinding,
     canonical_url,
     host_of,
-    is_trusted_official_url,
+    is_official_url,
 )
 
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
@@ -44,7 +44,7 @@ DEPARTMENT_ISSUERS = {
 
 def verified_auto_source(title: str, text: str, url: str) -> SourceRecord | None:
     """Only unambiguous enactments with visible effective dates may publish."""
-    if not is_trusted_official_url(url) or title not in text[:1200]:
+    if not is_official_url(url) or title not in text[:1200]:
         return None
     match = DATE_PATTERN.search(text)
     if match is None:
@@ -86,7 +86,7 @@ class PostgresEnrichmentStore:
         self.dsn = dsn
 
     def enqueue(self, finding: WebFinding, *, case_id: str, review_task_id: str) -> str | None:
-        if not is_trusted_official_url(finding.url) or (finding.known_source_id and not finding.refresh_needed):
+        if not is_official_url(finding.url) or (finding.known_source_id and not finding.refresh_needed):
             return None
         key = canonical_url(finding.url)
         candidate_hash = hashlib.sha256(
@@ -336,11 +336,11 @@ class PostgresEnrichmentStore:
 
 
 def _download(url: str, path: Path) -> None:
-    if not is_trusted_official_url(url):
+    if not is_official_url(url):
         raise ValueError("来源不在官方域名范围")
     request = urllib.request.Request(url, headers={"User-Agent": "LawAgent/0.1"})
     with urllib.request.urlopen(request, timeout=30) as response:
-        if not is_trusted_official_url(response.url):
+        if not is_official_url(response.url):
             raise ValueError("官方来源重定向至非受信地址")
         data = response.read(MAX_DOWNLOAD_BYTES + 1)
     if len(data) > MAX_DOWNLOAD_BYTES:

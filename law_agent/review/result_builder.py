@@ -12,20 +12,26 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Literal
+from collections.abc import Sequence
+from html import escape
+from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
 from law_agent.config import require_llm_config
 from law_agent.data.schemas import Chunk, StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
+from law_agent.review.agent_context import compact_evidence_context
 from law_agent.review.citations import group_citations
+from law_agent.review.dates import business_today
 from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
 from law_agent.review.schemas import (
+    LEGAL_BASIS_GAP_GUIDANCE,
     Citation,
     CitationGroup,
     EvidenceSelfCheck,
     GroundedClaim,
+    GroundedClaimDraft,
     IssueKind,
     RetrievalHit,
     RetrievalQuery,
@@ -34,6 +40,7 @@ from law_agent.review.schemas import (
     RiskLevel,
     SourceEvidencePacket,
 )
+from law_agent.review.web_research import canonical_url
 
 
 class MaterialEvidenceDraft(StrictModel):
@@ -43,49 +50,95 @@ class MaterialEvidenceDraft(StrictModel):
     ``filename``/``version_number``/offsets are resolved by the finalizer.
     """
 
-    material_version_id: str
-    quote: str
+    material_version_id: str = Field(description="本轮材料头部或frozen_material_version_ids中的版本编号，不是事实快照ID")
+    quote: str = Field(description="该材料版本中逐字存在的原文；正式审查引用须在该版本内唯一出现")
+
+
+class ReviewQuestionDraft(StrictModel):
+    text: str = Field(min_length=1, description="尚未确认且影响当前审查的具体业务问题；同一问题只登记一次，不包含法律依据缺口")
+    answer_type: Literal["choice", "count", "text"] | None = Field(default=None, description="该问题适合的回答方式")
+
+
+class WebImpactDraft(StrictModel):
+    url: str = Field(min_length=1, description="从本轮eligible_material_web_urls中选择，不提升其引用资格")
+    impact: Literal["supplement", "execution_detail", "core"] = Field(description="补充说明、办理细节或影响核心结论；core须保留证据不足且无确定法律路径")
 
 
 class ReviewIssueDraft(StrictModel):
     """Issue proposed by the model before deterministic grounding."""
 
     kind: IssueKind = Field(description=(
-        "material_conflict 用于两段冻结材料原文之间的矛盾；"
+        "material_conflict 用于两段不同的冻结材料原文之间的矛盾，须引用冲突双方；"
         "填报、人工陈述与材料不一致且尚待核实时，用 missing_information 描述待确认事项，"
         "双方来源保留在 fact_ledger 和 finding 中，不把事实快照当成材料原文。"
-        "legal_gap 用于材料事实和正式法条共同支持的法律问题。"
+        "legal_gap 表示材料事实和正式法条已共同支持的不合规行为、业务状态或方案缺口，"
+        "会进入整改流程；不是待分析的法律问题或假设分支。决定缺口是否成立的事实尚未确认时，"
+        "用 missing_information，条件性法律后果放在 finding 或正文中。"
     ))
     title: str
     finding: str
-    material_evidence: list[MaterialEvidenceDraft]
-    supporting_chunk_ids: list[str]
-    unknowns: list[str]
-    recommended_action: str
-    answer_type: Literal["choice", "count", "text"] | None = None
+    material_evidence: list[MaterialEvidenceDraft] = Field(default_factory=list, description="本轮冻结材料的原文摘录；legal_gap须有材料事实，事实快照不能当作材料")
+    supporting_chunk_ids: list[str] = Field(default_factory=list, description="实际取得且can_cite_clause=true的正式法条编号；legal_gap须同时有材料事实和法条支持")
+    question_indexes: list[Annotated[int, Field(strict=True, ge=0)]] = Field(default_factory=list, description="引用本报告questions的从0开始的下标；missing_information和material_conflict类型必须关联至少一个问题，不重复填写问题原文")
+    recommended_action: str = Field(description="针对该问题的具体建议，区分确认信息、核实与整改，不将准备措施写成已确定的法定义务")
+
+    def resolve_questions(self, questions: Sequence[ReviewQuestionDraft]) -> list[ReviewQuestionDraft]:
+        indexes = self.question_indexes
+        if self.kind in {"material_conflict", "missing_information"} and not indexes:
+            raise ValueError(f"待确认问题「{self.title}」须通过question_indexes关联questions")
+        if len(indexes) != len(set(indexes)) or any(type(i) is not int or not 0 <= i < len(questions) for i in indexes):
+            raise ValueError(f"问题项「{self.title}」的question_indexes重复或超出questions范围")
+        return [questions[i] for i in indexes]
 
 
 class LLMReviewResultDraft(StrictModel):
-    """Structured legal report supplied by the review model."""
+    """正式审查报告。字段联动约定：
 
-    risk_level: RiskLevel
-    decision_summary: str = Field(min_length=40, max_length=240)
+    risk_level为insufficient_evidence时legal_path必须为null；legal_basis_gaps非空时，
+    risk_level必须为insufficient_evidence且legal_path为null。
+    业务待确认问题及回答类型只在questions填写一次，issues通过question_indexes关联。
+    法律依据缺口单独登记legal_basis_gaps；网页来源及其影响在web_impacts中成对登记。
+    """
+
+    risk_level: RiskLevel = Field(description="针对本次审查目标的风险判断；关键事实或法律依据不足而无法判断时用insufficient_evidence，不以medium代替未知")
+    decision_summary: str = Field(min_length=40, max_length=240, description="直接概括本次判断及决定性的前提或限制，不补造人数、规模或持续时间")
     legal_path: str | None = Field(default=None, description="仅填写事实和法源已支持的个案确定路径；条件分支流程写正文，此字段留空")
-    conclusion: str
-    claims: list[GroundedClaim] = Field(default_factory=list)
-    trigger_reasons: list[str] = Field(default_factory=list)
-    missing_information: list[str] = Field(default_factory=list, description="影响本次判断的待核事实；范围外的后续核查建议放recommended_actions")
-    missing_answer_types: dict[str, Literal["choice", "count", "text"]] = Field(default_factory=dict)
-    recommended_actions: list[str] = Field(default_factory=list)
-    risk_boundaries: list[str] = Field(default_factory=list)
-    issues: list[ReviewIssueDraft] = Field(default_factory=list)
-    web_impact: Literal["none", "supplement", "execution_detail", "core"] = "none"
-    material_web_urls: list[str] = Field(default_factory=list, max_length=2)
+    conclusion: str = Field(description="围绕当前目标的完整中文答复，说明关键事实、规则与适用推导；条件分支可在此说明，未知不得写成否定")
+    claims: list[GroundedClaimDraft] = Field(default_factory=list, description="正文法律判断对应的可追溯主张，仅引用本轮实际返回且can_cite_clause=true的chunk_id；解释、清单、标准内容可在正文准确说明，不升级为法律claims")
+    reference_chunk_ids: list[str] = Field(default_factory=list, description="报告实际使用的解释、指南、标准等参考原文chunk_id；不升级为正式法律主张；未使用的调查资料不登记")
+    trigger_reasons: list[str] = Field(default_factory=list, description="有事实及法源支持的当前风险理由，不添加未经确认的情节")
+    questions: list[ReviewQuestionDraft] = Field(default_factory=list, description="完整业务待确认清单，包含材料冲突所需问题；问题项通过下标引用，事实确认任务仅由此清单生成")
+    legal_basis_gaps: list[str] = Field(default_factory=list, description=LEGAL_BASIS_GAP_GUIDANCE + "由Agent补查或审查人员核实，不生成申请人事实确认或整改任务")
+    recommended_actions: list[str] = Field(default_factory=list, description="与当前问题有关的必要下一步；一般建议放此处，不制造issues，没有相关建议可留空")
+    risk_boundaries: list[str] = Field(default_factory=list, description="影响当前结论的适用范围或假设变化；只改变明示事实，没有相关边界可留空，不补写完整路径树")
+    issues: list[ReviewIssueDraft] = Field(default_factory=list, description="仅记录证据支持的重要问题，区分材料冲突、法律问题与待确认事实；一般准备建议不自动成为法律问题，可留空")
+    web_impacts: list[WebImpactDraft] = Field(default_factory=list, max_length=2, description="本轮新官方来源或有更新迹象的已入库来源及其影响；从eligible_material_web_urls选择，URL不重复。没有相关影响则留空，已入库且无更新来源仍用原有法源引用")
+
+    @property
+    def missing_information(self) -> list[str]:
+        return [question.text.strip() for question in self.questions]
+
+    @property
+    def missing_answer_types(self) -> dict[str, Literal["choice", "count", "text"]]:
+        return {q.text.strip(): q.answer_type for q in self.questions if q.answer_type is not None}
+
+    @property
+    def web_impact(self) -> Literal["none", "supplement", "execution_detail", "core"]:
+        return next((impact for impact in ("core", "execution_detail", "supplement")
+                     if any(item.impact == impact for item in self.web_impacts)), "none")
+
+    @property
+    def material_web_urls(self) -> list[str]:
+        return [item.url for item in self.web_impacts]
 
     @model_validator(mode="after")
     def claims_required_unless_abstaining(self) -> LLMReviewResultDraft:
         if self.risk_level != "insufficient_evidence" and not self.claims:
             raise ValueError("non-abstention result requires grounded claims")
+        validate_business_questions(self)
+        urls = [canonical_url(item.url) for item in self.web_impacts]
+        if len(urls) != len(set(urls)):
+            raise ValueError("web_impacts不得重复登记同一URL")
         return self
 
 
@@ -93,7 +146,7 @@ class MarkdownReviewDraft(StrictModel):
     """Simplified schema for markdown (frontend) path.
 
     Unlike ``LLMReviewResultDraft`` which splits the report into
-    conclusion/recommended_actions/risk_boundaries/missing_information,
+    conclusion/recommended_actions/risk_boundaries/questions,
     this schema collapses everything into a single ``report`` field.
     The LLM writes one coherent markdown report with scene-adaptive
     sections, instead of filling separate fields that the backend then
@@ -105,8 +158,10 @@ class MarkdownReviewDraft(StrictModel):
     decision_summary: str = Field(min_length=40, max_length=240)
     legal_path: str | None = None
     report: str
-    claims: list[GroundedClaim] = Field(default_factory=list)
+    legal_basis_gaps: list[str] = Field(default_factory=list, description=LEGAL_BASIS_GAP_GUIDANCE + "不是申请人待确认的业务事实")
+    claims: list[GroundedClaimDraft] = Field(default_factory=list)
     trigger_reasons: list[str]
+    reference_chunk_ids: list[str] = Field(default_factory=list, description="正文实际使用的参考资料chunk_id，不提升其法律引用资格")
 
     @model_validator(mode="after")
     def claims_required_unless_abstaining(self) -> MarkdownReviewDraft:
@@ -115,8 +170,23 @@ class MarkdownReviewDraft(StrictModel):
         return self
 
 
+def validate_legal_basis_gaps(draft: LLMReviewResultDraft | MarkdownReviewDraft) -> None:
+    if draft.legal_basis_gaps and (draft.risk_level != "insufficient_evidence" or draft.legal_path is not None):
+        raise ValueError("阻塞当前目标的法律依据尚有缺口，应保留证据不足且不填写确定法律路径")
+
+
+def validate_business_questions(draft: LLMReviewResultDraft) -> None:
+    questions = draft.missing_information
+    if any(not question for question in questions) or len(questions) != len(set(questions)):
+        raise ValueError("questions须为非空且不重复的业务问题")
+    if set(questions) & {gap.strip() for gap in draft.legal_basis_gaps}:
+        raise ValueError("法律依据缺口不能同时登记为questions业务问题")
+    for issue in draft.issues:
+        issue.resolve_questions(draft.questions)
+
+
 def validate_grounded_claims(
-    claims: list[GroundedClaim],
+    claims: Sequence[GroundedClaimDraft],
     evidence_hits: list[RetrievalHit],
 ) -> list[GroundedClaim]:
     """Reject references that are absent from this run or lack clause authority."""
@@ -138,7 +208,7 @@ def validate_grounded_claims(
             )
         if not claim.supporting_chunk_ids:
             raise ValueError("法律主张必须引用至少一条正式法条")
-    return claims
+    return [GroundedClaim(text=claim.text, supporting_chunk_ids=claim.supporting_chunk_ids) for claim in claims]
 
 
 def attach_citation_refs(
@@ -250,51 +320,12 @@ def validate_decision_summary(summary: str, *, supported_text: str) -> str:
 
 _CIRCLED_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
 
-# Match legal article references like "《个人信息保护法》第三十九条" or
-# standalone "第三十九条" / "第七条" in the report text.
-_ARTICLE_REF_RE = re.compile(r"(?:《[^》]+》)?\s*第[一二三四五六七八九十百零〇\d]+条")
-
-
-def _extract_cite_phrase(claim_text: str) -> str | None:
-    """Extract the most specific legal-article phrase from a claim.
-
-    Preference order:
-    1. Full ``《法律名》第X条`` form (most precise).
-    2. Bare ``第X条`` form.
-    3. ``None`` if no article reference found (caller will fall back to
-       appending the marker at the end of the nearest sentence).
-    """
-
-    if not claim_text:
-        return None
-    full_match = re.search(r"《[^》]+》\s*第[一二三四五六七八九十百零〇\d]+条", claim_text)
-    if full_match:
-        return full_match.group(0)
-    bare_match = re.search(r"第[一二三四五六七八九十百零〇\d]+条", claim_text)
-    if bare_match:
-        return bare_match.group(0)
-    return None
-
-
 def _compact_markdown_text(value: str) -> str:
     """Normalize inline markdown so a claim can be located in its report."""
 
     without_tags = re.sub(r"<[^>]+>", "", value or "")
     without_formatting = re.sub(r"[*_`~]", "", without_tags)
     return re.sub(r"[^\w\u4e00-\u9fff]+", "", without_formatting, flags=re.UNICODE)
-
-
-def _claim_terms(value: str) -> set[str]:
-    """Extract stable two-character terms for approximate paragraph matching."""
-
-    without_law_ref = re.sub(r"《[^》]+》", "", value or "")
-    without_law_ref = re.sub(r"第[一二三四五六七八九十百零〇\d]+条", "", without_law_ref)
-    without_formatting = re.sub(r"[*_`~]", "", without_law_ref)
-    terms: set[str] = set()
-    for run in re.findall(r"[\u4e00-\u9fff]{2,}", without_formatting):
-        terms.update(run[index : index + 2] for index in range(len(run) - 1))
-    terms.update(token.casefold() for token in re.findall(r"[A-Za-z0-9]{2,}", without_formatting))
-    return terms
 
 
 def _report_paragraph_ranges(report: str) -> list[tuple[int, int]]:
@@ -328,213 +359,55 @@ def _report_paragraph_ranges(report: str) -> list[tuple[int, int]]:
     return ranges
 
 
-def _find_claim_paragraph_end(report: str, claim_text: str) -> int | None:
-    """Find the end of the paragraph containing a grounded claim.
-
-    Claim text often differs from the report only by markdown emphasis or
-    punctuation. Compact matching handles those presentation differences but
-    still requires the claim's substantive text to be present before attaching
-    a marker to the paragraph.
-    """
-
-    compact_claim = _compact_markdown_text(claim_text)
-    if len(compact_claim) < 8:
-        return None
-    for start, end in _report_paragraph_ranges(report):
-        if compact_claim in _compact_markdown_text(report[start:end]):
-            return end
-
-    claim_terms = _claim_terms(claim_text)
-    if len(claim_terms) < 4:
-        return None
-    ranges = _report_paragraph_ranges(report)
-    if _extract_cite_phrase(claim_text):
-        prose_ranges = [
-            (start, end)
-            for start, end in ranges
-            if not re.match(r"(?:[-*]\s+|\d+[.、)]\s*)", report[start:end].lstrip())
-        ]
-        if prose_ranges:
-            ranges = prose_ranges
-    best_overlap = 0
-    best_end: int | None = None
-    for start, end in ranges:
-        overlap = len(claim_terms & _claim_terms(report[start:end]))
-        if overlap > best_overlap:
-            best_overlap = overlap
-            best_end = end
-    if best_overlap >= 4:
-        return best_end
-    return None
-
-
 def inject_citation_markers(
     report: str,
     claims: list[GroundedClaim],
-    evidence_hits: list[RetrievalHit] | None = None,
-    citation_ref_by_chunk_id: dict[str, str] | None = None,
+    citation_ref_by_chunk_id: dict[str, str],
 ) -> str:
-    """Inject ①②③ markers into the report text for each claim.
+    """Link uniquely located claim paragraphs to their program-owned sources."""
 
-    For each claim (in order), find the first occurrence of its cite phrase
-    in the report and insert a ``<sup>`` marker right after it.
-
-    The cite phrase is resolved with this priority:
-    1. The ``citation_label`` of the claim's first supporting chunk (most
-       precise — e.g. "《个人信息保护法》第三十九条").
-    2. The ``article_no`` of the supporting chunk (e.g. "第三十九条").
-    3. A ``《法律名》第X条`` phrase extracted from the claim text itself.
-
-    If the exact legal phrase cannot be matched, the marker is placed at the
-    end of the paragraph that contains the grounded claim. It is never emitted
-    as a separate explanation block.
-    """
-
-    if not report or not claims:
-        return report
-
-    # Build chunk_id -> RetrievalHit lookup for citation_label/article_no.
-    chunks_by_id: dict[str, RetrievalHit] = {}
-    if evidence_hits:
-        for hit in evidence_hits:
-            chunks_by_id[hit.chunk_id] = hit
-
-    # Track which report positions have already been marked to avoid
-    # stacking multiple markers on the same phrase.
-    marked_positions: set[int] = set()
-    text = report
-    for index, claim in enumerate(claims[: len(_CIRCLED_NUMBERS)]):
-        marker = _CIRCLED_NUMBERS[index]
-        citation_ref = next(
-            (
-                citation_ref_by_chunk_id.get(chunk_id)
-                for chunk_id in claim.supporting_chunk_ids
-                if citation_ref_by_chunk_id and citation_ref_by_chunk_id.get(chunk_id)
-            ),
-            None,
-        )
-        # Resolve the cite phrase: prefer chunk citation_label, then
-        # article_no, then fall back to extracting from claim text.
-        phrase: str | None = None
-        if claim.supporting_chunk_ids and chunks_by_id:
-            primary_chunk = chunks_by_id.get(claim.supporting_chunk_ids[0])
-            if primary_chunk:
-                if primary_chunk.citation_label:
-                    phrase = primary_chunk.citation_label
-                elif primary_chunk.article_no:
-                    phrase = primary_chunk.article_no
-        if not phrase:
-            phrase = _extract_cite_phrase(claim.text)
-
-        inserted = False
-        claim_paragraph_end = _find_claim_paragraph_end(text, claim.text)
-        # Claims without an explicit article reference are narrative claims;
-        # prefer their own paragraph over a matching article number elsewhere.
-        if not _extract_cite_phrase(claim.text) and claim_paragraph_end is not None:
-            ref_attr = f' data-citation-ref="{citation_ref}"' if citation_ref else ""
-            sup = (
-                f'<sup class="cite-marker" id="cite-marker-{index}"'
-                f' data-claim-index="{index}"{ref_attr}>{marker}</sup>'
+    paragraphs = _report_paragraph_ranges(report)
+    source_numbers = {ref: i + 1 for i, ref in enumerate(dict.fromkeys(citation_ref_by_chunk_id.values()))}
+    insertions: dict[int, list[tuple[int, str]]] = {}
+    for index, claim in enumerate(claims):
+        text = _compact_markdown_text(claim.text)
+        if len(text) < 8:
+            continue
+        matches = [end for start, end in paragraphs if text in _compact_markdown_text(report[start:end])]
+        if len(matches) != 1:
+            continue
+        refs = insertions.setdefault(matches[0], [])
+        existing = {ref for _, ref in refs}
+        for chunk_id in claim.supporting_chunk_ids:
+            ref = citation_ref_by_chunk_id.get(chunk_id)
+            if ref and ref not in existing:
+                refs.append((index, ref))
+                existing.add(ref)
+    for position, refs in sorted(insertions.items(), reverse=True):
+        markers = []
+        for index, ref in refs:
+            number = source_numbers[ref]
+            label = _CIRCLED_NUMBERS[number - 1] if number <= len(_CIRCLED_NUMBERS) else str(number)
+            markers.append(
+                f'<sup class="cite-marker" id="cite-marker-{index}-{number}"'
+                f' data-claim-index="{index}" data-citation-ref="{escape(ref, quote=True)}">{label}</sup>'
             )
-            text = text[:claim_paragraph_end] + sup + text[claim_paragraph_end:]
-            inserted = True
-        if phrase:
-            # citation_label is stored as "法律名 第X条" (no 《》, space
-            # separated), but the report typically writes "《法律名》**第X条**"
-            # with book-title marks and bold. Build a tolerant regex:
-            #   - law name may be wrapped in 《》
-            #   - ** may appear anywhere around the article number
-            #   - whitespace allowed between name and number
-            # Split the phrase into (law_name, article_no) if possible.
-            article_match = re.search(r"第[一二三四五六七八九十百零〇\d]+条", phrase)
-            if article_match:
-                article_part = article_match.group(0)
-                law_name = phrase[: article_match.start()].strip().rstrip("》").lstrip("《").strip()
-                if law_name:
-                    # Match optional 《》, law name, optional 》, optional **,
-                    # then article number, then optional **.
-                    pattern = re.compile(re.escape(article_part))
-                    # First try the full precise form with law name.
-                    full_pattern = re.compile(
-                        r"《?"
-                        + re.escape(law_name)
-                        + r"》?\s*\**\s*"
-                        + re.escape(article_part)
-                        + r"\**"
-                    )
-                    patterns_to_try = [full_pattern, pattern]
-                else:
-                    patterns_to_try = [re.compile(re.escape(article_part) + r"\**")]
-            else:
-                patterns_to_try = [re.compile(re.escape(phrase))]
-
-            search_start = 0
-            for pat in patterns_to_try:
-                if inserted:
-                    break
-                while True:
-                    match = pat.search(text, search_start)
-                    if match is None:
-                        break
-                    insert_at = match.end()
-                    # Skip any trailing ** so the marker lands after the bold close.
-                    while insert_at < len(text) and text[insert_at] == "*":
-                        insert_at += 1
-                    if insert_at not in marked_positions:
-                        ref_attr = f' data-citation-ref="{citation_ref}"' if citation_ref else ""
-                        sup = (
-                            f'<sup class="cite-marker" id="cite-marker-{index}"'
-                            f' data-claim-index="{index}"{ref_attr}>{marker}</sup>'
-                        )
-                        text = text[:insert_at] + sup + text[insert_at:]
-                        marked_positions.add(insert_at)
-                        inserted = True
-                        break
-                    search_start = match.end() + 1
-        if not inserted:
-            paragraph_end = _find_claim_paragraph_end(text, claim.text)
-            if paragraph_end is not None:
-                ref_attr = f' data-citation-ref="{citation_ref}"' if citation_ref else ""
-                sup = (
-                    f'<sup class="cite-marker" id="cite-marker-{index}"'
-                    f' data-claim-index="{index}"{ref_attr}>{marker}</sup>'
-                )
-                text = text[:paragraph_end] + sup + text[paragraph_end:]
-                inserted = True
-    return text
+        report = report[:position] + "".join(markers) + report[position:]
+    return report
 
 
-def _remove_citation_markers(report: str) -> str:
-    """Remove generated inline markers before rebuilding a revised report."""
+def report_evidence(
+    evidence_hits: list[RetrievalHit], *, claims: list[GroundedClaim], reference_chunk_ids: list[str],
+    additional_chunk_ids: Sequence[str] = (),
+) -> list[RetrievalHit]:
+    """Select declared report sources without discarding the investigation set."""
 
-    return re.sub(
-        r'<sup\b[^>]*class=["\']cite-marker["\'][^>]*>.*?</sup>',
-        "",
-        report,
-        flags=re.DOTALL,
-    )
-
-
-def _sanitize_draft_markdown(draft: LLMReviewResultDraft) -> LLMReviewResultDraft:
-    """Apply markdown sanitization to all text fields of an LLM result draft.
-
-    Kept for potential future use on the plain path; the markdown path now
-    uses ``MarkdownReviewDraft`` and sanitizes only the ``report`` field
-    inline (see ``build_review_result_with_deepseek``).
-    """
-
-    return draft.model_copy(
-        update={
-            "conclusion": _sanitize_markdown_text(draft.conclusion),
-            "claims": [
-                claim.model_copy(update={"text": _sanitize_markdown_text(claim.text)})
-                for claim in draft.claims
-            ],
-            "recommended_actions": [_sanitize_markdown_text(a) for a in draft.recommended_actions],
-            "risk_boundaries": [_sanitize_markdown_text(b) for b in draft.risk_boundaries],
-            "missing_information": [_sanitize_markdown_text(m) for m in draft.missing_information],
-        }
-    )
+    used = {*reference_chunk_ids, *additional_chunk_ids,
+            *(chunk_id for claim in claims for chunk_id in claim.supporting_chunk_ids)}
+    unknown = used - {hit.chunk_id for hit in evidence_hits}
+    if unknown:
+        raise ValueError(f"报告引用了本轮未取得的资料：{sorted(unknown)}")
+    return [hit for hit in evidence_hits if hit.chunk_id in used]
 
 
 def _extract_markdown_section_items(report: str, section_titles: set[str]) -> list[str]:
@@ -593,230 +466,45 @@ def build_result_generation_messages(
     source_evidence_packets: list[SourceEvidencePacket] | None = None,
     output_format: Literal["plain", "markdown"] = "plain",
 ) -> list[ChatMessage]:
-    """Build a DeepSeek JSON prompt for structured review result generation.
+    """Provide original evidence and a schema, without legal-answer examples."""
 
-    ``output_format="plain"`` (default, used by eval) emits plain-text
-    conclusion/claims — keeps eval metrics stable and lets strict_tool mode
-    validate the schema cleanly. ``output_format="markdown"`` (used by the
-    frontend API) emits markdown-formatted conclusion (### headings, **bold**
-    legal terms, lists) and inline-bold claims for richer display. Both
-    formats share the same evidence/facts/corpus_scope payload and the same
-    risk_level / abstention logic, so retrieval and risk judgements stay
-    consistent across the two paths.
-    """
-
-    if output_format == "markdown":
-        # markdown path uses MarkdownReviewDraft schema: a single `report`
-        # field carries the whole review as natural-language markdown,
-        # instead of splitting into conclusion/actions/boundaries/missing.
-        # The LLM writes one coherent report whose sections adapt to the
-        # scene (cross-border / sensitive info / insufficient evidence…).
-        json_example = {
-            "risk_level": "medium",
-            "decision_summary": (
-                "当前材料显示该境外 CRM 场景属于个人信息出境，但企业并非关键信息基础设施运营者、"
-                "未涉及重要数据，现有数量未达到安全评估门槛，可优先采用标准合同或认证路径。"
-                "上线前仍须核实敏感信息范围，完成个人信息保护影响评估、标准合同签署及备案。"
-            ),
-            "report": (
-                "### 风险定性\n"
-                "该场景涉及**个人信息跨境提供**，存在**中等合规风险**。\n\n"
-                "### 关键法律依据\n"
-                "依据《个人信息保护法》**第三十八条**，个人信息出境需通过安全评估、"
-                "标准合同或认证等法定路径；《数据出境安全评估办法》规定，处理100万人"
-                "以上个人信息的数据处理者应当申报安全评估。材料显示拟向境外接收方传输"
-                "员工个人信息，但未说明已采取的出境路径。\n\n"
-                "### 合规义务与缺口\n"
-                "- 需确认是否取得用户**单独同意**；\n"
-                "- 需确认出境数据规模是否触发**数据出境安全评估**申报门槛；\n"
-                "- 材料未提供境外接收方信息，影响风险完整性判断。\n\n"
-                "### 建议措施\n"
-                "1. 取得用户**单独同意**并留存告知记录；\n"
-                "2. 与境外接收方签订**数据处理协议**；\n"
-                "3. 评估是否需要申报**数据出境安全评估**。\n\n"
-                "### 风险边界\n"
-                "本结论基于当前材料和已召回证据，**不构成正式法律意见**；"
-                "如出境方式或接收方变更需重新评估。"
-            ),
-            "claims": [
-                {
-                    "text": "该场景涉及**个人信息跨境提供**，存在中等合规风险。",
-                    "supporting_chunk_ids": ["chunk_id_from_evidence_packets"],
-                },
-                {
-                    "text": "依据《个人信息保护法》**第三十八条**，出境需通过法定路径。",
-                    "supporting_chunk_ids": ["another_chunk_id_from_evidence_packets"],
-                },
-                {
-                    "text": "需确认是否取得**单独同意**及数据出境规模。",
-                    "supporting_chunk_ids": ["chunk_id_from_evidence_packets"],
-                },
-            ],
-            "trigger_reasons": ["cross_border_transfer", "missing_information"],
-        }
-        # markdown path: 3 replaced instructions adapt the shared list to
-        # the report-based schema. Extra instructions teach report format
-        # and chunk diversification. Plain path stays byte-identical to HEAD.
-        format_instruction_replacements = [
-            "必须输出合法 json object，字段必须与 json_example 完全一致；decision_summary 使用纯文本，report 字段内使用 markdown 符号（**、###、-、数字列表）。",
-            "claims 必须逐句覆盖 report 中的关键判断；每个 claim.text 是一个可单独展示的结论句，关键法律术语可用 **加粗**（只加粗短语，不加粗整句）。",
-            "只输出 json object，不要输出 json 以外的任何解释文字；report 内可自由使用 markdown 让内容更易读。",
-        ]
-        extra_markdown_instructions = [
-            "decision_summary 是供飞书审批和 PDF 首页共用的审批摘要，用 120-200 个中文字符直接回答问题，并概括风险等级、建议决定、核心依据和上线前 2-4 项关键条件；使用单段纯文本，不要使用 markdown、引用标记或免责声明，不得引入 report 和 evidence_packets 中没有的新事实、法条或数字。",
-            "report 用 markdown 输出完整审查报告，根据场景自适应选择小节，通常包含「风险定性」「关键法律依据」「合规义务与缺口」「建议措施」「风险边界」等 ### 小节；段落间空行分隔，关键法律依据短语用 **加粗**，合规义务用 - 列表，建议措施用数字列表；不要用 # 或 ## 标题，不要用 ``` 代码块，长度建议 250-500 字。",
-            "语言表达要自然清晰，让业务人员能快速看懂合规风险、义务缺口和下一步动作；不要堆砌法条，要把规则落到当前材料的实际场景上。",
-            "claims 的 supporting_chunk_ids 只能从 payload.citable_chunk_ids 中选取（这些是 can_cite_clause=true 的法条 chunk）；不要使用 citable_chunk_ids 以外的任何 chunk_id，evidence_packets 中 can_cite_clause=false 的指南/范本/Q&A/地方清单只能作为背景理解，不能出现在 supporting_chunk_ids 里。",
-            "claims 优先从 evidence_packets[].supporting_chunks 中选取条款最精确的 chunk，不要反复引用同一个 representative_chunk；不同 claim 尽量引用不同 chunk 以分散证据来源。",
-            "每个 claim.text 应明确包含所依据的法律条款编号（如「《个人信息保护法》第三十九条」「数据出境安全评估办法 第七条」），便于生成内联引用标记。",
-        ]
-        system_content = (
-            "你是企业数据合规审查结果生成助手。"
-            "只输出一个合法 json object，不要输出 json 以外的任何解释文字；"
-            "decision_summary 输出审批人可直接阅读的纯文本摘要，"
-            "report 字段用 markdown 输出清晰易懂的完整审查报告。"
-        )
-        # markdown path has no missing_information/actions/boundaries fields
-        # (they live inside report), so instruction 5 must be adapted.
-        missing_facts_instruction = (
-            "缺失的事实和合规缺口直接写进 report 的「合规义务与缺口」「建议措施」"
-            "等小节；不要因为存在信息缺口就输出 insufficient_evidence。"
-        )
-    else:
-        json_example = {
-            "risk_level": "medium",
-            "decision_summary": (
-                "当前材料显示该场景可能涉及个人信息跨境提供，但数据规模、敏感信息范围和同意情况"
-                "尚未完整确认。现阶段可形成中风险的有边界判断，需先补齐关键事实并核对是否触发"
-                "安全评估门槛，再确定标准合同、认证或安全评估路径。"
-            ),
-            "conclusion": "该场景可能涉及个人信息跨境提供，但仍需补充数据规模和同意情况。",
-            "claims": [
-                {
-                    "text": "该场景可能涉及个人信息跨境提供。",
-                    "supporting_chunk_ids": ["chunk_id_from_evidence_packets"],
-                },
-                {
-                    "text": "仍需补充数据规模和同意情况。",
-                    "supporting_chunk_ids": ["another_chunk_id_from_evidence_packets"],
-                },
-            ],
-            "trigger_reasons": ["cross_border_transfer", "missing_information"],
-            "missing_information": ["legal_basis_or_consent", "data_volume_threshold"],
-            "recommended_actions": ["确认是否取得单独同意", "确认出境数据规模"],
-            "risk_boundaries": ["本结论基于当前材料和已召回证据，不构成正式法律意见"],
-            "issues": [],
-        }
-        # plain path: keep HEAD instructions exactly as-is (eval stability).
-        format_instruction_replacements = [
-            "必须输出合法 json object，字段必须与 json_example 完全一致；decision_summary 使用纯文本。",
-            "claims 必须逐句覆盖 conclusion 中的关键判断；每个 claim.text 是一个可单独展示的结论句。",
-            "不要输出解释、markdown 或自然语言。",
-        ]
-        extra_markdown_instructions = [
-            "decision_summary 是供审批使用的摘要，用 120-200 个中文字符直接回答问题，并概括风险等级、建议决定、核心依据和 2-4 项关键条件；不要使用 markdown，不得引入 conclusion 和 evidence_packets 中没有的新事实、法条或数字。",
-        ]
-        system_content = (
-            "你是企业数据合规审查结果生成助手。只输出 json，不输出解释、markdown 或自然语言。"
-        )
-        # plain path keeps the HEAD instruction 5 verbatim.
-        missing_facts_instruction = (
-            "缺失事实优先写入 missing_information、recommended_actions 和 risk_boundaries；"
-            "不要仅因存在 missing_information 就输出 insufficient_evidence。"
-        )
-    evidence_packets = [
-        {
-            "source_id": packet.source_id,
-            "title": packet.title,
-            "representative_chunk": _llm_evidence_hit(packet.representative_chunk),
-            "supporting_chunks": [_llm_evidence_hit(hit) for hit in packet.supporting_chunks[:2]],
-            "neighbor_chunks": [_llm_evidence_hit(hit) for hit in packet.neighbor_chunks[:2]],
-        }
-        for packet in (source_evidence_packets or [])
-    ]
-    # Flat whitelist of every chunk_id the LLM is allowed to cite. LLM
-    # occasionally hallucinates ids that follow the source_id:N pattern
-    # (e.g. ``:0004`` when only 0000/0003/0005 exist) by pattern-completion
-    # on the nested evidence_packets structure. Surfacing the full list at
-    # the top of the payload gives the model a single source of truth to
-    # copy from. This field is purely additive context — no instruction
-    # text is changed, so eval metrics stay stable.
-    allowed_chunk_ids = sorted({hit.chunk_id for hit in evidence_hits})
-    # Citable-only whitelist: claims[].supporting_chunk_ids must come from
-    # this list. Pre-filtering here means the LLM does not have to inspect
-    # each chunk's can_cite_clause flag — it just copies ids from this list.
-    # Non-citable chunks (guides/templates/Q&A/local lists) remain in
-    # evidence_packets as background context but cannot be cited.
-    citable_chunk_ids = sorted({hit.chunk_id for hit in evidence_hits if hit.can_cite_clause})
+    output_model = MarkdownReviewDraft if output_format == "markdown" else LLMReviewResultDraft
+    evidence_context = compact_evidence_context({"evidence": [hit.model_dump(mode="json") for hit in evidence_hits]})
+    today = business_today()
     payload = {
+        "current_date": today.isoformat(),
+        "review_date": (facts.as_of_date or today).isoformat(),
         "question": question,
-        "material_excerpt": (material_text or "")[:3000],
-        "allowed_chunk_ids": allowed_chunk_ids,
-        "citable_chunk_ids": citable_chunk_ids,
-        "review_facts": facts.model_dump(),
-        "evidence_self_check": self_check.model_dump(),
-        "retrieval_queries": [query.model_dump() for query in (retrieval_queries or [])],
+        "material_excerpt": material_text or "",
+        "review_facts": facts.model_dump(mode="json"),
+        "evidence_self_check": self_check.model_dump(mode="json"),
+        "retrieval_queries": [query.model_dump(mode="json") for query in (retrieval_queries or [])],
         "second_retrieval": second_retrieval or {},
-        "evidence_packets": evidence_packets,
-        "corpus_scope": {
-            "jurisdiction": "中国大陆数据合规和个人信息保护语料",
-            "includes": [
-                "个人信息保护法、数据安全法、网络安全法、网络数据安全管理条例",
-                "数据出境安全评估、个人信息出境标准合同、个人信息保护认证",
-                "国家网信部门政策问答、TC260 标准、自贸区地方数据出境清单、汽车/金融等行业材料",
-            ],
-            "excludes": [
-                "EU AI Act",
-                "CCPA/CPRA",
-                "其他外国法或非数据合规领域问题",
-            ],
-        },
-        "json_example": json_example,
-        "instructions": [
-            "基于审查事实和 evidence_packets 生成结构化审查结果。",
-            "必须结合 question、material_excerpt、retrieval_queries 和 evidence_self_check 判断结论边界。",
-            "只能基于 corpus_scope 内的中国数据合规语料和 evidence_packets 作答；如果 question 明确询问 corpus_scope.excludes 中的法域或制度，risk_level 必须为 insufficient_evidence。",
-            "不要过度谨慎：如果材料已有可审查事实且 evidence 支持相关规则，即使缺少数据规模、同意状态、备案细节等信息，也要给出 high、medium 或 low 的有边界判断。",
-            missing_facts_instruction,
-            "如果材料没有说明关键事实（数据类型、处理目的、是否出境、接收方、地区/行业等），不要把 question 中的假设当作事实；只有在无法形成任何有用边界判断时才输出 insufficient_evidence。",
-            "当 evidence_self_check.status 为 sufficient，且材料至少包含一个实质法律维度（如数据类型、处理目的、跨境安排、地区、行业、个人信息/敏感信息），通常不应输出 insufficient_evidence。",
-            format_instruction_replacements[0],
-            "risk_level 只能是 high、medium、low、insufficient_evidence。",
-            format_instruction_replacements[1],
-            *extra_markdown_instructions,
-            "每个 claims[].supporting_chunk_ids 必须只使用 evidence_packets 中真实存在的 chunk_id，且不能为空。",
-            "evidence_self_check.status=sufficient 表示证据可用于当前语料范围内的判断；若事实有缺口但仍可形成边界判断，不要拒答。",
-            "insufficient_evidence 只适用于：证据自检 insufficient、材料几乎没有可审查事实、问题超出 corpus_scope、或证据与问题/材料明显不匹配。",
-            "不得编造未出现在证据中的法律来源。",
-            "优先依据 representative_chunk；supporting_chunks 用于补充同一来源内更精确的条款；neighbor_chunks 只用于理解上下文。",
-            "引用分组由程序处理，本节点不要输出 citations。",
-            format_instruction_replacements[2],
-        ],
+        "source_evidence_packets": [{
+            "source_id": packet.source_id,
+            "representative_chunk_id": packet.representative_chunk.chunk_id,
+            "supporting_chunk_ids": [hit.chunk_id for hit in packet.supporting_chunks],
+            "neighbor_chunk_ids": [hit.chunk_id for hit in packet.neighbor_chunks],
+        } for packet in (source_evidence_packets or [])],
+        **evidence_context,
+        "citable_chunk_ids": [hit.chunk_id for hit in evidence_hits if hit.can_cite_clause],
     }
-    return [
-        ChatMessage(
-            role="system",
-            content=system_content,
-        ),
-        ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
-    ]
-
-
-def _llm_evidence_hit(hit: RetrievalHit) -> dict[str, object]:
-    return {
-        "chunk_id": hit.chunk_id,
-        "source_id": hit.source_id,
-        "title": hit.title,
-        "text": hit.text[:1200],
-        "citation_role": hit.citation_role,
-        "can_cite_clause": hit.can_cite_clause,
-        "article_no": hit.article_no,
-        "citation_label": hit.citation_label,
-        "source_url": hit.source_url,
-        "score": hit.score,
-        "rank": hit.rank,
-        "matched_query_type": hit.matched_query_type,
-    }
+    system = """你是CrossComply企业数据合规审查结果生成助手。根据当前问题、本案材料和实际取得的原文，返回符合output_schema的JSON报告。
+先回答当前审查目标，说明决定性的事实、适用规则和限制。材料、事实投影和模型判断保留来源区别；未知不作为否定，推断不补作事实。
+原文与同源evidence_sources合并理解，完整原文和full_article_text中的条件、例外及适用范围一起使用。代表命中、同源支持和相邻内容的来源身份相同，不因检索位置而改变法律效力。依据不足时如实说明，不以自检sufficient或已存在一些业务信息为由强行确定路径、风险或义务。
+关键前提不足以支持本次个案判断时，risk_level为insufficient_evidence、legal_path留空，正文仍可给有依据的条件分支。范围外缺口不阻塞已经确定的限定结论。不得用medium/high/low代替未知，也不得增加材料未提供的人数、持续时间或身份。
+结论、摘要、理由、清单和建议在明确关联的条件下保持一致，不必逐句重复条件；不能用末段的待确认事项挽救前面的无条件结论。区分处理依据、程序机制和具体义务，各自结合适用条件及例外。参考标准与政策解释可支持说明或建议，不独立创设法定义务。
+claims关联关键法律判断所在的完整段落，不要求逐句拆分；尽量保留正文原表述以便定位。supporting_chunk_ids只复制实际取得且can_cite_clause=true的原文标识，按实际支持关系选择，不为分散来源更换引用。正文实际使用的解释、标准等资料登记reference_chunk_ids；没有使用的资料不登记。编号、来源信息及展示位置由程序处理，不自行编排引用编号或HTML标记。
+decision_summary为单段纯文本，直接回答当前目标，保留决定性限制，不引入正文与材料没有的新事实。建议、待确认事实和已确认法律问题分别表达，不为填满栏目生成整改事项。仅依据当前中国数据合规语料，问题超出范围或缺少适用法源时说明限制，不补造其他法域规则。
+"""
+    if output_format == "markdown":
+        system += "report使用简洁Markdown，按当前争点安排段落；建议措施需列出时可用同名小节。不强制报告长度或固定栏目。\n"
+    system += "review_date是审查时点，current_date是运行日期。法律依据缺口写legal_basis_gaps，不让申请人确认法条内容或规则适用关系。\n"
+    if output_format == "plain":
+        system += "完整业务待确认清单写questions，每个问题及回答类型只填一次；issues通过question_indexes关联，只由questions生成事实确认任务。\n"
+    system += "output_schema=" + json.dumps(output_model.model_json_schema(), ensure_ascii=False)
+    return [ChatMessage(role="system", content=system),
+            ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False))]
 
 
 def build_review_result_with_deepseek(
@@ -855,14 +543,6 @@ def build_review_result_with_deepseek(
     if client is None:
         client = OpenAICompatibleClient(require_llm_config())
 
-    citation_groups, _violations = group_citations(evidence_hits, facts, chunks_by_id)
-    citation_ref_by_chunk_id = {
-        citation.chunk_id: citation.citation_ref
-        for group in citation_groups
-        for citation in group.citations
-        if citation.citation_ref
-    }
-
     # markdown format forces json_object: strict_tool schema validation
     # rejects free-form markdown inside string fields. plain format falls
     # back to the client's configured mode (usually strict_tool) so eval
@@ -883,10 +563,17 @@ def build_review_result_with_deepseek(
     try:
 
         def validate_draft_grounding(draft_to_validate):
+            validate_legal_basis_gaps(draft_to_validate)
+            if draft_to_validate.risk_level == "insufficient_evidence" and draft_to_validate.legal_path is not None:
+                raise ValueError("证据不足时不能确定法律路径")
             validated_claims = validate_grounded_claims(
                 draft_to_validate.claims,
                 evidence_hits,
             )
+            report_evidence(evidence_hits, claims=validated_claims,
+                            reference_chunk_ids=draft_to_validate.reference_chunk_ids,
+                            additional_chunk_ids=[cid for issue in getattr(draft_to_validate, "issues", [])
+                                                  for cid in issue.supporting_chunk_ids])
             complete_review = getattr(
                 draft_to_validate,
                 "report",
@@ -927,6 +614,12 @@ def build_review_result_with_deepseek(
                 "请确保每个 claim 至少引用一个允许且可作为法条依据的 supporting_chunk_id。"
             ),
         )
+        selected = report_evidence(evidence_hits, claims=draft.claims,
+                                   reference_chunk_ids=draft.reference_chunk_ids,
+                                   additional_chunk_ids=[cid for issue in getattr(draft, "issues", [])
+                                                         for cid in issue.supporting_chunk_ids])
+        citation_groups, _ = group_citations(selected, facts, chunks_by_id)
+        citation_ref_by_chunk_id = {c.chunk_id: c.citation_ref for g in citation_groups for c in g.citations}
         # markdown path: sanitize the report text and use it as conclusion.
         # The explicitly labelled action section is also promoted into
         # durable case actions by the workbench API.
@@ -940,16 +633,9 @@ def build_review_result_with_deepseek(
             decision_summary = md_draft.decision_summary.strip()
             claims = validate_grounded_claims(md_draft.claims, evidence_hits)
             claims = attach_citation_refs(claims, citation_groups)
-            # Inject ①②③ inline citation markers into the report text so
-            # the frontend can render clickable superscripts that link to
-            # the citation cards below. Done after validation so markers
-            # only cover citable legal articles. Uses chunk citation_label
-            # for matching so the marker lands on the exact legal article
-            # reference in the report text.
             conclusion = inject_citation_markers(
                 md_draft.report,
                 claims,
-                evidence_hits,
                 citation_ref_by_chunk_id,
             )
             trigger_reasons = md_draft.trigger_reasons
@@ -994,11 +680,13 @@ def build_review_result_with_deepseek(
         review_case_id=review_case_id,
         trace_id=trace_id,
         risk_level=risk_level,
+        legal_path=draft.legal_path,
         decision_summary=decision_summary,
         conclusion=conclusion,
         review_facts=facts,
         trigger_reasons=trigger_reasons,
         missing_information=missing_information,
+        legal_basis_gaps=draft.legal_basis_gaps,
         missing_answer_types=missing_answer_types if output_format == "plain" else {},
         recommended_actions=recommended_actions,
         risk_boundaries=risk_boundaries,

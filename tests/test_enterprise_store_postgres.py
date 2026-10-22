@@ -124,7 +124,8 @@ def test_retry_only_requeues_failed_task_without_incrementing_attempt() -> None:
     queued = _task_row(status="queued", attempt_count=2)
     connection = ScriptedConnection(
         [
-            ("WHERE id = %s AND status = 'failed'", queued),
+            ("SELECT status, result_json FROM review_tasks WHERE id = %s FOR UPDATE", {"status": "failed"}),
+            ("WHERE id = %s AND status = %s", queued),
             ("FROM review_task_attempts", []),
         ]
     )
@@ -137,17 +138,34 @@ def test_retry_only_requeues_failed_task_without_incrementing_attempt() -> None:
     assert task.attempts == []
 
 
-def test_retry_rejects_non_failed_or_unknown_task() -> None:
+@pytest.mark.parametrize('previous', [None, {'status': 'running'},
+    {'status': 'succeeded', 'result_json': {'review_result': {'risk_level': 'low'}}}])
+def test_retry_rejects_non_failed_or_unknown_task(previous) -> None:
     connection = ScriptedConnection(
         [
-            ("WHERE id = %s AND status = 'failed'", None),
-            ("SELECT status FROM review_tasks", {"status": "running"}),
+            ("SELECT status, result_json FROM review_tasks WHERE id = %s FOR UPDATE", previous),
         ]
     )
     store = PostgresEnterpriseStore("postgresql://unused", connect=_factory(connection))
 
-    with pytest.raises(ValueError, match="只有失败的审查任务可以重试"):
+    with pytest.raises(ValueError, match="只有失败或未完成核验的审查任务可以重试"):
         store.retry_task("review_task_1")
+
+
+def test_retry_incomplete_report_resets_exhausted_state_without_dropping_report():
+    report = {'review_result': {'risk_level': 'insufficient_evidence'}}
+    queued = _task_row(status='queued', attempt_count=1)
+    queued['result_json'] = report
+    connection = ScriptedConnection([
+        ('SELECT status, result_json FROM review_tasks WHERE id = %s FOR UPDATE',
+         {'status': 'succeeded', 'result_json': report}),
+        ('WHERE id = %s AND status = %s', queued),
+        ('FROM review_task_attempts', []),
+    ])
+    task = PostgresEnterpriseStore('postgresql://unused', connect=_factory(connection)).retry_task('review_task_1')
+    assert task.status == 'queued' and task.result == report and task.agent_state is None
+    assert task.attempt_count == 1
+    assert connection.cursor_instance.executed[1][1] == (True, True, 'review_task_1', 'succeeded')
 
 
 def test_fail_task_preserves_node_category_and_attempt_history() -> None:

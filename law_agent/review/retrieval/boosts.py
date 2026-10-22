@@ -1,4 +1,4 @@
-"""Soft retrieval weights for the case's region, industry and query purpose.
+"""Retrieval weights and conservative checks against explicit source scopes.
 
 Citation authority remains metadata for legal judgment and formal citation
 gates; it does not replace query relevance in retrieval ranking.
@@ -201,3 +201,39 @@ def _industry_matches(chunk: Chunk, industry: str) -> bool:
     keywords = _INDUSTRY_KEYWORD_MAP.get(industry, [industry])
     combined = " ".join([*chunk.applicable_subjects, *chunk.topic_tags])
     return any(keyword and keyword in combined for keyword in keywords)
+
+
+def outside_explicit_scope(chunk: Chunk, facts: ReviewFacts, query_text: str,
+                           excluded_scope_terms=(), *, requested_text: str | None = None) -> bool:
+    requested_text = query_text if requested_text is None else requested_text
+    if chunk.title and chunk.title in requested_text:
+        return False
+    scoped_source = chunk.citation_role in {"conditional_local_basis", "conditional_industry_basis"} or (
+        chunk.citation_role in {"interpretation_auxiliary", "implementation_reference"}
+        and (_is_specific_region(chunk.applicable_region) or chunk.applicable_subjects)
+    )
+    if scoped_source and any(term in " ".join([chunk.title, *chunk.applicable_subjects]) for term in excluded_scope_terms):
+        return True
+    if chunk.citation_role == "conditional_local_basis":
+        def known_region(region):
+            return region.startswith("CN-") and any(
+                _region_matches(region, code) for code in _REGION_CODE_MAP.values()
+            )
+
+        regions = [region for region in _specific_regions(facts.regions) if known_region(region)]
+        source_region = _normalize_region(chunk.applicable_region)
+        mentioned = [code for name, code in _REGION_CODE_MAP.items() if name in query_text or code in query_text]
+        if any(_region_matches(source_region, region) for region in mentioned):
+            return False
+        return bool(regions and known_region(source_region)
+                    and not any(_region_matches(source_region, region) for region in regions))
+    if chunk.citation_role == "conditional_industry_basis" and facts.industry in _INDUSTRY_KEYWORD_MAP:
+        if _industry_matches(chunk, facts.industry):
+            return False
+        subjects = " ".join(chunk.applicable_subjects)
+        source_industries = [industry for industry, keywords in _INDUSTRY_KEYWORD_MAP.items()
+                             if any(keyword in subjects for keyword in keywords)]
+        if any(keyword in query_text for industry in source_industries for keyword in _INDUSTRY_KEYWORD_MAP[industry]):
+            return False
+        return bool(source_industries)
+    return False

@@ -20,6 +20,10 @@ from law_agent.review.feishu import (
     parse_approval_event,
 )
 from law_agent.review.governance_store import InMemoryGovernanceStore, PostgresGovernanceStore
+from law_agent.review.workflow import (
+    review_has_missing_information,
+    review_needs_source_verification,
+)
 
 
 def register_integration_routes(
@@ -48,8 +52,8 @@ def register_integration_routes(
             raise HTTPException(status_code=404, detail="案件不存在")
         if case["status"] != "pending_feishu_approval":
             raise HTTPException(status_code=409, detail="案件尚未完成审查，不能发起飞书审批")
-        if (case.get("response") or {}).get("freshness_hold"):
-            raise HTTPException(status_code=409, detail="最新官方法源仍在核验，暂不能发起飞书审批")
+        if review_needs_source_verification(case.get("response") or {}):
+            raise HTTPException(status_code=409, detail="法律依据仍待核验，暂不能发起飞书审批")
         plan = store().get_remediation_plan(identifier)
         blockers = [
             item for item in (plan or {}).get("tasks") or []
@@ -70,6 +74,8 @@ def register_integration_routes(
         task = enterprise().get_latest_task(identifier)
         if task is None or task.status != "succeeded":
             raise HTTPException(status_code=409, detail="案件没有已完成的审查任务")
+        if review_has_missing_information(case.get("response") or {}) or review_has_missing_information(task.result or {}):
+            raise HTTPException(status_code=409, detail="审查仍有事实或证据缺口，不能发起飞书审批")
         existing = governance().get_latest_approval(identifier)
         if existing is not None:
             return asdict(existing)

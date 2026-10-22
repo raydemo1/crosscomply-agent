@@ -4,6 +4,7 @@ import json
 from base64 import b64encode
 from pathlib import Path
 
+import pytest
 from Crypto.Cipher import AES
 from fastapi.testclient import TestClient
 
@@ -74,6 +75,74 @@ def _freeze_inputs(store: InMemoryEnterpriseStore, case_id: str, *, needs_info: 
     )
     rule = store.create_intake_snapshot(case_id=case_id, material_snapshot_id=snapshot.id, intake={"is_ciio": False}, created_by="user_test")
     return snapshot, rule
+
+
+@pytest.mark.parametrize('changed_inputs', [False, True])
+def test_incomplete_delivered_review_can_restart_only_on_its_current_frozen_inputs(tmp_path, changed_inputs):
+    cases = InMemoryCaseStore(seed_password='pw')
+    enterprise = InMemoryEnterpriseStore()
+    chunks = tmp_path / 'chunks.jsonl'
+    chunks.write_text('', encoding='utf-8')
+    app = create_app(chunks_path=chunks, case_store=cases, enterprise_store=enterprise)
+    with TestClient(app) as client:
+        _login(client)
+        cid = _create_case(client)
+        snapshot, intake = _freeze_inputs(enterprise, cid)
+        task = enterprise.enqueue_review_task(case_id=cid, material_snapshot_id=snapshot.id,
+            intake_snapshot_id=intake.id, model_id='test', data_boundary_summary={})
+        enterprise.claim_next_task(worker_id='test')
+        report = {'trace_id': 'previous-trace', 'review_result': {'risk_level': 'insufficient_evidence',
+                  'missing_information': [], 'legal_basis_gaps': []}}
+        enterprise.checkpoint_agent(task.id, state={'status': 'completed', 'turns': 16, 'steps': []})
+        enterprise.complete_task(task.id, result=report, final_node='completed')
+        cases.update_case(cid, status='run_failed', response_json=report)
+        if changed_inputs:
+            _freeze_inputs(enterprise, cid)
+        response = client.post(f'/api/tasks/{task.id}/retry')
+        if changed_inputs:
+            assert response.status_code == 409
+            assert task.agent_state['turns'] == 16 and task.status == 'succeeded'
+            return
+        assert response.status_code == 200, response.text
+        assert response.json()['status'] == 'queued'
+        assert task.agent_state is None and task.result == report and task.steps == []
+        assert task.attempt_count == 1 and task.attempts[0].status == 'succeeded'
+        assert cases.get_case(cid)['status'] == 'review_running'
+        event = next(e for e in cases.list_events(cid) if e['event_type'] == 'review_retried')
+        assert event['payload']['previous_review_result'] == report['review_result']
+        assert event['payload']['previous_trace_id'] == 'previous-trace'
+        assert client.post(f'/api/tasks/{task.id}/retry').status_code == 409
+        assert enterprise.claim_next_task(worker_id='retry').attempt_count == 2
+
+
+@pytest.mark.parametrize("gap", [
+    {"review_result": {"risk_level": "insufficient_evidence"}},
+    {"semantic_grounding": {"status": "supported", "missing_facts": ["核验器发现的未确认事实"]}},
+    {"evidence_self_check": {"status": "insufficient"}},
+    {"review_result": {"risk_level": "medium", "legal_basis_gaps": ["缺失适用依据全文"]}},
+])
+def test_approval_rechecks_fact_gaps_even_if_case_was_marked_pending(tmp_path, gap):
+    case_store = InMemoryCaseStore(seed_password="pw")
+    enterprise = InMemoryEnterpriseStore()
+    governance = InMemoryGovernanceStore()
+    chunks = tmp_path / "chunks.jsonl"
+    chunks.write_text("", encoding="utf-8")
+    app = create_app(chunks_path=chunks, case_store=case_store, enterprise_store=enterprise,
+                     governance_store=governance)
+    with TestClient(app) as client:
+        _login(client)
+        case_id = _create_case(client)
+        _freeze_inputs(enterprise, case_id)
+        case_store.update_case(case_id, status="pending_review", facts_confirmed=True)
+        queued = client.post(f"/api/cases/{case_id}/run")
+        task = enterprise.claim_next_task(worker_id="offline")
+        assert task.id == queued.json()["task_id"]
+        enterprise.complete_task(task.id, result=gap, final_node="completed")
+        case_store.update_case(case_id, status="pending_feishu_approval")
+        response = client.post(f"/api/cases/{case_id}/feishu-approval")
+        assert response.status_code == 409 and "缺口" in response.json()["detail"]
+        assert not governance.approval_deliveries
+        assert governance.get_latest_approval(case_id) is None
 
 
 def test_run_enqueues_idempotent_task_and_exposes_polling(tmp_path: Path) -> None:
@@ -283,7 +352,7 @@ def test_reviewer_can_answer_and_resume_waiting_agent(tmp_path: Path) -> None:
             goal="确认接收方地区",
             status="waiting_input",
             plan=["阅读材料", "检索法源"],
-            turns=1,
+            turns=16, searches=5, reads=10, web_searches=5,
             pending_question="境外接收方位于哪个国家或地区？",
             gate_id="input_1",
         )
@@ -297,6 +366,10 @@ def test_reviewer_can_answer_and_resume_waiting_agent(tmp_path: Path) -> None:
 
         assert response.status_code == 200, response.text
         assert response.json()["status"] == "queued"
+        from law_agent.review.agent import remaining_budget
+        resumed_state = AgentState.model_validate(response.json()["agent_state"])
+        assert remaining_budget(resumed_state) == {"turns": 16, "searches": 5, "reads": 10, "web_searches": 5}
+        assert resumed_state.turns == 17 and resumed_state.searches == 5
         assert response.json()["agent_state"]["steps"][-1]["action"] == "human_input"
         assert response.json()["agent_state"]["fact_ledger"] == []
         assert response.json()["agent_state"]["steps"][-1]["observation"]["provenance"] == "reviewer_instruction"

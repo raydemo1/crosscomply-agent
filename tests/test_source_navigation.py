@@ -131,9 +131,12 @@ def test_history_resume_overlap_continuation_and_budget():
                                       checkpoint=lambda _: None)
 
     outline = read(EvidenceReadRequest(source_id="s1"))
+    assert outline["read_mode"] == "outline" and not outline["truncated"]
+    assert outline["next_read_request"] is None
     parent = outline["outline"][0]["node_id"]
     assert [h.chunk_id for h in state.evidence] == ["found"]
     first = read(EvidenceReadRequest(source_id="s1", node_id=parent))
+    assert first["read_mode"] == "text" and first["truncated"]
     assert first["next_read_request"]["node_id"] == parent
     state = AgentState.model_validate(state.model_dump(mode="json"))
     assert state.read_history[-1].next_offset == 5
@@ -141,7 +144,8 @@ def test_history_resume_overlap_continuation_and_budget():
     reads = state.reads
     assert "error" in read(EvidenceReadRequest(source_id="s1", node_id=parent))
     assert state.reads == reads
-    read(EvidenceReadRequest.model_validate(first["next_read_request"]))
+    last = read(EvidenceReadRequest.model_validate(first["next_read_request"]))
+    assert not last["truncated"] and last["next_offset"] is None and last["next_read_request"] is None
     children = read(EvidenceReadRequest(source_id="s1", parent_node_id=parent))
     leaf = children["outline"][0]["node_id"]
     overlap = read(EvidenceReadRequest(source_id="s1", node_id=leaf))

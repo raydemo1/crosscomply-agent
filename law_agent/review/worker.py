@@ -11,6 +11,7 @@ from typing import Any, Protocol
 from law_agent.review.agent import AgentState
 from law_agent.review.enterprise_store import ReviewTask
 from law_agent.review.llm import ReviewWorkflowFailed
+from law_agent.review.workflow import review_has_missing_information
 
 
 class ReviewTaskQueue(Protocol):
@@ -148,12 +149,7 @@ class ReviewWorker:
 def completion_has_missing_information(task: ReviewTask) -> bool:
     """Keep unresolved Agent conclusions from being promoted to approval."""
 
-    review_result = (task.result or {}).get("review_result") or {}
-    return bool(
-        review_result.get("risk_level") == "insufficient_evidence"
-        or review_result.get("missing_information")
-        or (task.result or {}).get("freshness_hold")
-    )
+    return review_has_missing_information(task.result or {})
 
 
 def main() -> None:
@@ -334,8 +330,13 @@ def main() -> None:
         on_failed=on_failed,
         on_waiting=on_waiting,
     )
+    from law_agent.review.qa_agent import QAWorker
+
+    qa_worker = QAWorker(app.state.qa_store, chunks_path=app.state.chunks_path)
     while True:
-        if worker.run_once() is None:
+        reviewed = worker.run_once()
+        answered = qa_worker.run_once()
+        if reviewed is None and answered is None:
             time.sleep(poll_seconds)
 
 

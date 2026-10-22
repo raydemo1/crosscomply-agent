@@ -1,1 +1,1 @@
-EXPECTED_SCHEMA_REVISION = "0015_default_remediation_phase"
+EXPECTED_SCHEMA_REVISION = "0018_qa_conversations"

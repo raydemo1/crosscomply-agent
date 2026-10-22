@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from collections.abc import Mapping
+from typing import Any, Literal
 
 CaseStatus = Literal[
     "draft",
@@ -54,6 +55,37 @@ def next_status_after_review(*, has_missing_information: bool) -> CaseStatus:
     """Route an AI review to human approval or back to information collection."""
 
     return "needs_info" if has_missing_information else "pending_feishu_approval"
+
+
+def review_needs_source_verification(payload: Mapping[str, Any]) -> bool:
+    review = payload.get("review_result") or {}
+    return bool(
+        review.get("legal_basis_gaps")
+        or payload.get("web_impact") == "core"
+        or payload.get("freshness_hold")
+    )
+
+
+def review_has_missing_information(payload: Mapping[str, Any]) -> bool:
+    review = payload.get("review_result") or {}
+    return bool(
+        review.get("risk_level") == "insufficient_evidence"
+        or review.get("missing_information")
+        or review_needs_source_verification(payload)
+        or (payload.get("semantic_grounding") or {}).get("missing_facts")
+        or (payload.get("semantic_grounding") or {}).get("status") in {"unsupported", "uncertain", "not_run"}
+        or (payload.get("evidence_self_check") or {}).get("status") == "insufficient"
+    )
+
+
+def review_requires_retry(payload: Mapping[str, Any]) -> bool:
+    review = payload.get("review_result") or {}
+    source_gaps = {str(item).strip() for item in review.get("legal_basis_gaps") or []}
+    business_questions = {
+        str(item).strip() for item in review.get("missing_information") or [] if str(item).strip()
+    } - source_gaps
+    return bool(review_has_missing_information(payload)
+                and not review_needs_source_verification(payload) and not business_questions)
 
 
 def validate_case_transition(

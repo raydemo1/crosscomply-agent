@@ -61,13 +61,12 @@ class ElasticsearchKeywordAdapter:
                         {
                             "multi_match": {
                                 "query": query,
+                                "type": "most_fields",
                                 "fields": [
-                                    "title^2",
-                                    "citation_label^2",
-                                    "heading_path",
-                                    "text",
-                                    "topic_tags",
-                                    "applicable_subjects",
+                                    "text^3",
+                                    "title",
+                                    "topic_tags^0.5",
+                                    "applicable_subjects^0.5",
                                 ],
                             }
                         }

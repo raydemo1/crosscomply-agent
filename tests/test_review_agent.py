@@ -13,9 +13,9 @@ from law_agent.review.agent import (
     run_agent,
 )
 from law_agent.review.agent_tools import ComplianceAgentTools
-from law_agent.review.result_builder import LLMReviewResultDraft
+from law_agent.review.result_builder import LLMReviewResultDraft, ReviewQuestionDraft
 from law_agent.review.schemas import RetrievalHit, RetrievalQuery, ReviewFacts
-from tests.test_review_llm import FakeClient
+from tests.test_review_llm import FakeClient, tool_message
 
 
 def _draft() -> LLMReviewResultDraft:
@@ -24,7 +24,7 @@ def _draft() -> LLMReviewResultDraft:
         decision_summary="当前材料和法源证据仍不足以形成正式风险结论，需要明确标示调查边界、尚未核实事项以及后续补充要求。",
         conclusion="现有证据不足，暂不形成正式合规路径结论。",
         trigger_reasons=["证据不足"],
-        missing_information=["境外接收方所在地区"],
+        questions=[ReviewQuestionDraft(text='境外接收方所在地区')],
         recommended_actions=["补充接收方信息"],
         risk_boundaries=["未覆盖地方和行业特别规则"],
     )
@@ -221,35 +221,33 @@ def test_agent_plan_is_visible_without_blocking_the_run() -> None:
     assert [step.action for step in state.steps] == ["propose_plan", "finish"]
 
 
-def test_agent_model_retries_invalid_decision_json_instead_of_failing_task() -> None:
+def test_agent_model_returns_invalid_tool_arguments_for_correction() -> None:
     client = FakeClient(
         outputs=[
-            {"type": "json_object", "plan": ["读取冻结材料"]},
-            {
-                "action": "propose_plan",
-                "summary": "给出执行计划",
-                "plan": ["读取冻结材料", "检索数据出境界定规则"],
-            },
+            tool_message(("bad", "propose_plan", {"type": "json_object", "plan": ["读取冻结材料"]})),
+            tool_message(("call_2", 'propose_plan', {'summary': '给出执行计划', 'plan': ['读取冻结材料', '检索数据出境界定规则']})),
         ]
     )
     model = AgentModel(model_id="test-model", client=client)  # type: ignore[arg-type]
 
-    assert model.node.max_retries >= 1
+    assert model.protocol.max_retries >= 1
 
-    decision = model(AgentState(goal="审查境外 SaaS 接入"), {})
-
+    from law_agent.review.agent import review_context
+    from law_agent.review.tool_calling import InvalidToolCall
+    state = AgentState(goal="审查境外 SaaS 接入")
+    with pytest.raises(InvalidToolCall) as error:
+        model(state, {})
+    state.tool_session.complete({"error": str(error.value)}, review_context(state, {}))
+    decision = model(state, {})
     assert decision.action == "propose_plan"
     assert len(client.calls) == 2
+    assert any(m.role == "tool" for m in client.calls[1])
 
 
-def test_agent_model_sends_decision_schema_in_system_prompt() -> None:
+def test_agent_model_registers_independent_native_tools() -> None:
     client = FakeClient(
         outputs=[
-            {
-                "action": "propose_plan",
-                "summary": "给出执行计划",
-                "plan": ["读取冻结材料", "检索数据出境界定规则"],
-            }
+            tool_message(("call_1", 'propose_plan', {'summary': '给出执行计划', 'plan': ['读取冻结材料', '检索数据出境界定规则']}))
         ]
     )
     model = AgentModel(model_id="test-model", client=client)  # type: ignore[arg-type]
@@ -258,8 +256,15 @@ def test_agent_model_sends_decision_schema_in_system_prompt() -> None:
 
     system = client.calls[0][0]
     assert system.role == "system"
-    assert '"action"' in system.content
-    assert '"summary"' in system.content
+    assert "AgentDecision schema" not in system.content
+    tools = {tool["function"]["name"]: tool["function"] for tool in client.kwargs[0]["tools"]}
+    assert "queries" in tools["search_evidence"]["parameters"]["properties"]
+    assert "draft" not in tools["search_evidence"]["parameters"]["properties"]
+    assert "draft" in tools["finish"]["parameters"]["properties"]
+    draft_schema = tools["finish"]["parameters"]["$defs"]["LLMReviewResultDraft"]
+    assert draft_schema["properties"]["questions"]["description"]
+    assert draft_schema["properties"]["web_impacts"]["description"]
+    assert tools["finish"]["parameters"]["$defs"]["ReviewIssueDraft"]["properties"]["material_evidence"]["description"]
 
 
 def _hit(chunk_id: str, source_id: str, *, text: str = "条款原文", rank: int = 0) -> RetrievalHit:
@@ -730,7 +735,7 @@ def test_search_preserves_small_query_sources_without_extra_adapter_calls() -> N
     from law_agent.review.retrieval.neighbors import hit_from_chunk
 
     broad = [
-        _chunk(f"b{index}", "第一条", "通用依据", index=0).model_copy(
+        _chunk(f"b{index}", "第一条", "通用依据" * 100, index=0).model_copy(
             update={"source_id": f"broad{index}"},
         ) for index in range(50)
     ]
@@ -765,7 +770,7 @@ def test_search_does_not_reward_source_length_over_a_specific_match() -> None:
     })
     long_source = [
         _chunk(f"long{i}", f"第{i + 1}条", text, index=i) for i, text in enumerate([
-            "处理安全的通用要求", "运营组织的一般职责", "管理流程与责任制度",
+            "处理安全的通用要求" * 100, "运营组织的一般职责" * 100, "管理流程与责任制度" * 100,
         ])
     ]
     chunks = [specific, *long_source]
@@ -786,7 +791,7 @@ def test_search_reranks_queries_separately_with_one_shared_source_budget(monkeyp
     from law_agent.review.retrieval.neighbors import hit_from_chunk
 
     chunks = [
-        _chunk(name, "第一条", "示例依据", index=0).model_copy(update={"source_id": name})
+        _chunk(name, "第一条", "示例依据" * 100, index=0).model_copy(update={"source_id": name})
         for name in ["a", "b", "c"]
     ]
     hits = [hit_from_chunk(chunk, i) for i, chunk in enumerate(chunks)]
@@ -855,8 +860,8 @@ def test_omitted_keyword_source_is_discoverable_but_requires_reading_before_cita
     )
     candidates = state.steps[0].observation["keyword_candidates"]
     assert len(candidates) == 1
-    assert candidates[0]["source_id"] == "other" and candidates[0]["chunk_id"] == "target"
-    assert candidates[0]["query_id"] == state.queries[0].query_id
+    assert candidates[0]["source_id"] == "other" and candidates[0]["locations"][0]["chunk_id"] == "target"
+    assert state.queries[0].query_id in state.evidence[0].matched_query_ids
     searched = next(s for s in snapshots if len(s.steps) == 1)
     assert {h.source_id for h in searched.evidence} == {"s1"}
     with pytest.raises(ValueError, match="未检索到"):
@@ -873,7 +878,7 @@ def test_keyword_navigation_keeps_omitted_articles_in_an_already_returned_source
         _chunk(name, article, text, index=index)
         for index, (name, article, text) in enumerate([
             ("primary", "第一条", "一般义务"),
-            ("target", "第二条", "义务例外"),
+            ("target", "第二条", "义务例外" * 100),
             ("generic1", "第三条", "一般范围"),
             ("generic2", "第四条", "通用范围"),
         ])
@@ -888,7 +893,7 @@ def test_keyword_navigation_keeps_omitted_articles_in_an_already_returned_source
 
     assert {h.source_id for h in hits} == {"s1"}
     assert "target" not in {h.chunk_id for h in hits}
-    assert [item["chunk_id"] for item in tools.search_navigation()] == ["target"]
+    assert [loc["chunk_id"] for source in tools.search_navigation() for loc in source["locations"]] == ["target"]
     read = tools.read_evidence("s1", "第二条", None, ReviewFacts())
     assert [h.chunk_id for h in read.hits] == ["target"]
 
@@ -963,7 +968,7 @@ def test_final_report_rechecks_date_and_never_adds_unseen_cached_evidence() -> N
         _draft(), state, case_id="case", intake_snapshot={"facts": {}}, system_abstention=True,
     )
     assert {hit["chunk_id"] for hit in payload["evidence_chunks"]} == {"c1"}
-    assert {citation["chunk_id"] for citation in payload["review_result"]["citations"]} == {"c1"}
+    assert payload["review_result"]["citations"] == []
     draft = _draft().model_copy(update={
         "claims": [GroundedClaim(text="未来内容", supporting_chunk_ids=["future"])],
     })
@@ -1005,6 +1010,8 @@ def _tools_with(chunks: list[Chunk]) -> ComplianceAgentTools:
     """A tools instance over a fixed corpus, without live search services."""
 
     tools = ComplianceAgentTools.__new__(ComplianceAgentTools)
+    from law_agent.review.dates import business_today
+    tools._default_as_of_date = business_today()
     tools._chunks = chunks
     tools._chunks_by_id = {chunk.chunk_id: chunk for chunk in chunks}
     tools._sources_with_articles = {chunk.source_id for chunk in chunks if chunk.article_no}
@@ -1029,28 +1036,29 @@ def test_evidence_sufficiency_is_not_inferred_from_medium_risk(missing):
         status="supported", claim_checks=[], conclusion_reason="有依据的条件说明",
     )
     draft = _draft().model_copy(update={
-        "risk_level": "medium", "missing_information": missing,
+        "risk_level": "medium", "questions": [ReviewQuestionDraft(text=text) for text in missing],
         "claims": [GroundedClaim(text="适用规则", supporting_chunk_ids=["c1"])],
     })
     result = tools.finalize(draft, AgentState(goal="限定判断", evidence=[hit_from_chunk(chunks[0], 0)]),
                             case_id="case", intake_snapshot={"facts": {}})
     check = result["evidence_self_check"]
     assert check["status"] == ("insufficient" if missing else "sufficient")
-    assert check["triggered_reasons"] == missing
-    assert [issue["description"] for issue in check["issues"]] == missing
+    assert bool(check["triggered_reasons"]) == bool(missing)
+    assert len(check["issues"]) == len(missing)
+    assert not missing or "报告缺口栏目" in check["issues"][0]["description"]
 
 
 def test_agent_accepts_a_focused_report_without_auxiliary_sections():
     from law_agent.review.agent import AgentModel
-    from tests.test_review_llm import FakeClient
+    from tests.test_review_llm import FakeClient, tool_message
 
     draft = _draft().model_dump(mode="json")
-    auxiliary = ("trigger_reasons", "missing_information", "recommended_actions", "risk_boundaries")
+    auxiliary = ("trigger_reasons", "questions", "recommended_actions", "risk_boundaries")
     for field in auxiliary:
         del draft[field]
-    client = FakeClient(outputs=[{"action": "finish", "summary": "交付本题判断", "draft": draft}])
+    client = FakeClient(outputs=[tool_message(("call_1", 'finish', {'summary': '交付本题判断', 'draft': draft}))])
     model = AgentModel(model_id="fake", client=client)
-    model.node.max_retries = 0
+    model.protocol.max_retries = 0
     decision = model(AgentState(goal="判断本题"), {})
 
     assert decision.draft.conclusion == draft["conclusion"]

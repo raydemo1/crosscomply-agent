@@ -17,7 +17,7 @@ from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
 from law_agent.review.schemas import (
     ConfirmableFactField,
     FactLedgerEntry,
-    GroundedClaim,
+    GroundedClaimDraft,
     RetrievalHit,
     ReviewFacts,
 )
@@ -26,7 +26,7 @@ from law_agent.review.semantic_grounding import SemanticGroundingRejected, Seman
 
 class MatterReply(StrictModel):
     answer: str = Field(min_length=1, max_length=6000)
-    claims: list[GroundedClaim] = Field(default_factory=list, max_length=12)
+    claims: list[GroundedClaimDraft] = Field(default_factory=list, max_length=12)
     material_citations: list[MaterialEvidenceDraft] = Field(default_factory=list, max_length=8)
     fact_fields: list[ConfirmableFactField] = Field(default_factory=list, max_length=15)
     proposed_facts: dict[ConfirmableFactField, JsonValue] = Field(default_factory=dict, max_length=15)
@@ -124,7 +124,7 @@ def answer_matter(question, context, *, client=None, verifier=None, chunks_path=
     draft = LLMReviewResultDraft(
         risk_level="insufficient_evidence", legal_path=None, claims=reply.claims,
         decision_summary="本次回答仅解释当前冻结案件与已核验证据，不替代正式审查报告、确认事实或审批决定；证据不足之处保持暂定。",
-        conclusion=reply.answer, trigger_reasons=[], missing_information=[],
+        conclusion=reply.answer, trigger_reasons=[], questions=[],
         recommended_actions=[], risk_boundaries=["解释性问答，不改写正式结果"],
     )
     verifier = verifier or SemanticGroundingVerifier(model_id=context["model_id"], client=verifier_client)

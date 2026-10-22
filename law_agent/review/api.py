@@ -56,11 +56,13 @@ from law_agent.review.http.remediation import (
     register_remediation_routes,
 )
 from law_agent.review.http.reports import register_report_routes
+from law_agent.review.http.responses import AgentJSONResponse as JSONResponse
 from law_agent.review.http.revisions import register_revision_routes
 from law_agent.review.http.system import register_system_routes
 from law_agent.review.http.templates import register_template_routes
 from law_agent.review.http.users import register_user_routes
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
+from law_agent.review.qa_store import InMemoryQAStore, PostgresQAStore
 from law_agent.review.remediation import (
     InMemoryRemediationAssessmentStore,
     PostgresRemediationAssessmentStore,
@@ -84,6 +86,7 @@ from law_agent.review.template_store import (
     TemplateStore,
 )
 from law_agent.review.user_admin import PostgresUserAdminStore, UserAdminStore
+from law_agent.review.workflow import review_has_missing_information
 
 
 class ReviewResponse(BaseModel):
@@ -324,6 +327,7 @@ def create_app(
             shutdown_knowledge_state(application)
 
     app = FastAPI(
+        default_response_class=JSONResponse,
         title="CrossComply Case Workbench API",
         description="Persisted, evidence-grounded cross-border data compliance cases.",
         version="0.2.0",
@@ -357,6 +361,10 @@ def create_app(
         load_service_config().postgres.dsn
     )
     app.state.material_object_store = material_object_store
+    app.state.qa_store = (
+        InMemoryQAStore() if isinstance(app.state.case_store, InMemoryCaseStore)
+        else PostgresQAStore(load_service_config().postgres.dsn)
+    )
     app.state.user_admin_store = user_admin_store or PostgresUserAdminStore(
         load_service_config().postgres.dsn
     )
@@ -449,6 +457,8 @@ def create_app(
     def deliver_feishu_approval(
         *, case: dict[str, Any], task: Any, user: UserRecord, delivery: Any
     ) -> dict[str, Any]:
+        if review_has_missing_information(case.get("response") or {}) or review_has_missing_information(task.result or {}):
+            raise HTTPException(status_code=409, detail="审查仍有事实或证据缺口，不能发起飞书审批")
         client, config = configured_feishu()
         running = governance().begin_approval_attempt(delivery.id)
         try:
@@ -581,6 +591,10 @@ def create_app(
     from law_agent.review.http.matter import register_matter_routes
 
     register_matter_routes(app, current_user=current_user, store=store, enterprise=enterprise, can_view=_can_view)
+    from law_agent.review.http.qa import register_qa_routes
+
+    register_qa_routes(app, current_user=current_user, cases=store, enterprise=enterprise,
+                       originals=originals, case_payload=case_payload)
     register_revision_routes(
         app, current_user=current_user, reviewer_only=reviewer_only,
         store=store, enterprise=enterprise,

@@ -28,6 +28,7 @@ from law_agent.review.remediation import (
     execute_rereview,
     finalize_assessment,
     guided_actions_from_review,
+    reconcile_guided_action_list,
     validate_task_drafts,
 )
 from law_agent.review.schemas import RetrievalQuery
@@ -176,6 +177,7 @@ def test_guided_actions_reconcile_and_keep_fact_and_remediation_boundaries() -> 
     store = InMemoryCaseStore(seed_password="pw")
     initial_review = {
         "review_result_id": "result_1",
+        "missing_information": ["是否仅用于履行服务合同"],
         "issues": [
             {
                 "id": "issue_fact",
@@ -231,7 +233,7 @@ def test_guided_actions_reconcile_and_keep_fact_and_remediation_boundaries() -> 
     assert refreshed_by_key[control["source_key"]]["status"] == "pending_review"
     assert refreshed_by_key[recommendation["source_key"]]["id"] == recommendation["id"]
 
-    next_review = {**initial_review, "review_result_id": "result_2", "issues": [initial_review["issues"][1]]}
+    next_review = {**initial_review, "review_result_id": "result_2", "missing_information": [], "issues": [initial_review["issues"][1]]}
     next_actions = guided_actions_from_review(next_review, requester_id="requester_1")
     reconciled = store.sync_guided_remediation_plan("case_1", "reviewer_1", next_actions)
     fact_history = next(item for item in reconciled["tasks"] if item["id"] == fact["id"])
@@ -243,6 +245,7 @@ def test_guided_fact_answer_type_is_explicit_and_survives_reconciliation() -> No
     store = InMemoryCaseStore(seed_password="pw")
     review = {
         "review_result_id": "result_answer_type",
+        "missing_information": ["实际覆盖多少名用户"],
         "issues": [{
             "id": "issue_count",
             "kind": "missing_information",
@@ -265,6 +268,69 @@ def test_guided_fact_answer_type_is_explicit_and_survives_reconciliation() -> No
         "missing_answer_types": {"请提供本年度覆盖用户总数": "count"},
     }, requester_id="requester_1")
     assert unlocated[0]["answer_type"] == "count"
+
+
+@pytest.mark.parametrize("question", [
+    "是否已完成个人信息保护影响评估及其报告",
+    "是否已就数据出境取得适用的处理依据",
+    "是否已落实访问权限限制",
+    "是否已关闭服务商模型训练功能",
+    "请确认影响评估是否完成，并提供已有记录",
+])
+def test_missing_completion_status_remains_fact_confirmation(question) -> None:
+    actions = guided_actions_from_review({
+        "missing_information": [question], "missing_answer_types": {question: "text"},
+    }, requester_id="requester_1")
+    assert len(actions) == 1
+    assert actions[0]["task_kind"] == "fact_confirmation"
+    assert actions[0]["answer_type"] == "text"
+    assert actions[0]["blocking"] is True
+    assert actions[0]["phase"] == "pre_approval"
+    assert "并上传证明" not in actions[0]["acceptance_criteria"]
+
+
+@pytest.mark.parametrize("duplicate_fact_entry", [False, True])
+def test_legal_basis_gaps_wait_for_source_review_without_applicant_tasks(duplicate_fact_entry):
+    gap = "待取得行业指引全文及新旧规则衔接条款"
+    review = {
+        "review_result_id": "result_law_gap", "risk_level": "insufficient_evidence",
+        "legal_basis_gaps": [gap],
+        "missing_information": ["接收方是否允许再转移", *([gap] if duplicate_fact_entry else [])],
+        "issues": [{"id": "basis", "kind": "missing_information", "title": "待核依据", "unknowns": [gap]}],
+    }
+    store = InMemoryCaseStore(seed_password="pw")
+    plan, blockers, status = reconcile_guided_action_list(
+        store, case_id="case_1", actor_id="reviewer_1", requester_id="requester_1",
+        task_result={"review_result": review, "freshness_hold": False},
+    )
+    assert status == "pending_source_verification"
+    assert len(plan["tasks"]) == len(blockers) == 1
+    task = plan["tasks"][0]
+    assert task["task_kind"] == "fact_confirmation"
+    assert task["title"] == "接收方是否允许再转移"
+    assert gap not in task["acceptance_criteria"]
+
+
+def test_legal_basis_gap_alone_creates_no_remediation_or_fact_tasks():
+    store = InMemoryCaseStore(seed_password="pw")
+    plan, blockers, status = reconcile_guided_action_list(
+        store, case_id="case_1", actor_id="reviewer_1", requester_id="requester_1",
+        task_result={"review_result": {"risk_level": "insufficient_evidence", "legal_basis_gaps": ["缺适用条文"]}},
+    )
+    assert status == "pending_source_verification"
+    assert plan["tasks"] == blockers == []
+
+
+def test_established_legal_gap_still_requires_control_remediation() -> None:
+    actions = guided_actions_from_review({
+        "issues": [{"kind": "legal_gap", "title": "访问限制未落实",
+                    "finding": "已取得的权限配置显示，合同要求的访问限制尚未设置。",
+                    "recommended_action": "设置权限限制并提交配置证据。"}],
+    }, requester_id="requester_1")
+    assert len(actions) == 1
+    assert actions[0]["task_kind"] == "control_remediation"
+    assert actions[0]["answer_type"] == "control_status"
+    assert actions[0]["blocking"] is True
 
 
 def test_declared_control_without_document_waits_for_human_review() -> None:
@@ -308,7 +374,7 @@ def test_guided_actions_do_not_duplicate_gaps_or_defer_required_controls() -> No
                     "unknowns": ["自当年1月1日起累计出境去重人数"],
                 },
                 {
-                    "kind": "compliance_gap",
+                    "kind": "legal_gap",
                     "title": "服务商训练用途未限制",
                     "unknowns": ["服务商是否已关闭模型训练用途"],
                     "recommended_action": "取得书面限制条款和后台设置证据",
@@ -326,13 +392,14 @@ def test_guided_actions_do_not_duplicate_gaps_or_defer_required_controls() -> No
         },
         requester_id="requester_1",
     )
-    assert len(actions) == 4
+    assert len(actions) == 5
     assert [item["task_kind"] for item in actions] == [
-        "fact_confirmation", "control_remediation", "control_remediation", "recommendation",
+        "fact_confirmation", "fact_confirmation", "fact_confirmation", "control_remediation", "recommendation",
     ]
     assert actions[1]["phase"] == "pre_approval"
     assert actions[2]["phase"] == "pre_approval"
-    assert actions[3]["phase"] == "post_approval"
+    assert actions[3]["phase"] == "pre_approval"
+    assert actions[4]["phase"] == "post_approval"
 
 
 def test_resolved_with_grounded_attachment_records_offsets_and_hash() -> None:
@@ -1096,3 +1163,43 @@ def test_declaration_only_acceptance_still_requires_a_recorded_basis(workbench) 
         json={"decision": "accepted", "review_note": "已人工核实供应商后台设置。"},
     )
     assert accepted.status_code == 200, accepted.text
+
+
+def test_material_conflict_and_fact_list_have_one_task_source_without_fuzzy_suppression():
+    questions = ["确认两份材料中人数口径和本年度实际累计人数", "本年度敏感个人信息实际累计人数"]
+    review = {
+        "review_result_id": "result_conflict",
+        "missing_information": [*questions, questions[0]],
+        "issues": [
+            {"id": "conflict", "kind": "material_conflict", "title": "两份材料人数不一致",
+             "finding": "两份记录采用不同人数。", "unknowns": ["人数矛盾待核实"]},
+            {"id": "sensitive", "kind": "missing_information", "unknowns": [questions[1]], "answer_type": "count"},
+        ],
+    }
+    actions = guided_actions_from_review(review, requester_id="requester_1")
+    assert [a["title"] for a in actions] == questions
+    assert all(a["task_kind"] == "fact_confirmation" for a in actions)
+    assert actions[0]["source_issue_id"] is None
+    assert actions[1]["source_issue_id"] == "sensitive"
+    assert actions[1]["answer_type"] == "count"
+    store = InMemoryCaseStore(seed_password="pw")
+    first = store.sync_guided_remediation_plan("case_1", "reviewer_1", actions)
+    second = store.sync_guided_remediation_plan("case_1", "reviewer_1", actions)
+    assert [a["id"] for a in second["tasks"]] == [a["id"] for a in first["tasks"]]
+
+
+@pytest.mark.parametrize("web_impact,gaps,expected", [
+    ("supplement", ["待取得附件全文"], "pending_source_verification"),
+    ("none", ["待核规则适用关系"], "pending_source_verification"),
+    ("core", [], "pending_source_verification"),
+    ("supplement", [], "pending_feishu_approval"),
+])
+def test_source_review_routing_uses_the_same_hold_contract(web_impact, gaps, expected):
+    _, _, status = reconcile_guided_action_list(
+        InMemoryCaseStore(seed_password="pw"), case_id="case_1", actor_id="reviewer_1",
+        requester_id="requester_1", task_result={
+            "web_impact": web_impact, "freshness_hold": False,
+            "review_result": {"risk_level": "medium", "legal_basis_gaps": gaps},
+        },
+    )
+    assert status == expected

@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from law_agent.llm.openai_compatible import ChatMessage, _loads_tool_arguments
+from law_agent.config import LLMConfig
+from law_agent.llm.openai_compatible import (
+    ChatMessage,
+    OpenAICompatibleClient,
+    _loads_tool_arguments,
+)
 from law_agent.review.evidence import (
     build_evidence_check_messages,
     run_self_check_with_deepseek,
@@ -44,6 +51,21 @@ class FakeClient:
         if self.errors:
             raise self.errors.pop(0)
         return self.outputs.pop(0)
+
+    def chat_tools(self, messages: list[ChatMessage], **kwargs) -> dict:
+        self.calls.append(messages)
+        self.kwargs.append(kwargs)
+        if self.errors:
+            raise self.errors.pop(0)
+        return self.outputs.pop(0)
+
+
+def tool_message(*calls, reasoning="private reasoning"):
+    return {"role": "assistant", "content": None, "reasoning_content": reasoning, "tool_calls": [
+        {"id": call_id, "type": "function", "function": {
+            "name": name, "arguments": arguments if isinstance(arguments, str) else json.dumps(arguments),
+        }} for call_id, name, arguments in calls
+    ]}
 
 
 def _valid_facts_payload() -> dict:
@@ -88,7 +110,7 @@ def test_evidence_prompt_contains_json_example() -> None:
     assert '"second_retrieval_plan"' in combined
 
 
-def test_result_prompt_contains_json_example() -> None:
+def test_result_prompt_contains_schema_and_original_evidence() -> None:
     representative = _hit()
     packet = SourceEvidencePacket(
         source_id=representative.source_id,
@@ -112,15 +134,15 @@ def test_result_prompt_contains_json_example() -> None:
     combined = "\n".join(message.content for message in messages)
 
     assert "json" in combined.lower()
-    assert "json_example" in combined
+    assert "output_schema" in combined
     assert '"risk_level"' in combined
     assert '"decision_summary"' in combined
     assert '"question"' in combined
     assert '"material_excerpt"' in combined
-    assert "evidence_packets" in combined
+    assert "source_evidence_packets" in combined
     assert "supporting_chunk_ids" in combined
-    assert "supporting_chunks" in combined
-    assert "neighbor_chunks" in combined
+    assert "supporting_chunk_ids" in combined
+    assert "neighbor_chunk_ids" in combined
     assert "retrieval_queries" in combined
 
 
@@ -243,6 +265,56 @@ def test_structured_node_exhaustion_returns_review_failed() -> None:
     assert failure.to_response()["trace_id"] == "trace_1"
 
 
+@pytest.mark.parametrize("error", [TimeoutError("read timed out"), RuntimeError("HTTP 503"),
+                                  RuntimeError("stream interrupted")])
+def test_transport_retry_preserves_original_messages_without_model_format_feedback(error):
+    messages = [ChatMessage(role="system", content="json 核验规则"),
+                ChatMessage(role="user", content="原始事实和法源")]
+    client = FakeClient(outputs=[_valid_facts_payload()], errors=[error])
+    node = StructuredLLMNode(node_name="semantic_grounding", output_model=ReviewFacts,
+                             client=client, max_retries=1, stream=True)
+    assert node.run(messages).cross_border_transfer is True
+    assert client.calls == [messages, messages]
+    assert client.kwargs[0]["stream"] is True and client.kwargs[1]["stream"] is True
+
+
+def test_json_decode_failure_retains_targeted_format_feedback():
+    client = FakeClient(outputs=[_valid_facts_payload()], errors=[json.JSONDecodeError("invalid", "{bad", 1)])
+    node = StructuredLLMNode(node_name="semantic_grounding", output_model=ReviewFacts,
+                             client=client, max_retries=1)
+    messages = [ChatMessage(role="user", content="原文")]
+    node.run(messages)
+    assert len(messages) == 1
+    assert len(client.calls[1]) == 2
+    assert "上一轮 JSON 解析失败" in client.calls[1][-1].content
+
+
+def test_transport_retry_exhaustion_does_not_change_attempt_limits():
+    client = FakeClient(errors=[TimeoutError("read"), TimeoutError("read")])
+    node = StructuredLLMNode(node_name="semantic_grounding", output_model=ReviewFacts,
+                             client=client, max_retries=1)
+    with pytest.raises(ReviewWorkflowFailed) as failure:
+        node.run([ChatMessage(role="user", content="原文")])
+    assert failure.value.attempts == 2 and failure.value.reason == "llm_api_error"
+    assert client.calls[0] == client.calls[1]
+
+
+def test_strict_tool_json_errors_remain_format_failures_when_retried(monkeypatch):
+    client = OpenAICompatibleClient(LLMConfig(base_url="https://example.test", beta_base_url="https://example.test/beta",
+        api_key="test", model="test", timeout_seconds=10, structured_output_mode="strict_tool", reasoning_effort="none"))
+    arguments = iter(["[]", json.dumps(_valid_facts_payload())])
+    requests = []
+
+    def respond(payload, _base_url):
+        requests.append(payload)
+        return {"choices": [{"message": {"tool_calls": [{"function": {"arguments": next(arguments)}}]}}]}
+
+    monkeypatch.setattr(client, "_post_chat", respond)
+    node = StructuredLLMNode(node_name="fact_extraction", output_model=ReviewFacts, client=client, max_retries=1)
+    assert node.run([ChatMessage(role="user", content="原文")]).cross_border_transfer is True
+    assert "上一轮 JSON 解析失败" in requests[1]["messages"][-1]["content"]
+
+
 def test_fact_extraction_requires_all_llm_fields() -> None:
     payload = _valid_facts_payload()
     payload.pop("missing_information")
@@ -359,8 +431,7 @@ def test_result_generation_with_deepseek_uses_program_citation_groups() -> None:
                     }
                 ],
                 "trigger_reasons": ["cross_border_transfer"],
-                "missing_information": ["data_volume_threshold"],
-                "missing_answer_types": {"data_volume_threshold": "count"},
+                "questions": [{"text": "data_volume_threshold", "answer_type": "count"}],
                 "recommended_actions": ["确认出境数据规模"],
                 "risk_boundaries": ["本结论基于当前证据。"],
             }
@@ -401,7 +472,7 @@ def test_result_generation_prompt_receives_trace_context() -> None:
                     }
                 ],
                 "trigger_reasons": ["cross_border_transfer"],
-                "missing_information": [],
+                "questions": [],
                 "recommended_actions": ["补充确认"],
                 "risk_boundaries": ["基于当前材料。"],
             }
@@ -440,7 +511,7 @@ def test_result_generation_rejects_all_claims_ungrounded() -> None:
                     }
                 ],
                 "trigger_reasons": ["cross_border_transfer"],
-                "missing_information": [],
+                "questions": [],
                 "recommended_actions": ["补充确认"],
                 "risk_boundaries": ["基于当前材料。"],
             }
@@ -475,7 +546,7 @@ def test_result_generation_retries_invalid_grounding() -> None:
             }
         ],
         "trigger_reasons": ["cross_border_transfer"],
-        "missing_information": [],
+        "questions": [],
         "recommended_actions": ["补充确认"],
         "risk_boundaries": ["基于当前材料。"],
     }
@@ -514,7 +585,7 @@ def test_result_generation_rejects_ungrounded_material_fact_claim() -> None:
                     },
                 ],
                 "trigger_reasons": ["cross_border_transfer"],
-                "missing_information": [],
+                "questions": [],
                 "recommended_actions": ["补充确认"],
                 "risk_boundaries": ["基于当前材料。"],
             }
@@ -555,7 +626,7 @@ def test_result_generation_rejects_uncitable_claim() -> None:
                     }
                 ],
                 "trigger_reasons": ["industry_guidance"],
-                "missing_information": [],
+                "questions": [],
                 "recommended_actions": ["结合适用法规核验"],
                 "risk_boundaries": ["指南不是法条级依据。"],
             }
@@ -585,7 +656,7 @@ def test_insufficient_evidence_allows_empty_claims_with_irrelevant_citable_hits(
                 "conclusion": "当前语料不覆盖 EU AI Act。",
                 "claims": [],
                 "trigger_reasons": ["out_of_corpus"],
-                "missing_information": [],
+                "questions": [],
                 "recommended_actions": ["咨询欧盟法律专业人士"],
                 "risk_boundaries": ["仅覆盖中国大陆数据合规语料"],
             }

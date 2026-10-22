@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 
 from pydantic import JsonValue
 
-from law_agent.review.schemas import FactLedgerEntry, MaterialFactObservation
+from law_agent.review.schemas import FactLedgerEntry
 
 
 def _has_value(value: JsonValue) -> bool:
@@ -62,17 +62,3 @@ def _opposite_values(field: str, left: JsonValue, right: JsonValue) -> bool:
         }.get(field)
         return opposite is not None and {left, right} == opposite
     return False
-
-
-def record_material_facts(
-    ledger: list[FactLedgerEntry], observations: Sequence[MaterialFactObservation],
-    snapshot_id: str | None,
-) -> None:
-    if observations and not snapshot_id:
-        raise ValueError("材料事实来源缺少冻结材料快照")
-    for observation in observations:
-        if _has_value(observation.value):
-            append_fact(ledger, FactLedgerEntry(
-                field=observation.field, value=observation.value, source_type="material",
-                source_ref=snapshot_id, status="extracted",
-            ))

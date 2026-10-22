@@ -14,6 +14,7 @@ from uuid import uuid4
 from psycopg.types.json import Jsonb
 
 from law_agent.review.case_store import utc_now
+from law_agent.review.workflow import review_requires_retry
 
 ParseStatus = Literal["pending", "parsing", "ready", "failed"]
 TaskStatus = Literal["queued", "running", "waiting_input", "succeeded", "failed", "superseded"]
@@ -263,7 +264,7 @@ class InMemoryEnterpriseStore:
     def get_latest_material_snapshot(self, case_id: str) -> MaterialSnapshot | None:
         with self._lock:
             matches = [item for item in self.snapshots.values() if item.case_id == case_id]
-            return max(matches, key=lambda item: (item.created_at, item.id), default=None)
+            return max(reversed(matches), key=lambda item: item.created_at, default=None)
 
     def get_material_snapshot(self, snapshot_id: str) -> MaterialSnapshot | None:
         with self._lock:
@@ -278,7 +279,7 @@ class InMemoryEnterpriseStore:
                 for item in self.intake_snapshots.values()
                 if item.case_id == case_id and item.material_snapshot_id == material_snapshot_id
             ]
-            return max(matches, key=lambda item: (item.created_at, item.id), default=None)
+            return max(reversed(matches), key=lambda item: item.created_at, default=None)
 
     def get_intake_snapshot(self, intake_snapshot_id: str) -> IntakeSnapshot | None:
         with self._lock:
@@ -462,8 +463,13 @@ class InMemoryEnterpriseStore:
     def retry_task(self, task_id: str) -> ReviewTask:
         with self._lock:
             task = self.tasks[task_id]
-            if task.status != "failed":
-                raise ValueError("只有失败的审查任务可以重试")
+            restart = task.status == "succeeded" and review_requires_retry(task.result or {})
+            if task.status != "failed" and not restart:
+                raise ValueError("只有失败或未完成核验的审查任务可以重试")
+            if restart:
+                task.agent_state = None
+                task.steps = []
+                task.current_node = None
             task.status = "queued"
             task.lease_expires_at = None
             task.updated_at = utc_now()
@@ -1221,18 +1227,26 @@ class PostgresEnterpriseStore:
 
     def retry_task(self, task_id: str) -> ReviewTask:
         with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT status, result_json FROM review_tasks WHERE id = %s FOR UPDATE", (task_id,))
+            previous = cur.fetchone()
+            restart = bool(previous and previous["status"] == "succeeded"
+                           and review_requires_retry(previous.get("result_json") or {}))
+            if previous is None or (previous["status"] != "failed" and not restart):
+                raise ValueError("只有失败或未完成核验的审查任务可以重试")
             cur.execute(
                 """
                 UPDATE review_tasks
-                SET status = 'queued', lease_expires_at = NULL, updated_at = now()
-                WHERE id = %s AND status = 'failed'
+                SET status = 'queued', lease_expires_at = NULL, updated_at = now(),
+                    agent_state_json = CASE WHEN %s THEN NULL ELSE agent_state_json END,
+                    current_node = CASE WHEN %s THEN NULL ELSE current_node END
+                WHERE id = %s AND status = %s
                 RETURNING *
                 """,
-                (task_id,),
+                (restart, restart, task_id, previous["status"]),
             )
             row = cur.fetchone()
             if row is None:
-                self._raise_invalid_state(cur, task_id, "只有失败的审查任务可以重试")
+                self._raise_invalid_state(cur, task_id, "只有失败或未完成核验的审查任务可以重试")
             assert row is not None
             attempts = self._load_attempts(cur, task_id)
             conn.commit()

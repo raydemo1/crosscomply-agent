@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -19,16 +19,22 @@ from law_agent.review.agent import (
     web_findings_from_steps,
 )
 from law_agent.review.citations import group_citations
+from law_agent.review.dates import business_today
 from law_agent.review.ids import make_id
 from law_agent.review.result_builder import (
     LLMReviewResultDraft,
     MaterialEvidenceDraft,
     ReviewIssueDraft,
+    ReviewQuestionDraft,
     attach_citation_refs,
+    inject_citation_markers,
+    report_evidence,
+    validate_business_questions,
     validate_grounded_claims,
+    validate_legal_basis_gaps,
     validate_plain_text_summary,
 )
-from law_agent.review.retrieval.boosts import apply_boosts_to_hits
+from law_agent.review.retrieval.boosts import apply_boosts_to_hits, outside_explicit_scope
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
 from law_agent.review.retrieval.fusion import (
     interleave_sources,
@@ -64,11 +70,14 @@ from law_agent.review.service import (
 )
 from law_agent.review.source_navigation import SourceNavigation
 from law_agent.review.web_research import (
+    DEFAULT_WEB_RESULTS,
     WebFinding,
     WebResearch,
     build_web_search_client,
     canonical_url,
+    eligible_material_web_urls,
 )
+from law_agent.review.workflow import review_needs_source_verification
 
 if TYPE_CHECKING:
     from law_agent.review.enterprise_store import MaterialVersion
@@ -80,6 +89,23 @@ if TYPE_CHECKING:
 # final evidence set instead of being re-ranked away as one more candidate.
 MAX_READ_CHUNKS = 5
 EXPLICIT_READ_SCORE_MARGIN = 1.0
+
+
+def agent_evidence_self_check(draft: LLMReviewResultDraft, verdict: SemanticVerdict | None) -> EvidenceSelfCheck:
+    sources = [("报告缺口栏目", draft.missing_information), ("独立核验记录", verdict.missing_facts if verdict else [])]
+    issues = [
+        EvidenceIssue(issue_type="critical_facts_missing",
+                      description=f"{source}包含 {len(dict.fromkeys(facts))} 项待核事实，具体内容保留在该来源记录中。")
+        for source, facts in sources if facts
+    ]
+    if draft.legal_basis_gaps:
+        issues.append(EvidenceIssue(issue_type="no_primary_legal_basis", description="；".join(draft.legal_basis_gaps)))
+    return EvidenceSelfCheck(
+        status="insufficient" if draft.risk_level == "insufficient_evidence" or issues else "sufficient",
+        issues=issues,
+        triggered_reasons=[f"{source}仍有待核事实" for source, facts in sources if facts]
+        + (["当前目标仍有待核法律依据"] if draft.legal_basis_gaps else []),
+    )
 
 
 def _is_requested_article(chunk_article: str | None, requested: str) -> bool:
@@ -150,6 +176,7 @@ def finalize_issues(
     evidence: list[RetrievalHit],
     citation_groups: list[CitationGroup],
     material_versions_by_id: dict[str, MaterialVersion],
+    questions: Sequence[ReviewQuestionDraft] = (),
 ) -> list[ReviewIssue]:
     """Apply the deterministic gates for each issue kind.
 
@@ -162,6 +189,7 @@ def finalize_issues(
 
     issues: list[ReviewIssue] = []
     for draft in drafts:
+        related_questions = draft.resolve_questions(questions)
         material_evidence = _ground_material_evidence(
             draft.material_evidence, material_versions_by_id
         )
@@ -171,13 +199,9 @@ def finalize_issues(
                 f"material_conflict「{draft.title}」只有 {len(excerpts)} 条有效材料原文，"
                 "需要两条不同的材料原文作为冲突双方证据。"
                 "如果另一方来自确认填报或人工陈述，请改用 missing_information，"
-                "在 finding 中说明双方来源和值，在 unknowns 中列出待核实事项；"
+                "在 finding 中说明双方来源和值，通过 question_indexes 关联待核实业务问题；"
                 "material_evidence 仅保留真实材料摘录，不把事实快照伪装成材料。"
             )
-        if draft.kind == "missing_information" and not any(
-            unknown.strip() for unknown in draft.unknowns
-        ):
-            raise ValueError("missing_information 必须写明尚未确认的内容")
         grounded_claims = validate_grounded_claims(
             [
                 GroundedClaim(
@@ -191,7 +215,7 @@ def finalize_issues(
             if not material_evidence:
                 raise ValueError(
                     f"legal_gap「{draft.title}」缺少有效的材料原文证据；"
-                    "如果只是待确认事实，请改为 missing_information 并填写 unknowns。"
+                    "如果只是待确认事实，请改为 missing_information 并通过 question_indexes 关联业务问题。"
                     "只有材料原文与正式法条共同支持的具体问题才能标为 legal_gap。"
                 )
             if not grounded_claims:
@@ -214,9 +238,9 @@ def finalize_issues(
                 supporting_citation_refs=(
                     grounded_claims[0].supporting_citation_refs if grounded_claims else []
                 ),
-                unknowns=draft.unknowns,
+                unknowns=[question.text.strip() for question in related_questions],
                 recommended_action=draft.recommended_action,
-                answer_type=draft.answer_type,
+                answer_type=related_questions[0].answer_type if len(related_questions) == 1 else None,
             )
         )
     return issues
@@ -238,6 +262,7 @@ class ComplianceAgentTools:
     ):
         self._chunks = load_corpus(chunks_path)
         self._chunks_by_id = {chunk.chunk_id: chunk for chunk in self._chunks}
+        self._default_as_of_date = business_today()
         self._sources_with_articles = {
             chunk.source_id for chunk in self._chunks if chunk.article_no
         }
@@ -257,11 +282,15 @@ class ComplianceAgentTools:
     def close(self) -> None:
         self._adapters.close()
 
+    def evidence_as_of(self, evidence: Sequence[RetrievalHit], as_of: date) -> list[RetrievalHit]:
+        return filter_hits_as_of(evidence, self._chunks_by_id, as_of=as_of)
+
     def _finalize_issues(
         self,
         drafts: list[ReviewIssueDraft],
         result_evidence: list[RetrievalHit],
         citation_groups: list[CitationGroup],
+        questions: Sequence[ReviewQuestionDraft],
     ) -> list[ReviewIssue]:
         """Ground issues against this task's frozen material and evidence only."""
 
@@ -270,21 +299,35 @@ class ComplianceAgentTools:
             evidence=result_evidence,
             citation_groups=citation_groups,
             material_versions_by_id=self._material_versions_by_id,
+            questions=questions,
         )
 
     def search(
-        self, queries: list[RetrievalQuery], facts: ReviewFacts
+        self, queries: list[RetrievalQuery], facts: ReviewFacts, *, coarse_scope: bool = False,
+        excluded_scope_terms: Sequence[str] = (),
     ) -> list[RetrievalHit]:
         query_pairs = [(query.text, query.query_type) for query in queries]
         candidate_top_k = max(30, self._top_k, self._rerank_config.window)
         keyword = self._adapters.keyword.search_many(query_pairs, top_k=candidate_top_k)
         vector = self._adapters.vector.search_many(query_pairs, top_k=candidate_top_k)
-        as_of = facts.as_of_date or datetime.now(UTC).date()
+        as_of = facts.as_of_date or self._default_as_of_date
         candidates: list[list[RetrievalHit]] = []
         lexical_candidates: list[list[RetrievalHit]] = []
         sources: list[list[RetrievalHit]] = []
         for query, keyword_hits, vector_hits in zip(queries, keyword, vector, strict=True):
             keyword_hits = filter_hits_as_of(keyword_hits, self._chunks_by_id, as_of=as_of)
+            if coarse_scope:
+                scope_text = f"{self._question}\n{query.text}"
+                keyword_hits = [hit for hit in keyword_hits if not (
+                    hit.chunk_id in self._chunks_by_id
+                    and outside_explicit_scope(self._chunks_by_id[hit.chunk_id], facts, scope_text, excluded_scope_terms,
+                                               requested_text=self._question)
+                )]
+                vector_hits = [hit for hit in vector_hits if not (
+                    hit.chunk_id in self._chunks_by_id
+                    and outside_explicit_scope(self._chunks_by_id[hit.chunk_id], facts, scope_text, excluded_scope_terms,
+                                               requested_text=self._question)
+                )]
             lexical_candidates.append(keyword_hits[:10])
             keyword_hits = apply_boosts_to_hits(
                 keyword_hits,
@@ -316,6 +359,12 @@ class ComplianceAgentTools:
             expand_neighbors(reranked[:5], self._chunks_by_id),
             self._chunks_by_id, as_of=as_of,
         )
+        if coarse_scope:
+            neighbors = [hit for hit in neighbors if not all(
+                outside_explicit_scope(self._chunks_by_id[hit.chunk_id], facts, f"{self._question}\n{query.text}", excluded_scope_terms,
+                                       requested_text=self._question)
+                for query in queries
+            )]
         self._candidate_hits.update({hit.chunk_id: hit for hit in fused})
         self._neighbor_hits.update({hit.chunk_id: hit for hit in neighbors})
         packets = build_source_evidence_packets(
@@ -358,7 +407,44 @@ class ComplianceAgentTools:
                 added += 1
                 if added == 4:
                     break
+        delivered = {hit.chunk_id for hit in results}
+        for entry in self._keyword_navigation:
+            chunk = self._chunks_by_id.get(entry["chunk_id"])
+            if (chunk is None or not chunk.article_no or not chunk.can_cite_clause
+                    or entry["preview"] != chunk.text or chunk.chunk_id in delivered):
+                continue
+            article = [c for c in self._chunks_by_id.values()
+                       if c.source_id == chunk.source_id and c.article_no == chunk.article_no]
+            if len(article) != 1:
+                continue
+            results.append(hit_from_chunk(chunk, 0).model_copy(update={
+                "source_has_articles": chunk.source_id in self._sources_with_articles,
+                "matched_query_ids": list(dict.fromkeys(query_ids_by_chunk.get(chunk.chunk_id, []))),
+            }))
+            delivered.add(chunk.chunk_id)
+        self._keyword_navigation = [entry for entry in self._keyword_navigation if entry["chunk_id"] not in delivered]
+        self._keyword_navigation = self._group_search_navigation(self._keyword_navigation)
         return results
+
+    @staticmethod
+    def _group_search_navigation(entries: list[dict]) -> list[dict]:
+        groups = {}
+        locations = set()
+        for entry in entries:
+            source_id = entry["source_id"]
+            location = (source_id, entry.get("article_no") or entry["chunk_id"])
+            if location in locations:
+                continue
+            locations.add(location)
+            group = groups.setdefault(source_id, {
+                "source_id": source_id, "title": entry["title"],
+                "source_has_articles": entry["source_has_articles"],
+                "outline_read_request": {"source_id": source_id}, "locations": [],
+            })
+            group["locations"].append({key: entry[key] for key in (
+                "chunk_id", "article_no", "heading_path", "preview",
+            ) if key in entry})
+        return list(groups.values())
 
     def search_navigation(self) -> list[dict[str, Any]]:
         return [dict(entry) for entry in self._keyword_navigation]
@@ -406,7 +492,7 @@ class ComplianceAgentTools:
         if not source_chunks:
             raise ValueError(f"受控法律库中没有来源 {source_id}")
 
-        as_of = facts.as_of_date or datetime.now(UTC).date()
+        as_of = facts.as_of_date or self._default_as_of_date
         available = filter_hits_as_of(
             [hit_from_chunk(chunk, rank) for rank, chunk in enumerate(source_chunks)],
             self._chunks_by_id, as_of=as_of,
@@ -497,15 +583,17 @@ class ComplianceAgentTools:
             following_chunk_id=following_chunk_id,
         )
 
-    def search_web(self, queries: list[RetrievalQuery], facts: ReviewFacts) -> list[WebFinding]:
-        """Continue the investigation on official public pages.
+    def search_web(
+        self, queries: list[RetrievalQuery], facts: ReviewFacts, max_results: int = DEFAULT_WEB_RESULTS,
+    ) -> list[WebFinding]:
+        """Continue the investigation on public pages.
 
         Built lazily so a deployment without a search key still runs reviews
         normally: the Agent only learns the capability is unavailable when it
         actually asks for it.
         """
 
-        return self._web().search(queries, facts)
+        return self._web().search(queries, facts, max_results=max_results)
 
     def _web(self) -> WebResearch:
         if self._web_research is None:
@@ -524,34 +612,27 @@ class ComplianceAgentTools:
         intake_snapshot: dict[str, Any],
         system_abstention: bool = False,
     ) -> dict[str, Any]:
-        finding_urls = {
-            canonical_url(item.url) for item in web_findings_from_steps(state)
-            if item.known_source_id is None or item.refresh_needed
-        }
-        if draft.web_impact == "none" and draft.material_web_urls:
-            raise ValueError("web_impact=none 时 material_web_urls 必须为空列表")
-        if draft.web_impact != "none" and not draft.material_web_urls:
-            raise ValueError(
-                "Web 影响判断必须指出新官方材料 URL；若本次 Web 结果均无更新迹象，"
-                "请填 web_impact=none、material_web_urls=[]"
-            )
+        validate_legal_basis_gaps(draft)
+        validate_business_questions(draft)
+        web_findings = web_findings_from_steps(state)
+        eligible_urls = eligible_material_web_urls(web_findings)
+        finding_urls = {canonical_url(url) for url in eligible_urls}
         if any(canonical_url(url) not in finding_urls for url in draft.material_web_urls):
-            eligible = [item.url for item in web_findings_from_steps(state)
-                        if canonical_url(item.url) in finding_urls]
             raise ValueError(
-                "material_web_urls 只能包含新官方材料或有更新迹象的已入库 URL。"
-                f"本次可选 URL：{eligible}。若列表为空，请填 web_impact=none、"
-                "material_web_urls=[]；已入库材料请用正式检索结果引用"
+                "web_impacts只能包含新官方材料或有更新迹象的已入库 URL。"
+                f"本次可选 URL：{eligible_urls}。若列表为空，请填web_impacts=[]；"
+                "已入库材料请用正式检索结果引用"
             )
         if draft.web_impact == "core" and draft.risk_level != "insufficient_evidence":
             raise ValueError("可能改变核心法律路径的新法源尚未核验，必须暂缓确定结论")
         if draft.risk_level == "insufficient_evidence" and draft.legal_path is not None:
             raise ValueError("证据不足时不能确定法律路径")
-        as_of = state.facts.as_of_date or datetime.now(UTC).date()
+        as_of = state.facts.as_of_date or self._default_as_of_date
         result_evidence = filter_hits_as_of(state.evidence, self._chunks_by_id, as_of=as_of)
         evidence_ids = {hit.chunk_id for hit in result_evidence}
         cited_ids = {chunk_id for claim in draft.claims for chunk_id in claim.supporting_chunk_ids}
         cited_ids.update(chunk_id for issue in draft.issues for chunk_id in issue.supporting_chunk_ids)
+        cited_ids.update(draft.reference_chunk_ids)
         invalid_date_ids = cited_ids & {hit.chunk_id for hit in state.evidence} - evidence_ids
         if invalid_date_ids:
             raise ValueError(
@@ -573,12 +654,12 @@ class ComplianceAgentTools:
         claims = validate_grounded_claims(draft.claims, result_evidence)
         if draft.risk_level != "insufficient_evidence" and not claims:
             raise ValueError("正式风险结论至少需要一条可引用法条支持")
-        citation_groups, _ = group_citations(
+        all_citation_groups, _ = group_citations(
             result_evidence, state.facts, self._chunks_by_id
         )
         full_articles = {
             citation.chunk_id: citation.full_article_text
-            for group in citation_groups for citation in group.citations
+            for group in all_citation_groups for citation in group.citations
             if citation.full_article_text
         }
         verifier_evidence = [
@@ -586,9 +667,12 @@ class ComplianceAgentTools:
             if hit.chunk_id in full_articles else hit
             for hit in result_evidence
         ]
+        selected = report_evidence(result_evidence, claims=claims, reference_chunk_ids=draft.reference_chunk_ids,
+                                   additional_chunk_ids=[cid for issue in draft.issues for cid in issue.supporting_chunk_ids])
+        citation_groups, _ = group_citations(selected, state.facts, self._chunks_by_id)
         claims = attach_citation_refs(claims, citation_groups)
         citations = [citation for group in citation_groups for citation in group.citations]
-        issues = self._finalize_issues(draft.issues, result_evidence, citation_groups)
+        issues = self._finalize_issues(draft.issues, result_evidence, citation_groups, draft.questions)
         try:
             decision_summary = validate_plain_text_summary(draft.decision_summary)
         except ValueError as exc:
@@ -601,7 +685,7 @@ class ComplianceAgentTools:
         if system_abstention:
             if draft.risk_level != "insufficient_evidence" or draft.claims or draft.legal_path is not None:
                 raise ValueError("预算耗尽时只能生成无确定法律结论的证据不足报告")
-            verdict = SemanticVerdict(status="supported", claim_checks=[], conclusion_reason="证据不足且未提出确定法律路径")
+            verdict = None
         else:
             if any(
                 step.observation.get("provenance") not in {"applicant_statement", "reviewer_instruction"}
@@ -629,8 +713,10 @@ class ComplianceAgentTools:
                 chunks_by_id=self._chunks_by_id,
                 human_inputs=human_inputs,
                 fact_ledger=state.fact_ledger,
+                as_of_date=as_of,
+                web_findings=web_findings,
             )
-        if verdict.status != "supported":
+        if verdict is not None and verdict.status != "supported":
             raise SemanticGroundingRejected(verdict)
         trace_id = make_id("trace")
         result = ReviewResult(
@@ -640,10 +726,14 @@ class ComplianceAgentTools:
             risk_level=draft.risk_level,
             decision_summary=decision_summary,
             legal_path=draft.legal_path,
-            conclusion=draft.conclusion.rstrip(),
+            conclusion=inject_citation_markers(
+                draft.conclusion.rstrip(), claims,
+                {c.chunk_id: c.citation_ref for g in citation_groups for c in g.citations},
+            ),
             review_facts=state.facts,
             trigger_reasons=draft.trigger_reasons,
             missing_information=draft.missing_information,
+            legal_basis_gaps=draft.legal_basis_gaps,
             missing_answer_types=draft.missing_answer_types,
             recommended_actions=draft.recommended_actions,
             risk_boundaries=draft.risk_boundaries,
@@ -658,13 +748,10 @@ class ComplianceAgentTools:
             "review_facts": state.facts.model_dump(mode="json"),
             "fact_ledger": [entry.model_dump(mode="json") for entry in state.fact_ledger],
             "review_result": result.model_dump(mode="json"),
-            "semantic_grounding": verdict.model_dump(mode="json"),
-            "evidence_self_check": EvidenceSelfCheck(
-                status="insufficient" if draft.risk_level == "insufficient_evidence" or draft.missing_information or verdict.missing_facts else "sufficient",
-                issues=[EvidenceIssue(issue_type="critical_facts_missing", description=fact)
-                        for fact in dict.fromkeys([*draft.missing_information, *verdict.missing_facts])],
-                triggered_reasons=list(dict.fromkeys([*draft.missing_information, *verdict.missing_facts])),
-            ).model_dump(mode="json"),
+            "semantic_grounding": verdict.model_dump(mode="json") if verdict else {
+                "status": "not_run", "reason": "system_abstention",
+            },
+            "evidence_self_check": agent_evidence_self_check(draft, verdict).model_dump(mode="json"),
             "citation_groups": [item.model_dump(mode="json") for item in citation_groups],
             "second_retrieval_triggered": False,
             "retrieval_queries": [item.model_dump(mode="json") for item in state.queries],
@@ -673,10 +760,12 @@ class ComplianceAgentTools:
                 item.model_dump(mode="json") for item in source_packets
             ],
             "intake_snapshot": intake_snapshot,
-            "web_findings": [item.model_dump(mode="json") for item in web_findings_from_steps(state)],
+            "web_findings": [item.model_dump(mode="json") for item in web_findings],
             "web_impact": draft.web_impact,
             "material_web_urls": draft.material_web_urls,
-            "freshness_hold": draft.web_impact == "core",
+            "freshness_hold": review_needs_source_verification({
+                "review_result": result.model_dump(mode="json"), "web_impact": draft.web_impact,
+            }),
             "agent": {
                 "plan": state.plan,
                 "turns": state.turns,

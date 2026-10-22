@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import Response
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
@@ -22,6 +22,7 @@ from law_agent.kb.enrichment import PostgresEnrichmentStore
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
 from law_agent.review.facts import extract_facts_with_deepseek
+from law_agent.review.http.responses import AgentJSONResponse as JSONResponse
 from law_agent.review.http.schemas import (
     AgentInputRequest,
     CaseCreateRequest,
@@ -32,7 +33,7 @@ from law_agent.review.http.schemas import (
 )
 from law_agent.review.object_store import MaterialObjectStore
 from law_agent.review.schemas import ReviewFacts
-from law_agent.review.workflow import CaseStatus, validate_case_transition
+from law_agent.review.workflow import CaseStatus, review_requires_retry, validate_case_transition
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 ALLOWED_UPLOAD_SUFFIXES = {
@@ -797,7 +798,8 @@ def register_case_routes(
             }
             and (event.get("payload") or {}).get("task_id") == task.id
         ]
-        if task.status == "succeeded":
+        restart_incomplete = task.status == "succeeded" and review_requires_retry(task.result or {})
+        if task.status == "succeeded" and not restart_incomplete:
             if (
                 task.result is None
                 or (
@@ -876,7 +878,11 @@ def register_case_routes(
             event_type="review_retried",
             from_status="run_failed",
             to_status="review_running",
-            payload={"task_id": task_id},
+            payload={"task_id": task_id, **({
+                "reason": "review_incomplete",
+                "previous_review_result": (task.result or {}).get("review_result"),
+                "previous_trace_id": (task.result or {}).get("trace_id"),
+            } if restart_incomplete else {})},
         )
         return asdict(retried)
 

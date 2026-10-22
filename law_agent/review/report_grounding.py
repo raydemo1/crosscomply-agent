@@ -11,35 +11,13 @@ from law_agent.review.result_builder import LLMReviewResultDraft
 
 
 class ReportCheck(StrictModel):
-    target: str = Field(min_length=1)
+    target: str = Field(min_length=1, description="输入core_targets或report_targets中实际存在的字段定位")
     status: Literal["supported", "unsupported", "uncertain"]
     reason: str = Field(min_length=1)
     quote: str | None = None
-    evidence_ids: list[str] = Field(default_factory=list)
-    missing_facts: list[str] = Field(default_factory=list)
-    missing_basis: str | None = None
-
-
-class ReportChecks(StrictModel):
-    checks: list[ReportCheck]
-    conclusion_reason: str
-
-
-SYSTEM_PROMPT = """你核对的是报告单元在本案是否成立，不是它能否在某句法条中找到相似文字。
-
-## 事实与判断背景
-report_background是作者待核对的当前判断，不是正确答案；事实来自冻结填报、材料和来源账本。confirmed填报不等于独立核实，extracted核对材料，unverified不升级、conflicted不选边，人工操作指引不是事实。未记录的账本条目不代表来源不存在。
-
-## 核对个案推导
-如果断言假设某项事实发生变化，仅替换明示变化的事实，其余已确认事实保持不变。根据实际原文判断这项变化是否足以产生所声称的法律后果；适用条件、例外和衔接关系需一起成立，不能只摘取触发条件。未知不是否定，缺证明本身不产生未被原文规定的后果。
-法条转述与个案适用分别核对；reason简述决定判断的事实前提与原文依据。原文不支持后果用unsupported，依据不足用uncertain，忠实的条件性结论或核实、准备、重新评估建议可supported，不把建议自动读成法定义务。
-每个单元的强制义务断言须在自身表述中保留改变该义务的适用条件和例外；相邻单元或背景中的保留不能自动补足本句已无条件确定的义务。不要在reason中自行补入待核原句未保留的豁免条件后再判supported。
-仅据authorities实际原文，按doc_type、citation_role与can_cite_clause区分正式法条和补充资料。can_cite_clause=false的地方清单、行业指南、标准与解释可核对内容、适用范围或手续说明，不能独立支撑正式法条claim或创设法定义务；保留时点、地域和对象边界。背景与断言矛盾时，必须据原文判断，不盲从背景。
-
-## 输出定位反馈
-只核验report_units，每个target返回一条check。非supported的quote必须逐字来自该单元；evidence_ids仅用authorities.chunk_id或fact_ledger.source_ref，事实来源不是法源；missing_facts仅写业务事实，missing_basis写法律依据缺口，不把法律定性交给用户。
-只输出schema JSON和简明证据解释，不输出工具标记、额外字段或内部思维链。
-"""
+    evidence_ids: list[str] = Field(default_factory=list, description="本轮法源chunk_id或事实账本source_ref，不编造编号")
+    missing_facts: list[str] = Field(default_factory=list, description="阻塞当前判断的业务事实，不包含法律定性问题")
+    missing_basis: str | None = Field(default=None, description="仅填写确实影响当前目标内判断的法律原文、版本或衔接缺口；可删去的范围外判断不登记，不转交申请人确认")
 
 
 def report_groups(draft: LLMReviewResultDraft) -> dict[str, list[dict[str, str]]]:
@@ -48,13 +26,13 @@ def report_groups(draft: LLMReviewResultDraft) -> dict[str, list[dict[str, str]]
         for i, text in enumerate(draft.recommended_actions) if text.strip()
     ]
     for i, issue in enumerate(draft.issues):
-        for field in ("title", "finding", "recommended_action"):
+        for field in ("kind", "title", "finding", "recommended_action"):
             text = getattr(issue, field)
             if text.strip():
                 advice.append({"target": f"issues:{i}:{field}", "text": text})
         advice.extend(
-            {"target": f"issues:{i}:unknowns:{j}", "text": text}
-            for j, text in enumerate(issue.unknowns) if text.strip()
+            {"target": f"issues:{i}:question_indexes:{j}", "text": str(index)}
+            for j, index in enumerate(issue.question_indexes)
         )
     return {
         "advice": advice,
@@ -65,19 +43,19 @@ def report_groups(draft: LLMReviewResultDraft) -> dict[str, list[dict[str, str]]
     }
 
 
-def validate_report_checks(verdict: ReportChecks, payload: dict) -> ReportChecks:
-    units = {unit["target"]: unit["text"] for unit in payload["report_units"]}
-    targets = [check.target for check in verdict.checks]
-    if len(targets) != len(set(targets)) or set(targets) != set(units):
-        raise ValueError("栏目核验未完整覆盖报告单元，或包含重复、虚构目标")
-    ids = {item["chunk_id"] for item in payload["authorities"]} | {
-        entry["source_ref"] for entry in payload["fact_ledger"]
+def core_report_units(draft: LLMReviewResultDraft) -> dict[str, str]:
+    units = {
+        "risk_level": draft.risk_level,
+        "decision_summary": draft.decision_summary,
+        "conclusion": draft.conclusion,
     }
-    for check in verdict.checks:
-        if check.status != "supported" and not (check.quote or "").strip():
-            raise ValueError("未获支持的报告单元缺少问题原句")
-        if check.quote and check.quote not in units[check.target]:
-            raise ValueError("问题原句不在对应报告单元中")
-        if not set(check.evidence_ids) <= ids:
-            raise ValueError("栏目核验使用了未取得的证据编号")
-    return verdict
+    if draft.legal_path is not None:
+        units["legal_path"] = draft.legal_path
+    for field in ("trigger_reasons", "legal_basis_gaps"):
+        units.update({f"{field}:{index}": text for index, text in enumerate(getattr(draft, field))})
+    units.update({f"questions:{i}:text": question.text for i, question in enumerate(draft.questions)})
+    return units
+
+
+def report_units(draft: LLMReviewResultDraft) -> dict[str, str]:
+    return {unit["target"]: unit["text"] for group in report_groups(draft).values() for unit in group}

@@ -463,7 +463,7 @@ def make_pgvector_search_fn(
             ORDER BY embedding <=> %s::vector
             LIMIT %s
         """
-        with conn.cursor() as cur:
+        with conn.transaction(), conn.cursor() as cur:
             cur.execute(sql, (literal, literal, top_k))
             colnames = [desc[0] for desc in cur.description]
             rows = [dict(zip(colnames, row)) for row in cur.fetchall()]

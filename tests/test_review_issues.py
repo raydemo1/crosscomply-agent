@@ -10,6 +10,7 @@ from law_agent.review.result_builder import (
     LLMReviewResultDraft,
     MaterialEvidenceDraft,
     ReviewIssueDraft,
+    ReviewQuestionDraft,
 )
 from law_agent.review.schemas import RetrievalHit, ReviewFacts
 
@@ -79,7 +80,7 @@ def _conflict_draft(*excerpts: tuple[str, str]) -> ReviewIssueDraft:
             for version_id, quote in excerpts
         ],
         supporting_chunk_ids=[],
-        unknowns=[],
+        question_indexes=[0],
         recommended_action="核对生产环境实际发送字段。",
     )
 
@@ -90,6 +91,7 @@ def test_material_conflict_grounds_both_excerpts() -> None:
         evidence=[],
         citation_groups=[],
         material_versions_by_id=_frozen_versions(),
+        questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
     )
 
     assert len(issues) == 1
@@ -118,6 +120,7 @@ def test_hallucinated_quote_is_rejected() -> None:
             evidence=[],
             citation_groups=[],
             material_versions_by_id=_frozen_versions(),
+            questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
         )
 
 
@@ -128,6 +131,7 @@ def test_excerpt_outside_frozen_snapshot_is_rejected() -> None:
             evidence=[],
             citation_groups=[],
             material_versions_by_id=_frozen_versions(),
+            questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
         )
 
 
@@ -138,6 +142,7 @@ def test_conflict_with_only_one_excerpt_is_rejected() -> None:
             evidence=[],
             citation_groups=[],
             material_versions_by_id=_frozen_versions(),
+            questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
         )
 
 
@@ -159,6 +164,7 @@ def test_repeated_quote_requires_a_longer_excerpt() -> None:
             evidence=[],
             citation_groups=[],
             material_versions_by_id={**_frozen_versions(), repeated.id: repeated},
+            questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
         )
 
 
@@ -171,7 +177,7 @@ def _legal_gap_draft(chunk_ids: list[str]) -> ReviewIssueDraft:
             MaterialEvidenceDraft(material_version_id="mv_fields", quote=FIELD_LIST_TEXT)
         ],
         supporting_chunk_ids=chunk_ids,
-        unknowns=[],
+        question_indexes=[],
         recommended_action="补充告知同意或合同必需依据。",
     )
 
@@ -182,6 +188,7 @@ def test_legal_gap_needs_material_fact_and_citable_chunk() -> None:
         evidence=[_hit("c1")],
         citation_groups=_citation_groups([_hit("c1")]),
         material_versions_by_id=_frozen_versions(),
+        questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
     )
 
     issue = issues[0]
@@ -199,6 +206,7 @@ def test_legal_gap_without_material_fact_is_rejected() -> None:
             evidence=[_hit("c1")],
             citation_groups=_citation_groups([_hit("c1")]),
             material_versions_by_id=_frozen_versions(),
+            questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
         )
 
 
@@ -210,6 +218,7 @@ def test_legal_gap_with_non_citable_chunk_is_rejected() -> None:
             evidence=[guide],
             citation_groups=_citation_groups([guide]),
             material_versions_by_id=_frozen_versions(),
+            questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
         )
 
 
@@ -220,15 +229,15 @@ def test_missing_information_keeps_unknowns_without_material_quote() -> None:
         finding="材料未说明供应商是否使用客户数据训练模型。",
         material_evidence=[],
         supporting_chunk_ids=[],
-        unknowns=["供应商是否使用客户数据训练模型"],
+        question_indexes=[0],
         recommended_action="要求供应商书面确认训练数据范围。",
-        answer_type="choice",
     )
     issues = finalize_issues(
         [draft],
         evidence=[],
         citation_groups=[],
         material_versions_by_id=_frozen_versions(),
+        questions=[ReviewQuestionDraft(text="供应商是否使用客户数据训练模型", answer_type="choice")],
     )
 
     assert issues[0].material_evidence == []
@@ -243,7 +252,7 @@ def test_missing_information_without_unknowns_is_rejected() -> None:
         finding="材料未说明接收方地区。",
         material_evidence=[],
         supporting_chunk_ids=[],
-        unknowns=[],
+        question_indexes=[],
         recommended_action="补充接收方地区。",
     )
     with pytest.raises(ValueError):
@@ -252,6 +261,7 @@ def test_missing_information_without_unknowns_is_rejected() -> None:
             evidence=[],
             citation_groups=[],
             material_versions_by_id=_frozen_versions(),
+            questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
         )
 
 
@@ -261,7 +271,7 @@ def _agent_draft(issue: ReviewIssueDraft | None) -> LLMReviewResultDraft:
         decision_summary="当前材料和法源证据仍不足以形成正式风险结论，需要明确调查边界、尚未核实事项以及后续补充要求。",
         conclusion="现有证据不足，暂不形成正式合规路径结论。",
         trigger_reasons=["证据不足"],
-        missing_information=["境外接收方所在地区"],
+        questions=[ReviewQuestionDraft(text='境外接收方所在地区')],
         recommended_actions=["补充接收方信息"],
         risk_boundaries=["未覆盖地方和行业特别规则"],
         issues=[] if issue is None else [issue],
@@ -290,6 +300,7 @@ def test_agent_can_retry_after_finalizer_rejects_an_issue() -> None:
             evidence=[],
             citation_groups=[],
             material_versions_by_id=_frozen_versions(),
+            questions=[ReviewQuestionDraft(text="实际发送字段是什么")],
         )
         return {"issues": [issue.model_dump(mode="json") for issue in issues]}
 
@@ -319,7 +330,7 @@ def test_intake_material_conflict_can_be_reported_as_unresolved_information() ->
         finding="确认填报为非CIIO，材料记载属于CIIO，通知有效性尚未核实。",
         material_evidence=[MaterialEvidenceDraft(material_version_id=version.id, quote=text)],
         supporting_chunk_ids=[],
-        unknowns=["识别通知是否有效、当前CIIO身份"],
+        question_indexes=[0],
         recommended_action="核对通知并更正后重新冻结。",
     )
 
@@ -329,11 +340,14 @@ def test_intake_material_conflict_can_be_reported_as_unresolved_information() ->
         else:
             assert "missing_information" in state.steps[-1].observation["error"]
             issue = wrong_issue.model_copy(update={"kind": "missing_information"})
-        return AgentDecision(action="finish", summary="保留身份冲突并说明核实事项", draft=_agent_draft(issue))
+        return AgentDecision(action="finish", summary="保留身份冲突并说明核实事项", draft=_agent_draft(issue).model_copy(update={
+            "questions": [ReviewQuestionDraft(text="识别通知是否有效、当前CIIO身份")],
+        }))
 
     def finalize(draft, _state):
         issues = finalize_issues(
             draft.issues, evidence=[], citation_groups=[], material_versions_by_id={version.id: version},
+            questions=draft.questions,
         )
         return {"issues": [issue.model_dump(mode="json") for issue in issues]}
 
@@ -349,5 +363,5 @@ def test_intake_material_conflict_can_be_reported_as_unresolved_information() ->
     issue = state.result["issues"][0]
     assert issue["kind"] == "missing_information"
     assert issue["finding"] == wrong_issue.finding
-    assert issue["unknowns"] == wrong_issue.unknowns
+    assert issue["unknowns"] == ["识别通知是否有效、当前CIIO身份"]
     assert [item["material_version_id"] for item in issue["material_evidence"]] == [version.id]

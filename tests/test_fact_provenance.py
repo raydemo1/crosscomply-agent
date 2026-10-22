@@ -14,7 +14,7 @@ from law_agent.review.schemas import FactLedgerEntry, ReviewFacts
 from law_agent.review.semantic_grounding import SemanticGroundingVerifier, SemanticVerdict
 from law_agent.review.worker import ReviewWorker
 from tests.test_review_agent import _draft, _tools_with
-from tests.test_review_llm import FakeClient
+from tests.test_review_llm import FakeClient, tool_message
 
 
 def _material_entry(field="contains_personal_information", value=True, source_ref="material_1"):
@@ -43,10 +43,10 @@ def test_expanded_working_model_keeps_raw_counts():
     assert "legal_path" not in ReviewFacts.model_fields
 
 
-def _run(state, *decisions, material_snapshot_id="material_1"):
+def _run(state, *decisions):
     pending = iter([*decisions, AgentDecision(action="finish", summary="交付", draft=_draft())])
     return run_agent(
-        state, material="冻结材料", intake={}, material_snapshot_id=material_snapshot_id,
+        state, material="冻结材料", intake={},
         decide=lambda *_: next(pending), search=lambda *_: [], web_search=lambda *_: [],
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
@@ -167,73 +167,53 @@ def test_runtime_rejects_wrong_material_binding_before_model_setup(runtime):
     task.material_snapshot_id = snapshot.material_snapshot_id
 
 
-def test_runtime_material_entries_use_task_snapshot_and_preserve_intake_conflict(runtime):
-    store, task, snapshot, _seen, decisions, execute = runtime
+def test_runtime_keeps_raw_material_and_intake_separate_without_a_fact_write_tool(runtime, monkeypatch):
+    store, _task, snapshot, seen, decisions, _execute = runtime
+    material = "材料说明实际已向境外提供客户数据；它与填报中的未出境陈述不一致。"
+    received = []
+    tools = _report_tools(lambda **kwargs: (
+        received.append(kwargs) or SemanticVerdict(status="supported", claim_checks=[], conclusion_reason="只检查上下文传递")
+    ))
+    tools._material_text = material
+    monkeypatch.setattr(agent_runtime, "ComplianceAgentTools", lambda **_: tools)
     decisions.extend([
-        AgentDecision(
-            action="record_facts", summary="材料显示跨境",
-            facts=ReviewFacts(cross_border_transfer=True),
-            material_facts=[{"field": "cross_border_transfer", "value": True}],
-        ),
-        AgentDecision(action="finish", summary="有冲突，暂不判断", draft=_draft()),
+        AgentDecision(action="read_material", summary="读取原始业务材料"),
+        AgentDecision(action="finish", summary="保留冲突，不确定判断", draft=_draft()),
     ])
-    completed = ReviewWorker(queue=store, worker_id="test", execute=execute).run_once()
+    completed = ReviewWorker(queue=store, worker_id="test", execute=lambda current: agent_runtime.execute_agent_task(
+        current, store=store, goal="审查", material=material,
+    )).run_once()
     assert completed.status == "succeeded"
-    ledger = completed.result["fact_ledger"]
-    assert [e["source_ref"] for e in ledger] == [snapshot.id, task.material_snapshot_id]
-    assert [e["value"] for e in ledger] == [False, True]
-    assert all(e["status"] == "conflicted" for e in ledger)
+    assert seen[1].steps[0].observation["text"] == material
+    assert received[0]["material"] == material
+    assert received[0]["confirmed_intake"]["cross_border_transfer"] is False
+    assert received[0]["extracted_facts"].cross_border_transfer is False
+    assert completed.result["fact_ledger"] == [e.model_dump(mode="json") for e in confirmed_intake_ledger(snapshot.intake, snapshot.id)]
+    assert store.get_intake_snapshot(snapshot.id).intake["cross_border_transfer"] is False
 
 
-def test_explicit_material_origin_is_recorded_and_deduplicated_without_changing_projection():
-    state = AgentState(goal="审查", facts=ReviewFacts(contains_personal_information=True))
-    decision = AgentDecision(
-        action="record_facts", summary="材料支持当前事实",
-        facts=ReviewFacts(contains_personal_information=True, business_activity="供应商服务"),
-        material_facts=[{"field": "contains_personal_information", "value": True}],
-    )
-    result = _run(state, decision, decision)
-    assert result.facts == decision.facts
-    assert result.fact_ledger == [_material_entry()]
-    assert all(entry.field != "business_activity" for entry in result.fact_ledger)
 
 
-def test_material_identity_survives_unresolved_working_projection():
+
+def test_stored_material_identity_and_conflict_survive_without_model_rewriting_facts():
     ledger = confirmed_intake_ledger({"ciio_status": "not_ciio"}, "intake_1")
-    decision = AgentDecision(
-        action="record_facts", summary="材料身份与填报不同，工作事实待核实",
-        facts=ReviewFacts(ciio_status="under_review"),
-        material_facts=[{"field": "ciio_status", "value": "ciio"}],
-    )
-    result = _run(AgentState(goal="审查", fact_ledger=ledger), decision, decision)
+    append_fact(ledger, _material_entry("ciio_status", "ciio"))
+    result = _run(AgentState(goal="审查", facts=ReviewFacts(ciio_status="not_ciio"), fact_ledger=ledger))
     restored = AgentState.model_validate_json(result.model_dump_json())
-
-    assert restored.facts.ciio_status == "under_review"
+    assert restored.facts.ciio_status == "not_ciio"
     assert [entry.value for entry in restored.fact_ledger] == ["not_ciio", "ciio"]
     assert [entry.source_ref for entry in restored.fact_ledger] == ["intake_1", "material_1"]
     assert all(entry.status == "conflicted" for entry in restored.fact_ledger)
 
 
-@pytest.mark.parametrize("observation", [
-    {"field": "ciio_status", "value": "perhaps"},
-    {"field": "contains_personal_information", "value": ["姓名"]},
-    {"field": "annual_sensitive_count", "value": True},
-    {"field": "ciio_status", "value": "ciio", "status": "confirmed"},
-    {"field": "ciio_status", "value": "ciio", "source_ref": "forged"},
-])
-def test_material_observation_uses_existing_fact_types_and_program_owned_source(observation):
-    with pytest.raises(ValidationError):
-        AgentDecision(action="record_facts", summary="提取", facts={}, material_facts=[observation])
 
 
-def test_applicant_update_without_material_declaration_is_not_relabelled():
+
+def test_applicant_statement_is_preserved_without_updating_the_intake_projection():
     state = AgentState(goal="审查", status="waiting_input", gate_id="input_1")
     answer_agent(state, gate_id="input_1", answer="有个人信息", intake_snapshot_id="intake_1")
-    result = _run(state, AgentDecision(
-        action="record_facts", summary="更新工作事实",
-        facts=ReviewFacts(contains_personal_information=True),
-    ))
-    assert result.facts.contains_personal_information is True
+    result = _run(state)
+    assert result.facts.contains_personal_information is None
     assert len(result.fact_ledger) == 1
     entry = result.fact_ledger[0]
     assert (entry.field, entry.source_type, entry.status) == (
@@ -243,55 +223,34 @@ def test_applicant_update_without_material_declaration_is_not_relabelled():
     assert state.steps[0].observation["gate_id"] == "input_1"
 
 
-def test_clear_and_control_fields_are_not_material_observations():
-    state = AgentState(goal="审查", facts=ReviewFacts(contains_personal_information=True))
-    result = _run(state, AgentDecision(
-        action="record_facts", summary="未知事实",
-        facts=ReviewFacts(missing_information=["人数"], as_of_date="2025-01-01"),
-        material_facts=[{"field": "contains_personal_information", "value": None}, {"field": "data_types", "value": []}],
-    ))
-    assert result.facts.contains_personal_information is None
-    assert result.fact_ledger == []
-    for field in ["missing_information", "as_of_date", "transfer_mechanism"]:
-        with pytest.raises(ValidationError):
-            AgentDecision(action="record_facts", summary="无效来源", facts={}, material_facts=[{"field": field, "value": "unknown"}])
 
 
-def test_missing_material_context_rejects_attribution_without_mutation():
-    state = AgentState(goal="审查", facts=ReviewFacts(contains_personal_information=False))
-    result = _run(state, AgentDecision(
-        action="record_facts", summary="提取材料",
-        facts=ReviewFacts(contains_personal_information=True),
-        material_facts=[{"field": "contains_personal_information", "value": True}],
-    ), material_snapshot_id=None)
-    assert result.fact_ledger == []
-    assert result.facts.contains_personal_information is False
-    assert "冻结材料快照" in result.steps[0].observation["error"]
+
 
 
 @pytest.mark.parametrize("forbidden", [
     {"fact_ledger": [{"status": "confirmed"}]}, {"source_ref": "forged"}, {"status": "confirmed"},
+    {"facts": {"contains_personal_information": True}},
+    {"material_facts": [{"field": "contains_personal_information", "value": True}]},
 ])
-def test_decision_cannot_choose_trust_or_snapshot_ids(forbidden):
+def test_decision_cannot_write_facts_trust_or_snapshot_ids(forbidden):
     with pytest.raises(ValidationError):
-        AgentDecision(action="record_facts", summary="无效来源", facts={}, **forbidden)
+        AgentDecision(action="read_material", summary="读取材料", **forbidden)
 
 
-def test_narrow_boolean_conflict_preserves_both_sources_and_survives_checkpoint():
+
+def test_stored_boolean_conflict_preserves_both_sources_and_survives_checkpoint():
     ledger = confirmed_intake_ledger({"contains_personal_information": False}, "intake_1")
-    state = _run(AgentState(goal="审查", fact_ledger=ledger), AgentDecision(
-        action="record_facts", summary="材料提取",
-        facts=ReviewFacts(contains_personal_information=True),
-        material_facts=[{"field": "contains_personal_information", "value": True}],
-    ))
+    append_fact(ledger, _material_entry())
+    state = _run(AgentState(goal="审查", facts=ReviewFacts(contains_personal_information=False), fact_ledger=ledger))
     restored = AgentState.model_validate_json(state.model_dump_json())
     assert [e.value for e in restored.fact_ledger] == [False, True]
     assert [e.source_ref for e in restored.fact_ledger] == ["intake_1", "material_1"]
     assert all(e.status == "conflicted" for e in restored.fact_ledger)
-    assert state.facts.contains_personal_information is True
+    assert state.facts.contains_personal_information is False
     append_fact(restored.fact_ledger, _material_entry())
     assert len(restored.fact_ledger) == 2
-    assert all(e.status == "conflicted" for e in restored.fact_ledger)
+
 
 
 @pytest.mark.parametrize("field,left,right", [
@@ -335,11 +294,13 @@ def test_reviewer_and_stale_answers_cannot_add_facts():
 def test_model_and_verifier_receive_the_ledger_as_structured_data():
     ledger = confirmed_intake_ledger({"cross_border_transfer": False}, "intake_1")
     state = AgentState(goal="审查", fact_ledger=ledger)
-    decider_client = FakeClient(outputs=[{"action": "request_input", "summary": "澄清", "question": "是否出境？"}])
+    decider_client = FakeClient(outputs=[tool_message(("call_1", 'request_input', {'summary': '澄清', 'question': '是否出境？'}))])
     AgentModel(model_id="fake-model", client=decider_client)(state, {"facts": {}})
     client = FakeClient(outputs=[
         {"status": "supported", "claim_checks": [], "conclusion_reason": "暂定"},
-        {"checks": [{"target": "recommended_actions:0", "status": "supported", "reason": "补充建议"}], "conclusion_reason": "建议支持"},
+        {"checks": [
+            {"target": "recommended_actions:0", "status": "supported", "reason": "补充建议"},
+        ], "conclusion_reason": "待补事项和建议支持"},
         {"checks": [{"target": "risk_boundaries:0", "status": "supported", "reason": "范围说明"}], "conclusion_reason": "边界支持"},
     ])
     SemanticGroundingVerifier(model_id="fake-model", client=client)(

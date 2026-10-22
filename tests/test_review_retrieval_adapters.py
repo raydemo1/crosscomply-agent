@@ -65,6 +65,18 @@ def test_elasticsearch_adapter_maps_hits() -> None:
     assert hits[0].matched_query_type == "legal_issue"
 
 
+def test_keyword_query_combines_body_relevance_without_repeated_source_identity():
+    client = FakeElasticsearchClient()
+    adapter = ElasticsearchKeywordAdapter(client=client, index_name="lawagent_chunks")
+    adapter.search("某法规 人力资源管理", top_k=10)
+    match = client.calls[0]["body"]["query"]["bool"]["must"][0]["multi_match"]
+    assert match["type"] == "most_fields"
+    weights = {field.split("^")[0]: float(field.split("^")[1]) if "^" in field else 1
+               for field in match["fields"]}
+    assert weights["text"] > weights["title"]
+    assert "citation_label" not in weights and "heading_path" not in weights
+
+
 def test_pgvector_adapter_embeds_query_and_maps_rows() -> None:
     seen_vectors: list[list[float]] = []
     embed_batches: list[list[str]] = []
@@ -206,6 +218,51 @@ def test_write_index_artifacts(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Resumable service indexing (checkpoint per batch)
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("query_fails", [False, True])
+def test_vector_search_finishes_read_transaction_even_when_query_fails(query_fails):
+    from contextlib import contextmanager
+
+    from law_agent.review.retrieval.service_backends import make_pgvector_search_fn
+
+    events = []
+
+    class Cursor:
+        description = (("chunk_id",),)
+
+        def execute(self, sql, parameters):
+            assert events == ["begin"]
+            if query_fails:
+                raise RuntimeError("database query failed")
+
+        def fetchall(self):
+            return [("chunk-1",)]
+
+    class Connection:
+        @contextmanager
+        def transaction(self):
+            events.append("begin")
+            try:
+                yield
+            except Exception:
+                events.append("rollback")
+                raise
+            else:
+                events.append("commit")
+
+        @contextmanager
+        def cursor(self):
+            yield Cursor()
+
+    search = make_pgvector_search_fn(Connection(), "lawagent_chunks")
+    if query_fails:
+        with pytest.raises(RuntimeError, match="database query failed"):
+            search([0.1, 0.2], 1)
+        assert events == ["begin", "rollback"]
+    else:
+        assert search([0.1, 0.2], 1) == [{"chunk_id": "chunk-1"}]
+        assert events == ["begin", "commit"]
 
 
 class _CountingEmbeddings:

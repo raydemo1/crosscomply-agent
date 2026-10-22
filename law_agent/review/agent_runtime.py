@@ -76,7 +76,6 @@ def execute_agent_task(
             state,
             material=material,
             intake={"id": intake_snapshot.id, "facts": intake_snapshot.intake},
-            material_snapshot_id=task.material_snapshot_id,
             decide=AgentModel(model_id=task.model_id),
             search=tools.search,
             search_navigation=tools.search_navigation,

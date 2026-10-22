@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, JsonValue, field_validator, model_validator
+from pydantic import Field, JsonValue, field_validator
 
 from law_agent.data.schemas import Authority, ClauseCitationRole, DocType, LawStatus, StrictModel
 
@@ -49,7 +49,20 @@ ConfirmableFactField = Literal[
     "annual_non_sensitive_count", "annual_sensitive_count", "count_period",
     "destination_region", "exemption_facts",
 ]
-MaterialFactField = ConfirmableFactField | Literal["industry", "regions"]
+
+
+FACT_USAGE_GUIDANCE = (
+    "保留事实的原始表述、统计对象、期间及处理或出境口径。"
+    "已明确的用户陈述作为注明来源的前提，申请人确认不等于独立核实；"
+    "缺失保持未知，冲突保留各方来源和不同表述。"
+    "日均处理量、预计量与实际累计出境人数分别使用，缺少同口径依据时不相互推算或替代。"
+)
+
+
+LEGAL_BASIS_GAP_GUIDANCE = (
+    "仅将已针对本案调查仍缺失、且会改变当前目标内判断的法源登记为阻塞缺口，说明具体影响。"
+    "未读完整文件本身不构成缺口；已排除范围或可删去的延伸论述不阻塞本案；必要的延伸说明放风险边界。"
+)
 
 
 class FactQuestion(StrictModel):
@@ -62,7 +75,10 @@ class FactLedgerEntry(StrictModel):
     value: JsonValue
     source_type: Literal["confirmed_intake", "material", "applicant_statement"]
     source_ref: str = Field(min_length=1)
-    status: Literal["confirmed", "extracted", "unverified", "conflicted"]
+    status: Literal["confirmed", "extracted", "unverified", "conflicted"] = Field(description=(
+        "confirmed为申请人已确认的陈述，不等于独立核实；extracted为材料抽取；"
+        "unverified为尚未确认的陈述；conflicted为来源表述存在尚未解决的冲突，保留各方记录"
+    ))
 
 
 class ReviewFacts(StrictModel):
@@ -75,9 +91,18 @@ class ReviewFacts(StrictModel):
     cross_border_transfer: bool | None = None
     important_data_status: ImportantDataStatus = "unknown"
     ciio_status: CIIOStatus = "unknown"
-    annual_non_sensitive_count: str | None = None
-    annual_sensitive_count: str | None = None
-    count_period: CountPeriod = "unknown"
+    annual_non_sensitive_count: str | None = Field(default=None, description=(
+        "原文明确给出的年度一般个人信息出境人数，保留原始数值、统计范围及估算等限定；"
+        "未给出年度口径时为null，不由日均处理量换算"
+    ))
+    annual_sensitive_count: str | None = Field(default=None, description=(
+        "原文明确给出的年度敏感个人信息出境人数，保留原始数值、统计范围及估算等限定；"
+        "未给出年度口径时为null，不由日均处理量换算"
+    ))
+    count_period: CountPeriod = Field(default="unknown", description=(
+        "原文明示的人数统计期间：current_year_cumulative为当年累计，annual_estimate为全年估算，"
+        "other为明确的其他期间，unknown为未明确；不将日均或预计口径改为实际当年累计"
+    ))
     destination_region: str | None = None
     exemption_facts: str | None = None
     overseas_recipient: str | None = None
@@ -133,20 +158,6 @@ class ReviewFacts(StrictModel):
             if item not in cleaned:
                 cleaned.append(item)
         return cleaned
-
-
-class MaterialFactObservation(StrictModel):
-    field: MaterialFactField
-    value: str | bool | list[str] | None = Field(
-        description="冻结材料中的陈述值，与综合判断后的工作事实独立；"
-        "材料陈述真实性待核实，不改变材料本身明确陈述的值。",
-    )
-
-    @model_validator(mode="after")
-    def validate_field_value(self) -> MaterialFactObservation:
-        normalized = ReviewFacts.model_validate({self.field: self.value})
-        self.value = getattr(normalized, self.field)
-        return self
 
 
 class UploadedFileMeta(StrictModel):
@@ -294,7 +305,7 @@ class CitationGroup(StrictModel):
     scope_note: str | None = None
 
 
-class GroundedClaim(StrictModel):
+class GroundedClaimDraft(StrictModel):
     """A case-specific legal judgment grounded in the returned legal evidence."""
 
     text: str = Field(description=(
@@ -302,6 +313,9 @@ class GroundedClaim(StrictModel):
         "尚未确认的条件应保留为条件性判断。"
     ))
     supporting_chunk_ids: list[str] = Field(default_factory=list)
+
+
+class GroundedClaim(GroundedClaimDraft):
     supporting_citation_refs: list[str] = Field(default_factory=list)
 
 
@@ -360,6 +374,7 @@ class ReviewResult(StrictModel):
     review_facts: ReviewFacts
     trigger_reasons: list[str] = Field(default_factory=list)
     missing_information: list[str] = Field(default_factory=list)
+    legal_basis_gaps: list[str] = Field(default_factory=list)
     missing_answer_types: dict[str, Literal["choice", "count", "text"]] = Field(default_factory=dict)
     recommended_actions: list[str] = Field(default_factory=list)
     risk_boundaries: list[str] = Field(default_factory=list)

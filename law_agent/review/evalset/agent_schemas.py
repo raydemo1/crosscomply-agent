@@ -95,7 +95,7 @@ class AgentCase(StrictModel):
     tags: list[str] = Field(default_factory=list)
     review_status: Literal["framework_check", "candidate", "approved"] = "candidate"
     source_case_id: str | None = None
-    construction_round: int = Field(default=1, ge=1, le=2)
+    construction_round: int = Field(default=1, ge=1)
     selection_reason: str = ""
     reference_basis: list[str] = Field(default_factory=list)
     controlled_web: ControlledWebFixture | None = None

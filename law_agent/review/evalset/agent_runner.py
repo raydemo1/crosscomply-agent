@@ -48,7 +48,7 @@ from law_agent.review.http.schemas import IntakePayload
 from law_agent.review.ids import utc_now_iso
 from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
-from law_agent.review.web_research import WebSearchResult, is_trusted_official_url
+from law_agent.review.web_research import WebSearchResult, is_official_url
 
 WORKER_ID = "agent-eval"
 
@@ -158,7 +158,7 @@ def prepare_controlled_corpus(case: AgentCase, chunks_path: Path, output: Path) 
     fixture = case.controlled_web
     if fixture is None:
         raise ValueError("controlled corpus requires a Web fixture")
-    if any(not is_trusted_official_url(r.url) for r in fixture.results):
+    if any(not is_official_url(r.url) for r in fixture.results):
         raise ValueError("controlled Web results must use trusted official URLs")
     rows = [json.loads(line) for line in chunks_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     missing = set(fixture.held_out_source_ids) - {row["source_id"] for row in rows}
