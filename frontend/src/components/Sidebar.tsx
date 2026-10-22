@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus2, LayoutTemplate, LogOut, Search, Scale, ShieldCheck, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus2, LayoutTemplate, LogOut, MessageSquare, Search, Scale, ShieldCheck, X } from 'lucide-react';
+import type { QASummary } from '../types/qa';
 import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { relativeTime, truncate } from '../utils/display';
@@ -10,6 +11,8 @@ import { CASE_STATUS_LABELS } from '../utils/workflow';
  * governance surface, with the library kind carried by the child destination.
  */
 export type Page =
+  | 'home'
+  | 'qa'
   | 'workbench'
   | 'governance'
   | 'case-detail'
@@ -20,6 +23,9 @@ export type Page =
   | 'knowledge-policy';
 
 interface SidebarProps {
+  qaHistory: QASummary[];
+  activeQAId: string | null;
+  onOpenQA: (id: string | null) => void;
   currentPage: Page;
   onPageChange: (page: Page) => void;
   onOpenCase: (caseId: string) => void;
@@ -64,6 +70,9 @@ interface CasePreviewPosition {
 }
 
 export default function Sidebar({
+  qaHistory,
+  activeQAId,
+  onOpenQA,
   currentPage,
   onPageChange,
   onOpenCase,
@@ -121,6 +130,10 @@ export default function Sidebar({
 
       <nav className="sidebar-section" aria-label="主导航">
         <div className="sidebar-nav">
+          <button type="button" className={'sidebar-nav-item' + (currentPage === 'home' || currentPage === 'qa' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenQA(null); }}>
+            <span className="sidebar-nav-item-icon" aria-hidden="true"><MessageSquare size={18} strokeWidth={1.8} /></span>
+            <span>合规问答</span>
+          </button>
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('workbench'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><FilePlus2 size={18} strokeWidth={1.8} /></span>
             <span>新建案件</span>
@@ -163,7 +176,9 @@ export default function Sidebar({
         </div>
       </nav>
 
-      <div className="sidebar-section sidebar-history">
+      {qaHistory.length ? <div className="sidebar-section sidebar-history-group qa-sidebar-history"><div className="sidebar-section-label sidebar-history__header"><span>最近问答 <span className="sidebar-history__count">{qaHistory.length}</span></span></div><div className="sidebar-history__list">{qaHistory.slice(0, 5).map((item) => <button key={item.id} type="button" className={'history-item history-item--button' + (currentPage === 'qa' && item.id === activeQAId ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenQA(item.id); }}><div className="history-item__top"><span className="history-item__question">{item.title}</span></div><div className="history-item__meta"><span>问答</span><span>{relativeTime(item.updated_at)}</span></div></button>)}</div>{qaHistory.length > 5 ? <details className="qa-history-more"><summary>查看更早问答</summary>{qaHistory.slice(5).map((item) => <button type="button" className="history-item history-item--button" key={item.id} onClick={() => { onCloseMobile(); onOpenQA(item.id); }}>{item.title}</button>)}</details> : null}</div> : null}
+
+      <div className="sidebar-section sidebar-history-group sidebar-history">
         <div className="sidebar-section-label sidebar-history__header">
           <span>最近案件 <span className="sidebar-history__count">{cases.length}</span></span>
           {cases.length > 0 ? (
@@ -177,7 +192,7 @@ export default function Sidebar({
         ) : null}
         <div className="sidebar-history__list">
           {filtered.length === 0 ? (
-            <div className="sidebar-history__empty">暂无匹配案件。</div>
+            <div className="sidebar-history__empty">{cases.length ? '暂无匹配案件。' : '暂无案件'}</div>
           ) : visibleCases.map((item) => {
             const risk = riskDisplay(item);
             return (

@@ -376,7 +376,7 @@ export default function RemediationPlanPage({ caseId, user, initialPlan = null, 
           document.getElementById('remediation-task-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }}
       >
-        {caseStatus === 'pending_source_verification' ? <div className="case-progress__notice" role="status">发现的新官方法源仍在核验，核验完成前不能形成最终审批结论。</div> : null}
+        {caseStatus === 'pending_source_verification' ? <div className="case-progress__notice" role="status">影响当前判断的法律依据尚待核实或补充，完成前不能形成最终审批结论。</div> : null}
         {user.role === 'requester' && caseStatus === 'needs_info' && blockingTasks.length > 0 ? <div className="case-progress__notice" role="status">还有 {blockingTasks.length} 项送审前事项待处理或待审核人核验，核实后才能按最新材料重新审查。</div> : null}
         {rereviewNotice ? <div className="case-progress__notice" role="status">{rereviewNotice}</div> : null}
       </CaseProgress>

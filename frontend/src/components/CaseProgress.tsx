@@ -122,7 +122,7 @@ function progressState(
     };
   }
   if (status === 'pending_source_verification') {
-    return { current: 1, owner: 'Agent / 审核人', status: '正在核验官方法源', guidance: '发现可能影响结论的新官方材料，核验完成前不进入最终审批。' };
+    return { current: 1, owner: 'Agent / 审核人', status: '法律依据待核验', guidance: '影响当前判断的法律依据尚待核实或补充，完成后再复核案件；期间不进入最终审批。' };
   }
   if (status === 'run_failed') {
     return { current: 1, owner: '审核人', status: '审查未完成', guidance: '失败记录已保留；修复后可从本次任务继续重试。' };

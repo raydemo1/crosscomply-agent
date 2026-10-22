@@ -48,6 +48,60 @@ import type {
   WorkingDraftApi,
   WorkbenchUser,
 } from '../types/api';
+import type { QAConversation, QARun, QASummary, QAMaterial } from '../types/qa';
+
+const qaPath = (id: string): string => `/api/qa/conversations/${encodeURIComponent(id)}`;
+
+export async function listQAConversations(): Promise<QASummary[]> {
+  return (await request<{ items: QASummary[] }>('/api/qa/conversations')).items;
+}
+
+export function createQAConversation(): Promise<QAConversation> {
+  return request('/api/qa/conversations', { method: 'POST' });
+}
+
+export function getQAConversation(id: string): Promise<QAConversation> {
+  return request(qaPath(id));
+}
+
+export function sendQAMessage(id: string, question: string, materialIds: string[], requestId: string): Promise<QARun> {
+  return request(`${qaPath(id)}/messages`, { method: 'POST', body: JSON.stringify({ question, material_ids: materialIds, request_id: requestId }) });
+}
+
+export function retryQARun(id: string, runId: string): Promise<QARun> {
+  return request(`${qaPath(id)}/runs/${encodeURIComponent(runId)}/retry`, { method: 'POST' });
+}
+
+export function uploadQAMaterial(id: string, file: File): Promise<QAMaterial> {
+  const body = new FormData();
+  body.append('file', file);
+  return request(`${qaPath(id)}/materials`, { method: 'POST', body, timeoutMs: REVIEW_TIMEOUT_MS });
+}
+
+export function subscribeQARun(id: string, runId: string, onSnapshot: (run: QARun) => void, onError: () => void): () => void {
+  const events = new EventSource(buildUrl(`${qaPath(id)}/runs/${encodeURIComponent(runId)}/events`), { withCredentials: true });
+  events.addEventListener('snapshot', (event: MessageEvent<string>) => {
+    const run = JSON.parse(event.data) as QARun;
+    onSnapshot(run);
+    if (run.status === 'completed' || run.status === 'failed') events.close();
+  });
+  events.onerror = onError;
+  return () => events.close();
+}
+
+export async function downloadQAMaterial(id: string, material: QAMaterial): Promise<File> {
+  const path = `${qaPath(id)}/materials/${encodeURIComponent(material.id)}/original`;
+  const response = await fetch(buildUrl(path), { credentials: 'include' });
+  if (!response.ok) throw new ApiError(response.status, '无法读取原始材料，请重试。', path);
+  const blob = await response.blob();
+  return new File([blob], material.filename, { type: blob.type });
+}
+
+export function createCaseFromQA(id: string, payload: {
+  question: string; material_text: string; intake: CaseIntake; run_id: string; request_id: string; material_ids: string[];
+}): Promise<CaseDetailApi & { imported_versions: MaterialVersionApi[] }> {
+  return request(`${qaPath(id)}/cases`, { method: 'POST', body: JSON.stringify(payload), timeoutMs: REVIEW_TIMEOUT_MS });
+}
 
 export async function listRevisionProposals(caseId: string): Promise<RevisionProposalApi[]> {
   const response = await request<{ items: RevisionProposalApi[] }>(`/api/cases/${encodeURIComponent(caseId)}/revision-proposals`);

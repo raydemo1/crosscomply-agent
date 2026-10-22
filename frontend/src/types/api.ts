@@ -371,6 +371,7 @@ export interface ReviewResult {
   review_facts: ReviewFacts;
   trigger_reasons: string[];
   missing_information: string[];
+  legal_basis_gaps: string[];
   missing_answer_types?: Record<string, 'choice' | 'count' | 'text'>;
   recommended_actions: string[];
   risk_boundaries: string[];
@@ -411,6 +412,7 @@ export interface ReviewResponse {
     known_source_id: string | null;
     published_date?: string | null;
     refresh_needed?: boolean;
+    is_official?: boolean;
   }>;
   web_impact?: 'none' | 'supplement' | 'execution_detail' | 'core';
   freshness_hold?: boolean;

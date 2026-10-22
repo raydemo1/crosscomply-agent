@@ -6,7 +6,9 @@ import type { Page } from './components/Sidebar';
 import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
 import LoginPage from './components/LoginPage';
-import { ApiError, createCase, extractIntake, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, listMaterialVersions, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
+import { ApiError, createCase, createCaseFromQA, extractIntake, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, listMaterialVersions, listQAConversations, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
+import type { QAHandoff, QASummary } from './types/qa';
+import ComplianceQAPage from './components/ComplianceQAPage';
 import { EMPTY_INTAKE, openCase, refreshCases, useCaseStore } from './store/caseStore';
 import { allocateUploadNames, PASTED_MATERIAL_LOGICAL_NAME } from './utils/materialNames';
 import { confirmDiscardDocumentEdit } from './utils/workflow';
@@ -106,7 +108,10 @@ export default function App(): JSX.Element {
   const [user, setUser] = useState<WorkbenchUser | null>(null);
   const [booting, setBooting] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [page, setPage] = useState<Page>('workbench');
+  const [page, setPage] = useState<Page>(new URLSearchParams(window.location.search).has('qa') ? 'qa' : 'home');
+  const [activeQAId, setActiveQAId] = useState<string | null>(new URLSearchParams(window.location.search).get('qa'));
+  const [qaHistory, setQAHistory] = useState<QASummary[]>([]);
+  const [qaHandoff, setQAHandoff] = useState<QAHandoff | null>(null);
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [remediationCaseId, setRemediationCaseId] = useState<string | null>(null);
   /** Set when the next case view has to open on the Agent question instead of the report top. */
@@ -130,6 +135,26 @@ export default function App(): JSX.Element {
   const documentDirtyRef = useRef(false);
   const cases = useCaseStore();
   const activeCase = useMemo(() => activeCaseId ? cases.find((item) => item.id === activeCaseId) ?? null : null, [cases, activeCaseId]);
+
+  const refreshQAHistory = useCallback((): void => {
+    void listQAConversations().then(setQAHistory).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : '无法读取问答历史'));
+  }, []);
+
+  useEffect(() => {
+    if (user) refreshQAHistory();
+    else setQAHistory([]);
+  }, [user, refreshQAHistory]);
+
+  const selectQA = useCallback((id: string | null): void => {
+    setActiveQAId(id);
+    setPage(id ? 'qa' : 'home');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('case');
+    url.searchParams.delete('remediation');
+    if (id) url.searchParams.set('qa', id);
+    else url.searchParams.delete('qa');
+    window.history.replaceState(null, '', url);
+  }, []);
 
   // Numbering of new uploads depends on the names already frozen on the case, so fetch them up
   // front. Reading them only at submit time would make the preview disagree with what gets frozen.
@@ -261,7 +286,9 @@ export default function App(): JSX.Element {
     setDashboardSummary(null);
     setActiveCaseId(null);
     setEditingCaseId(null);
-    setPage('workbench');
+    setQAHandoff(null);
+    setActiveQAId(null);
+    setPage('home');
   }, []);
 
   const handleOpenGovernance = useCallback((): void => {
@@ -305,20 +332,28 @@ export default function App(): JSX.Element {
       if (!keptVersionIds.length && !files.length && !updatesPastedMaterial) {
         throw new ApiError(0, '请提供至少一份待审查材料。', '/api/cases');
       }
+      const originFiles = qaHandoff?.files ?? [];
+      const selectedOriginIds = qaHandoff ? qaHandoff.materialIds.filter((_, index) => files.includes(originFiles[index])) : [];
       const saved = editingCaseId
         ? await updateCase(editingCaseId, {
           question: q,
           ...(updatesPastedMaterial ? { material_text: textMaterial } : {}),
           intake: confirmedIntake,
         })
-        : await createCase({ question: q, materialText: textMaterial || materialFallback(files), intake: confirmedIntake });
+        : qaHandoff
+          ? await createCaseFromQA(qaHandoff.conversationId, { question: q, material_text: textMaterial || materialFallback(files), intake: confirmedIntake,
+            run_id: qaHandoff.runId, request_id: qaHandoff.requestId, material_ids: selectedOriginIds })
+          : await createCase({ question: q, materialText: textMaterial || materialFallback(files), intake: confirmedIntake });
       const frozenVersions = await loadFrozenVersions(saved.case.id, keptVersionIds);
+      const importedVersions = 'imported_versions' in saved ? saved.imported_versions as import('./types/api').MaterialVersionApi[] : [];
+      frozenVersions.push(...importedVersions.map((version) => ({ id: version.id, logicalName: version.logical_name, versionNumber: version.version_number })));
+      const newFiles = files.filter((file) => !originFiles.includes(file));
       const fileNames = allocateUploadNames(
-        files.map((file) => file.name),
+        newFiles.map((file) => file.name),
         frozenVersions.map((version) => version.logicalName),
         updatesPastedMaterial,
       );
-      const uploads: MaterialUpload[] = files.map((file, index) => ({
+      const uploads: MaterialUpload[] = newFiles.map((file, index) => ({
         logicalName: fileNames[index],
         file,
       }));
@@ -340,18 +375,46 @@ export default function App(): JSX.Element {
       );
       const pending = await updateCaseStatus(saved.case.id, 'pending_review');
       clearEditingState();
+      setQAHandoff(null);
       await openCase(pending.case.id);
+      setActiveCaseId(pending.case.id);
+      setPage('case-detail');
       setDashboardSummary(await getDashboardSummary());
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : '提交案件时发生未知错误');
     } finally {
       setLoading(false);
     }
-  }, [editingCaseId, editingVersionIds, editingMaterialText, user, openCase]);
+  }, [editingCaseId, editingVersionIds, editingMaterialText, qaHandoff, user, openCase]);
 
   const handleNavigate = useCallback((next: Page): void => {
-    if (next === page || leaveDocument()) setPage(next);
+    if (next !== page && !leaveDocument()) return;
+    if (next === 'workbench') {
+      setQAHandoff(null);
+      setQuestion('');
+      setMaterial('');
+      setIntake({ ...EMPTY_INTAKE });
+      setEditingCaseId(null);
+      setEditingVersionIds([]);
+      setEditingMaterialText('');
+      setMissingFacts([]);
+      setError(null);
+    }
+    setPage(next);
   }, [page, leaveDocument]);
+
+  const handleQAHandoff = useCallback((handoff: QAHandoff): void => {
+    setQAHandoff(handoff);
+    setQuestion(handoff.question);
+    setMaterial('');
+    setIntake({ ...EMPTY_INTAKE });
+    setEditingCaseId(null);
+    setEditingVersionIds([]);
+    setEditingMaterialText('');
+    setMissingFacts([]);
+    setError(null);
+    setPage('workbench');
+  }, []);
 
   const handleOpenCase = useCallback(async (caseId: string): Promise<void> => {
     // Re-clicking the case that is already on screen keeps the same component key, so the editor
@@ -391,6 +454,7 @@ export default function App(): JSX.Element {
   }, []);
 
   const handleUseTemplate = useCallback((template: CaseTemplateApi): void => {
+    setQAHandoff(null);
     setQuestion(template.question);
     setMaterial('');
     setIntake({ ...EMPTY_INTAKE, ...template.intake, data_types: [...(template.intake.data_types ?? [])] });
@@ -412,6 +476,7 @@ export default function App(): JSX.Element {
     : [];
 
   const handleEditCase = useCallback((saved: NonNullable<typeof activeCase>): void => {
+    setQAHandoff(null);
     const editableMaterial = editableMaterialText(saved.materialText);
     setQuestion(saved.question);
     setMaterial(editableMaterial);
@@ -426,6 +491,7 @@ export default function App(): JSX.Element {
   }, []);
 
   const handleRerun = useCallback((q: string, m: string): void => {
+    setQAHandoff(null);
     setQuestion(q);
     setMaterial(editableMaterialText(m));
     setIntake({ ...EMPTY_INTAKE });
@@ -438,15 +504,15 @@ export default function App(): JSX.Element {
   }, []);
 
   if (booting) {
-    return <div className="app-loading"><img src="/crosscomply-logo.svg" alt="" className="app-loading__mark" /><span>正在连接 CrossComply 新建案件…</span></div>;
+    return <div className="app-loading"><img src="/crosscomply-logo.svg" alt="" className="app-loading__mark" /><span>正在连接 CrossComply…</span></div>;
   }
   if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
 
   return (
     <div className="app-shell">
-      <Sidebar currentPage={page} onPageChange={handleNavigate} onOpenCase={handleOpenCase} activeCaseId={activeCaseId} cases={cases} user={user} onLogout={() => void handleLogout()} onOpenGovernance={handleOpenGovernance} isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+      <Sidebar qaHistory={qaHistory} activeQAId={activeQAId} onOpenQA={(id) => { if (leaveDocument()) selectQA(id); }} currentPage={page} onPageChange={handleNavigate} onOpenCase={handleOpenCase} activeCaseId={activeCaseId} cases={cases} user={user} onLogout={() => void handleLogout()} onOpenGovernance={handleOpenGovernance} isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
       {mobileSidebarOpen ? <button type="button" className="sidebar-scrim" onClick={() => setMobileSidebarOpen(false)} aria-label="关闭案件导航" /> : null}
-      <main className="app-center">
+      <main className={'app-center' + (page === 'home' || page === 'qa' ? ' app-center--qa' : '')}>
         <div className="app-mobile-nav">
           <button type="button" className="app-mobile-menu" onClick={() => setMobileSidebarOpen(true)} aria-expanded={mobileSidebarOpen} aria-controls="primary-sidebar" aria-label="打开案件导航">
             <Menu size={20} strokeWidth={1.8} aria-hidden="true" />
@@ -456,17 +522,18 @@ export default function App(): JSX.Element {
             <span>CrossComply</span>
           </div>
           <div className="app-mobile-actions">
-            <span className="app-mobile-surface">{page === 'governance' ? '用户管理' : page === 'knowledge-legal' ? '知识库 · 法律法规' : page === 'knowledge-policy' ? '知识库 · 规章制度' : page === 'my-remediations' ? '待核实事项' : page === 'remediation-plan' ? '待核实事项' : page === 'case-detail' ? '案件详情' : page === 'case-templates' ? '使用模板' : '新建案件'}</span>
+            <span className="app-mobile-surface">{page === 'home' || page === 'qa' ? '合规问答' : page === 'governance' ? '用户管理' : page === 'knowledge-legal' ? '知识库 · 法律法规' : page === 'knowledge-policy' ? '知识库 · 规章制度' : page === 'my-remediations' ? '待核实事项' : page === 'remediation-plan' ? '待核实事项' : page === 'case-detail' ? '案件详情' : page === 'case-templates' ? '使用模板' : '新建案件'}</span>
           </div>
         </div>
         {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
+        {page === 'home' || page === 'qa' ? <ComplianceQAPage key={user.id} conversationId={activeQAId} onConversationChange={selectQA} onHistoryChange={refreshQAHistory} onNewConversation={() => selectQA(null)} onHandoff={handleQAHandoff} /> : null}
         {page === 'governance' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载用户管理…</div></div>}><GovernanceConsolePage user={user} /></Suspense> : null}
         {page === 'knowledge-legal' || page === 'knowledge-policy' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载知识库…</div></div>}><KnowledgeBasePage user={user} initialLibraryKind={page === 'knowledge-legal' ? 'legal' : 'internal_policy'} /></Suspense> : null}
         {page === 'my-remediations' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载待核实事项…</div></div>}><MyRemediationsPage user={user} /></Suspense> : null}
         {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载待核实事项…</div></div>}><RemediationPlanPage key={remediationCaseId} caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} issues={remediationIssues} onOpenAgentQuestion={handleOpenAgentQuestion} /></Suspense> : null}
         {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage key={activeCase.id} saved={activeCase} canEdit={user.role === 'requester'} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} focusAgentAnswer={focusAgentAnswer} onAgentAnswerFocused={handleAgentAnswerFocused} onDocumentDirtyChange={handleDocumentDirty} /></Suspense> : null}
         {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage user={user} onUseTemplate={handleUseTemplate} /></Suspense> : null}
-        {page === 'workbench' ? <WorkbenchPage question={question} material={material} intake={intake} editingCaseId={editingCaseId} existingMaterialNames={editingMaterialNames} reservePastedMaterial={replacesPastedMaterial(material, editingMaterialText)} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onAnalyze={handleAnalyze} onSubmit={(q, m, confirmedIntake, files) => void handleSubmit(q, m, confirmedIntake, files)} loading={loading} analyzing={analyzing} error={error} missingFacts={missingFacts} /> : null}
+        {page === 'workbench' ? <WorkbenchPage key={qaHandoff?.requestId ?? editingCaseId ?? 'new'} initialFiles={qaHandoff?.files} investigationLeads={qaHandoff?.leads} question={question} material={material} intake={intake} editingCaseId={editingCaseId} existingMaterialNames={editingMaterialNames} reservePastedMaterial={replacesPastedMaterial(material, editingMaterialText)} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onAnalyze={handleAnalyze} onSubmit={(q, m, confirmedIntake, files) => void handleSubmit(q, m, confirmedIntake, files)} loading={loading} analyzing={analyzing} error={error} missingFacts={missingFacts} /> : null}
         {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从最近案件中选择一个案件。</p></div> : null}
       </main>
     </div>

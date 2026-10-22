@@ -191,11 +191,11 @@ export default function CaseDetailPage({
         <div className="case-workspace__main">
           {waiting ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => { if (leaveDocumentView()) onEdit(completedSaved); }} focusAnswer={focusAgentAnswer} onAnswerFocused={onAgentAnswerFocused} /> : null}
 
-          {webFindings.some((item) => !item.known_source_id || item.refresh_needed) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>最新官方材料</strong><ul>{webFindings.filter((item) => !item.known_source_id || item.refresh_needed).map((item) => {
+          {webFindings.some((item) => !item.known_source_id || item.refresh_needed) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>公开资料线索</strong><ul>{webFindings.filter((item) => !item.known_source_id || item.refresh_needed).map((item) => {
             const recheck = knowledgeRechecks.find((entry) => entry.url === item.url);
-            const status = recheck?.recheck_status === 'pending'
+            const status = !item.is_official ? '第三方资料，仅作调查参考' : recheck?.recheck_status === 'pending'
               ? (recheck.source_status === 'unchanged' ? '官方正文未变化，案件待复核' : '新版已入库，案件待复核')
-              : item.known_source_id ? '发现更新迹象，正在核对官方原件'
+              : item.known_source_id ? '发现更新线索，尚待核对原件'
                 : item.excerpt ? '已有搜索摘录，尚待治理核验' : '已发现来源，尚待治理核验';
             return <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {status}</span></li>;
           })}</ul></div> : null}
@@ -731,6 +731,10 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           <details className="card report-disclosure report-basis" id="report-basis">
             <summary>法律依据 · {citationCount} 条引用</summary>
             <div className="report-disclosure__body">
+            {result.legal_basis_gaps?.length ? <div className="report-record-subsection">
+              <div className="section-title">待核法律依据</div>
+              <ul>{result.legal_basis_gaps.map((gap, index) => <li key={index}>{gap}</li>)}</ul>
+            </div> : null}
             <GroundedClaims
               claims={result.claims}
               evidenceChunks={evidenceChunks}

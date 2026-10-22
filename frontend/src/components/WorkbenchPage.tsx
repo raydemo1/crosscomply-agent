@@ -5,6 +5,8 @@ import { validateUploadFile } from '../api/client';
 import { allocateUploadNames } from '../utils/materialNames';
 
 interface WorkbenchPageProps {
+  initialFiles?: File[];
+  investigationLeads?: string;
   question: string;
   material: string;
   intake: CaseIntake;
@@ -88,6 +90,8 @@ function updateIntake(intake: CaseIntake, onChange: (next: CaseIntake) => void, 
 }
 
 export default function WorkbenchPage({
+  initialFiles = [],
+  investigationLeads,
   question,
   material,
   intake,
@@ -105,7 +109,7 @@ export default function WorkbenchPage({
   reservePastedMaterial,
 }: WorkbenchPageProps): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>(initialFiles);
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
@@ -221,6 +225,8 @@ export default function WorkbenchPage({
           <h1 className="page-title">{editingCaseId ? '补充案件信息' : '创建合规案件'}</h1>
         </div>
       </header>
+
+      {investigationLeads ? <details className="qa-workbench-leads"><summary>来自合规问答的调查线索</summary><p>以下内容仅供参考，不作为已确认事实或正式审查结论。</p><div>{investigationLeads}</div></details> : null}
 
       <section className="intake-progress card">
         <div className={'intake-progress__step' + (step === 1 ? ' is-active' : ' is-done')}><span>01</span><div><strong>提供材料</strong><small>问题与材料</small></div></div>
