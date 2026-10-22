@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Callable, Sequence
 from typing import Generic, TypeVar
@@ -9,6 +10,7 @@ from typing import Generic, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
+from law_agent.llm.usage import usage_scope
 from law_agent.review.telemetry import record_llm_call, record_retry
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -75,6 +77,7 @@ class StructuredLLMNode(Generic[ModelT]):
         max_retries: int | None = None,
         trace_id: str | None = None,
         structured_output_mode: str | None = None,
+        stream: bool = False,
     ) -> None:
         self.node_name = node_name
         self.output_model = output_model
@@ -87,6 +90,7 @@ class StructuredLLMNode(Generic[ModelT]):
         # client config. result_generation sets "json_object" so the LLM can
         # emit markdown inside string fields without strict_tool schema friction.
         self.structured_output_mode = structured_output_mode
+        self.stream = stream
 
     def run(
         self,
@@ -103,13 +107,15 @@ class StructuredLLMNode(Generic[ModelT]):
         for attempt in range(1, attempts_allowed + 1):
             try:
                 record_llm_call()
-                raw = self.client.chat_json(
-                    list(messages),
-                    output_model=self.output_model,
-                    tool_name=self.node_name,
-                    structured_output_mode=self.structured_output_mode,
-                    **({"model": self.model} if getattr(self, "model", None) else {}),
-                )
+                with usage_scope(self.node_name):
+                    raw = self.client.chat_json(
+                        list(messages),
+                        output_model=self.output_model,
+                        tool_name=self.node_name,
+                        structured_output_mode=self.structured_output_mode,
+                        **({"model": self.model} if getattr(self, "model", None) else {}),
+                        **({"stream": True} if self.stream else {}),
+                    )
                 parsed = self.output_model.model_validate(raw, strict=True)
             except ValidationError as exc:
                 last_reason = "pydantic_validation_failed"
@@ -134,15 +140,15 @@ class StructuredLLMNode(Generic[ModelT]):
                         trace_id=self.trace_id,
                     ) from exc
                 record_retry()
-            except Exception as exc:
+            except json.JSONDecodeError as exc:
                 last_reason = "llm_api_error"
-                last_message = f"{self.node_name} LLM call failed: {exc}"
+                last_message = f"{self.node_name} JSON parsing failed: {exc}"
                 messages = [
                     *messages,
                     ChatMessage(
                         role="user",
                         content=(
-                            "上一轮 LLM 调用或 JSON 解析失败。"
+                            "上一轮 JSON 解析失败。"
                             "请只重新输出符合 schema 的 JSON/tool arguments，不要解释。"
                             f" error={exc}"
                         ),
@@ -155,6 +161,15 @@ class StructuredLLMNode(Generic[ModelT]):
                         message=last_message,
                         attempts=attempt,
                         trace_id=self.trace_id,
+                    ) from exc
+                record_retry()
+            except Exception as exc:
+                last_reason = "llm_api_error"
+                last_message = f"{self.node_name} LLM call failed: {exc}"
+                if attempt == attempts_allowed:
+                    raise ReviewWorkflowFailed(
+                        failed_node=self.node_name, reason=last_reason, message=last_message,
+                        attempts=attempt, trace_id=self.trace_id,
                     ) from exc
                 record_retry()
             else:

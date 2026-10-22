@@ -7,6 +7,8 @@ requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.0",
   "json-repair>=0.30",
+  "httpx>=0.27,<1.0",
+  "anyio>=4.0,<5.0",
   "fastapi~=0.141.0",
   "python-multipart>=0.0.9",
   "pwdlib[argon2]>=0.2",
@@ -24,7 +26,6 @@ dev = [
 service = [
   "alembic>=1.13",
   "elasticsearch>=8.0,<9.0",
-  "httpx>=0.27,<1.0",
   "minio>=7.2",
   "psycopg[binary]>=3.1",
   "pgvector>=0.3",

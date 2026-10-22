@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import socket
 import urllib.parse
@@ -93,6 +94,13 @@ class LLMConfig:
     timeout_seconds: int
     structured_output_mode: Literal["json_object", "strict_tool"]
     reasoning_effort: ReasoningEffort
+    read_timeout_seconds: float = 60
+    total_timeout_seconds: float = 120
+
+    def __post_init__(self):
+        for name in ("timeout_seconds", "read_timeout_seconds", "total_timeout_seconds"):
+            if not math.isfinite(getattr(self, name)) or getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be finite and positive")
 
     @property
     def enabled(self) -> bool:
@@ -115,6 +123,8 @@ def load_llm_config() -> LLMConfig:
         api_key=os.getenv("OPENAI_COMPATIBLE_API_KEY") or None,
         model=os.getenv("OPENAI_COMPATIBLE_MODEL", "deepseek-flash"),
         timeout_seconds=int(timeout),
+        read_timeout_seconds=float(os.getenv("OPENAI_COMPATIBLE_READ_TIMEOUT_SECONDS", "60")),
+        total_timeout_seconds=float(os.getenv("OPENAI_COMPATIBLE_TOTAL_TIMEOUT_SECONDS", "120")),
         structured_output_mode=structured_output_mode,  # type: ignore[arg-type]
         reasoning_effort=reasoning_effort,
     )
@@ -140,9 +150,13 @@ def require_agent_llm_config() -> LLMConfig:
     return replace(config, reasoning_effort=_reasoning_effort("LAWAGENT_AGENT_REASONING_EFFORT", "low"))
 
 
-def require_semantic_llm_config() -> LLMConfig:
+def require_semantic_llm_config(*, model_id: str | None = None) -> LLMConfig:
     config = require_llm_config()
-    return replace(config, reasoning_effort=_reasoning_effort("LAWAGENT_SEMANTIC_REASONING_EFFORT", "low"))
+    return replace(
+        config,
+        model=os.getenv("LAWAGENT_SEMANTIC_MODEL", "").strip() or model_id or config.model,
+        reasoning_effort=_reasoning_effort("LAWAGENT_SEMANTIC_REASONING_EFFORT", "low"),
+    )
 
 
 # ---------------------------------------------------------------------------
