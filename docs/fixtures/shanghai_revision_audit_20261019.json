@@ -1,0 +1,2189 @@
+{
+  "base_commit": "6315ca837ae798281d5db9fe6f3215a70335e8bf",
+  "run": "data/review_runs/navigation_shanghai_latest_20261019",
+  "cases": [
+    {
+      "case_id": "eval_shanghai_001",
+      "goal": "临港业务的数据能不能自由传到境外，上海这边要先看哪张清单？",
+      "continuity": [
+        {
+          "call_id": 1,
+          "turn": 1,
+          "evidence_count": 0,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 2,
+          "turn": 2,
+          "evidence_count": 0,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 3,
+          "turn": 3,
+          "evidence_count": 0,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 4,
+          "turn": 4,
+          "evidence_count": 36,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 5,
+          "turn": 5,
+          "evidence_count": 41,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 9,
+          "turn": 6,
+          "evidence_count": 41,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 11,
+          "turn": 7,
+          "evidence_count": 41,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 12,
+          "turn": 8,
+          "evidence_count": 45,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 14,
+          "turn": 9,
+          "evidence_count": 45,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 19,
+          "turn": 10,
+          "evidence_count": 45,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        },
+        {
+          "call_id": 23,
+          "turn": 11,
+          "evidence_count": 45,
+          "previous_draft_complete": true,
+          "previous_feedback_complete": true,
+          "material_complete": true,
+          "read_text_complete": true,
+          "evidence_text_and_qualification_match": true
+        }
+      ],
+      "revisions": [
+        {
+          "submission": 1,
+          "step": 5,
+          "call_id": 5,
+          "draft": {
+            "risk_level": "insufficient_evidence",
+            "decision_summary": "上海临港企业出境数据，应先对照《上海自贸区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》；清单外数据可按《促进和规范数据跨境流动规定》第六条免予三项程序，但能否“自由出境”取决于行业领域、个人信息性质、数量及是否CIIO/重要数据，现尚不能确定。",
+            "legal_path": null,
+            "conclusion": "第一，就“先看哪张清单”：应优先查阅《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》（上海市互联网信息办公室、上海市数据局发布）。该清单说明其适用于在上海市注册且在上海市开展数据出境活动的数据处理者、适用范围为上海市全域，并明确关键信息基础设施运营者不使用本清单；2024版答记者问也表明《负面清单》未涉及的行业、领域数据按国家法律法规执行。\n\n第二，机制适用：《促进和规范数据跨境流动规定》第六条规定，自贸试验区可在国家数据分类分级框架下自行制定负面清单，区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。因此流程为：先确认公司及出境活动是否落入上海清单适用对象（上海市注册、在沪开展出境、非CIIO），再按所属行业/场景逐项比对清单列明的数据项。若拟出境数据落入清单所列条目，则须按清单对应层级办理安全评估或标准合同/认证；若属于清单外数据，则可主张免予上述三项程序。\n\n第三，即便主张清单外免予程序，仍需注意：CIIO向境外提供个人信息或重要数据、非CIIO向境外提供重要数据或达到数量阈值的个人信息，依第七条仍应申报安全评估；重要数据以是否被相关部门告知或公开发布为判定（第二条）。此外“自由传出”不等于免于履行告知、单独同意、个人信息保护影响评估、数据安全管理等其他义务。\n\n综上，“先看哪张清单”有确定答案（2025版上海负面清单）；但“能不能自由传到境外”尚不能确定，需补充行业领域、信息性质、数量、CIIO及重要数据状态等事实后才能定论，故风险等级为证据不足。",
+            "claims": [
+              {
+                "text": "自贸试验区实行负面清单制度：区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。故上海企业应先确定适用的上海负面清单并核对其数据是否落入清单。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "负面清单并未覆盖所有情形：关键信息基础设施运营者向境外提供个人信息或重要数据，以及非CIIO向境外提供重要数据或自当年1月1日起累计达阈值个人信息，仍应申报数据出境安全评估。若公司属CIIO，则上海负面清单不适用，须走安全评估路径。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "若公司非CIIO、数据非重要数据，且出境个人信息累计未达评估/合同阈值，还可能符合规定第五条列举的免予程序情形（如合同必需、跨境人力资源管理、累计不满10万人非敏感个人信息等），从而无需三项程序。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "重要数据以是否被相关部门、地区告知或公开发布为判定；未被如此告知或发布的数据，数据处理者不需作为重要数据申报安全评估。故本案需先核实拟出境数据的重要数据状态。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                ],
+                "supporting_citation_refs": []
+              }
+            ],
+            "trigger_reasons": [
+              "业务位于上海自贸区（含临港）且涉及用户数据出境",
+              "上海已就自贸区数据出境发布2025版负面清单，需按行业/场景逐项比对",
+              "个人信息性质、数量、CIIO及重要数据状态未明，直接影响能否免予程序"
+            ],
+            "missing_information": [
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息",
+              "公司所属行业与具体业务场景（用于定位负面清单对应章节与数据项）",
+              "公司是否被认定为关键信息基础设施运营者（CIIO）",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地/境外接收方"
+            ],
+            "missing_answer_types": {
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息": "choice",
+              "公司所属行业与具体业务场景（用于定位负面清单对应章节与数据项）": "text",
+              "公司是否被认定为关键信息基础设施运营者（CIIO）": "choice",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据": "choice",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地/境外接收方": "text"
+            },
+            "recommended_actions": [
+              "取得《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》全文，按公司行业领域定位对应章节，逐项比对拟出境数据项。",
+              "先行确认公司是否为CIIO；若属CIIO则上海负面清单不适用，应按安全评估路径准备。",
+              "梳理拟出境数据清单与年度累计个人信息数量（按自然人去重），评估是否触及安全评估或标准合同/认证阈值。",
+              "核查数据是否被相关部门告知或公开发布为重要数据。",
+              "即便主张清单外免予程序，仍应同步落实告知、单独同意、个人信息保护影响评估等PIPL义务，并关注出口管制、技术出口等其他管理要求。"
+            ],
+            "risk_boundaries": [
+              "本结论未确认公司的行业领域、个人信息性质与数量、CIIO及重要数据状态，故“能否自由出境”仍不能定论。",
+              "负面清单外免予程序仅免除安全评估、标准合同、认证三项，不等于免除个人信息保护法下的告知、同意义务。",
+              "若公司为CIIO或涉及重要数据，不适用上海负面清单，须另行履行安全评估程序。"
+            ],
+            "issues": [],
+            "web_impact": "none",
+            "material_web_urls": []
+          },
+          "changed_fields": [],
+          "feedback": {
+            "status": "unsupported",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第六条明确自贸试验区可制定负面清单，区内数据处理者向境外提供负面清单外数据可免予申报安全评估、订立标准合同、通过认证。且上海2025版负面清单说明载明适用于在上海市注册且在沪开展出境活动的数据处理者，故'先确定上海负面清单并比对'系对条文的忠实转述与合理适用路径，非创设法定义务。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "supported",
+                "reason": "第七条列举CIIO提供个人信息或重要数据、非CIIO提供重要数据或达100万人非敏感/1万人敏感个人信息应申报安全评估；第六条及上海2025版清单说明均载明关键信息基础设施运营者不适用负面清单。故'CIIO不适用上海清单、须走安全评估'与原文一致。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "第五条列举合同必需、跨境人力资源管理、紧急情况、非CIIO累计不满10万人非敏感个人信息等免予三项程序情形，且以'可能符合'作条件性表述，未把可能性表述为确定结论，符合原文范围。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 3,
+                "status": "supported",
+                "reason": "第二条载明未被相关部门、地区告知或公开发布为重要数据的，不需作为重要数据申报安全评估，故'需先核实重要数据状态'系对条文前提的忠实转述，属合理的核实建议而非新增法定义务。",
+                "missing_facts": []
+              }
+            ],
+            "report_checks": [
+              {
+                "target": "recommended_actions:0",
+                "status": "supported",
+                "reason": "上海自贸区及临港新片区已有数据出境负面清单制度，且2025版清单按行业、场景列明需要纳入安全评估、标准合同或认证管理的数据项；先取得清单并按行业领域逐项比对，属于有原文依据的操作建议。该清单为公开解释/指南类材料，可用于核对适用范围和场景，不等同于独立创设义务的法条。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:1",
+                "status": "supported",
+                "reason": "上海2025版负面清单明确不适用于关键信息基础设施运营者；同时《促进和规范数据跨境流动规定》第七条要求CIIO向境外提供个人信息或重要数据时申报安全评估。因此，先行确认是否属于CIIO，并在属于CIIO时准备安全评估路径，具有原文依据。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:2",
+                "status": "supported",
+                "reason": "安全评估、标准合同/认证均与年度累计个人信息数量及是否涉及重要数据相关；答记者问明确数量按自然人去重统计，申报指南也要求按自然人（去重）统计当年出境数量。因此梳理数据项和去重后的年度数量以判断阈值，有原文依据。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "cac_cross_border_flow_rules_qna_2024:a9088a6c15b4283352735899",
+                  "cac_data_export_security_assessment_filing_guide_v3_2025:a274c136c4e15ff49d11f3ea",
+                  "cac_personal_info_export_standard_contract_filing_guide_v2_2024:59cadac2dc92afd441931a2b"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:3",
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第二条要求数据处理者按规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估。核查是否被告知或公开发布为重要数据，有原文依据。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9",
+                  "cac_data_export_policy_qna_2025_04:816351acd439a0f253b2ae47"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:4",
+                "status": "uncertain",
+                "reason": "“关注出口管制、技术出口等其他管理要求”有上海2025版负面清单说明第四部分支持；但所给authorities中没有PIPL关于告知、单独同意及一般个人信息保护影响评估义务的条文。现有材料仅能在特定标准合同路径中看到影响评估要求，不能据此直接推出“即便清单外免予程序，仍应同步落实告知、单独同意、影响评估等PIPL义务”的全部内容，故依据不足。",
+                "quote": "仍应同步落实告知、单独同意、个人信息保护影响评估等PIPL义务",
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d",
+                  "cac_personal_info_export_standard_contract_filing_guide_v2_2024:d1990075e85e77ad9e3b3c3f"
+                ],
+                "missing_facts": [],
+                "missing_basis": "PIPL中关于告知、单独同意及一般个人信息保护影响评估义务的条文；所给authorities未提供该等一般性PIPL义务依据。"
+              },
+              {
+                "target": "risk_boundaries:0",
+                "status": "supported",
+                "reason": "事实账本仅记录上海自贸区业务、用户数据及跨境传输，未记录行业领域、个人信息性质/数量、CIIO或重要数据状态；《促进和规范数据跨境流动规定》第六条、第七条及上海负面清单说明使“能否自由出境”取决于这些未确认前提。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_289c106ae665458f",
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c"
+                ],
+                "missing_facts": [
+                  "行业领域",
+                  "个人信息性质与数量",
+                  "CIIO状态",
+                  "重要数据状态"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:1",
+                "status": "uncertain",
+                "reason": "《促进和规范数据跨境流动规定》第六条原文只列明可免予安全评估、标准合同、认证三项程序，未涉及《个人信息保护法》下告知、同意义务是否仍适用；现有authorities中没有相应条文可核对后半句。",
+                "quote": "负面清单外免予程序仅免除安全评估、标准合同、认证三项，不等于免除个人信息保护法下的告知、同意义务。",
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "missing_facts": [],
+                "missing_basis": "缺少《个人信息保护法》关于告知、同意义务的条文或权威原文，无法核对免予三项程序后该等义务是否仍适用。"
+              },
+              {
+                "target": "risk_boundaries:2",
+                "status": "unsupported",
+                "reason": "上海2025版负面清单说明其包含重要数据和个人信息两类，并仅明确关键信息基础设施运营者不适用该清单；没有原文支持“涉及重要数据即不适用上海负面清单”。重要数据出境依《规定》第七条应申报安全评估，但该结论不能建立在“不适用负面清单”的表述上。",
+                "quote": "若公司为CIIO或涉及重要数据，不适用上海负面清单，须另行履行安全评估程序。",
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              }
+            ],
+            "conclusion_reason": "四项claims均与《促进和规范数据跨境流动规定》第二、五、六、七条及上海2025版负面清单说明一致，摘要、结论、触发理由对'先看2025版上海负面清单'给出有依据的确定答案，对'能否自由出境'保留条件性判断并指出行业、个人信息性质、数量、CIIO及重要数据状态等阻塞事实，risk_level=insufficient_evidence与关键事实不足相符，未将未知误作否定，亦未把一般义务扩为全部义务。\n上海临港业务应先对照2025版上海自贸区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境负面清单，并按行业场景比对数据项；但该清单不适用于CIIO。是否可“自由出境”还取决于个人信息数量、重要数据、CIIO及PIPL等其他义务。前四项核查/准备建议有原文依据；第五项中出口管制、技术出口提示有依据，但PIPL告知、单独同意及一般影响评估义务在现有authorities中依据不足。\n单元0关于结论依赖未确认事实成立；单元1仅前半句有第六条依据，告知/同意部分无对应法条依据，故为uncertain；单元2将“涉及重要数据”与“不适用上海负面清单”并列不成立，上海负面清单本身包含重要数据，仅CIIO被明确排除，故为unsupported。\n未获支持的断言：\nrecommended_actions:4「仍应同步落实告知、单独同意、个人信息保护影响评估等PIPL义务」: “关注出口管制、技术出口等其他管理要求”有上海2025版负面清单说明第四部分支持；但所给authorities中没有PIPL关于告知、单独同意及一般个人信息保护影响评估义务的条文。现有材料仅能在特定标准合同路径中看到影响评估要求，不能据此直接推出“即便清单外免予程序，仍应同步落实告知、单独同意、影响评估等PIPL义务”的全部内容，故依据不足。\nrisk_boundaries:1「负面清单外免予程序仅免除安全评估、标准合同、认证三项，不等于免除个人信息保护法下的告知、同意义务。」: 《促进和规范数据跨境流动规定》第六条原文只列明可免予安全评估、标准合同、认证三项程序，未涉及《个人信息保护法》下告知、同意义务是否仍适用；现有authorities中没有相应条文可核对后半句。\nrisk_boundaries:2「若公司为CIIO或涉及重要数据，不适用上海负面清单，须另行履行安全评估程序。」: 上海2025版负面清单说明其包含重要数据和个人信息两类，并仅明确关键信息基础设施运营者不适用该清单；没有原文支持“涉及重要数据即不适用上海负面清单”。重要数据出境依《规定》第七条应申报安全评估，但该结论不能建立在“不适用负面清单”的表述上。",
+            "missing_facts": [
+              "所涉用户数据是否包含个人信息，尤其是否含敏感个人信息",
+              "公司所属行业与具体业务场景（用于定位负面清单对应章节与数据项）",
+              "公司是否被认定为关键信息基础设施运营者",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据",
+              "自当年1月1日起累计出境个人信息数量（非敏感/敏感分别、按自然人去重）及出境目的地/境外接收方",
+              "行业领域",
+              "个人信息性质与数量",
+              "CIIO状态",
+              "重要数据状态"
+            ]
+          },
+          "completed": false,
+          "verifier_calls": [
+            {
+              "call_id": 6,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "status": "supported",
+                "claim_checks": [
+                  {
+                    "claim_index": 0,
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第六条明确自贸试验区可制定负面清单，区内数据处理者向境外提供负面清单外数据可免予申报安全评估、订立标准合同、通过认证。且上海2025版负面清单说明载明适用于在上海市注册且在沪开展出境活动的数据处理者，故'先确定上海负面清单并比对'系对条文的忠实转述与合理适用路径，非创设法定义务。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 1,
+                    "status": "supported",
+                    "reason": "第七条列举CIIO提供个人信息或重要数据、非CIIO提供重要数据或达100万人非敏感/1万人敏感个人信息应申报安全评估；第六条及上海2025版清单说明均载明关键信息基础设施运营者不适用负面清单。故'CIIO不适用上海清单、须走安全评估'与原文一致。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 2,
+                    "status": "supported",
+                    "reason": "第五条列举合同必需、跨境人力资源管理、紧急情况、非CIIO累计不满10万人非敏感个人信息等免予三项程序情形，且以'可能符合'作条件性表述，未把可能性表述为确定结论，符合原文范围。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 3,
+                    "status": "supported",
+                    "reason": "第二条载明未被相关部门、地区告知或公开发布为重要数据的，不需作为重要数据申报安全评估，故'需先核实重要数据状态'系对条文前提的忠实转述，属合理的核实建议而非新增法定义务。",
+                    "missing_facts": []
+                  }
+                ],
+                "report_checks": [],
+                "conclusion_reason": "四项claims均与《促进和规范数据跨境流动规定》第二、五、六、七条及上海2025版负面清单说明一致，摘要、结论、触发理由对'先看2025版上海负面清单'给出有依据的确定答案，对'能否自由出境'保留条件性判断并指出行业、个人信息性质、数量、CIIO及重要数据状态等阻塞事实，risk_level=insufficient_evidence与关键事实不足相符，未将未知误作否定，亦未把一般义务扩为全部义务。",
+                "missing_facts": [
+                  "所涉用户数据是否包含个人信息，尤其是否含敏感个人信息",
+                  "公司所属行业与具体业务场景（用于定位负面清单对应章节与数据项）",
+                  "公司是否被认定为关键信息基础设施运营者",
+                  "拟出境数据是否被相关部门、地区告知或公开发布为重要数据",
+                  "自当年1月1日起累计出境个人信息数量（非敏感/敏感分别、按自然人去重）及出境目的地/境外接收方"
+                ]
+              }
+            },
+            {
+              "call_id": 7,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "recommended_actions:0",
+                    "status": "supported",
+                    "reason": "上海自贸区及临港新片区已有数据出境负面清单制度，且2025版清单按行业、场景列明需要纳入安全评估、标准合同或认证管理的数据项；先取得清单并按行业领域逐项比对，属于有原文依据的操作建议。该清单为公开解释/指南类材料，可用于核对适用范围和场景，不等同于独立创设义务的法条。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:1",
+                    "status": "supported",
+                    "reason": "上海2025版负面清单明确不适用于关键信息基础设施运营者；同时《促进和规范数据跨境流动规定》第七条要求CIIO向境外提供个人信息或重要数据时申报安全评估。因此，先行确认是否属于CIIO，并在属于CIIO时准备安全评估路径，具有原文依据。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:2",
+                    "status": "supported",
+                    "reason": "安全评估、标准合同/认证均与年度累计个人信息数量及是否涉及重要数据相关；答记者问明确数量按自然人去重统计，申报指南也要求按自然人（去重）统计当年出境数量。因此梳理数据项和去重后的年度数量以判断阈值，有原文依据。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                      "cac_cross_border_flow_rules_qna_2024:a9088a6c15b4283352735899",
+                      "cac_data_export_security_assessment_filing_guide_v3_2025:a274c136c4e15ff49d11f3ea",
+                      "cac_personal_info_export_standard_contract_filing_guide_v2_2024:59cadac2dc92afd441931a2b"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:3",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第二条要求数据处理者按规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估。核查是否被告知或公开发布为重要数据，有原文依据。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9",
+                      "cac_data_export_policy_qna_2025_04:816351acd439a0f253b2ae47"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:4",
+                    "status": "uncertain",
+                    "reason": "“关注出口管制、技术出口等其他管理要求”有上海2025版负面清单说明第四部分支持；但所给authorities中没有PIPL关于告知、单独同意及一般个人信息保护影响评估义务的条文。现有材料仅能在特定标准合同路径中看到影响评估要求，不能据此直接推出“即便清单外免予程序，仍应同步落实告知、单独同意、影响评估等PIPL义务”的全部内容，故依据不足。",
+                    "quote": "仍应同步落实告知、单独同意、个人信息保护影响评估等PIPL义务",
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d",
+                      "cac_personal_info_export_standard_contract_filing_guide_v2_2024:d1990075e85e77ad9e3b3c3f"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": "PIPL中关于告知、单独同意及一般个人信息保护影响评估义务的条文；所给authorities未提供该等一般性PIPL义务依据。"
+                  }
+                ],
+                "conclusion_reason": "上海临港业务应先对照2025版上海自贸区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境负面清单，并按行业场景比对数据项；但该清单不适用于CIIO。是否可“自由出境”还取决于个人信息数量、重要数据、CIIO及PIPL等其他义务。前四项核查/准备建议有原文依据；第五项中出口管制、技术出口提示有依据，但PIPL告知、单独同意及一般影响评估义务在现有authorities中依据不足。"
+              }
+            },
+            {
+              "call_id": 8,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "risk_boundaries:0",
+                    "status": "supported",
+                    "reason": "事实账本仅记录上海自贸区业务、用户数据及跨境传输，未记录行业领域、个人信息性质/数量、CIIO或重要数据状态；《促进和规范数据跨境流动规定》第六条、第七条及上海负面清单说明使“能否自由出境”取决于这些未确认前提。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "material_snapshot_289c106ae665458f",
+                      "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c"
+                    ],
+                    "missing_facts": [
+                      "行业领域",
+                      "个人信息性质与数量",
+                      "CIIO状态",
+                      "重要数据状态"
+                    ],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:1",
+                    "status": "uncertain",
+                    "reason": "《促进和规范数据跨境流动规定》第六条原文只列明可免予安全评估、标准合同、认证三项程序，未涉及《个人信息保护法》下告知、同意义务是否仍适用；现有authorities中没有相应条文可核对后半句。",
+                    "quote": "负面清单外免予程序仅免除安全评估、标准合同、认证三项，不等于免除个人信息保护法下的告知、同意义务。",
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": "缺少《个人信息保护法》关于告知、同意义务的条文或权威原文，无法核对免予三项程序后该等义务是否仍适用。"
+                  },
+                  {
+                    "target": "risk_boundaries:2",
+                    "status": "unsupported",
+                    "reason": "上海2025版负面清单说明其包含重要数据和个人信息两类，并仅明确关键信息基础设施运营者不适用该清单；没有原文支持“涉及重要数据即不适用上海负面清单”。重要数据出境依《规定》第七条应申报安全评估，但该结论不能建立在“不适用负面清单”的表述上。",
+                    "quote": "若公司为CIIO或涉及重要数据，不适用上海负面清单，须另行履行安全评估程序。",
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  }
+                ],
+                "conclusion_reason": "单元0关于结论依赖未确认事实成立；单元1仅前半句有第六条依据，告知/同意部分无对应法条依据，故为uncertain；单元2将“涉及重要数据”与“不适用上海负面清单”并列不成立，上海负面清单本身包含重要数据，仅CIIO被明确排除，故为unsupported。"
+              }
+            }
+          ]
+        },
+        {
+          "submission": 2,
+          "step": 6,
+          "call_id": 9,
+          "draft": {
+            "risk_level": "insufficient_evidence",
+            "decision_summary": "上海临港企业出境数据应先对照《上海自贸区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》；清单外数据可按《促进和规范数据跨境流动规定》第六条免予三项程序，但能否“自由出境”取决于行业场景、个人信息数量及是否CIIO/重要数据，现尚不能确定。",
+            "legal_path": null,
+            "conclusion": "第一，就“先看哪张清单”：应优先查阅《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》。该清单说明其适用于在上海市注册且在上海市开展数据出境活动的数据处理者，国家服务业扩大开放综合试点地区（上海）适用范围为上海市全域，并明确关键信息基础设施运营者不适用本清单；清单未涉及的行业、领域数据，仍按《网络数据安全管理条例》《数据出境安全评估办法》《个人信息出境标准合同办法》《促进和规范数据跨境流动规定》等执行。清单按行业领域分章列明需要纳入安全评估、标准合同、个人信息保护认证管理的数据项，2025版已包含重要数据与个人信息两类。\n\n第二，机制适用：《促进和规范数据跨境流动规定》第六条规定，自贸试验区在国家数据分类分级保护制度框架下可自行制定负面清单，区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。因此操作顺序是：先确认公司及该次出境活动落入上海清单的适用对象（上海市注册、在沪开展出境、非关键信息基础设施运营者），再按公司所属行业与具体场景逐项比对清单列明的数据项。落入清单条目的，按清单对应层级办理安全评估或标准合同／认证；属于清单外数据的，可主张免予上述三项程序。\n\n第三，仍受其他分支约束：关键信息基础设施运营者向境外提供个人信息或重要数据，以及非关键信息基础设施运营者向境外提供重要数据、或自当年1月1日起累计达到100万人以上非敏感个人信息／1万人以上敏感个人信息的，依第七条应申报数据出境安全评估；重要数据以是否被相关部门、地区告知或公开发布为判定标准（第二条），未被如此告知或发布的不需作为重要数据申报评估。此外，若属非关键信息基础设施运营者且累计出境个人信息未达上述阈值，还可能符合第五条列举的免予三项程序情形（合同必需、跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息等，且不含重要数据）。\n\n综上，“先看哪张清单”可以确定回答为2025版上海负面清单；但“能不能自由传到境外”尚不能定论，取决于公司所属行业场景、用户数据是否含个人信息及敏感个人信息、累计数量、关键信息基础设施运营者与重要数据状态，故风险等级为证据不足。本次未就《个人信息保护法》下告知、同意、个人信息保护影响评估等一般义务取得条文，未作判断，仅提示另行核对。",
+            "claims": [
+              {
+                "text": "自贸试验区实行负面清单制度：区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。故位于上海自贸区（含临港）的本案企业应先确定适用的上海负面清单，并核对其拟出境数据是否落入清单条目。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "关键信息基础设施运营者向境外提供个人信息或重要数据，以及非关键信息基础设施运营者向境外提供重要数据、或自当年1月1日起累计出境100万人以上非敏感个人信息／1万人以上敏感个人信息，应当申报数据出境安全评估。该分支与负面清单制度并行，不能因主张清单外免予程序而排除。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "若本案企业非关键信息基础设施运营者，且出境个人信息不含重要数据并累计未达评估与合同／认证阈值，还可能符合第五条列举的免予三项程序情形（如为订立履行个人作为一方当事人的合同所必需、跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息），此时无需履行上述三项程序。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "重要数据以是否被相关部门、地区告知或者公开发布为判定：未被如此告知或发布的，数据处理者不需要作为重要数据申报数据出境安全评估。故本案需先核实拟出境用户数据的重要数据状态，该状态直接影响走安全评估还是其他路径。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                ],
+                "supporting_citation_refs": []
+              }
+            ],
+            "trigger_reasons": [
+              "业务位于上海自贸区（含临港）且涉及用户数据出境",
+              "上海已发布2025版自贸区及临港新片区数据出境负面清单，需按行业场景逐项比对",
+              "用户数据是否含个人信息、累计数量、关键信息基础设施运营者与重要数据状态未明，直接影响能否免予程序"
+            ],
+            "missing_information": [
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）",
+              "公司是否被认定为关键信息基础设施运营者",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方"
+            ],
+            "missing_answer_types": {
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息": "choice",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）": "text",
+              "公司是否被认定为关键信息基础设施运营者": "choice",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据": "choice",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方": "text"
+            },
+            "recommended_actions": [
+              "取得《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》全文，按公司行业领域定位对应章节，逐项比对拟出境数据项。",
+              "先行确认公司是否为关键信息基础设施运营者；若属之，则上海负面清单明确不适用，应按数据出境安全评估路径准备。",
+              "梳理拟出境数据项清单与自当年1月1日起累计出境个人信息数量（按自然人去重，敏感与非敏感分别统计），判断是否触及安全评估或标准合同／认证阈值。",
+              "核查拟出境数据是否被相关部门、地区告知或公开发布为重要数据。",
+              "如清单涉及的行业领域同时涉及《出口管制法》规定的管制物项技术资料或《对外贸易法》规定的技术出口管理事项，按该等法律法规执行。",
+              "另行核对《个人信息保护法》等对个人信息处理的一般要求；本次未取得相关条文，未作法律判断。"
+            ],
+            "risk_boundaries": [
+              "本结论未确认公司所属行业场景、个人信息性质与数量、关键信息基础设施运营者及重要数据状态，故“能否自由出境”仍不能定论。",
+              "负面清单外免予程序仅免除数据出境安全评估、个人信息出境标准合同、个人信息保护认证三项，是否还涉及其他法律义务本次未取得条文，不作结论。",
+              "上海2025版负面清单本身包含重要数据类条目，仅关键信息基础设施运营者被明确排除；涉及重要数据时应按清单对应条目或《促进和规范数据跨境流动规定》第七条判断是否须申报安全评估，不能笼统认为清单不适用。"
+            ],
+            "issues": [],
+            "web_impact": "none",
+            "material_web_urls": []
+          },
+          "changed_fields": [
+            "decision_summary",
+            "conclusion",
+            "claims",
+            "trigger_reasons",
+            "missing_information",
+            "missing_answer_types",
+            "recommended_actions",
+            "risk_boundaries"
+          ],
+          "feedback": {
+            "status": "unsupported",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第六条明确自贸试验区负面清单外数据可免予申报安全评估、订立标准合同、通过认证；上海2025版清单说明其适用于在上海市注册且在上海市开展数据出境活动的数据处理者（关键信息基础设施运营者除外），故先对照上海负面清单并核对数据项有依据。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "unsupported",
+                "reason": "第一句与第七条所列应申报安全评估情形一致，但“该分支与负面清单制度并行，不能因主张清单外免予程序而排除”与第七条末句“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”及答记者问问11“第六条规定情形不计入累计数量”相矛盾；对非关键信息基础设施运营者且属负面清单外数据的，第六条可免予三项程序，不能一概排除。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "第五条列举了为订立履行个人作为一方当事人的合同、跨境人力资源管理、紧急情况、非关键信息基础设施运营者累计不满10万人非敏感个人信息等免予三项程序情形，并明确不含重要数据；该claim以“还可能符合”表述，未把未达阈值直接等同于必然豁免。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 3,
+                "status": "supported",
+                "reason": "第二条明确重要数据以相关部门、地区告知或公开发布为判定，未被如此告知或发布的不需要作为重要数据申报安全评估；核实重要数据状态会影响路径，表述忠实。",
+                "missing_facts": []
+              }
+            ],
+            "report_checks": [],
+            "conclusion_reason": "核心问题“先看哪张清单”有2025版上海负面清单及第六条支撑，但整体不能判supported：claims[1]将第七条安全评估分支表述为与负面清单制度并行且不能因清单外免予程序排除，忽略第七条末句及答记者问的“从其规定/不计入累计数量”，与原文矛盾。正文第一段“2025版已包含重要数据与个人信息两类”在给定2025版摘录中仅见个人信息清单片段，缺直接依据，应改为待核。另2025版适用于“在上海市注册且在上海市开展数据出境活动”的数据处理者，draft未在缺口登记“公司是否在上海市注册”这一适用前提。摘要和触发理由对“临港/上海自贸区、用户数据出境、事实不明故证据不足”的限定基本有条件支持，但受上述问题影响整体为unsupported。",
+            "missing_facts": [
+              "公司是否在上海市注册（2025版清单适用于在上海市注册且在上海市开展数据出境活动的数据处理者）"
+            ]
+          },
+          "completed": false,
+          "verifier_calls": [
+            {
+              "call_id": 10,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "status": "unsupported",
+                "claim_checks": [
+                  {
+                    "claim_index": 0,
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第六条明确自贸试验区负面清单外数据可免予申报安全评估、订立标准合同、通过认证；上海2025版清单说明其适用于在上海市注册且在上海市开展数据出境活动的数据处理者（关键信息基础设施运营者除外），故先对照上海负面清单并核对数据项有依据。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 1,
+                    "status": "unsupported",
+                    "reason": "第一句与第七条所列应申报安全评估情形一致，但“该分支与负面清单制度并行，不能因主张清单外免予程序而排除”与第七条末句“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”及答记者问问11“第六条规定情形不计入累计数量”相矛盾；对非关键信息基础设施运营者且属负面清单外数据的，第六条可免予三项程序，不能一概排除。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 2,
+                    "status": "supported",
+                    "reason": "第五条列举了为订立履行个人作为一方当事人的合同、跨境人力资源管理、紧急情况、非关键信息基础设施运营者累计不满10万人非敏感个人信息等免予三项程序情形，并明确不含重要数据；该claim以“还可能符合”表述，未把未达阈值直接等同于必然豁免。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 3,
+                    "status": "supported",
+                    "reason": "第二条明确重要数据以相关部门、地区告知或公开发布为判定，未被如此告知或发布的不需要作为重要数据申报安全评估；核实重要数据状态会影响路径，表述忠实。",
+                    "missing_facts": []
+                  }
+                ],
+                "report_checks": [],
+                "conclusion_reason": "核心问题“先看哪张清单”有2025版上海负面清单及第六条支撑，但整体不能判supported：claims[1]将第七条安全评估分支表述为与负面清单制度并行且不能因清单外免予程序排除，忽略第七条末句及答记者问的“从其规定/不计入累计数量”，与原文矛盾。正文第一段“2025版已包含重要数据与个人信息两类”在给定2025版摘录中仅见个人信息清单片段，缺直接依据，应改为待核。另2025版适用于“在上海市注册且在上海市开展数据出境活动”的数据处理者，draft未在缺口登记“公司是否在上海市注册”这一适用前提。摘要和触发理由对“临港/上海自贸区、用户数据出境、事实不明故证据不足”的限定基本有条件支持，但受上述问题影响整体为unsupported。",
+                "missing_facts": [
+                  "公司是否在上海市注册（2025版清单适用于在上海市注册且在上海市开展数据出境活动的数据处理者）"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "submission": 3,
+          "step": 8,
+          "call_id": 12,
+          "draft": {
+            "risk_level": "insufficient_evidence",
+            "decision_summary": "上海临港企业出境数据应先对照《上海自贸区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》；清单外数据依《促进和规范数据跨境流动规定》第六条可免予三项程序，但能否“自由出境”取决于行业场景、个人信息数量及是否CIIO、重要数据状态，现尚不能确定。",
+            "legal_path": null,
+            "conclusion": "第一，关于“先看哪张清单”：应优先查阅《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》。该清单说明其适用于在上海市注册且在上海市开展数据出境活动的数据处理者，并明确关键信息基础设施运营者不适用本清单；清单按行业领域分章列明需要纳入安全评估、标准合同、个人信息保护认证管理的数据项，涵盖重要数据与个人信息两类（如再保险领域第一章即列有重要数据条目）。清单未涉及的行业、领域数据，仍按《网络数据安全管理条例》《数据出境安全评估办法》《个人信息出境标准合同办法》《促进和规范数据跨境流动规定》等执行。\n\n第二，机制框架：《促进和规范数据跨境流动规定》第六条规定，自贸试验区可自行制定负面清单，区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。故操作顺序为：先确认公司及该次出境活动是否落入上海清单适用对象（在上海市注册、在沪开展数据出境、非CIIO），再按公司所属行业与具体场景逐项比对清单列明的数据项；落入清单条目的按清单对应层级办理安全评估或标准合同／认证，属于清单外数据的可主张免予上述三项程序。\n\n第三，其他分支：第七条规定关键信息基础设施运营者向境外提供个人信息或重要数据、非关键信息基础设施运营者向境外提供重要数据、或自当年1月1日起累计出境100万人以上非敏感个人信息／1万人以上敏感个人信息的，应申报数据出境安全评估；但该条末句规定属于第三条、第四条、第五条、第六条情形的从其规定，即若落入第六条清单外免予等情形，则不按该阈值办理。重要数据以是否被相关部门、地区告知或公开发布为判定（第二条）。非关键信息基础设施运营者且累计未达阈值时，还可能符合第五条列举的免予三项程序情形（合同必需、跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息等，且不含重要数据）。\n\n综上，“先看哪张清单”可确定回答为2025版上海负面清单；但“能不能自由传到境外”尚不能定论，取决于公司所属行业场景、用户数据是否含个人信息及敏感个人信息、累计数量、关键信息基础设施运营者与重要数据状态，故风险等级为证据不足。本次未就《个人信息保护法》下告知、同意、个人信息保护影响评估等一般义务取得条文，未作判断，仅提示另行核对。",
+            "claims": [
+              {
+                "text": "自贸试验区实行负面清单制度：区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。位于上海自贸区（含临港）的本案企业应据此先确定适用的上海负面清单，并核对其拟出境数据是否落入清单条目。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "《促进和规范数据跨境流动规定》第七条规定，关键信息基础设施运营者向境外提供个人信息或重要数据，以及非关键信息基础设施运营者向境外提供重要数据、或自当年1月1日起累计向境外提供100万人以上非敏感个人信息／1万人以上敏感个人信息，应当申报数据出境安全评估；但该条末句规定属于第三条、第四条、第五条、第六条情形的从其规定。故本案是否需申报评估，取决于个人信息数量、重要数据及CIIO状态，并需结合是否落入第六条清单外免予等情形判断。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "若本案企业非关键信息基础设施运营者，且出境个人信息不含重要数据、累计未达上述阈值，还可能符合第五条列举的免予三项程序情形（为订立履行个人作为一方当事人的合同所必需、跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息等），此时无需履行安全评估、标准合同、认证程序。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "重要数据以是否被相关部门、地区告知或者公开发布为判定：未被如此告知或发布的，数据处理者不需要作为重要数据申报数据出境安全评估。故本案需先核实拟出境用户数据的重要数据状态，该状态直接影响走安全评估还是其他路径。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                ],
+                "supporting_citation_refs": []
+              }
+            ],
+            "trigger_reasons": [
+              "业务位于上海自贸区（含临港）且涉及用户数据出境",
+              "上海已发布2025版自贸区及临港新片区数据出境负面清单，需按行业场景逐项比对",
+              "用户数据是否含个人信息、累计数量、关键信息基础设施运营者与重要数据状态未明，直接影响能否免予程序"
+            ],
+            "missing_information": [
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）",
+              "公司是否被认定为关键信息基础设施运营者",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方",
+              "公司是否在上海市注册并在沪开展数据出境（2025版上海清单的适用前提）"
+            ],
+            "missing_answer_types": {
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息": "choice",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）": "text",
+              "公司是否被认定为关键信息基础设施运营者": "choice",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据": "choice",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方": "text",
+              "公司是否在上海市注册并在沪开展数据出境（2025版上海清单的适用前提）": "choice"
+            },
+            "recommended_actions": [
+              "取得《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》全文，按公司行业领域定位对应章节，逐项比对拟出境数据项。",
+              "先行确认公司是否为关键信息基础设施运营者；若属之，则上海负面清单明确不适用，应按数据出境安全评估路径准备。",
+              "梳理拟出境数据项清单与自当年1月1日起累计出境个人信息数量（按自然人去重，敏感与非敏感分别统计），以判断是否触及安全评估或标准合同／认证阈值。",
+              "核查拟出境数据是否被相关部门、地区告知或公开发布为重要数据。",
+              "如清单涉及的行业领域同时涉及《出口管制法》规定的管制物项技术资料或《对外贸易法》规定的技术出口管理事项，按该等法律法规执行。",
+              "另行核对《个人信息保护法》等对个人信息处理的一般要求；本次未取得相关条文，未作法律判断。"
+            ],
+            "risk_boundaries": [
+              "本结论未确认公司所属行业场景、个人信息性质与数量、关键信息基础设施运营者及重要数据状态，故“能否自由出境”仍不能定论。",
+              "负面清单外免予程序仅免除数据出境安全评估、个人信息出境标准合同、个人信息保护认证三项，是否还涉及其他法律义务本次未取得条文，不作结论。",
+              "上海2025版负面清单本身包含重要数据类条目，仅关键信息基础设施运营者被明确排除；涉及重要数据时应按清单对应条目或《促进和规范数据跨境流动规定》第七条判断是否须申报安全评估，不能笼统认为清单不适用。",
+              "2025版上海清单以“在上海市注册且在上海开展数据出境活动”为适用前提，公司注册地与出境活动发生地尚待确认，若不符合则不当然适用该清单。"
+            ],
+            "issues": [],
+            "web_impact": "none",
+            "material_web_urls": []
+          },
+          "changed_fields": [
+            "decision_summary",
+            "conclusion",
+            "claims",
+            "missing_information",
+            "missing_answer_types",
+            "recommended_actions",
+            "risk_boundaries"
+          ],
+          "feedback": {
+            "status": "uncertain",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第六条原文支持“自贸试验区负面清单外数据免予申报安全评估、订立标准合同、通过认证”。上海2025版负面清单说明其适用于在上海市注册、在上海市开展数据出境且非CIIO的数据处理者，并载明清单未涉及行业仍按国家规定执行。该claim作为“先确定上海清单并逐项比对”的方向成立；但“含临港”应理解为清单覆盖范围，不等于已确认企业在临港，适用时仍受在沪注册、在沪出境、非CIIO等条件约束（正文已列明）。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "supported",
+                "reason": "第七条原文列明：CIIO向境外提供个人信息或重要数据、非CIIO向境外提供重要数据，以及累计100万人以上非敏感个人信息或1万人以上敏感个人信息，应申报安全评估；末句明确第三条至第六条情形从其规定。将本案是否申报系于个人信息数量、重要数据、CIIO状态及第六条清单外免予情形，忠实于原文。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "第五条原文列举合同必需、跨境人力资源管理、紧急情况、非CIIO累计不满10万人非敏感个人信息等免予三项程序情形，并明确所称个人信息不包括重要数据。claim使用“若”“还可能符合”限定，未把未达第七条阈值直接等同于当然免予，表述基本忠实。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 3,
+                "status": "uncertain",
+                "reason": "第二条原文要求数据处理者按相关规定识别、申报重要数据，仅规定未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估。claim将“是否告知或公开发布”表述为重要数据判定标准，遗漏识别申报义务及重要数据定义、识别标准，法律前提过宽；其后“需核实状态并影响路径”的建议可理解，但不能由该过宽前提完全支持。",
+                "missing_facts": [
+                  "拟出境用户数据是否被相关部门、地区告知或公开发布为重要数据，以及依相关规定识别是否属于重要数据"
+                ]
+              }
+            ],
+            "report_checks": [],
+            "conclusion_reason": "报告关于“先看2025版上海负面清单”、第六条清单外免予三项程序、第七条阈值及风险等级为insufficient_evidence的主线基本有据；但claim 3及正文“重要数据以是否被相关部门、地区告知或公开发布为判定（第二条）”将第二条的申报豁免表述为重要数据判定标准，遗漏识别申报义务和重要数据识别标准，属推导过宽。另摘要称“上海临港企业”、触发理由称“业务位于上海自贸区（含临港）”，而材料仅确认在上海自贸区开展业务，临港、在沪注册及非CIIO身份尚未确认，表述不够严谨。故不能全部判定supported。",
+            "missing_facts": [
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息",
+              "公司所属行业与具体业务场景（用于比对2025版上海负面清单条目）",
+              "公司是否被认定为关键信息基础设施运营者",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据，以及依相关规定识别是否属于重要数据",
+              "自当年1月1日起累计出境个人信息数量（非敏感与敏感分别、按自然人去重）",
+              "公司是否在上海市注册并在上海市开展数据出境活动；如主张临港业务，是否位于临港新片区",
+              "拟出境用户数据是否被相关部门、地区告知或公开发布为重要数据，以及依相关规定识别是否属于重要数据"
+            ]
+          },
+          "completed": false,
+          "verifier_calls": [
+            {
+              "call_id": 13,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "status": "uncertain",
+                "claim_checks": [
+                  {
+                    "claim_index": 0,
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第六条原文支持“自贸试验区负面清单外数据免予申报安全评估、订立标准合同、通过认证”。上海2025版负面清单说明其适用于在上海市注册、在上海市开展数据出境且非CIIO的数据处理者，并载明清单未涉及行业仍按国家规定执行。该claim作为“先确定上海清单并逐项比对”的方向成立；但“含临港”应理解为清单覆盖范围，不等于已确认企业在临港，适用时仍受在沪注册、在沪出境、非CIIO等条件约束（正文已列明）。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 1,
+                    "status": "supported",
+                    "reason": "第七条原文列明：CIIO向境外提供个人信息或重要数据、非CIIO向境外提供重要数据，以及累计100万人以上非敏感个人信息或1万人以上敏感个人信息，应申报安全评估；末句明确第三条至第六条情形从其规定。将本案是否申报系于个人信息数量、重要数据、CIIO状态及第六条清单外免予情形，忠实于原文。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 2,
+                    "status": "supported",
+                    "reason": "第五条原文列举合同必需、跨境人力资源管理、紧急情况、非CIIO累计不满10万人非敏感个人信息等免予三项程序情形，并明确所称个人信息不包括重要数据。claim使用“若”“还可能符合”限定，未把未达第七条阈值直接等同于当然免予，表述基本忠实。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 3,
+                    "status": "uncertain",
+                    "reason": "第二条原文要求数据处理者按相关规定识别、申报重要数据，仅规定未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估。claim将“是否告知或公开发布”表述为重要数据判定标准，遗漏识别申报义务及重要数据定义、识别标准，法律前提过宽；其后“需核实状态并影响路径”的建议可理解，但不能由该过宽前提完全支持。",
+                    "missing_facts": [
+                      "拟出境用户数据是否被相关部门、地区告知或公开发布为重要数据，以及依相关规定识别是否属于重要数据"
+                    ]
+                  }
+                ],
+                "report_checks": [],
+                "conclusion_reason": "报告关于“先看2025版上海负面清单”、第六条清单外免予三项程序、第七条阈值及风险等级为insufficient_evidence的主线基本有据；但claim 3及正文“重要数据以是否被相关部门、地区告知或公开发布为判定（第二条）”将第二条的申报豁免表述为重要数据判定标准，遗漏识别申报义务和重要数据识别标准，属推导过宽。另摘要称“上海临港企业”、触发理由称“业务位于上海自贸区（含临港）”，而材料仅确认在上海自贸区开展业务，临港、在沪注册及非CIIO身份尚未确认，表述不够严谨。故不能全部判定supported。",
+                "missing_facts": [
+                  "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息",
+                  "公司所属行业与具体业务场景（用于比对2025版上海负面清单条目）",
+                  "公司是否被认定为关键信息基础设施运营者",
+                  "拟出境数据是否被相关部门、地区告知或公开发布为重要数据，以及依相关规定识别是否属于重要数据",
+                  "自当年1月1日起累计出境个人信息数量（非敏感与敏感分别、按自然人去重）",
+                  "公司是否在上海市注册并在上海市开展数据出境活动；如主张临港业务，是否位于临港新片区"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "submission": 4,
+          "step": 9,
+          "call_id": 14,
+          "draft": {
+            "risk_level": "insufficient_evidence",
+            "decision_summary": "在上海自贸区开展业务的企业拟向境外提供用户数据，应先对照《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》并按行业场景比对数据项；清单外数据依《促进和规范数据跨境流动规定》第六条可免予三项程序，但能否自由出境仍取决于注册地、行业场景、个人信息数量、CIIO与重要数据状态，现不能确定。",
+            "legal_path": null,
+            "conclusion": "第一，关于“先看哪张清单”：应优先查阅《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》。该清单说明其适用于在上海市注册且在上海市开展数据出境活动的数据处理者，并明确关键信息基础设施运营者不适用本清单；清单按行业领域分章列明需要纳入安全评估、标准合同、个人信息保护认证管理的数据项，从已读取原文看，清单同时列有重要数据条目（如再保险领域第一章即列“需要通过数据出境安全评估的数据清单”中的重要数据项）与个人信息条目。清单未涉及的行业、领域数据，仍按《网络数据安全管理条例》《数据出境安全评估办法》《个人信息出境标准合同办法》《促进和规范数据跨境流动规定》等执行。\n\n第二，负面清单机制：《促进和规范数据跨境流动规定》第六条规定，自由贸易试验区可自行制定负面清单，区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。故操作顺序为：先确认公司及该次出境活动是否落入上海清单适用对象（在上海市注册、在沪开展数据出境、非关键信息基础设施运营者），再按公司所属行业与具体场景逐项比对清单列明的数据项；落入清单条目的按清单对应层级办理安全评估或标准合同／认证，属于清单外数据的可主张免予上述三项程序。\n\n第三，其他分支：《促进和规范数据跨境流动规定》第七条规定，关键信息基础设施运营者向境外提供个人信息或重要数据、非关键信息基础设施运营者向境外提供重要数据、或自当年1月1日起累计向境外提供100万人以上非敏感个人信息／1万人以上敏感个人信息的，应当申报数据出境安全评估；该条末句又规定属于第三条、第四条、第五条、第六条情形的从其规定，故若该次出境已落入第六条清单外免予等情形，则不按上述阈值申报评估。重要数据方面，第二条规定数据处理者应按相关规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估——该条解决的是申报义务的豁免，不等于免除识别义务。若公司非关键信息基础设施运营者且累计未达上述阈值，还可能符合第五条列举的免予三项程序情形（为订立、履行个人作为一方当事人的合同所必需、跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息等，所涉个人信息不含重要数据）。\n\n综上，“先看哪张清单”可确定回答为2025版上海负面清单；但“能不能自由传到境外”尚不能定论：材料仅确认公司在上海自贸区开展业务并涉及用户数据出境，注册地是否在上海、所属行业场景、用户数据是否含个人信息及敏感个人信息、累计数量、关键信息基础设施运营者与重要数据状态均未确认，故风险等级为证据不足。本次未取得《个人信息保护法》告知、同意及个人信息保护影响评估等一般义务的条文，未作判断，仅提示另行核对。",
+            "claims": [
+              {
+                "text": "自贸试验区实行负面清单制度：自贸试验区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。本案企业在上海自贸区开展业务，其拟出境数据应据此先确定是否落入所适用的上海负面清单条目；若属清单外数据，可主张免予上述三项程序。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "《促进和规范数据跨境流动规定》第七条规定，关键信息基础设施运营者向境外提供个人信息或重要数据，非关键信息基础设施运营者向境外提供重要数据，或自当年1月1日起累计向境外提供100万人以上非敏感个人信息／1万人以上敏感个人信息的，应当申报数据出境安全评估；该条末句规定属于第三条、第四条、第五条、第六条情形的从其规定。故本案是否须申报评估，取决于CIIO身份、是否涉及重要数据、累计个人信息数量，并需先判断是否已落入第六条清单外免予等情形。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "若本案企业非关键信息基础设施运营者、所涉个人信息不含重要数据且累计数量未达第七条阈值，则还可能符合第五条列举的免予三项程序情形（为订立、履行个人作为一方当事人的合同所必需、依劳动规章制度实施跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息），此时无需申报安全评估、订立标准合同或通过认证。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "重要数据方面，第二条规定数据处理者应当按照相关规定识别、申报重要数据，并明确未被相关部门、地区告知或者公开发布为重要数据的，数据处理者不需要作为重要数据申报数据出境安全评估。据此，本案应核实拟出境用户数据是否被相关部门、地区告知或公开发布为重要数据，并履行识别义务；若未被如此告知或发布，则不因重要数据而申报评估，但仍需按相关规定完成识别。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                ],
+                "supporting_citation_refs": []
+              }
+            ],
+            "trigger_reasons": [
+              "材料确认公司在上海自贸区开展业务，且涉及用户数据出境，需先确定所适用的数据出境负面清单",
+              "上海已就自贸试验区及临港新片区（并覆盖国家服务业扩大开放综合试点地区（上海））发布2025版数据出境负面清单，需按行业场景逐项比对",
+              "用户数据是否含个人信息、累计出境数量、CIIO与重要数据状态均未确认，直接影响可否免予三项程序"
+            ],
+            "missing_information": [
+              "公司是否在上海市注册并在上海市开展该次数据出境活动（2025版上海清单的适用前提）",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）",
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息",
+              "公司是否被认定为关键信息基础设施运营者",
+              "拟出境数据是否被相关部门、地区告知或者公开发布为重要数据",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方"
+            ],
+            "missing_answer_types": {
+              "公司是否在上海市注册并在上海市开展该次数据出境活动（2025版上海清单的适用前提）": "choice",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）": "text",
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息": "choice",
+              "公司是否被认定为关键信息基础设施运营者": "choice",
+              "拟出境数据是否被相关部门、地区告知或者公开发布为重要数据": "choice",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方": "text"
+            },
+            "recommended_actions": [
+              "取得《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》全文，按公司行业领域定位对应章节，逐项比对拟出境数据项。",
+              "确认公司是否为关键信息基础设施运营者：按该清单说明，关键信息基础设施运营者不适用本清单，应直接按《促进和规范数据跨境流动规定》第七条准备数据出境安全评估。",
+              "梳理拟出境数据项清单与自当年1月1日起累计出境个人信息数量（按自然人去重，敏感与非敏感分别统计），以判断是否触及安全评估或标准合同／认证阈值。",
+              "按相关规定识别拟出境数据是否属于重要数据，并核实是否被相关部门、地区告知或公开发布为重要数据。",
+              "如清单涉及的行业领域同时涉及《出口管制法》规定的管制物项技术资料或《对外贸易法》规定的技术出口管理事项，按该等法律法规执行。",
+              "另行核对《个人信息保护法》等对个人信息处理的一般要求；本次未取得相关条文，未作法律判断。"
+            ],
+            "risk_boundaries": [
+              "本结论未确认公司在沪注册与出境活动发生地、所属行业场景、个人信息性质与数量、CIIO及重要数据状态，故“能否自由出境”仍不能定论。",
+              "负面清单外免予程序依第六条仅涉及数据出境安全评估、个人信息出境标准合同、个人信息保护认证三项；是否还涉及其他法律义务，本次未取得条文，不作结论。",
+              "上海2025版清单本身列有重要数据条目，仅关键信息基础设施运营者被明确排除；涉及重要数据时应按清单对应条目或《促进和规范数据跨境流动规定》第七条判断是否须申报安全评估。",
+              "第二条关于“未被告知或公开发布为重要数据的不需作为重要数据申报评估”只解决申报豁免，不免除数据处理者按相关规定识别、申报重要数据的义务。"
+            ],
+            "issues": [],
+            "web_impact": "none",
+            "material_web_urls": []
+          },
+          "changed_fields": [
+            "decision_summary",
+            "conclusion",
+            "claims",
+            "trigger_reasons",
+            "missing_information",
+            "missing_answer_types",
+            "recommended_actions",
+            "risk_boundaries"
+          ],
+          "feedback": {
+            "status": "unsupported",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第六条原文明确：自由贸易试验区可制定负面清单，区内数据处理者向境外提供负面清单外的数据，可以免予申报安全评估、订立标准合同、通过认证。claim据此提出应先确定是否落入所适用的上海负面清单条目、清单外可主张免予三项程序，属对条文的忠实转述并作了适当的条件性限定，未越出文义。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "supported",
+                "reason": "claim完整复现第七条三种申报情形及“属于第三条至第六条情形的从其规定”的末句，并正确指出是否申报取决于CIIO身份、重要数据状态、累计数量及是否落入第六条免予情形，与原文一致，无添加或删减条件。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "第五条原文列举合同必需、跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息等免予三项程序的情形，并限定不含重要数据。claim以“若……则还可能符合”的假设句式复述，保留了各具体情形与“不含重要数据”的限制，属忠实条件性判断，未把一般义务扩为确定后果。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 3,
+                "status": "supported",
+                "reason": "第二条原文规定数据处理者应按规定识别、申报重要数据，未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估。claim正确区分“申报豁免”与“识别义务仍存”，并据此建议核实，与原文相符。",
+                "missing_facts": []
+              }
+            ],
+            "report_checks": [
+              {
+                "target": "recommended_actions:0",
+                "status": "supported",
+                "reason": "上海2025版负面清单已发布，清单说明明确其用于界定需纳入安全评估、标准合同、认证管理的数据范围，并载明适用范围；按行业领域定位章节并逐项比对拟出境数据项属于可执行的核对建议。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:1",
+                "status": "unsupported",
+                "reason": "清单说明确实规定关键信息基础设施运营者不适用该负面清单，但《促进和规范数据跨境流动规定》第七条以“关键信息基础设施运营者向境外提供个人信息或者重要数据”为申报安全评估的条件；本句“应直接按第七条准备数据出境安全评估”未保留该适用条件，不能无条件成立。",
+                "quote": "应直接按《促进和规范数据跨境流动规定》第七条准备数据出境安全评估",
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "missing_facts": [
+                  "公司是否为关键信息基础设施运营者",
+                  "拟出境数据是否包含个人信息或重要数据"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:2",
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第七条及答记者问明确按自当年1月1日起累计、以自然人去重统计个人信息数量，并区分敏感与非敏感个人信息；梳理数据项和数量以判断是否触及安全评估或标准合同／认证阈值，有原文依据。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "cac_cross_border_flow_rules_qna_2024:a9088a6c15b4283352735899",
+                  "cac_personal_info_export_standard_contract_filing_guide_v2_2024:59cadac2dc92afd441931a2b"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:3",
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第二条要求按照相关规定识别、申报重要数据，并明确未被相关部门、地区告知或者公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估；核实告知或公开发布情况与原文一致。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9",
+                  "cac_data_export_policy_qna_2025_04:816351acd439a0f253b2ae47"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:4",
+                "status": "supported",
+                "reason": "上海2025版负面清单说明第四条明确，负面清单涉及行业、领域中如涉及《出口管制法》规定的管制物项相关技术资料或《对外贸易法》规定的技术出口管理事项等数据出境，按该等法律法规、规章规定执行；本单元与该衔接规则一致。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:5",
+                "status": "supported",
+                "reason": "本单元仅提示另行核对《个人信息保护法》等一般要求，并明示本次未取得相关条文、未作法律判断，属于审慎核实建议，未输出无法源依据的实体结论。",
+                "quote": null,
+                "evidence_ids": [],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:0",
+                "status": "supported",
+                "reason": "事实账本仅载明公司在上海自贸区开展业务、存在用户数据出境，未确认在沪注册、数据出境活动发生地、行业场景、个人信息性质与数量、CIIO及重要数据状态；因此不能得出“可以自由出境”的结论。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_289c106ae665458f"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:1",
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第六条明确，负面清单外数据可免予的程序仅限申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证三项；该单元未把其他法律义务排除在外。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:2",
+                "status": "supported",
+                "reason": "上海2025版清单载有重要数据条目，并明确关键信息基础设施运营者不适用该清单；涉及重要数据时，应结合清单对应条目及《促进和规范数据跨境流动规定》第七条判断是否须申报安全评估。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:dd128173a8c6d571b99b54d0",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:3",
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第二条先要求数据处理者按相关规定识别、申报重要数据，后句仅规定未被相关部门、地区告知或公开发布为重要数据时，不需要作为重要数据申报数据出境安全评估；该单元对此理解与原文一致。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              }
+            ],
+            "conclusion_reason": "decision_summary、conclusion正文与trigger_reasons均忠实于给定法源与已确认事实：摘要与正文准确指向《中国（上海）自由贸易试验区及临港新片区……数据出境管理清单（负面清单）（2025版）》为应优先查阅的清单，并引述其适用范围（在上海市注册且在沪开展数据出境、CIIO不适用）、按行业分章列明重要数据与个人信息条目、未涉及行业仍适用国家规定，均与2025版清单说明及再保险章节原文一致；对第六条负面清单机制、第七条阈值与末句衔接、第五条免予情形、第二条重要数据识别与申报义务的转述均无添加条件或扩大后果。正文明确就“能否自由出境”保留条件性，因注册地、行业场景、是否含个人信息、累计数量、CIIO与重要数据状态未确认，故标注insufficient_evidence，符合“关键事实不足尚不能确定”的处理。各触发理由均有材料或清单原文支撑。整体核心断言获支持。\n六项单元中，清单取得与比对、数量统计、重要数据识别核实、出口管制与对外贸易衔接、另行核对个人信息保护法均属有依据的核实或准备建议；关键信息基础设施运营者一项因未在句内保留第七条“向境外提供个人信息或者重要数据”的适用条件，判为unsupported。\n四项风险边界均与现有事实账本和所引法条原文相符：现阶段缺少注册地、行业场景、个人信息性质与数量、CIIO及重要数据状态等关键事实，不能断言数据可自由出境；负面清单外免予程序仅限法定三项，重要数据仍须依清单条目或第七条判断是否申报安全评估。\n未获支持的断言：\nrecommended_actions:1「应直接按《促进和规范数据跨境流动规定》第七条准备数据出境安全评估」: 清单说明确实规定关键信息基础设施运营者不适用该负面清单，但《促进和规范数据跨境流动规定》第七条以“关键信息基础设施运营者向境外提供个人信息或者重要数据”为申报安全评估的条件；本句“应直接按第七条准备数据出境安全评估”未保留该适用条件，不能无条件成立。",
+            "missing_facts": [
+              "公司是否在上海市注册（上海2025版负面清单适用前提）",
+              "公司所属行业与具体业务场景（用于定位清单对应章节与数据项）",
+              "所涉“用户数据”是否包含个人信息、尤其敏感个人信息",
+              "公司是否被认定为关键信息基础设施运营者",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据",
+              "自当年1月1日起累计出境的个人信息数量（非敏感/敏感分别、按自然人去重）及境外接收方与目的地",
+              "公司是否为关键信息基础设施运营者",
+              "拟出境数据是否包含个人信息或重要数据"
+            ]
+          },
+          "completed": false,
+          "verifier_calls": [
+            {
+              "call_id": 15,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "status": "supported",
+                "claim_checks": [
+                  {
+                    "claim_index": 0,
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第六条原文明确：自由贸易试验区可制定负面清单，区内数据处理者向境外提供负面清单外的数据，可以免予申报安全评估、订立标准合同、通过认证。claim据此提出应先确定是否落入所适用的上海负面清单条目、清单外可主张免予三项程序，属对条文的忠实转述并作了适当的条件性限定，未越出文义。"
+                  },
+                  {
+                    "claim_index": 1,
+                    "status": "supported",
+                    "reason": "claim完整复现第七条三种申报情形及“属于第三条至第六条情形的从其规定”的末句，并正确指出是否申报取决于CIIO身份、重要数据状态、累计数量及是否落入第六条免予情形，与原文一致，无添加或删减条件。"
+                  },
+                  {
+                    "claim_index": 2,
+                    "status": "supported",
+                    "reason": "第五条原文列举合同必需、跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息等免予三项程序的情形，并限定不含重要数据。claim以“若……则还可能符合”的假设句式复述，保留了各具体情形与“不含重要数据”的限制，属忠实条件性判断，未把一般义务扩为确定后果。"
+                  },
+                  {
+                    "claim_index": 3,
+                    "status": "supported",
+                    "reason": "第二条原文规定数据处理者应按规定识别、申报重要数据，未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估。claim正确区分“申报豁免”与“识别义务仍存”，并据此建议核实，与原文相符。"
+                  }
+                ],
+                "report_checks": [],
+                "conclusion_reason": "decision_summary、conclusion正文与trigger_reasons均忠实于给定法源与已确认事实：摘要与正文准确指向《中国（上海）自由贸易试验区及临港新片区……数据出境管理清单（负面清单）（2025版）》为应优先查阅的清单，并引述其适用范围（在上海市注册且在沪开展数据出境、CIIO不适用）、按行业分章列明重要数据与个人信息条目、未涉及行业仍适用国家规定，均与2025版清单说明及再保险章节原文一致；对第六条负面清单机制、第七条阈值与末句衔接、第五条免予情形、第二条重要数据识别与申报义务的转述均无添加条件或扩大后果。正文明确就“能否自由出境”保留条件性，因注册地、行业场景、是否含个人信息、累计数量、CIIO与重要数据状态未确认，故标注insufficient_evidence，符合“关键事实不足尚不能确定”的处理。各触发理由均有材料或清单原文支撑。整体核心断言获支持。",
+                "missing_facts": [
+                  "公司是否在上海市注册（上海2025版负面清单适用前提）",
+                  "公司所属行业与具体业务场景（用于定位清单对应章节与数据项）",
+                  "所涉“用户数据”是否包含个人信息、尤其敏感个人信息",
+                  "公司是否被认定为关键信息基础设施运营者",
+                  "拟出境数据是否被相关部门、地区告知或公开发布为重要数据",
+                  "自当年1月1日起累计出境的个人信息数量（非敏感/敏感分别、按自然人去重）及境外接收方与目的地"
+                ]
+              }
+            },
+            {
+              "call_id": 16,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "recommended_actions:0",
+                    "status": "supported",
+                    "reason": "负面清单说明明确其适用于在上海市注册并在上海市开展数据出境活动的数据处理者；材料显示公司在上海自贸区开展业务并涉及用户数据出境，按行业领域定位章节、逐项比对数据项是落实清单的必要步骤，且有范围依据。",
+                    "quote": "上海市数据出境负面清单适用于在上海市注册且在上海市开展数据出境活动的\n数据处理者，关键信息基础设施运营者不适用本清单。",
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "material_snapshot_289c106ae665458f"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:1",
+                    "status": "supported",
+                    "reason": "清单说明明确关键信息基础设施运营者不适用本清单；《促进和规范数据跨境流动规定》第七条规定CIIO向境外提供个人信息或重要数据应当申报安全评估，故先确认CIIO身份、如属CIIO则按第七条准备评估的指引与原文一致。",
+                    "quote": "上海市数据出境负面清单适用于在上海市注册且在上海市开展数据出境活动的\n数据处理者，关键信息基础设施运营者不适用本清单。",
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:2",
+                    "status": "supported",
+                    "reason": "第七条以自当年1月1日起累计出境个人信息（非敏感100万人以上／敏感1万人以上）为安全评估阈值；答记者问明确以自然人去重统计、非敏感与敏感分别计量，故梳理数据项与分项统计数量是判断阈值的必要步骤。",
+                    "quote": "计算周期为自当年1月1日起至申报数据出境安全评估之日，数量以自然人为单位去重后的统计结果为准。",
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                      "cac_cross_border_flow_rules_qna_2024:a9088a6c15b4283352735899"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:3",
+                    "status": "supported",
+                    "reason": "第二条规定数据处理者应按规定识别、申报重要数据，未被相关部门、地区告知或公开发布为重要数据的无需作为重要数据申报安全评估，故按此识别并核实告知／公开发布情况是原文要求的工作。",
+                    "quote": "数据处理者应当按照相关规定识别、申报重要数据。未被相关部门、地区告知或者公开发布为重要数据的，数据处理者不需要作为重要数据申报数据出境安全评估。",
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:4",
+                    "status": "supported",
+                    "reason": "负面清单原文第四项明确涉及《出口管制法》管制物项技术资料或《对外贸易法》技术出口管理事项的数据出境，按该等法律法规执行；该指引保留了适用对象边界，忠实于原文。",
+                    "quote": "负面清单涉及的行业、领域中，如涉及《中华人民共和\n国出口管制法》规定的管制物项相关技术资料或《中华人民共和\n国对外贸易法》规定的技术出口管理事项等数据出境的，按照《中\n华人民共和国出口管制法》《中华人民共和国对外贸易法》等法\n律法规、规章规定执行。",
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:5",
+                    "status": "supported",
+                    "reason": "该句为限缩性说明，明示本次未取得《个人信息保护法》相关条文、未作法律判断，属核实建议而非创设义务或已作定性的结论，不违反原文边界。",
+                    "quote": null,
+                    "evidence_ids": [],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  }
+                ],
+                "conclusion_reason": "六项建议均与所引权威原文的范围、阈值和条件衔接一致：清单适用于上海注册企业且排除CIIO，累计数量按自然人去重分项统计，重要数据识别与告知／公开发布规则、出口管制衔接条款均有原文依据，末项为明示未作判断的核实建议。"
+              }
+            },
+            {
+              "call_id": 17,
+              "retry": true,
+              "retry_feedback": "上一轮 JSON 通过了 schema，但业务校验失败。请只重新输出符合 schema 的 JSON，不要解释。 validation_error=问题原句不在对应报告单元中",
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "recommended_actions:0",
+                    "status": "supported",
+                    "reason": "上海2025版负面清单已发布，清单说明明确其用于界定需纳入安全评估、标准合同、认证管理的数据范围，并载明适用范围；按行业领域定位章节并逐项比对拟出境数据项属于可执行的核对建议。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:ac80f437d009e7fca4d58b81",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:1",
+                    "status": "unsupported",
+                    "reason": "清单说明确实规定关键信息基础设施运营者不适用该负面清单，但《促进和规范数据跨境流动规定》第七条以“关键信息基础设施运营者向境外提供个人信息或者重要数据”为申报安全评估的条件；本句“应直接按第七条准备数据出境安全评估”未保留该适用条件，不能无条件成立。",
+                    "quote": "应直接按《促进和规范数据跨境流动规定》第七条准备数据出境安全评估",
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [
+                      "公司是否为关键信息基础设施运营者",
+                      "拟出境数据是否包含个人信息或重要数据"
+                    ],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:2",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第七条及答记者问明确按自当年1月1日起累计、以自然人去重统计个人信息数量，并区分敏感与非敏感个人信息；梳理数据项和数量以判断是否触及安全评估或标准合同／认证阈值，有原文依据。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                      "cac_cross_border_flow_rules_qna_2024:a9088a6c15b4283352735899",
+                      "cac_personal_info_export_standard_contract_filing_guide_v2_2024:59cadac2dc92afd441931a2b"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:3",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第二条要求按照相关规定识别、申报重要数据，并明确未被相关部门、地区告知或者公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估；核实告知或公开发布情况与原文一致。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9",
+                      "cac_data_export_policy_qna_2025_04:816351acd439a0f253b2ae47"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:4",
+                    "status": "supported",
+                    "reason": "上海2025版负面清单说明第四条明确，负面清单涉及行业、领域中如涉及《出口管制法》规定的管制物项相关技术资料或《对外贸易法》规定的技术出口管理事项等数据出境，按该等法律法规、规章规定执行；本单元与该衔接规则一致。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:5",
+                    "status": "supported",
+                    "reason": "本单元仅提示另行核对《个人信息保护法》等一般要求，并明示本次未取得相关条文、未作法律判断，属于审慎核实建议，未输出无法源依据的实体结论。",
+                    "quote": null,
+                    "evidence_ids": [],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  }
+                ],
+                "conclusion_reason": "六项单元中，清单取得与比对、数量统计、重要数据识别核实、出口管制与对外贸易衔接、另行核对个人信息保护法均属有依据的核实或准备建议；关键信息基础设施运营者一项因未在句内保留第七条“向境外提供个人信息或者重要数据”的适用条件，判为unsupported。"
+              }
+            },
+            {
+              "call_id": 18,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "risk_boundaries:0",
+                    "status": "supported",
+                    "reason": "事实账本仅载明公司在上海自贸区开展业务、存在用户数据出境，未确认在沪注册、数据出境活动发生地、行业场景、个人信息性质与数量、CIIO及重要数据状态；因此不能得出“可以自由出境”的结论。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "material_snapshot_289c106ae665458f"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:1",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第六条明确，负面清单外数据可免予的程序仅限申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证三项；该单元未把其他法律义务排除在外。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:2",
+                    "status": "supported",
+                    "reason": "上海2025版清单载有重要数据条目，并明确关键信息基础设施运营者不适用该清单；涉及重要数据时，应结合清单对应条目及《促进和规范数据跨境流动规定》第七条判断是否须申报安全评估。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:dd128173a8c6d571b99b54d0",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:3",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第二条先要求数据处理者按相关规定识别、申报重要数据，后句仅规定未被相关部门、地区告知或公开发布为重要数据时，不需要作为重要数据申报数据出境安全评估；该单元对此理解与原文一致。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  }
+                ],
+                "conclusion_reason": "四项风险边界均与现有事实账本和所引法条原文相符：现阶段缺少注册地、行业场景、个人信息性质与数量、CIIO及重要数据状态等关键事实，不能断言数据可自由出境；负面清单外免予程序仅限法定三项，重要数据仍须依清单条目或第七条判断是否申报安全评估。"
+              }
+            }
+          ]
+        },
+        {
+          "submission": 5,
+          "step": 10,
+          "call_id": 19,
+          "draft": {
+            "risk_level": "insufficient_evidence",
+            "decision_summary": "在上海自贸区开展业务的企业拟向境外提供用户数据，应先对照《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》并按行业场景比对数据项；清单外数据依《促进和规范数据跨境流动规定》第六条可免予三项程序，但能否自由出境仍取决于注册地、行业场景、个人信息数量、CIIO与重要数据状态，现不能确定。",
+            "legal_path": null,
+            "conclusion": "第一，关于“先看哪张清单”：应优先查阅《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》。该清单说明其适用于在上海市注册且在上海市开展数据出境活动的数据处理者，并明确关键信息基础设施运营者不适用本清单；清单按行业领域分章列明需要纳入安全评估、标准合同、个人信息保护认证管理的数据项，从已读取原文看，清单同时列有重要数据条目（如再保险领域第一章即列“需要通过数据出境安全评估的数据清单”中的重要数据项）与个人信息条目。清单未涉及的行业、领域数据，仍按《网络数据安全管理条例》《数据出境安全评估办法》《个人信息出境标准合同办法》《促进和规范数据跨境流动规定》等执行。\n\n第二，负面清单机制：《促进和规范数据跨境流动规定》第六条规定，自由贸易试验区可自行制定负面清单，区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。故操作顺序为：先确认公司及该次出境活动是否落入上海清单适用对象（在上海市注册、在沪开展数据出境、非关键信息基础设施运营者），再按公司所属行业与具体场景逐项比对清单列明的数据项；落入清单条目的按清单对应层级办理安全评估或标准合同／认证，属于清单外数据的可主张免予上述三项程序。\n\n第三，其他分支：《促进和规范数据跨境流动规定》第七条规定，关键信息基础设施运营者向境外提供个人信息或重要数据、非关键信息基础设施运营者向境外提供重要数据、或自当年1月1日起累计向境外提供100万人以上非敏感个人信息／1万人以上敏感个人信息的，应当申报数据出境安全评估；该条末句又规定属于第三条、第四条、第五条、第六条情形的从其规定，故若该次出境已落入第六条清单外免予等情形，则不按上述阈值申报评估。重要数据方面，第二条规定数据处理者应按相关规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估——该条解决的是申报义务的豁免，不等于免除识别义务。若公司非关键信息基础设施运营者且累计未达上述阈值，还可能符合第五条列举的免予三项程序情形（为订立、履行个人作为一方当事人的合同所必需、跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息等，所涉个人信息不含重要数据）。\n\n综上，“先看哪张清单”可确定回答为2025版上海负面清单；但“能不能自由传到境外”尚不能定论：材料仅确认公司在上海自贸区开展业务并涉及用户数据出境，注册地是否在上海、所属行业场景、用户数据是否含个人信息及敏感个人信息、累计数量、关键信息基础设施运营者与重要数据状态均未确认，故风险等级为证据不足。本次未取得《个人信息保护法》告知、同意及个人信息保护影响评估等一般义务的条文，未作判断，仅提示另行核对。",
+            "claims": [
+              {
+                "text": "自贸试验区实行负面清单制度：自贸试验区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。本案企业在上海自贸区开展业务，其拟出境数据应据此先确定是否落入所适用的上海负面清单条目；若属清单外数据，可主张免予上述三项程序。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "《促进和规范数据跨境流动规定》第七条规定，关键信息基础设施运营者向境外提供个人信息或重要数据，非关键信息基础设施运营者向境外提供重要数据，或自当年1月1日起累计向境外提供100万人以上非敏感个人信息／1万人以上敏感个人信息的，应当申报数据出境安全评估；该条末句规定属于第三条、第四条、第五条、第六条情形的从其规定。故本案是否须申报评估，取决于CIIO身份、是否涉及重要数据、累计个人信息数量，并需先判断是否已落入第六条清单外免予等情形。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "若本案企业非关键信息基础设施运营者、所涉个人信息不含重要数据且累计数量未达第七条阈值，则还可能符合第五条列举的免予三项程序情形（为订立、履行个人作为一方当事人的合同所必需、依劳动规章制度实施跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息），此时无需申报安全评估、订立标准合同或通过认证。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "重要数据方面，第二条规定数据处理者应当按照相关规定识别、申报重要数据，并明确未被相关部门、地区告知或者公开发布为重要数据的，数据处理者不需要作为重要数据申报数据出境安全评估。据此，本案应核实拟出境用户数据是否被相关部门、地区告知或公开发布为重要数据，并履行识别义务；若未被如此告知或发布，则不因重要数据而申报评估，但仍需按相关规定完成识别。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                ],
+                "supporting_citation_refs": []
+              }
+            ],
+            "trigger_reasons": [
+              "材料确认公司在上海自贸区开展业务，且涉及用户数据出境，需先确定所适用的数据出境负面清单",
+              "上海已就自贸试验区及临港新片区（并覆盖国家服务业扩大开放综合试点地区（上海））发布2025版数据出境负面清单，需按行业场景逐项比对",
+              "用户数据是否含个人信息、累计出境数量、CIIO与重要数据状态均未确认，直接影响可否免予三项程序"
+            ],
+            "missing_information": [
+              "公司是否在上海市注册并在上海市开展该次数据出境活动（2025版上海清单的适用前提）",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）",
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息",
+              "公司是否被认定为关键信息基础设施运营者",
+              "拟出境数据是否被相关部门、地区告知或者公开发布为重要数据",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方"
+            ],
+            "missing_answer_types": {
+              "公司是否在上海市注册并在上海市开展该次数据出境活动（2025版上海清单的适用前提）": "choice",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）": "text",
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息": "choice",
+              "公司是否被认定为关键信息基础设施运营者": "choice",
+              "拟出境数据是否被相关部门、地区告知或者公开发布为重要数据": "choice",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方": "text"
+            },
+            "recommended_actions": [
+              "取得《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》全文，按公司行业领域定位对应章节，逐项比对拟出境数据项。",
+              "确认公司是否为关键信息基础设施运营者：该清单明确关键信息基础设施运营者不适用本清单；若公司属关键信息基础设施运营者且向境外提供个人信息或重要数据，则应按《促进和规范数据跨境流动规定》第七条申报数据出境安全评估。",
+              "梳理拟出境数据项清单与自当年1月1日起累计出境个人信息数量（按自然人去重，敏感与非敏感分别统计），以判断是否触及安全评估或标准合同／认证阈值。",
+              "按相关规定识别拟出境数据是否属于重要数据，并核实是否被相关部门、地区告知或公开发布为重要数据。",
+              "如清单涉及的行业领域同时涉及《出口管制法》规定的管制物项技术资料或《对外贸易法》规定的技术出口管理事项，按该等法律法规执行。",
+              "另行核对《个人信息保护法》等对个人信息处理的一般要求；本次未取得相关条文，未作法律判断。"
+            ],
+            "risk_boundaries": [
+              "本结论未确认公司在沪注册与出境活动发生地、所属行业场景、个人信息性质与数量、CIIO及重要数据状态，故“能否自由出境”仍不能定论。",
+              "负面清单外免予程序依第六条仅涉及数据出境安全评估、个人信息出境标准合同、个人信息保护认证三项；是否还涉及其他法律义务，本次未取得条文，不作结论。",
+              "上海2025版清单本身列有重要数据条目，仅关键信息基础设施运营者被明确排除；涉及重要数据时应按清单对应条目或《促进和规范数据跨境流动规定》第七条判断是否须申报安全评估。",
+              "第二条关于“未被告知或公开发布为重要数据的不需作为重要数据申报评估”只解决申报豁免，不免除数据处理者按相关规定识别、申报重要数据的义务。"
+            ],
+            "issues": [],
+            "web_impact": "none",
+            "material_web_urls": []
+          },
+          "changed_fields": [
+            "recommended_actions"
+          ],
+          "feedback": {
+            "status": "unsupported",
+            "claim_checks": [
+              {
+                "claim_index": 0,
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第六条明确，自贸试验区数据处理者向境外提供负面清单外数据，可免予申报安全评估、订立标准合同、通过认证。材料确认企业在上海自贸区开展业务并涉及用户数据出境；报告只要求先比对所适用的上海负面清单，未直接断言本案数据一定在清单外，条件表述与原文一致。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 1,
+                "status": "supported",
+                "reason": "第七条原文规定的申报条件包括：CIIO提供个人信息或重要数据；非CIIO提供重要数据；累计100万人以上非敏感个人信息或1万人以上敏感个人信息。该条末句规定属于第三条至第六条情形的从其规定。报告据此把CIIO身份、重要数据、累计数量和第六条清单外情形列为判断前提，与原文一致。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 2,
+                "status": "supported",
+                "reason": "第五条列举了合同必需、跨境人力资源管理、紧急情况、非CIIO累计不满10万人非敏感个人信息等免予三项程序的情形，并排除重要数据。报告使用“还可能符合”并同时列明具体情形，未把“未达第七条阈值”直接等同于当然免予；该主张作为条件性说明有原文依据。",
+                "missing_facts": []
+              },
+              {
+                "claim_index": 3,
+                "status": "supported",
+                "reason": "第二条要求数据处理者按规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估。报告据此要求核实告知或发布状态并继续履行识别义务，未把申报豁免扩大为识别义务豁免，与原文一致。",
+                "missing_facts": []
+              }
+            ],
+            "report_checks": [
+              {
+                "target": "recommended_actions:0",
+                "status": "supported",
+                "reason": "现有材料显示2025版上海自贸试验区及临港新片区数据出境负面清单存在，并按行业领域列示场景和数据项；在已知公司在上海自贸区开展业务且涉及用户数据出境的前提下，先取得全文并按行业比对是适当的核对步骤。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:c4aa478c56f672ff2083e6e9",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:dd128173a8c6d571b99b54d0"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:1",
+                "status": "unsupported",
+                "reason": "2025版清单确载关键信息基础设施运营者不适用本清单；但《促进和规范数据跨境流动规定》第七条在列明关键信息基础设施运营者申报安全评估情形后，明确“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”。该单元将关键信息基础设施运营者出境个人信息或重要数据直接表述为应按第七条申报，未在句中保留该例外和衔接，作为强制义务结论过宽。",
+                "quote": "若公司属关键信息基础设施运营者且向境外提供个人信息或重要数据，则应按《促进和规范数据跨境流动规定》第七条申报数据出境安全评估。",
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "missing_facts": [],
+                "missing_basis": "第七条第三至六条例外及衔接未在句中保留。"
+              },
+              {
+                "target": "recommended_actions:2",
+                "status": "supported",
+                "reason": "安全评估与标准合同／认证的适用均以自当年1月1日起累计出境个人信息数量为重要判断基础；答记者问明确数量按自然人去重统计，标准合同备案指南亦列明非敏感与敏感个人信息的数量阈值。梳理数据项并分别统计数量是判断阈值的适当步骤。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "cac_cross_border_flow_rules_qna_2024:a9088a6c15b4283352735899",
+                  "cac_personal_info_export_standard_contract_filing_guide_v2_2024:59cadac2dc92afd441931a2b"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:3",
+                "status": "supported",
+                "reason": "《促进和规范数据跨境流动规定》第二条要求按相关规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估。核实是否被告知或公开发布为重要数据与原文一致。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9",
+                  "cac_data_export_policy_qna_2025_04:816351acd439a0f253b2ae47"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:4",
+                "status": "supported",
+                "reason": "2025版负面清单说明第四部分明确，清单涉及的行业、领域中如涉及《出口管制法》规定的管制物项相关技术资料或《对外贸易法》规定的技术出口管理事项等数据出境，按相应法律法规、规章执行。该建议保留了“如涉及”的条件，与原文一致。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "recommended_actions:5",
+                "status": "supported",
+                "reason": "该单元是补充核对建议，并未就个人信息处理作实体法律判断；现有材料中仅有答记者问转引《个人信息保护法》第六条、第十九条，未提供完整的一般要求条文，保留另行核对是适当的。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_data_export_policy_qna_2025_04:62977471d0b46a6204104285"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:0",
+                "status": "supported",
+                "reason": "材料仅显示“在上海自贸区开展业务”“涉及用户数据出境”，未确认在沪注册、具体行业场景、用户数据是否属个人信息及数量、CIIO与重要数据状态；第六条负面清单免程序及第七条评估条件均依赖这些前提，故不能据此认定可自由出境。",
+                "quote": null,
+                "evidence_ids": [
+                  "material_snapshot_289c106ae665458f",
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c"
+                ],
+                "missing_facts": [
+                  "公司在沪注册及数据出境活动发生地",
+                  "所属行业或具体业务场景",
+                  "用户数据是否包含个人信息、敏感个人信息及年度数量",
+                  "关键信息基础设施运营者与重要数据状态"
+                ],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:1",
+                "status": "supported",
+                "reason": "第六条第二款仅规定负面清单外数据可免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证；单元将免予范围限定为这三项，并对其他法律义务不作结论，符合原文。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:2",
+                "status": "supported",
+                "reason": "上海2025版清单适用范围明确“关键信息基础设施运营者不适用本清单”，且再保险领域清单列有重要数据条目；第七条将重要数据出境纳入安全评估，故涉及重要数据应结合清单条目和第七条判断。",
+                "quote": null,
+                "evidence_ids": [
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                  "shanghai_free_trade_zone_data_export_negative_list_2025:dd128173a8c6d571b99b54d0",
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              },
+              {
+                "target": "risk_boundaries:3",
+                "status": "supported",
+                "reason": "第二条原文先规定数据处理者应按相关规定识别、申报重要数据，后句仅规定未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估；单元对“仅解决申报豁免”的理解符合原文。",
+                "quote": null,
+                "evidence_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                ],
+                "missing_facts": [],
+                "missing_basis": null
+              }
+            ],
+            "conclusion_reason": "摘要、正文、触发理由和四项claims均以《促进和规范数据跨境流动规定》第二条、第五条、第六条、第七条及上海2025版负面清单说明为依据。关于“先看哪张清单”，报告给出上海2025版负面清单这一条件性回答，并注明该清单适用于在上海市注册且在上海市开展数据出境活动的数据处理者、CIIO不适用；关于“能否自由出境”，因注册地、行业场景、用户数据是否含个人信息或敏感个人信息、累计数量、CIIO及重要数据状态均未确认，报告将legal_path留空、risk_level定为insufficient_evidence，符合当前事实与原文。第五条免予情形部分使用“还可能符合”并列出具体条件，未作确定结论，未发现与原文矛盾。\n各推荐动作总体与现有材料相符：应先取得2025版上海自贸试验区及临港新片区负面清单并按行业场景比对；关键信息基础设施运营者不适用该清单，但其出境个人信息或重要数据的安全评估义务仍须结合《促进和规范数据跨境流动规定》第七条的例外和衔接判断，报告单元1的表述过宽；同时应核对个人信息数量阈值、重要数据识别、出口管制衔接及个人信息保护法一般要求。现有事实不足以判断数据能否自由出境，背景未作确定结论。\n四个风险边界单元分别与材料事实缺口、第六条免程序范围、上海2025版清单适用范围及重要数据条目、第二条重要数据识别申报义务相符，未发现超出原文的结论。\n未获支持的断言：\nrecommended_actions:1「若公司属关键信息基础设施运营者且向境外提供个人信息或重要数据，则应按《促进和规范数据跨境流动规定》第七条申报数据出境安全评估。」: 2025版清单确载关键信息基础设施运营者不适用本清单；但《促进和规范数据跨境流动规定》第七条在列明关键信息基础设施运营者申报安全评估情形后，明确“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”。该单元将关键信息基础设施运营者出境个人信息或重要数据直接表述为应按第七条申报，未在句中保留该例外和衔接，作为强制义务结论过宽。",
+            "missing_facts": [
+              "公司是否在上海市注册并在上海开展该次数据出境活动",
+              "公司所属行业与具体业务场景",
+              "所涉用户数据是否包含个人信息，尤其是否包含敏感个人信息",
+              "公司是否被认定为关键信息基础设施运营者",
+              "拟出境数据是否被相关部门、地区告知或公开发布为重要数据",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）",
+              "出境目的地及境外接收方",
+              "公司在沪注册及数据出境活动发生地",
+              "所属行业或具体业务场景",
+              "用户数据是否包含个人信息、敏感个人信息及年度数量",
+              "关键信息基础设施运营者与重要数据状态"
+            ]
+          },
+          "completed": false,
+          "verifier_calls": [
+            {
+              "call_id": 20,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "status": "supported",
+                "claim_checks": [
+                  {
+                    "claim_index": 0,
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第六条明确，自贸试验区数据处理者向境外提供负面清单外数据，可免予申报安全评估、订立标准合同、通过认证。材料确认企业在上海自贸区开展业务并涉及用户数据出境；报告只要求先比对所适用的上海负面清单，未直接断言本案数据一定在清单外，条件表述与原文一致。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 1,
+                    "status": "supported",
+                    "reason": "第七条原文规定的申报条件包括：CIIO提供个人信息或重要数据；非CIIO提供重要数据；累计100万人以上非敏感个人信息或1万人以上敏感个人信息。该条末句规定属于第三条至第六条情形的从其规定。报告据此把CIIO身份、重要数据、累计数量和第六条清单外情形列为判断前提，与原文一致。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 2,
+                    "status": "supported",
+                    "reason": "第五条列举了合同必需、跨境人力资源管理、紧急情况、非CIIO累计不满10万人非敏感个人信息等免予三项程序的情形，并排除重要数据。报告使用“还可能符合”并同时列明具体情形，未把“未达第七条阈值”直接等同于当然免予；该主张作为条件性说明有原文依据。",
+                    "missing_facts": []
+                  },
+                  {
+                    "claim_index": 3,
+                    "status": "supported",
+                    "reason": "第二条要求数据处理者按规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估。报告据此要求核实告知或发布状态并继续履行识别义务，未把申报豁免扩大为识别义务豁免，与原文一致。",
+                    "missing_facts": []
+                  }
+                ],
+                "report_checks": [],
+                "conclusion_reason": "摘要、正文、触发理由和四项claims均以《促进和规范数据跨境流动规定》第二条、第五条、第六条、第七条及上海2025版负面清单说明为依据。关于“先看哪张清单”，报告给出上海2025版负面清单这一条件性回答，并注明该清单适用于在上海市注册且在上海市开展数据出境活动的数据处理者、CIIO不适用；关于“能否自由出境”，因注册地、行业场景、用户数据是否含个人信息或敏感个人信息、累计数量、CIIO及重要数据状态均未确认，报告将legal_path留空、risk_level定为insufficient_evidence，符合当前事实与原文。第五条免予情形部分使用“还可能符合”并列出具体条件，未作确定结论，未发现与原文矛盾。",
+                "missing_facts": [
+                  "公司是否在上海市注册并在上海开展该次数据出境活动",
+                  "公司所属行业与具体业务场景",
+                  "所涉用户数据是否包含个人信息，尤其是否包含敏感个人信息",
+                  "公司是否被认定为关键信息基础设施运营者",
+                  "拟出境数据是否被相关部门、地区告知或公开发布为重要数据",
+                  "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）",
+                  "出境目的地及境外接收方"
+                ]
+              }
+            },
+            {
+              "call_id": 21,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "recommended_actions:0",
+                    "status": "supported",
+                    "reason": "现有材料显示2025版上海自贸试验区及临港新片区数据出境负面清单存在，并按行业领域列示场景和数据项；在已知公司在上海自贸区开展业务且涉及用户数据出境的前提下，先取得全文并按行业比对是适当的核对步骤。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:c4aa478c56f672ff2083e6e9",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:dd128173a8c6d571b99b54d0"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:1",
+                    "status": "unsupported",
+                    "reason": "2025版清单确载关键信息基础设施运营者不适用本清单；但《促进和规范数据跨境流动规定》第七条在列明关键信息基础设施运营者申报安全评估情形后，明确“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”。该单元将关键信息基础设施运营者出境个人信息或重要数据直接表述为应按第七条申报，未在句中保留该例外和衔接，作为强制义务结论过宽。",
+                    "quote": "若公司属关键信息基础设施运营者且向境外提供个人信息或重要数据，则应按《促进和规范数据跨境流动规定》第七条申报数据出境安全评估。",
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": "第七条第三至六条例外及衔接未在句中保留。"
+                  },
+                  {
+                    "target": "recommended_actions:2",
+                    "status": "supported",
+                    "reason": "安全评估与标准合同／认证的适用均以自当年1月1日起累计出境个人信息数量为重要判断基础；答记者问明确数量按自然人去重统计，标准合同备案指南亦列明非敏感与敏感个人信息的数量阈值。梳理数据项并分别统计数量是判断阈值的适当步骤。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                      "cac_cross_border_flow_rules_qna_2024:a9088a6c15b4283352735899",
+                      "cac_personal_info_export_standard_contract_filing_guide_v2_2024:59cadac2dc92afd441931a2b"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:3",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第二条要求按相关规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估。核实是否被告知或公开发布为重要数据与原文一致。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9",
+                      "cac_data_export_policy_qna_2025_04:816351acd439a0f253b2ae47"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:4",
+                    "status": "supported",
+                    "reason": "2025版负面清单说明第四部分明确，清单涉及的行业、领域中如涉及《出口管制法》规定的管制物项相关技术资料或《对外贸易法》规定的技术出口管理事项等数据出境，按相应法律法规、规章执行。该建议保留了“如涉及”的条件，与原文一致。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:5",
+                    "status": "supported",
+                    "reason": "该单元是补充核对建议，并未就个人信息处理作实体法律判断；现有材料中仅有答记者问转引《个人信息保护法》第六条、第十九条，未提供完整的一般要求条文，保留另行核对是适当的。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_data_export_policy_qna_2025_04:62977471d0b46a6204104285"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  }
+                ],
+                "conclusion_reason": "各推荐动作总体与现有材料相符：应先取得2025版上海自贸试验区及临港新片区负面清单并按行业场景比对；关键信息基础设施运营者不适用该清单，但其出境个人信息或重要数据的安全评估义务仍须结合《促进和规范数据跨境流动规定》第七条的例外和衔接判断，报告单元1的表述过宽；同时应核对个人信息数量阈值、重要数据识别、出口管制衔接及个人信息保护法一般要求。现有事实不足以判断数据能否自由出境，背景未作确定结论。"
+              }
+            },
+            {
+              "call_id": 22,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "risk_boundaries:0",
+                    "status": "supported",
+                    "reason": "材料仅显示“在上海自贸区开展业务”“涉及用户数据出境”，未确认在沪注册、具体行业场景、用户数据是否属个人信息及数量、CIIO与重要数据状态；第六条负面清单免程序及第七条评估条件均依赖这些前提，故不能据此认定可自由出境。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "material_snapshot_289c106ae665458f",
+                      "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c"
+                    ],
+                    "missing_facts": [
+                      "公司在沪注册及数据出境活动发生地",
+                      "所属行业或具体业务场景",
+                      "用户数据是否包含个人信息、敏感个人信息及年度数量",
+                      "关键信息基础设施运营者与重要数据状态"
+                    ],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:1",
+                    "status": "supported",
+                    "reason": "第六条第二款仅规定负面清单外数据可免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证；单元将免予范围限定为这三项，并对其他法律义务不作结论，符合原文。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:2",
+                    "status": "supported",
+                    "reason": "上海2025版清单适用范围明确“关键信息基础设施运营者不适用本清单”，且再保险领域清单列有重要数据条目；第七条将重要数据出境纳入安全评估，故涉及重要数据应结合清单条目和第七条判断。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:dd128173a8c6d571b99b54d0",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:3",
+                    "status": "supported",
+                    "reason": "第二条原文先规定数据处理者应按相关规定识别、申报重要数据，后句仅规定未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估；单元对“仅解决申报豁免”的理解符合原文。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  }
+                ],
+                "conclusion_reason": "四个风险边界单元分别与材料事实缺口、第六条免程序范围、上海2025版清单适用范围及重要数据条目、第二条重要数据识别申报义务相符，未发现超出原文的结论。"
+              }
+            }
+          ]
+        },
+        {
+          "submission": 6,
+          "step": 11,
+          "call_id": 23,
+          "draft": {
+            "risk_level": "insufficient_evidence",
+            "decision_summary": "在上海自贸区开展业务的企业拟向境外提供用户数据，应先对照《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》并按行业场景比对数据项；清单外数据依《促进和规范数据跨境流动规定》第六条可免予三项程序，但能否自由出境仍取决于注册地、行业场景、个人信息数量、CIIO与重要数据状态，现不能确定。",
+            "legal_path": null,
+            "conclusion": "第一，关于“先看哪张清单”：应优先查阅《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》。该清单说明其适用于在上海市注册且在上海市开展数据出境活动的数据处理者，并明确关键信息基础设施运营者不适用本清单；清单按行业领域分章列明需要纳入安全评估、标准合同、个人信息保护认证管理的数据项，从已读取原文看，清单同时列有重要数据条目（如再保险领域第一章即列“需要通过数据出境安全评估的数据清单”中的重要数据项）与个人信息条目。清单未涉及的行业、领域数据，仍按《网络数据安全管理条例》《数据出境安全评估办法》《个人信息出境标准合同办法》《促进和规范数据跨境流动规定》等执行。\n\n第二，负面清单机制：《促进和规范数据跨境流动规定》第六条规定，自由贸易试验区可自行制定负面清单，区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。故操作顺序为：先确认公司及该次出境活动是否落入上海清单适用对象（在上海市注册、在沪开展数据出境、非关键信息基础设施运营者），再按公司所属行业与具体场景逐项比对清单列明的数据项；落入清单条目的按清单对应层级办理安全评估或标准合同／认证，属于清单外数据的可主张免予上述三项程序。\n\n第三，其他分支：《促进和规范数据跨境流动规定》第七条规定，关键信息基础设施运营者向境外提供个人信息或重要数据、非关键信息基础设施运营者向境外提供重要数据、或自当年1月1日起累计向境外提供100万人以上非敏感个人信息／1万人以上敏感个人信息的，应当申报数据出境安全评估；该条末句又规定属于第三条、第四条、第五条、第六条情形的从其规定，故若该次出境已落入第六条清单外免予等情形，则不按上述阈值申报评估。重要数据方面，第二条规定数据处理者应按相关规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报数据出境安全评估——该条解决的是申报义务的豁免，不等于免除识别义务。若公司非关键信息基础设施运营者且累计未达上述阈值，还可能符合第五条列举的免予三项程序情形（为订立、履行个人作为一方当事人的合同所必需、跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息等，所涉个人信息不含重要数据）。\n\n综上，“先看哪张清单”可确定回答为2025版上海负面清单；但“能不能自由传到境外”尚不能定论：材料仅确认公司在上海自贸区开展业务并涉及用户数据出境，注册地是否在上海、所属行业场景、用户数据是否含个人信息及敏感个人信息、累计数量、关键信息基础设施运营者与重要数据状态均未确认，故风险等级为证据不足。本次未取得《个人信息保护法》告知、同意及个人信息保护影响评估等一般义务的条文，未作判断，仅提示另行核对。",
+            "claims": [
+              {
+                "text": "自贸试验区实行负面清单制度：自贸试验区内数据处理者向境外提供负面清单外的数据，可以免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证。本案企业在上海自贸区开展业务，其拟出境数据应据此先确定是否落入所适用的上海负面清单条目；若属清单外数据，可主张免予上述三项程序。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "《促进和规范数据跨境流动规定》第七条规定，关键信息基础设施运营者向境外提供个人信息或重要数据，非关键信息基础设施运营者向境外提供重要数据，或自当年1月1日起累计向境外提供100万人以上非敏感个人信息／1万人以上敏感个人信息的，应当申报数据出境安全评估；该条末句规定属于第三条、第四条、第五条、第六条情形的从其规定。故本案是否须申报评估，取决于CIIO身份、是否涉及重要数据、累计个人信息数量，并需先判断是否已落入第六条清单外免予等情形。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "若本案企业非关键信息基础设施运营者、所涉个人信息不含重要数据且累计数量未达第七条阈值，则还可能符合第五条列举的免予三项程序情形（为订立、履行个人作为一方当事人的合同所必需、依劳动规章制度实施跨境人力资源管理、紧急情况、累计不满10万人非敏感个人信息），此时无需申报安全评估、订立标准合同或通过认证。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:c2c5c56e259482fc9b3f49dd"
+                ],
+                "supporting_citation_refs": []
+              },
+              {
+                "text": "重要数据方面，第二条规定数据处理者应当按照相关规定识别、申报重要数据，并明确未被相关部门、地区告知或者公开发布为重要数据的，数据处理者不需要作为重要数据申报数据出境安全评估。据此，本案应核实拟出境用户数据是否被相关部门、地区告知或公开发布为重要数据，并履行识别义务；若未被如此告知或发布，则不因重要数据而申报评估，但仍需按相关规定完成识别。",
+                "supporting_chunk_ids": [
+                  "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                ],
+                "supporting_citation_refs": []
+              }
+            ],
+            "trigger_reasons": [
+              "材料确认公司在上海自贸区开展业务，且涉及用户数据出境，需先确定所适用的数据出境负面清单",
+              "上海已就自贸试验区及临港新片区（并覆盖国家服务业扩大开放综合试点地区（上海））发布2025版数据出境负面清单，需按行业场景逐项比对",
+              "用户数据是否含个人信息、累计出境数量、CIIO与重要数据状态均未确认，直接影响可否免予三项程序"
+            ],
+            "missing_information": [
+              "公司是否在上海市注册并在上海市开展该次数据出境活动（2025版上海清单的适用前提）",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）",
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息",
+              "公司是否被认定为关键信息基础设施运营者",
+              "拟出境数据是否被相关部门、地区告知或者公开发布为重要数据",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方"
+            ],
+            "missing_answer_types": {
+              "公司是否在上海市注册并在上海市开展该次数据出境活动（2025版上海清单的适用前提）": "choice",
+              "公司所属行业与具体业务场景（用于定位上海2025版负面清单对应章节与数据项）": "text",
+              "所涉“用户数据”是否包含个人信息，尤其是否包含敏感个人信息": "choice",
+              "公司是否被认定为关键信息基础设施运营者": "choice",
+              "拟出境数据是否被相关部门、地区告知或者公开发布为重要数据": "choice",
+              "自当年1月1日起累计出境的个人信息数量（非敏感与敏感分别、按自然人去重）及出境目的地、境外接收方": "text"
+            },
+            "recommended_actions": [
+              "取得《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》全文，按公司行业领域定位对应章节，逐项比对拟出境数据项。",
+              "确认公司是否为关键信息基础设施运营者：上海2025版负面清单明确关键信息基础设施运营者不适用本清单。若属于关键信息基础设施运营者，须结合《促进和规范数据跨境流动规定》第七条判断其向境外提供个人信息或重要数据是否应申报数据出境安全评估；该条同时规定属于第三条、第四条、第五条、第六条规定情形的从其规定，故不能仅凭CIIO身份径行认定必须申报。",
+              "梳理拟出境数据项清单与自当年1月1日起累计出境个人信息数量（按自然人去重，敏感与非敏感分别统计），以判断是否触及安全评估或标准合同／认证阈值。",
+              "按相关规定识别拟出境数据是否属于重要数据，并核实是否被相关部门、地区告知或公开发布为重要数据。",
+              "如清单涉及的行业领域同时涉及《出口管制法》规定的管制物项技术资料或《对外贸易法》规定的技术出口管理事项，按该等法律法规执行。",
+              "另行核对《个人信息保护法》等对个人信息处理的一般要求；本次未取得相关条文，未作法律判断。"
+            ],
+            "risk_boundaries": [
+              "本结论未确认公司在沪注册与出境活动发生地、所属行业场景、个人信息性质与数量、CIIO及重要数据状态，故“能否自由出境”仍不能定论。",
+              "负面清单外免予程序依第六条仅涉及数据出境安全评估、个人信息出境标准合同、个人信息保护认证三项；是否还涉及其他法律义务，本次未取得条文，不作结论。",
+              "上海2025版清单本身列有重要数据条目，仅关键信息基础设施运营者被明确排除；涉及重要数据时应按清单对应条目或《促进和规范数据跨境流动规定》第七条判断是否须申报安全评估。",
+              "第二条关于“未被告知或公开发布为重要数据的不需作为重要数据申报评估”只解决申报豁免，不免除数据处理者按相关规定识别、申报重要数据的义务。"
+            ],
+            "issues": [],
+            "web_impact": "none",
+            "material_web_urls": []
+          },
+          "changed_fields": [
+            "recommended_actions"
+          ],
+          "feedback": null,
+          "completed": true,
+          "verifier_calls": [
+            {
+              "call_id": 24,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "status": "supported",
+                "claim_checks": [
+                  {
+                    "claim_index": 0,
+                    "status": "supported",
+                    "reason": "与《促进和规范数据跨境流动规定》第六条第二款一致：自贸试验区内数据处理者向境外提供负面清单外数据，可免予申报安全评估、订立标准合同、通过认证。材料确认公司在上海自贸区开展业务并涉及用户数据出境，故先比对上海负面清单的条件性判断成立。"
+                  },
+                  {
+                    "claim_index": 1,
+                    "status": "supported",
+                    "reason": "与第七条原文一致，准确转述了CIIO向境外提供个人信息或重要数据、非CIIO向境外提供重要数据、以及100万人以上非敏感个人信息/1万人以上敏感个人信息的评估申报条件，并保留“第三条至第六条从其规定”的衔接。"
+                  },
+                  {
+                    "claim_index": 2,
+                    "status": "supported",
+                    "reason": "与第五条一致，列举了合同必需、跨境人力资源管理、紧急情况、非CIIO累计不满10万人非敏感个人信息等免予三项程序情形，并保留“所涉个人信息不含重要数据”的限制；使用“还可能符合”而非断言必然适用，未越出原文。"
+                  },
+                  {
+                    "claim_index": 3,
+                    "status": "supported",
+                    "reason": "与第二条原文一致：数据处理者应识别、申报重要数据；未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估。报告同时指出不免除识别义务，未将申报豁免扩大为识别义务豁免。"
+                  }
+                ],
+                "report_checks": [],
+                "conclusion_reason": "draft对“先看哪张清单”的回答有《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》说明部分及《促进和规范数据跨境流动规定》第六条支撑；对“能否自由传到境外”未作确定结论，而是以材料仅确认上海自贸区业务及用户数据出境、注册地/行业场景/是否含个人信息及敏感个人信息/累计数量/CIIO/重要数据状态均未确认为由保持证据不足，与现有事实和原文相符。legal_path留空亦符合关键事实不足时只宜保留分支判断的要求。",
+                "missing_facts": [
+                  "公司是否在上海市注册并在上海市开展该次数据出境活动",
+                  "公司所属行业与具体业务场景",
+                  "所涉用户数据是否包含个人信息，尤其是否包含敏感个人信息",
+                  "自当年1月1日起累计出境的个人信息数量及计算口径",
+                  "公司是否被认定为关键信息基础设施运营者",
+                  "拟出境数据是否被相关部门、地区告知或者公开发布为重要数据"
+                ]
+              }
+            },
+            {
+              "call_id": 25,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "recommended_actions:0",
+                    "status": "supported",
+                    "reason": "材料显示公司在上海自贸区开展业务并涉及用户数据出境；2025版负面清单适用于在上海市注册且在上海开展数据出境活动的数据处理者，并按行业领域列明场景和数据项，因此先取得该清单并按行业定位、逐项比对是确定负面清单归属的前置步骤。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "material_snapshot_289c106ae665458f",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:e954a6a4cc7539f73dc696ea",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:31910928804c77ab395ced55"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:1",
+                    "status": "supported",
+                    "reason": "2025版清单明确关键信息基础设施运营者不适用本清单；《促进和规范数据跨境流动规定》第七条以CIIO向境外提供个人信息或重要数据为申报条件，并保留属于第三条至第六条情形从其规定的衔接，故建议核对CIIO身份并结合第七条判断、不能仅凭身份径行认定必须申报，符合原文。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:2",
+                    "status": "supported",
+                    "reason": "第七条及答记者问明确按自然人去重、区分敏感与非敏感个人信息计算累计数量，并规定达到相应数量应申报安全评估或适用标准合同、认证；答记者问同时说明第三至第六条等情形不计入累计，单元作为梳理数量以判断阈值的前置步骤成立。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                      "cac_cross_border_flow_rules_qna_2024:a9088a6c15b4283352735899",
+                      "cac_cross_border_flow_rules_qna_2024:06a67add73be2e25536b8500"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:3",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第二条要求按相关规定识别、申报重要数据，并明确未被相关部门、地区告知或公开发布为重要数据的，不需要作为重要数据申报安全评估；因此识别并核实告知、发布状态是判断重要数据申报义务的必要步骤。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9",
+                      "cac_data_export_policy_qna_2025_04:816351acd439a0f253b2ae47"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:4",
+                    "status": "supported",
+                    "reason": "2025版负面清单原文规定，负面清单涉及行业、领域中如涉及《出口管制法》规定的管制物项相关技术资料或《对外贸易法》规定的技术出口管理事项等数据出境，按该等法律法规、规章执行；该建议保留条件且与原文一致。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:6a0c8ef3edea3f7b8330501d"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "recommended_actions:5",
+                    "status": "supported",
+                    "reason": "authorities中没有《个人信息保护法》正式条文，仅有答记者问转引个别条文，不能替代对一般个人信息处理要求的核对；该单元仅建议另行核对并明确本次未作法律判断，属于保留性行动。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_data_export_policy_qna_2025_04:62977471d0b46a6204104285"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  }
+                ],
+                "conclusion_reason": "本案应先对照上海2025版数据出境负面清单，并按行业场景比对数据项。负面清单外可依《促进和规范数据跨境流动规定》第六条免予安全评估、标准合同、认证三项程序，但能否自由出境仍取决于注册地、CIIO身份、重要数据状态和个人信息累计数量等条件；现有材料未确定这些事实，故报告单元均为前置核对或条件性建议，成立。"
+              }
+            },
+            {
+              "call_id": 26,
+              "retry": false,
+              "retry_feedback": null,
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "risk_boundaries:0",
+                    "status": "supported",
+                    "reason": "材料仅提取到公司在上海自贸区开展业务、涉及用户数据出境；2025版清单适用于在上海市注册且在上海市开展数据出境活动的数据处理者，且明确CIIO不适用；能否自由出境还取决于个人信息、重要数据、数量及CIIO状态。故该风险边界成立。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "material_snapshot_289c106ae665458f",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e",
+                      "cac_cross_border_flow_rules_qna_2024:b1a0129cc0809693ae7a56d5"
+                    ],
+                    "missing_facts": [
+                      "公司在沪注册情况及出境活动实际发生地",
+                      "所属行业场景",
+                      "用户数据是否包含个人信息及敏感个人信息、年度出境数量",
+                      "是否为CIIO或涉及重要数据"
+                    ],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:1",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第六条对自贸试验区负面清单外数据仅规定免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证三项程序；该单元未就其他法律义务下结论，符合原文边界。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d",
+                      "cac_cross_border_flow_rules_qna_2024:eb947cc3825ea4367fa4a9cb"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:2",
+                    "status": "supported",
+                    "reason": "2025版清单说明明确关键信息基础设施运营者不适用，再保险部分列有“重要数据”条目；第七条对重要数据及达到门槛的个人信息出境安全评估申报作出规定。该单元以“涉及重要数据时”作条件判断，成立。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:dd128173a8c6d571b99b54d0",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [
+                      "公司是否为关键信息基础设施运营者",
+                      "用户数据是否被认定为重要数据"
+                    ],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:3",
+                    "status": "supported",
+                    "reason": "第二条先规定数据处理者应当按照相关规定识别、申报重要数据，后句仅规定未被相关部门、地区告知或者公开发布为重要数据时，不需要作为重要数据申报数据出境安全评估；不能据此免除识别、申报义务。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  }
+                ],
+                "conclusion_reason": "四项均为风险边界或条件性说明：第1项因关键事实缺失不能定论；第2项准确限定第六条免程序范围；第3项准确反映清单重要数据条目及CIIO排除，并以重要数据为条件；第4项准确区分重要数据识别申报义务与安全评估申报豁免。未发现与原文冲突，均支持。"
+              }
+            },
+            {
+              "call_id": 27,
+              "retry": true,
+              "retry_feedback": "上一轮 JSON 通过了 schema，但业务校验失败。请只重新输出符合 schema 的 JSON，不要解释。 validation_error=栏目核验使用了未取得的证据编号",
+              "authorities_returned_to_agent": true,
+              "authority_texts_exposed_to_agent": true,
+              "response": {
+                "checks": [
+                  {
+                    "target": "risk_boundaries:0",
+                    "status": "supported",
+                    "reason": "事实账本仅记载公司在上海自贸区开展业务并涉及用户数据出境，未确认注册地、行业场景、个人信息性质与数量、CIIO及重要数据状态；结论据此保留不确定性，符合现有事实。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "material_snapshot_289c106ae665458f"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:1",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第六条原文仅规定负面清单外数据可免予申报数据出境安全评估、订立个人信息出境标准合同、通过个人信息保护认证三项，未提及其他法律义务；本句保留未取得其他条文依据的判断，与原文一致。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:61368ea4d70fdb8af3104d5d"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:2",
+                    "status": "supported",
+                    "reason": "上海2025版清单说明明确关键信息基础设施运营者不适用本清单，且清单中再保险等领域列有重要数据条目；《促进和规范数据跨境流动规定》第七条列明重要数据申报安全评估的条件，本句判断有原文依据。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c",
+                      "shanghai_free_trade_zone_data_export_negative_list_2025:dd128173a8c6d571b99b54d0",
+                      "cac_cross_border_data_flow_rules_2024:52ec835a9967001c8934f41e"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  },
+                  {
+                    "target": "risk_boundaries:3",
+                    "status": "supported",
+                    "reason": "《促进和规范数据跨境流动规定》第二条先要求数据处理者识别、申报重要数据，再规定未被告知或公开发布为重要数据的不需作为重要数据申报安全评估；本句准确区分申报豁免与识别、申报义务，未将豁免扩大为免除识别义务。",
+                    "quote": null,
+                    "evidence_ids": [
+                      "cac_cross_border_data_flow_rules_2024:13e3897d89e4cba9277564c9"
+                    ],
+                    "missing_facts": [],
+                    "missing_basis": null
+                  }
+                ],
+                "conclusion_reason": "四个风险边界单元均有现有事实账本或法条原文支持；未确认事实导致能否自由出境不能定论，程序豁免仅限三项，上海清单重要数据条目及第二条识别申报义务的区分均有原文依据。"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "artifacts_sha256": {
+    "manifest.json": "aeaaf8053b1a739ce010c006c2373a78ec1db9c282fdd69e80bf2330341fbb36",
+    "model_calls.jsonl": "9dd985a8930ba43df4c3668d0abd3f0275b359877249cc5c3182f1ac56fafd97",
+    "eval_shanghai_001\\state.json": "f76ebfd291aef93466a2df54aa356eb41e9a359844d15362dc1f2205869bf003"
+  },
+  "limits": "Saved outputs and input continuity only; classifications require manual review. No legal regrading or model invocation."
+}

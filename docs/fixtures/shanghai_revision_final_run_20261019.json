@@ -1,0 +1,76 @@
+{
+  "base_commit": "6315ca837ae798281d5db9fe6f3215a70335e8bf",
+  "status": "succeeded",
+  "overall_pass": true,
+  "risk_level": "insufficient_evidence",
+  "legal_path": null,
+  "evidence_self_check": {
+    "status": "insufficient",
+    "issues": [
+      {
+        "issue_type": "critical_facts_missing",
+        "description": "报告缺口栏目包含 5 项待核事实，具体内容保留在该来源记录中。"
+      },
+      {
+        "issue_type": "critical_facts_missing",
+        "description": "独立核验记录包含 11 项待核事实，具体内容保留在该来源记录中。"
+      }
+    ],
+    "triggered_reasons": [
+      "报告缺口栏目仍有待核事实",
+      "独立核验记录仍有待核事实"
+    ],
+    "second_retrieval_triggered": false,
+    "second_retrieval_plan": null
+  },
+  "turns": 12,
+  "reads": 5,
+  "finish_attempts": 6,
+  "usage": {
+    "prompt_tokens": 560437,
+    "completion_tokens": 104873,
+    "total_tokens": 665310,
+    "prompt_cache_hit_tokens": 325888,
+    "prompt_cache_miss_tokens": 234549
+  },
+  "completed_calls": 25,
+  "failed_calls": [],
+  "facts_input_unchanged": true,
+  "production_and_corpus_unchanged": true,
+  "working_tree_patch": {
+    "baseline_commit": "6315ca837ae798281d5db9fe6f3215a70335e8bf",
+    "patch_sha256": "2bea2da04e6633dec8086617ff4762ebb3285efba3f7adc9fb5a0fee57a7965a",
+    "free_backend_tests": 706,
+    "free_frontend_tests": 9,
+    "previous_run": "data/review_runs/navigation_shanghai_latest_20261019"
+  },
+  "latency_ms": 489302,
+  "rejections": [
+    {
+      "step": 7,
+      "error": "法律主张引用了不可作为正式法条的材料：['shanghai_free_trade_zone_data_export_negative_list_2025:aa7a92f2c704b3c70f75359c']。对应 claim 文本：上海2025版数据出境负面清单（覆盖上海自贸试验区及临港新片区、国家服务业扩大开放综合试点地区即上海市全域）适用于在上海市注册且在上海市开展数据出境活动的数据处理者，关键信息基础设施运营者不适用该清单；故本案主体是否属CIIO会影响能否使用该清单。。请删除这条 claim，或移除其中的不可引用 chunk；可在 conclusion 中准确说明参考性材料的文本内容与待核条件，但不要把它放进 claims。正式法律 claims只引用 can_cite_clause=true 的法条。",
+      "reason": null
+    },
+    {
+      "step": 8,
+      "error": null,
+      "reason": "草稿的claims及摘要、触发理由大体有原文支持，但正文结论末段将“清单外数据”与“清单未涉及行业”并列，称二者均需再按国家层面门槛判断；这与《促进和规范数据跨境流动规定》第六条“负面清单外的数据可以免予申报安全评估、订立标准合同、通过认证”直接矛盾。此外，上海2025版负面清单适用于在上海市注册的数据处理者，材料仅称在上海自贸区开展业务，注册地尚未确认，报告未将其列为缺口。故整体不能判为supported。"
+    },
+    {
+      "step": 9,
+      "error": null,
+      "reason": "claims 0-4均与所引条文基本一致；摘要、触发理由和缺口说明也与材料及法源相符，风险等级insufficient_evidence适当。但正文第三部分将第五条第（四）项“不满10万人个人信息（不含敏感个人信息）”转述为“不含需评估情形”，改变了法定条件，属于核心报告字段中的法律转述错误，故整体不能评为supported。"
+    },
+    {
+      "step": 10,
+      "error": null,
+      "reason": "draft摘要、正文、触发理由与claims均以《促进和规范数据跨境流动规定》第三条、第五条、第六条、第七条、第二条及上海2025版负面清单说明为依据；关键事实（注册地、行业领域、个人信息/敏感个人信息、年度数量、CIIO/重要数据）未确认，故legal_path留空、risk_level为insufficient_evidence、结论作条件性回答均有依据。摘要未逐项列明CIIO/重要数据条件，但正文和缺失信息已补充，且未作出绝对结论，不构成实质错误。\n报告单元整体与上海2025版负面清单适用前提及《促进和规范数据跨境流动规定》第五条、第六条、第七条的衔接一致；因注册地、行业、个人信息数量、关键信息基础设施运营者或重要数据、接收方等事实未确认，建议先补事实再判断，属审慎且可核对，未发现超出原文的确定义务。\n五个风险边界中，单元0、1、3、4与原文及已确认事实相符；单元2前半关于上海清单排除关键信息基础设施运营者的表述有据，但后半将关键信息基础设施运营者向境外提供个人信息或重要数据无条件表述为“仍应申报安全评估”，未保留第七条但书及第五条免予情形，故不支持。\n未获支持的断言：\nrisk_boundaries:2「其向境外提供个人信息或重要数据仍应申报安全评估（第七条）」: 上海2025版清单说明确有关键信息基础设施运营者不适用该清单的表述，但《促进和规范数据跨境流动规定》第七条在列明关键信息基础设施运营者申报安全评估情形后，明确“属于本规定第三条、第四条、第五条、第六条规定情形的，从其规定”；第五条对合同履行、跨境人力资源管理、紧急情况等个人信息出境规定了免予情形且未一概排除关键信息基础设施运营者。本句未保留该等例外，直接称“仍应申报安全评估”过于绝对。"
+    },
+    {
+      "step": 11,
+      "error": null,
+      "reason": "draft的摘要、正文、触发理由及缺口与冻结材料和所引原文一致：明确上海（含临港）业务应先对照《中国（上海）自由贸易试验区及临港新片区、国家服务业扩大开放综合试点地区（上海）数据出境管理清单（负面清单）（2025版）》，并以《促进和规范数据跨境流动规定》第六条作为负面清单外数据免予三项程序的基础；因注册地、行业领域、个人信息含量、年度数量、CIIO及重要数据状态等关键事实未确认，报告仅作条件性回答，legal_path留空且risk_level为insufficient_evidence，处理适当。未发现与给定原文或冻结材料的具体矛盾。\n各报告单元均为事实缺口提示、核对清单或咨询准备建议；现有材料只确认在上海自贸区开展业务并涉及用户数据出境，注册地、行业领域、个人信息属性与数量、关键信息基础设施运营者及重要数据状态、接收方与目的地均未确认，因此尚不能得出数据可自由出境的结论，相关核实建议成立。\n五项风险边界中，第0、1、3、4项有原文或来源性质支撑；第2项将个人信息与重要数据合并并提数量核对，超出原文对CIIO重要数据的要求，需限定。上海清单不能单独作为正式法定义务依据，最终结论仍取决于未确认的注册地、行业、个人信息属性、数量及CIIO/重要数据状态。\n未获支持的断言：\nrisk_boundaries:2「故不能一概认定关键信息基础设施运营者的个人信息或重要数据出境均须申报安全评估，仍须结合具体场景与数量逐条核对」: 上海2025版清单确写明关键信息基础设施运营者不适用；第七条第二款也保留第三条至第六条情形。但第五条免予情形针对个人信息，且明确不含重要数据；对CIIO重要数据，第七条第一款仍要求申报安全评估，数量核对只适用于个人信息。该句将个人信息与重要数据合并并提数量核对，超出原文支持范围。"
+    }
+  ],
+  "limits": "One stochastic run; same-model candidate judge; not human legal review or causal efficiency evidence."
+}
