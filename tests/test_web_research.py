@@ -17,6 +17,7 @@ from law_agent.review.web_research import (
     ExaSearchClient,
     WebFinding,
     WebResearch,
+    WebSearchBatch,
     WebSearchResult,
     WebSearchUnavailable,
     build_web_search_client,
@@ -54,7 +55,7 @@ def test_official_content_is_visible_but_never_joins_evidence() -> None:
     state = run_agent(
         AgentState(goal="审查"), material="", intake={},
         decide=decide, search=lambda *_: [],
-        web_search=lambda *_: [finding], on_web_findings=enqueued.extend,
+        web_search=lambda *_: WebSearchBatch(findings=[finding]), on_web_findings=enqueued.extend,
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert state.evidence == []
@@ -77,7 +78,7 @@ def test_web_search_alone_does_not_enqueue_irrelevant_official_result() -> None:
     run_agent(
         AgentState(goal="审查"), material="", intake={},
         decide=lambda *_: next(decisions), search=lambda *_: [],
-        web_search=lambda *_: [finding], on_web_findings=enqueued.extend,
+        web_search=lambda *_: WebSearchBatch(findings=[finding]), on_web_findings=enqueued.extend,
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert enqueued == []
@@ -95,12 +96,13 @@ def test_known_official_url_returns_governed_source_id() -> None:
             text="搜索摘录",
         )]),
         corpus_chunks=[chunk],
-    ).search([query()])
+    ).search([query()]).findings
     assert findings[0].known_source_id == "old"
     assert findings[0].excerpt == "搜索摘录"
     assert findings[0].refresh_needed
     assert set(findings[0].model_dump()) == {
         "title", "url", "excerpt", "known_source_id", "published_date", "refresh_needed", "is_official",
+        "excerpt_type", "excerpt_truncated", "excerpt_query_id", "published_after_as_of",
     }
 
     hit = RetrievalHit(
@@ -116,7 +118,7 @@ def test_known_official_url_returns_governed_source_id() -> None:
     ])
     state = run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [hit], web_search=lambda *_: findings,
+        search=lambda *_: [hit], web_search=lambda *_: WebSearchBatch(findings=findings),
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert state.evidence == [hit]
@@ -124,14 +126,16 @@ def test_known_official_url_returns_governed_source_id() -> None:
     assert state.steps[0].observation["findings"][0]["known_source_id"] == "old"
 
 
-def test_exa_requests_bounded_text_without_summary_llm() -> None:
+def test_exa_requests_query_highlights_without_summary() -> None:
     response = httpx.Response(200, json={"results": [{
-        "url": "https://www.cac.gov.cn/new", "title": "新规", "text": "正文",
+        "url": "https://www.cac.gov.cn/new", "title": "新规", "highlights": ["正文"],
     }]}, request=httpx.Request("POST", "https://api.exa.ai/search"))
     with patch("law_agent.review.web_research.httpx.post", return_value=response) as post:
         results = ExaSearchClient(api_key="test").search("新规", max_results=2)
     payload = post.call_args.kwargs["json"]
-    assert payload["contents"]["text"]["maxCharacters"] == 1200
+    assert payload["contents"]["highlights"]["maxCharacters"] == 1200
+    assert payload["contents"]["highlights"]["query"] == "新规"
+    assert "text" not in payload["contents"]
     assert "summary" not in payload["contents"]
     assert "includeDomains" not in payload
     assert "excludeDomains" not in payload
@@ -143,8 +147,8 @@ def test_exa_requests_bounded_text_without_summary_llm() -> None:
 def test_no_excerpt_does_not_trigger_page_fetch() -> None:
     findings = WebResearch(client=FakeClient([
         WebSearchResult(url="https://www.cac.gov.cn/new", title="新规"),
-    ])).search([query()])
-    assert findings == [WebFinding(url="https://www.cac.gov.cn/new", title="新规")]
+    ])).search([query()]).findings
+    assert findings == [WebFinding(url="https://www.cac.gov.cn/new", title="新规", excerpt_query_id="q1")]
 
 
 def test_open_discovery_keeps_other_sites_without_official_identity() -> None:
@@ -152,13 +156,13 @@ def test_open_discovery_keeps_other_sites_without_official_identity() -> None:
         WebSearchResult(url="https://www.cac.gov.cn.evil.com/new", title="伪装域名"),
         WebSearchResult(url="https://www.cac.gov.cn@evil.com/new", title="用户名伪装"),
         WebSearchResult(url="https://www.cac.gov.cn/new", title="官方来源"),
-    ])).search([query()])
+    ])).search([query()]).findings
     assert {item.title for item in findings} == {"官方来源", "伪装域名"}
     assert next(item for item in findings if item.title == "官方来源").is_official
     assert not next(item for item in findings if item.title == "伪装域名").is_official
     assert WebResearch(client=FakeClient([
         WebSearchResult(url="https://[invalid", title="损坏 URL"),
-    ])).search([query()]) == []
+    ])).search([query()]).findings == []
 
 
 def test_newer_published_date_marks_existing_url_for_official_refresh() -> None:
@@ -170,7 +174,7 @@ def test_newer_published_date_marks_existing_url_for_official_refresh() -> None:
     finding = WebResearch(client=FakeClient([
         WebSearchResult(url=chunk.source_url, title=chunk.title,
                         text="原有条款", published_date="2026-09-01"),
-    ]), corpus_chunks=[chunk]).search([query()])[0]
+    ]), corpus_chunks=[chunk]).search([query()]).findings[0]
     assert finding.known_source_id == "old"
     assert finding.refresh_needed
     assert finding.published_date == "2026-09-01"
@@ -189,7 +193,7 @@ def test_known_url_with_refresh_signal_can_queue_official_check() -> None:
     queued = []
     run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [], web_search=lambda *_: [finding],
+        search=lambda *_: [], web_search=lambda *_: WebSearchBatch(findings=[finding]),
         on_web_findings=queued.extend, finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert queued == [finding]
@@ -219,7 +223,7 @@ def test_web_action_limit_is_two_and_query_limit_is_four() -> None:
     calls = []
     state = run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [], web_search=lambda *_: calls.append(True) or [],
+        search=lambda *_: [], web_search=lambda *_: calls.append(True) or WebSearchBatch(),
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert len(calls) == 5
@@ -236,7 +240,7 @@ def test_web_research_can_reach_fourth_query() -> None:
             return [WebSearchResult(url="https://www.cac.gov.cn/fourth", title="第四个查询结果")] if query == "规则 3" else []
 
     queries = [RetrievalQuery(query_id=f"q{i}", query_type="legal_issue", text=f"规则 {i}") for i in range(4)]
-    findings = WebResearch(client=FourthQueryClient()).search(queries)
+    findings = WebResearch(client=FourthQueryClient()).search(queries).findings
     assert sorted(calls) == sorted(q.text for q in queries)
     assert findings[0].title == "第四个查询结果"
 
@@ -262,8 +266,9 @@ def test_missing_provider_raises() -> None:
         def search(self, *_args, **_kwargs):
             raise WebSearchUnavailable("unavailable")
 
-    with pytest.raises(WebSearchUnavailable):
-        WebResearch(client=FailedClient()).search([query()])
+    result = WebResearch(client=FailedClient()).search([query()])
+    assert result.status == "failed" and result.findings == []
+    assert result.query_results[0].error == "unavailable"
 
 
 def test_populated_first_query_does_not_skip_other_queries() -> None:
@@ -276,7 +281,7 @@ def test_populated_first_query_does_not_skip_other_queries() -> None:
                     for i in range(max_results)]
 
     queries = [RetrievalQuery(query_id=f"q{i}", query_type="legal_issue", text=f"query{i}") for i in range(4)]
-    findings = WebResearch(client=Client()).search(queries, max_results=4)
+    findings = WebResearch(client=Client()).search(queries, max_results=4).findings
     assert sorted(calls) == [q.text for q in queries]
     assert [item.title for item in findings] == [q.text for q in queries]
     assert len(findings) == 4
@@ -289,7 +294,7 @@ def test_round_robin_deduplicates_without_losing_later_query() -> None:
                     WebSearchResult(url=f"https://example.org/{query}", title=query)]
 
     queries = [query(), query().model_copy(update={"query_id": "q2", "text": "另一争点"})]
-    findings = WebResearch(client=Client()).search(queries)
+    findings = WebResearch(client=Client()).search(queries).findings
     assert [item.url for item in findings] == [
         "https://example.org/shared#fragment", "https://example.org/另一争点", "https://example.org/数据出境新规",
     ]
@@ -298,10 +303,10 @@ def test_round_robin_deduplicates_without_losing_later_query() -> None:
 def test_official_priority_is_soft_and_other_sources_remain() -> None:
     results = [WebSearchResult(url=f"https://example.org/{i}", title=f"other{i}") for i in range(4)]
     results.insert(1, WebSearchResult(url="https://segg.sh.gov.cn/new", title="官方"))
-    findings = WebResearch(client=FakeClient(results)).search([query()])
+    findings = WebResearch(client=FakeClient(results)).search([query()]).findings
     assert [item.title for item in findings] == ["官方", "other0", "other1"]
     results.append(results.pop(1))
-    findings = WebResearch(client=FakeClient(results)).search([query()])
+    findings = WebResearch(client=FakeClient(results)).search([query()]).findings
     assert findings[0].title == "other0"
 
 
@@ -332,7 +337,7 @@ def test_third_party_finding_cannot_be_enqueued_as_official_source() -> None:
     queued = []
     state = run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [], web_search=lambda *_: [finding], on_web_findings=queued.extend,
+        search=lambda *_: [], web_search=lambda *_: WebSearchBatch(findings=[finding]), on_web_findings=queued.extend,
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert not queued
@@ -348,7 +353,7 @@ def test_partial_provider_failure_preserves_successful_query() -> None:
             return [WebSearchResult(url="https://example.org/result", title="可用线索")]
 
     queries = [query().model_copy(update={"text": "失败"}), query()]
-    assert WebResearch(client=Client()).search(queries)[0].title == "可用线索"
+    assert WebResearch(client=Client()).search(queries).findings[0].title == "可用线索"
 
 
 def test_query_overflow_is_reported_instead_of_silently_truncated() -> None:
@@ -376,7 +381,7 @@ def test_result_count_is_independent_of_query_count(query_count, max_results) ->
                     for i in range(max_results)]
 
     queries = [query().model_copy(update={"query_id": f"q{i}", "text": f"query{i}"}) for i in range(query_count)]
-    findings = WebResearch(client=Client()).search(queries, max_results=max_results)
+    findings = WebResearch(client=Client()).search(queries, max_results=max_results).findings
     assert len(calls) == query_count
     assert len(findings) == max_results
     assert len({item.url for item in findings}) == max_results
@@ -390,7 +395,7 @@ def test_default_count_does_not_expand_for_four_queries() -> None:
             return [WebSearchResult(url=f"https://example.org/{query}/{i}") for i in range(max_results)]
 
     queries = [query().model_copy(update={"text": f"query{i}"}) for i in range(4)]
-    assert len(WebResearch(client=Client()).search(queries)) == DEFAULT_WEB_RESULTS
+    assert len(WebResearch(client=Client()).search(queries).findings) == DEFAULT_WEB_RESULTS
 
 
 def test_available_results_may_be_fewer_than_requested_without_more_searches() -> None:
@@ -401,7 +406,7 @@ def test_available_results_may_be_fewer_than_requested_without_more_searches() -
             calls.append(query)
             return [WebSearchResult(url="https://example.org/shared")]
 
-    assert len(WebResearch(client=Client()).search([query()], max_results=8)) == 1
+    assert len(WebResearch(client=Client()).search([query()], max_results=8).findings) == 1
     assert len(calls) == 1
 
 

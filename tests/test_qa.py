@@ -210,7 +210,7 @@ def test_autonomous_search_and_read_direct_stream_without_review(monkeypatch):
 
 
 def test_qa_selected_web_count_reaches_provider_without_semantic_review(monkeypatch):
-    from law_agent.review.web_research import WebFinding
+    from law_agent.review.web_research import WebFinding, WebSearchBatch
 
     monkeypatch.setattr("law_agent.review.semantic_grounding.SemanticGroundingVerifier.__call__",
                         lambda *_a, **_k: pytest.fail("问答不得调用独立核验"))
@@ -219,7 +219,10 @@ def test_qa_selected_web_count_reaches_provider_without_semantic_review(monkeypa
     class WebTools(Tools):
         def search_web(self, queries, facts, max_results):
             limits.append(max_results)
-            return [WebFinding(title="公开资料", url="https://example.org/source", excerpt="搜索摘录")]
+            return WebSearchBatch(findings=[WebFinding(
+                title="公开资料", url="https://example.org/source", excerpt="搜索摘录",
+                published_date="2099-01-01", excerpt_type="query_highlights", excerpt_truncated=True,
+            )])
 
     client = StreamingClient(outputs=[
         tool_message(("web", "search_web", {"summary": "比较不同来源", "queries": [
@@ -237,6 +240,10 @@ def test_qa_selected_web_count_reaches_provider_without_semantic_review(monkeypa
     assert updates[-1]["status"] == "completed"
     assert updates[-1]["result"]["citations"][0]["kind"] == "web"
     assert updates[-1]["result"]["citations"][0]["can_cite_clause"] is False
+    assert updates[-1]["result"]["citations"][0]["published_date"] == "2099-01-01"
+    assert updates[-1]["result"]["citations"][0]["published_after_as_of"] is True
+    assert updates[-1]["result"]["citations"][0]["excerpt_truncated"] is True
+    assert "发布晚于判断时点，仅供追溯或比较" in updates[-1]["answer"]
     state = next(update["state"] for update in reversed(updates) if "state" in update)
     assert state["steps"][0]["observation"]["max_results"] == 6
     assert len(client.calls) == 2

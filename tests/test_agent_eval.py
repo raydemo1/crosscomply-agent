@@ -845,7 +845,7 @@ def test_controlled_source_is_unavailable_to_reads_and_service_hits(tmp_path) ->
         tools.read_evidence(held.source_id, "第一条", None, ReviewFacts())
     from law_agent.review.schemas import RetrievalQuery
 
-    findings = WebResearch(client=FixedWebClient(case), corpus_chunks=chunks).search([RetrievalQuery(query_id="q1", text="汽车数据", query_type="industry_condition")])
+    findings = WebResearch(client=FixedWebClient(case), corpus_chunks=chunks).search([RetrievalQuery(query_id="q1", text="汽车数据", query_type="industry_condition")]).findings
     assert len(findings) == 1
     assert findings[0].known_source_id is None
 

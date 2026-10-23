@@ -111,7 +111,8 @@ def render_qa_citations(text: str, citations: list[dict], *, final: bool = True)
             return ""
         citation = lookup[marker]
         used.add(citation["ref"])
-        suffix = "（非回答时点有效依据，仅供比较）" if citation.get("available_at_answer_date") is False else ""
+        suffix = ("（发布晚于判断时点，仅供追溯或比较）" if citation.get("published_after_as_of") is True
+                  else "（非回答时点有效依据，仅供比较）" if citation.get("available_at_answer_date") is False else "")
         return f"[{citation['ref']}]{suffix}"
 
     answer = MARKER_RE.sub(replace, text)

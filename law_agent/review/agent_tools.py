@@ -71,8 +71,8 @@ from law_agent.review.service import (
 from law_agent.review.source_navigation import SourceNavigation
 from law_agent.review.web_research import (
     DEFAULT_WEB_RESULTS,
-    WebFinding,
     WebResearch,
+    WebSearchBatch,
     build_web_search_client,
     canonical_url,
     eligible_material_web_urls,
@@ -585,7 +585,7 @@ class ComplianceAgentTools:
 
     def search_web(
         self, queries: list[RetrievalQuery], facts: ReviewFacts, max_results: int = DEFAULT_WEB_RESULTS,
-    ) -> list[WebFinding]:
+    ) -> WebSearchBatch:
         """Continue the investigation on public pages.
 
         Built lazily so a deployment without a search key still runs reviews

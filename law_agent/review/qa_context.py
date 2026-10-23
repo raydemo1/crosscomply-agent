@@ -85,7 +85,8 @@ def conversation_context(conversation, run):
                 entry["previous_model_questions"] = deepcopy(item["result"]["questions"])
             entry["previous_citation_locations"] = {
                 citation["ref"]: {key: citation[key] for key in (
-                    "source_id", "title", "url", "article_no", "publish_date", "effective_date", "kind",
+                    "source_id", "title", "url", "article_no", "publish_date", "published_date",
+                    "effective_date", "kind", "published_after_as_of", "excerpt_type", "excerpt_truncated",
                 ) if key in citation}
                 for citation in (item["result"] or {}).get("citations", [])
             }

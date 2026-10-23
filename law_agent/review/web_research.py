@@ -2,23 +2,29 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Protocol
-from urllib.parse import urlsplit, urlunsplit
+from datetime import date, datetime
+from ipaddress import ip_address
+from typing import Literal, Protocol
+from urllib.parse import unquote_plus, urlsplit, urlunsplit
 
 import httpx
-from pydantic import model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from law_agent.config import load_web_search_api_key
 from law_agent.data.schemas import Chunk, StrictModel
+from law_agent.review.dates import business_today
 from law_agent.review.schemas import RetrievalQuery, ReviewFacts
 
 MAX_QUERIES_PER_SEARCH = 4
 DEFAULT_WEB_RESULTS = 3
 MAX_WEB_RESULTS = 8
 MAX_EXCERPT_CHARACTERS = 1200
+MAX_TITLE_CHARACTERS = 500
+MAX_URL_CHARACTERS = 4096
 REQUEST_TIMEOUT_SECONDS = 20
 EXA_BASE_URL = "https://api.exa.ai"
 OFFICIAL_DOMAIN_SUFFIXES = ("gov.cn", "gov", "gov.uk", "gov.hk", "gov.mo", "europa.eu")
@@ -27,7 +33,8 @@ OFFICIAL_DOMAINS = ("tc260.org.cn",)
 
 def web_search_scope() -> dict:
     return {"mode": "open_web", "source_preference": "官方站点软优先，不排除其他公开来源",
-            "result_role": "有长度上限的搜索摘录，不代表完整正文或正式法条资格",
+            "result_role": "按查询抽取的有限原文段落，可能不连续，不代表完整正文或正式法条资格",
+            "date_policy": "发布时间不是施行日期；晚于判断时点的网页仅供追溯或比较，不直接证明当时规则",
             "max_queries": MAX_QUERIES_PER_SEARCH,
             "default_max_results": DEFAULT_WEB_RESULTS, "max_results_limit": MAX_WEB_RESULTS,
             "max_excerpt_characters": MAX_EXCERPT_CHARACTERS}
@@ -45,6 +52,10 @@ class WebFinding(StrictModel):
     published_date: str | None = None
     refresh_needed: bool = False
     is_official: bool = False
+    excerpt_type: Literal["query_highlights", "none"] = "none"
+    excerpt_truncated: bool = False
+    excerpt_query_id: str | None = None
+    published_after_as_of: bool | None = None
 
     @model_validator(mode="after")
     def classify_site(self):
@@ -58,6 +69,42 @@ class WebSearchResult:
     title: str = ""
     text: str = ""
     published_date: str | None = None
+    excerpt_truncated: bool = False
+
+
+class WebQueryResult(StrictModel):
+    query_id: str
+    query_index: int
+    status: Literal["success", "empty", "error"]
+    candidate_count: int = 0
+    rejected_count: int = 0
+    result_urls: list[str] = Field(default_factory=list)
+    returned_urls: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+
+class WebSearchBatch(StrictModel):
+    findings: list[WebFinding] = Field(default_factory=list)
+    query_results: list[WebQueryResult] = Field(default_factory=list)
+    status: Literal["complete", "partial", "failed"] = "complete"
+    as_of_date: date = Field(default_factory=business_today)
+
+
+class _ExaResult(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    url: str = Field(min_length=1, max_length=MAX_URL_CHARACTERS)
+    title: str | None = None
+    highlights: list[str] = Field(default_factory=list)
+    publishedDate: str | None = None
+
+    @field_validator("publishedDate")
+    @classmethod
+    def publication_date(cls, value):
+        if value is None:
+            return None
+        parsed = datetime.fromisoformat(value)
+        return parsed.date().isoformat()
 
 
 class WebSearchClient(Protocol):
@@ -76,7 +123,7 @@ class ExaSearchClient:
     def search(self, query: str, *, max_results: int) -> list[WebSearchResult]:
         payload = {
             "query": query, "numResults": max_results, "type": "auto",
-            "contents": {"text": {"maxCharacters": MAX_EXCERPT_CHARACTERS}},
+            "contents": {"highlights": {"query": query, "maxCharacters": MAX_EXCERPT_CHARACTERS}},
         }
         try:
             response = httpx.post(
@@ -89,35 +136,62 @@ class ExaSearchClient:
         except (httpx.HTTPError, OSError, ValueError) as exc:
             raise WebSearchUnavailable(f"Exa 搜索请求失败：{exc}") from exc
         results = body.get("results") if isinstance(body, dict) else None
-        if not isinstance(results, list):
-            return []
-        return [
-            WebSearchResult(
-                url=str(item["url"]), title=str(item.get("title") or ""),
-                text=str(item.get("text") or "")[:MAX_EXCERPT_CHARACTERS],
-                published_date=str(item["publishedDate"])[:10] if item.get("publishedDate") else None,
-            )
-            for item in results if isinstance(item, dict) and item.get("url")
-        ]
+        if not isinstance(results, list) or "error" in body:
+            raise WebSearchUnavailable("Exa 搜索响应格式错误：未取得合法 results 数组")
+        try:
+            validated = [_ExaResult.model_validate(item) for item in results]
+        except ValidationError as exc:
+            raise WebSearchUnavailable("Exa 搜索响应格式错误：结果字段类型或日期无效") from exc
+        parsed = []
+        for item in validated[:max_results]:
+            excerpt = "\n\n[…]\n\n".join(part.strip() for part in item.highlights if part.strip())
+            parsed.append(WebSearchResult(
+                url=item.url, title=(item.title or "")[:MAX_TITLE_CHARACTERS],
+                text=excerpt[:MAX_EXCERPT_CHARACTERS], published_date=item.publishedDate,
+                excerpt_truncated=len(excerpt) > MAX_EXCERPT_CHARACTERS,
+            ))
+        return parsed
 
 
 def canonical_url(url: str) -> str:
     parts = urlsplit(url.strip())
-    host = (parts.hostname or "").lower().removeprefix("www.")
-    return urlunsplit(("https", host, parts.path.rstrip("/") or "/", parts.query, ""))
+    host = (parts.hostname or "").lower().rstrip(".").removeprefix("www.")
+    if ":" in host:
+        host = f"[{host}]"
+    port = parts.port
+    if port is not None and (parts.scheme, port) not in {("http", 80), ("https", 443)}:
+        host = f"{host}:{port}"
+    query = "&".join(pair for pair in parts.query.split("&") if pair and not (
+        unquote_plus(pair.partition("=")[0]).lower().startswith("utm_")
+        or unquote_plus(pair.partition("=")[0]).lower() in {"fbclid", "gclid", "msclkid"}
+    ))
+    return urlunsplit(("https", host, parts.path.rstrip("/") or "/", query, ""))
 
 
 def host_of(url: str) -> str:
-    return (urlsplit(url.strip()).hostname or "").lower().removeprefix("www.")
+    return (urlsplit(url.strip()).hostname or "").lower().rstrip(".").removeprefix("www.")
 
 
 def is_public_web_url(url: str) -> bool:
     try:
+        if len(url) > MAX_URL_CHARACTERS or any(ord(char) <= 32 or ord(char) == 127 for char in url):
+            return False
         parts = urlsplit(url.strip())
-        host = (parts.hostname or "").lower()
-    except ValueError:
+        host = (parts.hostname or "").lower().rstrip(".")
+        port = parts.port
+        if port == 0 or not host or parts.scheme not in {"http", "https"} or parts.username or parts.password:
+            return False
+        try:
+            address = ip_address(host)
+            return address.is_global and not address.is_multicast
+        except ValueError:
+            pass
+        labels = host.encode("idna").decode("ascii").split(".")
+    except (ValueError, UnicodeError):
         return False
-    return bool(host and parts.scheme in {"http", "https"} and not parts.username and not parts.password)
+    return (len(host) <= 253 and len(labels) >= 2 and not labels[-1].isdigit()
+            and labels[-1] not in {"localhost", "local", "internal", "test", "invalid"}
+            and all(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels))
 
 
 def is_official_url(url: str) -> bool:
@@ -156,8 +230,7 @@ class WebResearch:
     def search(
         self, queries: Sequence[RetrievalQuery], facts: ReviewFacts | None = None,
         *, max_results: int = DEFAULT_WEB_RESULTS,
-    ) -> list[WebFinding]:
-        del facts
+    ) -> WebSearchBatch:
         if type(max_results) is not int or not 1 <= max_results <= MAX_WEB_RESULTS:
             raise ValueError(f"max_results必须是1至{MAX_WEB_RESULTS}的整数，表示本批查询的结果总数上限")
         batch = list(queries)
@@ -167,6 +240,7 @@ class WebResearch:
             raise ValueError("Web 搜索需要1至4个非空查询，每个不超过1000字符")
 
         candidate_limit = min(MAX_WEB_RESULTS, max_results + 2)
+        as_of = (facts.as_of_date if facts else None) or business_today()
 
         def search_one(query):
             try:
@@ -178,19 +252,26 @@ class WebResearch:
             batches = list(executor.map(search_one, batch))
         findings: list[WebFinding] = []
         seen: set[str] = set()
-        provider_error: WebSearchUnavailable | None = None
+        query_results = []
         ranked = []
-        for results in batches:
+        for query_index, (query, results) in enumerate(zip(batch, batches, strict=True)):
             if isinstance(results, WebSearchUnavailable):
-                provider_error = results
+                query_results.append(WebQueryResult(
+                    query_id=query.query_id, query_index=query_index, status="error", error=str(results)[:2000],
+                ))
                 continue
             candidates = [(index, item) for index, item in enumerate(results[:candidate_limit])
                           if is_public_web_url(item.url)]
-            ranked.append([item for _, item in sorted(
+            query_results.append(WebQueryResult(
+                query_id=query.query_id, query_index=query_index, status="success" if candidates else "empty",
+                candidate_count=len(results), rejected_count=len(results[:candidate_limit]) - len(candidates),
+                result_urls=[item.url for _, item in candidates],
+            ))
+            ranked.append((query_index, [item for _, item in sorted(
                 candidates, key=lambda entry: entry[0] - (1.25 if is_official_url(entry[1].url) else 0),
-            )])
+            )]))
         for index in range(candidate_limit):
-            for results in ranked:
+            for query_index, results in ranked:
                 item = next((item for item in results[index:] if canonical_url(item.url) not in seen), None)
                 if item is None:
                     continue
@@ -198,19 +279,30 @@ class WebResearch:
                     break
                 key = canonical_url(item.url)
                 seen.add(key)
+                query_results[query_index].returned_urls.append(item.url)
                 known_id = self._known.get(key)
                 excerpt = item.text.strip()[:MAX_EXCERPT_CHARACTERS]
                 newer_date = bool(item.published_date and item.published_date > self._known_dates.get(key, ""))
-                changed_excerpt = bool(excerpt and excerpt not in "\n".join(self._known_text.get(key, [])))
+                known_text = " ".join(" ".join(self._known_text.get(key, [])).split())
+                passages = [" ".join(part.split()) for part in re.split(r"\[…\]|\.{3,}|…+", excerpt)]
+                changed_excerpt = any(part and part not in known_text for part in passages)
                 findings.append(WebFinding(
-                    title=item.title or item.url, url=item.url,
+                    title=(item.title or item.url)[:MAX_TITLE_CHARACTERS], url=item.url,
                     excerpt=excerpt, known_source_id=known_id,
                     published_date=item.published_date,
                     refresh_needed=bool(known_id and (newer_date or changed_excerpt)),
+                    excerpt_type="query_highlights" if excerpt else "none",
+                    excerpt_truncated=item.excerpt_truncated or len(item.text.strip()) > MAX_EXCERPT_CHARACTERS,
+                    excerpt_query_id=batch[query_index].query_id,
+                    published_after_as_of=(date.fromisoformat(item.published_date) > as_of
+                                           if item.published_date and as_of else None),
                 ))
-        if not findings and provider_error is not None:
-            raise provider_error
-        return findings
+        failures = sum(item.status == "error" for item in query_results)
+        return WebSearchBatch(
+            findings=findings, query_results=query_results,
+            status="failed" if failures == len(batch) else "partial" if failures else "complete",
+            as_of_date=as_of,
+        )
 
 
 def build_web_search_client() -> WebSearchClient:

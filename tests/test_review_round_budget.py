@@ -15,6 +15,7 @@ from law_agent.review.agent import (
 )
 from law_agent.review.qa_agent import QAState
 from law_agent.review.schemas import RetrievalQuery
+from law_agent.review.web_research import WebSearchBatch
 from tests.test_review_agent import _draft, _hit
 
 
@@ -41,7 +42,7 @@ def test_human_continuation_renews_all_limits_and_keeps_history(provenance):
         AgentDecision(action="finish", summary="提交", draft=_draft()),
     ])
     run_agent(state, material="", intake={}, decide=lambda *_: next(decisions),
-              search=lambda *_: [], web_search=lambda *_: [],
+              search=lambda *_: [], web_search=lambda *_: WebSearchBatch(),
               read_evidence=lambda *_a, **_k: EvidenceRead(hits=[_hit("new", "s1")]),
               finalize=lambda *_: {}, checkpoint=lambda _: None)
     assert state.status == "completed"
@@ -63,7 +64,7 @@ def test_restart_without_human_gate_keeps_consumed_budget():
     state = AgentState(goal="审查", turns=20, budget_start=BudgetUsage(turns=19), max_turns=1)
     before = state.budget_start.model_dump()
     run_agent(state, material="", intake={}, decide=lambda *_: pytest.fail("must not renew on restart"),
-              search=lambda *_: [], web_search=lambda *_: [], finalize=lambda *_: {}, checkpoint=lambda _: None)
+              search=lambda *_: [], web_search=lambda *_: WebSearchBatch(), finalize=lambda *_: {}, checkpoint=lambda _: None)
     assert state.budget_start.model_dump() == before and state.turns == 20
     assert remaining_budget(state)["turns"] == 0
 
@@ -74,7 +75,7 @@ def test_last_turn_can_pause_and_receive_a_new_round_without_duplicate_gate_ids(
     for _ in range(3):
         run_agent(state, material="", intake={},
                   decide=lambda *_: AgentDecision(action="request_input", summary="需要人工确认", question="请确认继续调查"),
-                  search=lambda *_: [], web_search=lambda *_: [], finalize=lambda *_: {}, checkpoint=lambda _: None)
+                  search=lambda *_: [], web_search=lambda *_: WebSearchBatch(), finalize=lambda *_: {}, checkpoint=lambda _: None)
         assert state.status == "waiting_input"
         ids.append(state.gate_id)
         answer_agent(state, gate_id=state.gate_id, answer="继续", provenance="reviewer_instruction")
@@ -89,7 +90,7 @@ def test_review_and_qa_allow_five_web_calls_per_round(state_type):
     calls = []
     for _ in range(5):
         investigate(state, decision, search=None, search_navigation=None, read_evidence=None,
-                    web_search=lambda *_: calls.append(1) or [], checkpoint=lambda _: None)
+                    web_search=lambda *_: calls.append(1) or WebSearchBatch(), checkpoint=lambda _: None)
     with pytest.raises(ValueError, match="Web 搜索预算已用尽"):
         investigate(state, decision, search=None, search_navigation=None, read_evidence=None,
                     web_search=lambda *_: pytest.fail("sixth web call"), checkpoint=lambda _: None)
