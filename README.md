@@ -12,7 +12,6 @@ CrossComply 是面向企业数据出境合规执行的单 Agent 系统：一个�
 | [docs/data-governance-design.md](docs/data-governance-design.md) | 法律知识如何进入受控证据库，什么时候具备条款引用资格 |
 | [docs/SERVICE_STACK.md](docs/SERVICE_STACK.md) | 部署依赖、服务拓扑、启动与运维事实 |
 | [docs/production-agent-golden-set.md](docs/production-agent-golden-set.md) | Production Agent 候选集、轻量 rubric、人工审定边界与实跑方式 |
-| [docs/agent-baseline-20261008.md](docs/agent-baseline-20261008.md) | 首轮候选实跑的失败证据、未评估项目与后续建设方向 |
 
 ## 开发启动
 
@@ -71,7 +70,7 @@ python -m law_agent.review agent-eval --suite core --judge-model <judge-model> `
   --output data/review_runs/agent_eval_core.json --report data/review_runs/agent_eval_core.md
 ```
 
-> 当前状态：`smoke` 含 2 个框架自检案例；`core` 含 17 个已参与诊断和修复的合成候选，作为回归集维护。另有 6 个未实跑的留出候选，不随`core`或`smoke`自动运行，只能通过复核后的增量清单选择。23案已做AI逐案复核，两组均未独立专家人工法律审定，不能报告人审 Golden 准确率。历史实跑及定向修复见[基线说明](docs/agent-baseline-post-provenance-20261009.md)。`--no-judge` 仍会调用生产 Agent 模型，不是免费离线模式。
+> 当前状态：`smoke` 含 2 个框架自检案例；`core` 含 17 个已参与诊断和修复的合成候选，作为回归集维护。另有 6 个未实跑的留出候选，不随`core`或`smoke`自动运行，只能通过复核后的增量清单选择。23案已做AI逐案复核，两组均未独立专家人工法律审定，不能报告人审 Golden 准确率。历史实跑及定向修复记录仅在本地保存。`--no-judge` 仍会调用生产 Agent 模型，不是免费离线模式。
 
 不调用模型的人工审定包可以单独导出，包含题目、原材料、确认填报、即时回答、rubric、法源依据、待审定记录与文件散列：
 
@@ -100,7 +99,7 @@ python -m law_agent.review eval --suite full  --max-workers 8 --output data/revi
 ```
 
 > 评测会产生模型调用成本。除需要更新对外指标外，日常开发不重跑全量评测。
-> Production Agent 尚无**人工审定 Golden 指标**；候选基线、失败诊断与定向修复见[基线说明](docs/agent-baseline-post-provenance-20261009.md)。不要用检索召回或候选 PASS 推断 Agent 的整体法律正确率。
+> Production Agent 尚无**人工审定 Golden 指标**；候选基线、失败诊断与定向修复记录仅在本地保存。不要用检索召回或候选 PASS 推断 Agent 的整体法律正确率。
 
 ## 常用入口
 
