@@ -13,6 +13,7 @@ dependencies = [
   "python-multipart>=0.0.9",
   "pwdlib[argon2]>=0.2",
   "uvicorn[standard]>=0.29",
+  "psycopg-pool>=3.2",
   # Reading a PDF's embedded text layer is the first step of every PDF parse,
   # so it is a runtime dependency rather than a test-only one.
   "pypdf>=5.0",

@@ -36,7 +36,30 @@ def store_connection(dsn, factory=None):
         if active[0] != dsn:
             raise RuntimeError("案件与任务必须使用同一数据库事务")
         return _BorrowedConnection(active[1])
-    return factory() if factory else psycopg.connect(dsn, row_factory=dict_row)
+    if factory is not None:
+        return factory()
+    from law_agent.review.db_pool import pooled_connection
+
+    return _PooledContext(pooled_connection(dsn))
+
+
+class _PooledContext:
+    """适配器：把 contextmanager 形状的池连接伪装成 psycopg 连接对象。
+
+    store 的用法是 `with self._connect() as conn, conn.cursor() as cur`，
+    psycopg.connect 恰好支持此用法；池连接经 contextmanager 包装后需要这层适配。
+    """
+
+    def __init__(self, cm):
+        self._cm = cm
+        self._conn = None
+
+    def __enter__(self):
+        self._conn = self._cm.__enter__()
+        return self._conn
+
+    def __exit__(self, exc_type, exc, tb):
+        return self._cm.__exit__(exc_type, exc, tb)
 
 
 @contextmanager

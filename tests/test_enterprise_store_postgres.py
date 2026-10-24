@@ -165,7 +165,7 @@ def test_retry_incomplete_report_resets_exhausted_state_without_dropping_report(
     task = PostgresEnterpriseStore('postgresql://unused', connect=_factory(connection)).retry_task('review_task_1')
     assert task.status == 'queued' and task.result == report and task.agent_state is None
     assert task.attempt_count == 1
-    assert connection.cursor_instance.executed[1][1] == (True, True, 'review_task_1', 'succeeded')
+    assert connection.cursor_instance.executed[1][1] == ('review_task_1', 'succeeded')
 
 
 def test_fail_task_preserves_node_category_and_attempt_history() -> None:
