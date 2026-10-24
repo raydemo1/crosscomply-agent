@@ -101,7 +101,16 @@ class ReviewWorker:
                 final_node="completed",
                 expected_attempt=claimed_attempt,
             )
-            self._on_succeeded(completed)
+            # 回调（写结论/事件）失败不得回滚已完成任务：单独兜底，避免
+            # fail_task(succeeded) 抛 ValueError 被吞导致案件永久停在运行中
+            try:
+                self._on_succeeded(completed)
+            except Exception:  # noqa: BLE001 - callback failure must not corrupt the task
+                import logging
+
+                logging.getLogger(__name__).exception(
+                    "task %s succeeded but on_succeeded callback failed", task.id
+                )
             return completed
         except ReviewWorkflowFailed as exc:
             return self._persist_failure(
@@ -129,20 +138,42 @@ class ReviewWorker:
         error_message: str,
         expected_attempt: int,
     ) -> ReviewTask:
+        failed = None
+        for attempt in range(3):
+            try:
+                failed = self._queue.fail_task(
+                    task.id,
+                    failed_node=failed_node,
+                    error_category=error_category,
+                    error_message=error_message,
+                    expected_attempt=expected_attempt,
+                )
+                break
+            except ValueError:
+                current = self._queue.get_task(task.id)
+                if current is None:
+                    raise
+                return current
+            except Exception:  # noqa: BLE001 - transient storage failure: retry with backoff
+                import logging
+                import time as _time
+
+                if attempt == 2:
+                    raise
+                logging.getLogger(__name__).exception(
+                    "fail_task(%s) attempt %s failed; retrying", task.id, attempt + 1
+                )
+                _time.sleep(2 ** attempt)
+        if failed is None:
+            raise RuntimeError(f"fail_task({task.id}) did not return a task")
         try:
-            failed = self._queue.fail_task(
-                task.id,
-                failed_node=failed_node,
-                error_category=error_category,
-                error_message=error_message,
-                expected_attempt=expected_attempt,
+            self._on_failed(failed)
+        except Exception:  # noqa: BLE001
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "task %s failed but on_failed callback errored", task.id
             )
-        except ValueError:
-            current = self._queue.get_task(task.id)
-            if current is None:
-                raise
-            return current
-        self._on_failed(failed)
         return failed
 
 
@@ -333,11 +364,21 @@ def main() -> None:
     from law_agent.review.qa_agent import QAWorker
 
     qa_worker = QAWorker(app.state.qa_store, chunks_path=app.state.chunks_path)
+    import logging
+
+    logger = logging.getLogger(__name__)
+    backoff = poll_seconds
     while True:
-        reviewed = worker.run_once()
-        answered = qa_worker.run_once()
-        if reviewed is None and answered is None:
-            time.sleep(poll_seconds)
+        try:
+            reviewed = worker.run_once()
+            answered = qa_worker.run_once()
+            if reviewed is None and answered is None:
+                time.sleep(poll_seconds)
+            backoff = poll_seconds
+        except Exception:  # noqa: BLE001 - a transient outage must not kill running reviews
+            logger.exception("worker loop iteration failed; backing off %.0fs", backoff)
+            time.sleep(backoff)
+            backoff = min(backoff * 2, 300)
 
 
 if __name__ == "__main__":

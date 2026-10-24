@@ -302,14 +302,25 @@ class ComplianceAgentTools:
             questions=questions,
         )
 
+    @staticmethod
+    def _search_with_fallback(adapter, query_pairs, top_k):
+        import logging
+
+        try:
+            return adapter.search_many(query_pairs, top_k=top_k)
+        except Exception as exc:  # noqa: BLE001 - retrieval outage degrades to a tool error
+            logging.getLogger(__name__).warning("retrieval adapter %s failed: %s", type(adapter).__name__, exc)
+            raise RuntimeError(f"检索后端暂时不可用（{type(adapter).__name__}），请稍后重试或改用其他工具") from exc
+
     def search(
         self, queries: list[RetrievalQuery], facts: ReviewFacts, *, coarse_scope: bool = False,
         excluded_scope_terms: Sequence[str] = (),
     ) -> list[RetrievalHit]:
         query_pairs = [(query.text, query.query_type) for query in queries]
         candidate_top_k = max(30, self._top_k, self._rerank_config.window)
-        keyword = self._adapters.keyword.search_many(query_pairs, top_k=candidate_top_k)
-        vector = self._adapters.vector.search_many(query_pairs, top_k=candidate_top_k)
+        # 检索后端一次瞬时故障不应毁掉整次审查：降级为工具错误，让 Agent 改道或重试
+        keyword = self._search_with_fallback(self._adapters.keyword, query_pairs, candidate_top_k)
+        vector = self._search_with_fallback(self._adapters.vector, query_pairs, candidate_top_k)
         as_of = facts.as_of_date or self._default_as_of_date
         candidates: list[list[RetrievalHit]] = []
         lexical_candidates: list[list[RetrievalHit]] = []

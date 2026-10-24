@@ -18,7 +18,9 @@ from law_agent.review.workflow import review_requires_retry
 
 ParseStatus = Literal["pending", "parsing", "ready", "failed"]
 TaskStatus = Literal["queued", "running", "waiting_input", "succeeded", "failed", "superseded"]
-DEFAULT_TASK_LEASE_SECONDS = 2 * 60 * 60
+DEFAULT_TASK_LEASE_SECONDS = 30 * 60
+# 毒任务保护：租约过期自动重排的次数上限，超过则转 failed 由人工介入
+MAX_TASK_AUTO_ATTEMPTS = 5
 
 
 def _identifier(prefix: str) -> str:
@@ -1237,12 +1239,12 @@ class PostgresEnterpriseStore:
                 """
                 UPDATE review_tasks
                 SET status = 'queued', lease_expires_at = NULL, updated_at = now(),
-                    agent_state_json = CASE WHEN %s THEN NULL ELSE agent_state_json END,
-                    current_node = CASE WHEN %s THEN NULL ELSE current_node END
+                    agent_state_json = NULL,
+                    current_node = NULL
                 WHERE id = %s AND status = %s
                 RETURNING *
                 """,
-                (restart, restart, task_id, previous["status"]),
+                (task_id, previous["status"]),
             )
             row = cur.fetchone()
             if row is None:
@@ -1301,9 +1303,12 @@ class PostgresEnterpriseStore:
             """
             WITH expired AS (
                 UPDATE review_tasks
-                SET status = 'queued', current_node = 'worker_lease',
+                SET status = CASE WHEN attempt_count >= %s THEN 'failed' ELSE 'queued' END,
+                    current_node = 'worker_lease',
                     error_category = 'worker_lease_expired',
-                    error_message = 'worker 租约过期，任务已自动重新排队',
+                    error_message = CASE WHEN attempt_count >= %s
+                        THEN '多次自动重排仍未完成，已停止自动重试，需人工处理'
+                        ELSE 'worker 租约过期，任务已自动重新排队' END,
                     lease_expires_at = NULL, updated_at = now()
                 WHERE status = 'running' AND lease_expires_at < now()
                 RETURNING id, attempt_count
@@ -1318,7 +1323,8 @@ class PostgresEnterpriseStore:
               AND attempt.attempt_number = expired.attempt_count
               AND attempt.status = 'running'
             RETURNING expired.id
-            """
+            """,
+            (MAX_TASK_AUTO_ATTEMPTS, MAX_TASK_AUTO_ATTEMPTS),
         )
         return len(cur.fetchall())
 

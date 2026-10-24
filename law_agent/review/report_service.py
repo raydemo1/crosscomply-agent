@@ -42,7 +42,8 @@ def ensure_decision_report(
         raise ValueError("飞书尚未产生最终审批决定")
 
     existing = governance_store.get_latest_report(case_id)
-    if existing is not None:
+    # 复用仅限同一审批：案件重新审批后必须为新决定重建报告
+    if existing is not None and getattr(existing, "approval_id", None) == str(approval.id):
         return existing
 
     approved_task = enterprise_store.get_task(approval.task_id)
