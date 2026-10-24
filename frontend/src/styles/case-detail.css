@@ -6,13 +6,13 @@
 .case-detail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: 16px;
 }
 
 .review-report-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-lg);
+  gap: 16px;
   align-items: start;
   min-height: 0;
 }
@@ -20,7 +20,7 @@
 .review-report {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: 16px;
   min-width: 0;
 }
 
@@ -127,7 +127,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-  padding: var(--space-lg);
+  padding: 20px;
 }
 
 .evidence-sidebar {
@@ -1626,7 +1626,7 @@
 .report-issues-disclosure .review-issues { padding: 0; border: 0; }
 .report-issues-disclosure .review-issues__heading { display: none; }
 
-.report-main-issues { padding: var(--space-lg); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
+.report-main-issues { padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
 .report-main-issues > h2 { display: flex; align-items: baseline; gap: var(--space-sm); margin: 0 0 var(--space-md); font: 500 1.35rem var(--font-heading); }
 .report-main-issues > h2 span { color: var(--color-muted-foreground); font: 400 0.85rem var(--font-body); }
 .report-main-issues__list { display: grid; gap: 0; }

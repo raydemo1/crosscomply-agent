@@ -228,11 +228,10 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
 
       {message && <div className="template-page__message" role="status">{message}</div>}
 
-      <section className="template-toolbar card" aria-label="搜索模板">
-        <Search size={18} aria-hidden="true" />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、适用场景或审查问题" aria-label="搜索模板" />
+      <div className="template-toolbar" aria-label="搜索模板">
+        <div className="template-search"><Search size={17} strokeWidth={1.8} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、适用场景或审查问题" aria-label="搜索模板" /></div>
         <span>{visibleTemplates.length} 个可用模板</span>
-      </section>
+      </div>
 
       <section className="template-grid" aria-label="模板列表">
         {visibleTemplates.length === 0 ? (

@@ -495,7 +495,7 @@
 .history-item__question {
   display: -webkit-box;
   font-size: var(--text-md);
-  font-weight: var(--weight-medium);
+  font-weight: 400;
   color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;

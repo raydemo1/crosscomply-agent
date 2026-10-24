@@ -3,13 +3,14 @@
  * 按钮统一使用 primitives（.btn-*），此文件只保留页面布局。
  * ============================================================ */
 
-.template-page { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.template-page { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .template-page__header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 4px 2px 8px; }
 .template-page__header h1.page-title { margin: 0; }
 .template-page__actions, .template-card__actions, .template-editor__footer { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .template-page__message { border: 1px solid var(--color-warning-border); border-radius: var(--radius-md); padding: 10px 14px; background: var(--color-warning-bg); color: var(--color-accent-strong); font-size: var(--text-md); }
-.template-toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: var(--color-foreground-muted); }
-.template-toolbar input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--color-foreground); font: inherit; font-size: var(--text-base); }
+.template-toolbar { display: flex; align-items: center; gap: 12px; padding: 0; color: var(--color-foreground-muted); }
+.template-toolbar .template-search { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 560px; min-height: 40px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-muted-foreground); }
+.template-toolbar .template-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--color-foreground); font: inherit; font-size: var(--text-base); }
 .template-toolbar > span { color: var(--color-foreground-muted); font-size: var(--text-sm); white-space: nowrap; }
 .template-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 16px; }
 .template-card { display: flex; min-height: 250px; flex-direction: column; gap: 14px; padding: 20px; }
