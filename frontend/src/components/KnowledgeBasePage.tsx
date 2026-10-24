@@ -44,6 +44,8 @@ import type {
   KnowledgeTrashRecordApi,
   WorkbenchUser,
 } from '../types/api';
+import { LAW_STATUS_LABELS, CITATION_ROLE_LABELS } from '../utils/display';
+import '../styles/knowledge.css';
 import KnowledgeEnrichmentReview from './KnowledgeEnrichmentReview';
 
 interface KnowledgeBasePageProps {
@@ -70,21 +72,7 @@ const LIBRARY_LABELS: Record<KnowledgeLibraryKind, { label: string; short: strin
   internal_policy: { label: '规章制度', short: '制度', description: '企业内部制度、流程规范与已经批准的政策文件。' },
 };
 
-const LAW_STATUS_LABELS: Record<KnowledgeLawStatus, string> = {
-  effective: '现行有效',
-  not_yet_effective: '尚未生效',
-  amended: '已修订',
-  repealed: '已废止',
-  unknown: '待确认',
-};
 
-const CITATION_ROLE_LABELS: Record<ClauseCitationRole, string> = {
-  primary_legal_basis: '正式条款依据',
-  conditional_local_basis: '地方条件依据',
-  conditional_industry_basis: '行业条件依据',
-  implementation_reference: '办理参考',
-  interpretation_auxiliary: '解释参考',
-};
 
 const INTERNAL_STATUS_LABELS: Record<KnowledgeInternalStatus, string> = {
   draft: '草稿',
@@ -103,6 +91,25 @@ function formatBytes(value: number | null | undefined): string {
   if (!value || value < 1024) return `${value ?? 0} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** 搜索命中片段：不区分大小写，命中文字标成金色。 */
+function highlightText(text: string, query: string): JSX.Element {
+  const needle = query.trim();
+  if (!needle) return <>{text}</>;
+  const lower = text.toLowerCase();
+  const target = needle.toLowerCase();
+  const parts: Array<string | JSX.Element> = [];
+  let from = 0;
+  let at = lower.indexOf(target);
+  while (at >= 0) {
+    parts.push(text.slice(from, at));
+    parts.push(<mark key={at} className="search-hit">{text.slice(at, at + target.length)}</mark>);
+    from = at + target.length;
+    at = lower.indexOf(target, from);
+  }
+  parts.push(text.slice(from));
+  return <>{parts}</>;
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -163,6 +170,8 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
   const [message, setMessage] = useState<string | null>(null);
   const [showTrash, setShowTrash] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const importDialogRef = useRef<HTMLDialogElement>(null);
+  const deleteDialogRef = useRef<HTMLDialogElement>(null);
   const [importFiles, setImportFiles] = useState<File[]>([]);
   const [importDefaults, setImportDefaults] = useState({ source_site: '', issuing_body: '', owning_department: '', internal_status: 'draft' as KnowledgeInternalStatus });
   const [importPreview, setImportPreview] = useState<KnowledgeImportPreviewApi | null>(null);
@@ -171,18 +180,26 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
   const [job, setJob] = useState<KnowledgeJobApi | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 搜索实时匹配：输入停顿 300ms 后自动应用，无需提交按钮
+  useEffect(() => {
+    const timer = window.setTimeout(() => setQuery(searchInput), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
   useEffect(() => setLibraryKind(initialLibraryKind), [initialLibraryKind]);
 
+  // 导入与删除确认均为原生 dialog：showModal 提供顶层渲染、Esc 关闭与焦点圈定
   useEffect(() => {
-    if (!showImport && !deletePreview) return undefined;
-    const handleEscape = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || busy) return;
-      setShowImport(false);
-      setDeletePreview(null);
-    };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [busy, deletePreview, showImport]);
+    const dialog = importDialogRef.current;
+    if (!dialog) return;
+    if (showImport) { if (!dialog.open) dialog.showModal(); } else if (dialog.open) dialog.close();
+  }, [showImport]);
+
+  useEffect(() => {
+    const dialog = deleteDialogRef.current;
+    if (!dialog) return;
+    if (deletePreview) { if (!dialog.open) dialog.showModal(); } else if (dialog.open) dialog.close();
+  }, [deletePreview]);
 
   const refresh = async (keepDetail = true): Promise<void> => {
     setLoading(true);
@@ -409,24 +426,24 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
 
       {libraryKind === 'legal' && user.role === 'admin' ? <KnowledgeEnrichmentReview /> : null}
 
-      <section className="knowledge-toolbar card" aria-label="知识库筛选和操作">
-        <div className="knowledge-search"><Search size={17} strokeWidth={1.8} /><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') setQuery(searchInput); }} placeholder="搜索标题、来源 ID、发布机关或归属部门" /><button type="button" className="btn-secondary" onClick={() => setQuery(searchInput)}>检索</button></div>
+      <div className="knowledge-toolbar" aria-label="知识库筛选和操作">
+        <div className="knowledge-search"><Search size={17} strokeWidth={1.8} aria-hidden="true" /><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="搜索标题、来源 ID、发布机关或归属部门" aria-label="搜索标题、来源 ID、发布机关或归属部门" /></div>
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="按状态筛选">
           <option value="">全部状态</option>
           {libraryKind === 'legal' ? Object.entries(LAW_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>) : Object.entries(INTERNAL_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <button type="button" className="btn-secondary" onClick={() => void refresh()} disabled={loading || busy}><RefreshCw size={15} />刷新</button>
+        <button type="button" className="btn-ghost" onClick={() => void refresh()} disabled={loading || busy} title="刷新" aria-label="刷新"><RefreshCw size={15} /></button>
         <button type="button" className="btn-primary" onClick={() => { setImportPreview(null); setImportFiles([]); setShowImport(true); }}><UploadCloud size={16} />导入来源</button>
-      </section>
+      </div>
 
       {error ? <div className="knowledge-alert knowledge-alert--error" role="alert"><X size={16} />{error}</div> : null}
-      {message ? <div className="knowledge-alert knowledge-alert--success" role="status"><CheckCircle2 size={16} />{message}{job ? <span className="knowledge-alert__job">任务 {job.status}</span> : null}</div> : null}
+      {message ? <div className="knowledge-alert knowledge-alert--success" role="status"><CheckCircle2 size={16} />{message}{job ? <span className="knowledge-alert__job">{job.status === 'succeeded' ? '任务已完成' : job.status === 'failed' ? '任务失败' : '任务进行中'}</span> : null}</div> : null}
 
       <section className="knowledge-layout">
         <div className="knowledge-list card">
           <div className="knowledge-list__header"><h2>来源清单</h2><span className="knowledge-list__count">{summary.sourceCount} 项</span></div>
           <div className="knowledge-bulkbar"><label><input type="checkbox" checked={sources.length > 0 && selectedIds.size === sources.length} onChange={toggleAll} />全选当前结果</label><span>{summary.selectedCount ? `已选 ${summary.selectedCount} 项` : ''}</span><button type="button" className="knowledge-danger-btn" disabled={selectedIds.size === 0 || busy} onClick={() => void startDeletePreview()}><Trash2 size={15} />移入回收站</button></div>
-          {loading ? <div className="knowledge-state"><LoaderCircle className="spin" size={22} /><span>正在读取来源清单…</span></div> : sources.length === 0 ? <div className="knowledge-state"><FileArchive size={27} /><strong>暂无来源</strong><button type="button" className="btn-primary" onClick={() => setShowImport(true)}><FilePlus2 size={15} />开始导入</button></div> : <div className="knowledge-source-list">{sources.map((item) => <div key={item.source.source_id} className={'knowledge-source-row' + (selectedId === item.source.source_id ? ' is-open' : '')} role="button" aria-pressed={selectedId === item.source.source_id} tabIndex={0} onClick={() => void openSource(item.source.source_id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void openSource(item.source.source_id); } }}><input type="checkbox" checked={selectedIds.has(item.source.source_id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.source.source_id)} aria-label={`选择${item.source.title}`} /><div className="knowledge-source-row__body"><div className="knowledge-source-row__title"><strong>{item.source.title}</strong><span className={`knowledge-status knowledge-status--${item.source.library_kind}`}>{statusText(item)}</span></div><p>{sourceMeta(item)}</p><code>{item.source.source_id}</code></div><ChevronRight size={17} className="knowledge-source-row__arrow" /></div>)}</div>}
+          {loading ? <div className="knowledge-state"><LoaderCircle className="spin" size={22} /><span>正在读取来源清单…</span></div> : sources.length === 0 ? <div className="knowledge-state"><FileArchive size={27} /><strong>暂无来源</strong><button type="button" className="btn-primary" onClick={() => setShowImport(true)}><FilePlus2 size={15} />开始导入</button></div> : <div className="knowledge-source-list">{sources.map((item) => <div key={item.source.source_id} className={'knowledge-source-row' + (selectedId === item.source.source_id ? ' is-open' : '')} role="button" aria-pressed={selectedId === item.source.source_id} tabIndex={0} onClick={() => void openSource(item.source.source_id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void openSource(item.source.source_id); } }}><input type="checkbox" checked={selectedIds.has(item.source.source_id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.source.source_id)} aria-label={`选择${item.source.title}`} /><div className="knowledge-source-row__body"><div className="knowledge-source-row__title"><strong>{highlightText(item.source.title, query)}</strong><span className={`knowledge-status knowledge-status--${item.source.library_kind}`}>{statusText(item)}</span></div><p>{highlightText(sourceMeta(item), query)}</p></div><ChevronRight size={17} className="knowledge-source-row__arrow" /></div>)}</div>}
         </div>
 
         <aside className="knowledge-detail card" aria-label="来源详情">
@@ -436,9 +453,9 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
 
       <section className="knowledge-trash card"><button type="button" className="knowledge-trash__toggle" aria-expanded={showTrash} aria-controls="knowledge-trash-list" onClick={() => setShowTrash((value) => !value)}><Archive size={16} /><span>回收站</span><small>{trash.length} 项 · 30 天后自动清理</small><ChevronRight size={16} className={showTrash ? 'rotate-90' : ''} /></button>{showTrash ? <div id="knowledge-trash-list" className="knowledge-trash__list">{trash.length === 0 ? <p>当前没有待处理来源。</p> : trash.map((item) => <div key={`${item.source_id}-${item.trashed_at}`}><div><strong>{item.title}</strong><span>{item.source_id} · 移入 {formatDate(item.trashed_at)} · 到期 {formatDate(item.expires_at)}</span></div><button type="button" className="btn-secondary" disabled={busy} onClick={() => void restore(item.source_id)}><RotateCcw size={14} />恢复</button></div>)}</div> : null}</section>
 
-      {showImport ? <div className="knowledge-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setShowImport(false); }}><section className="knowledge-modal" role="dialog" aria-modal="true" aria-labelledby="knowledge-import-title"><div className="knowledge-modal__header"><div><h2 id="knowledge-import-title">导入{LIBRARY_LABELS[libraryKind].label}</h2><p>先预检，确认后写入知识库。</p></div><button type="button" className="icon-btn" aria-label="关闭导入窗口" onClick={() => setShowImport(false)} disabled={busy}><X size={18} /></button></div><div className="knowledge-import-drop"><input ref={fileInputRef} type="file" multiple accept=".txt,.md,.markdown,.pdf,.docx,.html,.htm,.json,.csv" onChange={(event) => setImportFiles(Array.from(event.target.files ?? []))} /><UploadCloud size={24} /><strong>{importFiles.length ? `已选择 ${importFiles.length} 个文件` : '选择本地文件'}</strong><span>支持 TXT、Markdown、PDF、DOCX、HTML、JSON、CSV，单文件不超过 20 MB。</span><button type="button" className="btn-secondary" onClick={() => fileInputRef.current?.click()}>浏览文件</button></div><div className="knowledge-form__grid knowledge-import-fields"><label className="form-field"><span>{libraryKind === 'legal' ? '发布机关（可选）' : '归属部门（可选）'}</span><input value={libraryKind === 'legal' ? importDefaults.issuing_body : importDefaults.owning_department} onChange={(event) => setImportDefaults({ ...importDefaults, [libraryKind === 'legal' ? 'issuing_body' : 'owning_department']: event.target.value })} placeholder={libraryKind === 'legal' ? '例如：全国人大常委会' : '例如：信息安全部'} /></label><label className="form-field"><span>来源站点（可选）</span><input value={importDefaults.source_site} onChange={(event) => setImportDefaults({ ...importDefaults, source_site: event.target.value })} placeholder="例如：公司制度中心" /></label>{libraryKind === 'internal_policy' ? <label className="form-field"><span>制度初始状态</span><select value={importDefaults.internal_status} onChange={(event) => setImportDefaults({ ...importDefaults, internal_status: event.target.value as KnowledgeInternalStatus })}>{Object.entries(INTERNAL_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}</div><button type="button" className="btn-primary" disabled={busy || importFiles.length === 0} onClick={() => void runImportPreview()}><Search size={15} />生成导入预检</button>{importPreview ? <div className="knowledge-preview"><div className="knowledge-preview__summary"><strong>预检结果</strong><span>{importPreview.items.filter((item) => item.action === 'add').length} 新增 · {importPreview.items.filter((item) => item.action === 'replace').length} 替换 · {importPreview.items.filter((item) => item.action === 'skip').length} 跳过 · {importPreview.items.filter((item) => item.action === 'error').length} 失败</span></div>{importPreview.items.map((item) => <div key={item.id} className="knowledge-preview__row"><FileText size={15} /><div><strong>{item.filename}</strong><small>{item.source.title} · {formatBytes(item.size)}</small></div><span className={actionClass(item.action)}>{ACTION_LABELS[item.action]}</span>{item.error ? <em>{item.error}</em> : null}</div>)}<button type="button" className="btn-primary" disabled={busy || !importPreview.items.some((item) => item.action === 'add' || item.action === 'replace')} onClick={() => void commitImport()}><Check size={15} />确认写入知识库</button></div> : null}</section></div> : null}
+      {showImport ? <dialog ref={importDialogRef} className="knowledge-modal" aria-labelledby="knowledge-import-title" onClose={() => { if (!busy) setShowImport(false); }} onClick={(event) => { if (event.target === importDialogRef.current && !busy) setShowImport(false); }}><div className="knowledge-modal__header"><div><h2 id="knowledge-import-title">导入{LIBRARY_LABELS[libraryKind].label}</h2><p>先预检，确认后写入知识库。</p></div><button type="button" className="icon-btn" aria-label="关闭导入窗口" onClick={() => setShowImport(false)} disabled={busy}><X size={18} /></button></div><div className="knowledge-import-drop"><input ref={fileInputRef} type="file" multiple accept=".txt,.md,.markdown,.pdf,.docx,.html,.htm,.json,.csv" onChange={(event) => setImportFiles(Array.from(event.target.files ?? []))} /><UploadCloud size={24} /><strong>{importFiles.length ? `已选择 ${importFiles.length} 个文件` : '选择本地文件'}</strong><span>支持 TXT、Markdown、PDF、DOCX、HTML、JSON、CSV，单文件不超过 20 MB。</span><button type="button" className="btn-secondary" onClick={() => fileInputRef.current?.click()}>浏览文件</button></div><div className="knowledge-form__grid knowledge-import-fields"><label className="form-field"><span>{libraryKind === 'legal' ? '发布机关（可选）' : '归属部门（可选）'}</span><input value={libraryKind === 'legal' ? importDefaults.issuing_body : importDefaults.owning_department} onChange={(event) => setImportDefaults({ ...importDefaults, [libraryKind === 'legal' ? 'issuing_body' : 'owning_department']: event.target.value })} placeholder={libraryKind === 'legal' ? '例如：全国人大常委会' : '例如：信息安全部'} /></label><label className="form-field"><span>来源站点（可选）</span><input value={importDefaults.source_site} onChange={(event) => setImportDefaults({ ...importDefaults, source_site: event.target.value })} placeholder="例如：公司制度中心" /></label>{libraryKind === 'internal_policy' ? <label className="form-field"><span>制度初始状态</span><select value={importDefaults.internal_status} onChange={(event) => setImportDefaults({ ...importDefaults, internal_status: event.target.value as KnowledgeInternalStatus })}>{Object.entries(INTERNAL_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}</div><button type="button" className="btn-primary" disabled={busy || importFiles.length === 0} onClick={() => void runImportPreview()}><Search size={15} />生成导入预检</button>{importPreview ? <div className="knowledge-preview"><div className="knowledge-preview__summary"><strong>预检结果</strong><span>{importPreview.items.filter((item) => item.action === 'add').length} 新增 · {importPreview.items.filter((item) => item.action === 'replace').length} 替换 · {importPreview.items.filter((item) => item.action === 'skip').length} 跳过 · {importPreview.items.filter((item) => item.action === 'error').length} 失败</span></div>{importPreview.items.map((item) => <div key={item.id} className="knowledge-preview__row"><FileText size={15} /><div><strong>{item.filename}</strong><small>{item.source.title} · {formatBytes(item.size)}</small></div><span className={actionClass(item.action)}>{ACTION_LABELS[item.action]}</span>{item.error ? <em>{item.error}</em> : null}</div>)}<button type="button" className="btn-primary" disabled={busy || !importPreview.items.some((item) => item.action === 'add' || item.action === 'replace')} onClick={() => void commitImport()}><Check size={15} />确认写入知识库</button></div> : null}</dialog> : null}
 
-      {deletePreview ? <div className="knowledge-modal-backdrop" role="presentation"><section className="knowledge-modal knowledge-modal--danger" role="dialog" aria-modal="true" aria-labelledby="knowledge-delete-title"><div className="knowledge-modal__header"><div><h2 id="knowledge-delete-title">确认移入回收站</h2><p>来源可在 30 天内恢复。</p></div><button type="button" className="icon-btn" aria-label="关闭删除确认" onClick={() => setDeletePreview(null)} disabled={busy}><X size={18} /></button></div><div className="knowledge-delete-summary"><strong>将处理 {deletePreview.items.length} 项来源</strong><span>共 {deletePreview.total_chunks} 个知识片段</span>{deletePreview.missing.length ? <small>未找到 {deletePreview.missing.length} 项：{deletePreview.missing.join('、')}</small> : null}</div><label className="form-field"><span>请输入确认语</span><input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={`删除 ${deletePreview.items.length} 项`} autoFocus /></label><button type="button" className="knowledge-danger-btn knowledge-danger-btn--solid" disabled={busy || deleteConfirmation !== `删除 ${deletePreview.items.length} 项`} onClick={() => void confirmDelete()}><Trash2 size={15} />确认删除</button></section></div> : null}
+      {deletePreview ? <dialog ref={deleteDialogRef} className="knowledge-modal knowledge-modal--danger" aria-labelledby="knowledge-delete-title" onClose={() => { if (!busy) setDeletePreview(null); }}><div className="knowledge-modal__header"><div><h2 id="knowledge-delete-title">确认移入回收站</h2><p>来源可在 30 天内恢复。</p></div><button type="button" className="icon-btn" aria-label="关闭删除确认" onClick={() => setDeletePreview(null)} disabled={busy}><X size={18} /></button></div><div className="knowledge-delete-summary"><strong>将处理 {deletePreview.items.length} 项来源</strong><span>共 {deletePreview.total_chunks} 个知识片段</span>{deletePreview.missing.length ? <small>未找到 {deletePreview.missing.length} 项：{deletePreview.missing.join('、')}</small> : null}</div><label className="form-field"><span>请输入确认语</span><input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={`删除 ${deletePreview.items.length} 项`} autoFocus /></label><button type="button" className="knowledge-danger-btn knowledge-danger-btn--solid" disabled={busy || deleteConfirmation !== `删除 ${deletePreview.items.length} 项`} onClick={() => void confirmDelete()}><Trash2 size={15} />确认删除</button></dialog> : null}
     </section>
   );
 }
