@@ -401,10 +401,8 @@ def inject_citation_markers(
             for (start, end), paragraph in zip(paragraphs, compact_paragraphs)
             if text in paragraph or _longest_common_substring_len(text, paragraph) >= 20
         ]
-        if not matches:
+        if len(matches) != 1:
             continue
-        # 同一主张在结论中被多个段落复述时，挂在首次出现处
-        matches = matches[:1]
         refs = insertions.setdefault(matches[0], [])
         existing = {ref for _, ref in refs}
         for chunk_id in claim.supporting_chunk_ids:
