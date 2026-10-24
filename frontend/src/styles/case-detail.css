@@ -132,19 +132,40 @@
   color: var(--color-foreground-muted);
   font-size: var(--text-xs);
 }
-.review-followup-summary__rest { margin-top: 2px; }
+/* 其余事项展开：一条横线 + 居中箭头，点击翻转 */
+.review-followup-summary__rest { margin-top: 4px; }
 .review-followup-summary__rest > summary {
-  width: fit-content;
-  padding: 6px 0;
-  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px 0;
+  color: var(--color-foreground-muted);
   font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
   cursor: pointer;
   list-style: none;
+  user-select: none;
 }
 .review-followup-summary__rest > summary::-webkit-details-marker { display: none; }
-.review-followup-summary__rest > summary::before { content: '+ 展开 '; color: var(--color-accent); }
-.review-followup-summary__rest[open] > summary::before { content: '− 收起 '; }
+.review-followup-summary__rest > summary::before,
+.review-followup-summary__rest > summary::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-hairline);
+}
+.review-followup-summary__rest > summary .rest-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  color: var(--color-foreground-muted);
+  transition: color var(--transition-fast);
+}
+.review-followup-summary__rest > summary:hover .rest-toggle { color: var(--color-primary); }
+.review-followup-summary__rest > summary .rest-toggle svg {
+  transition: transform var(--transition-base);
+}
+.review-followup-summary__rest[open] > summary .rest-toggle svg { transform: rotate(180deg); }
 .review-followup-summary__rest[open] > summary { margin-bottom: 4px; }
 @media (max-width: 767px) {
   .review-followup-summary__head { align-items: flex-start; flex-direction: column; gap: 4px; }
