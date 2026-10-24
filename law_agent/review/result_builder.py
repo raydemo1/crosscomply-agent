@@ -359,6 +359,25 @@ def _report_paragraph_ranges(report: str) -> list[tuple[int, int]]:
     return ranges
 
 
+def _longest_common_substring_len(a: str, b: str) -> int:
+    """Length of the longest common substring (dynamic programming, O(len(a)*len(b)))."""
+
+    if not a or not b:
+        return 0
+    best = 0
+    previous = [0] * (len(b) + 1)
+    for i in range(1, len(a) + 1):
+        current = [0] * (len(b) + 1)
+        ai = a[i - 1]
+        for j in range(1, len(b) + 1):
+            if ai == b[j - 1]:
+                current[j] = previous[j - 1] + 1
+                if current[j] > best:
+                    best = current[j]
+        previous = current
+    return best
+
+
 def inject_citation_markers(
     report: str,
     claims: list[GroundedClaim],
@@ -367,15 +386,25 @@ def inject_citation_markers(
     """Link uniquely located claim paragraphs to their program-owned sources."""
 
     paragraphs = _report_paragraph_ranges(report)
+    compact_paragraphs = [_compact_markdown_text(report[start:end]) for start, end in paragraphs]
     source_numbers = {ref: i + 1 for i, ref in enumerate(dict.fromkeys(citation_ref_by_chunk_id.values()))}
     insertions: dict[int, list[tuple[int, str]]] = {}
     for index, claim in enumerate(claims):
         text = _compact_markdown_text(claim.text)
         if len(text) < 8:
             continue
-        matches = [end for start, end in paragraphs if text in _compact_markdown_text(report[start:end])]
-        if len(matches) != 1:
+        # 结论是 claim 的改写叙述而非原文复述：整句包含几乎必然落空（实测最长公共
+        # 子串仅约 25 字）。改为最长公共子串 >= 20 个压缩字符即认定支持，仍要求
+        # 只在唯一段落命中，避免把编号挂到无关段落。
+        matches = [
+            end
+            for (start, end), paragraph in zip(paragraphs, compact_paragraphs)
+            if text in paragraph or _longest_common_substring_len(text, paragraph) >= 20
+        ]
+        if not matches:
             continue
+        # 同一主张在结论中被多个段落复述时，挂在首次出现处
+        matches = matches[:1]
         refs = insertions.setdefault(matches[0], [])
         existing = {ref for _, ref in refs}
         for chunk_id in claim.supporting_chunk_ids:
