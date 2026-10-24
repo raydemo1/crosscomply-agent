@@ -497,6 +497,21 @@ interface CaseHeaderProps {
 
 function CaseHeader({ saved, onBack, onRerun, viewerRole }: CaseHeaderProps): JSX.Element {
   const [shareOpen, setShareOpen] = useState(false);
+  const moreRef = useRef<HTMLDetailsElement>(null);
+
+  // 「更多」菜单：点击菜单外部时收起（原生 details 只响应 summary 自身）
+  useEffect(() => {
+    const close = (event: MouseEvent): void => {
+      const details = moreRef.current;
+      if (details?.open && !details.contains(event.target as Node)) details.open = false;
+    };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, []);
+
+  const closeMore = (): void => {
+    if (moreRef.current) moreRef.current.open = false;
+  };
   const reportReady = Boolean(saved.report);
   const reportCanGenerate = Boolean(
     saved.report
@@ -521,12 +536,12 @@ function CaseHeader({ saved, onBack, onRerun, viewerRole }: CaseHeaderProps): JS
             </button>
           ) : null}
           <button type="button" className="case-header__action-btn case-header__action-btn--share" onClick={() => setShareOpen(true)}>分享案件</button>
-          <details className="case-header__more">
+          <details className="case-header__more" ref={moreRef}>
             <summary className="case-header__action-btn">更多</summary>
             <div className="case-header__more-menu">
-              <button type="button" onClick={onRerun}>以此为模板重审</button>
-              <button type="button" onClick={() => downloadMarkdown(saved)}>导出 Markdown</button>
-              <button type="button" onClick={() => downloadHtml(saved)}>导出 HTML</button>
+              <button type="button" onClick={() => { closeMore(); onRerun(); }}>以此为模板重审</button>
+              <button type="button" onClick={() => { closeMore(); downloadMarkdown(saved); }}>导出 Markdown</button>
+              <button type="button" onClick={() => { closeMore(); downloadHtml(saved); }}>导出 HTML</button>
             </div>
           </details>
         </div>

@@ -14,10 +14,11 @@
 .case-progress[open] .case-progress__toggle::after { content: '收起流程 ▴'; }
 .case-progress__body { padding: var(--space-lg); }
 .case-progress__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-sm); margin: 0; padding: 0; list-style: none; }
-.case-progress__steps li { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; min-width: 0; color: var(--color-muted-foreground); }
-.case-progress__steps li::before { position: absolute; top: 14px; right: calc(100% - 8px); width: calc(100% - 16px); height: 1px; background: var(--color-border); content: ''; }
+.case-progress__steps li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; text-align: center; color: var(--color-muted-foreground); }
+/* 连接线只在相邻圆圈之间绘制；圆圈用底色光环截断连线，避免贯穿观感 */
+.case-progress__steps li::before { position: absolute; top: 13px; right: 50%; width: 100%; height: 1px; background: var(--color-border); content: ''; }
 .case-progress__steps li:first-child::before { display: none; }
-.case-progress__index { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-surface); color: var(--color-muted-foreground); font: 700 0.75rem var(--font-mono); }
+.case-progress__index { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-surface); box-shadow: 0 0 0 3px var(--color-surface); color: var(--color-muted-foreground); font: 700 0.75rem var(--font-mono); }
 .case-progress__steps strong,
 .case-progress__steps small { display: block; }
 .case-progress__steps strong { color: inherit; font-size: 0.86rem; line-height: 1.35; }
@@ -26,7 +27,7 @@
 .case-progress__steps .is-done .case-progress__index { border-color: var(--color-success); background: var(--color-success); color: #fff; }
 .case-progress__steps .is-done::before { background: var(--color-success); }
 .case-progress__steps .is-current { color: var(--color-primary); }
-.case-progress__steps .is-current .case-progress__index { border: 2px solid var(--color-primary); color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent); }
+.case-progress__steps .is-current .case-progress__index { border: 2px solid var(--color-primary); color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-surface); }
 .case-progress__steps .is-conditional { color: var(--color-muted-foreground); }
 .case-progress__steps .is-conditional .case-progress__index { border-style: dashed; }
 .case-progress__current { display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg); margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--color-border); }
