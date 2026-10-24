@@ -143,14 +143,30 @@ function caseStatusLabel(status: SavedCase['status']): string {
   return CASE_STATUS_LABELS[status];
 }
 
+const INTAKE_ENUM_LABELS: Record<string, string> = {
+  unknown: '尚不确定',
+  under_review: '正在核实',
+  important: '已确认涉及',
+  not_important: '已确认不涉及',
+  ciio: '已确认是',
+  not_ciio: '已确认不是',
+  current_year_cumulative: '本年度 1 月 1 日起累计',
+  annual_estimate: '全年估算',
+  other: '其他口径',
+};
+
+function intakeEnumLabel(value: string): string {
+  return INTAKE_ENUM_LABELS[value] ?? value;
+}
+
 function intakeToMarkdown(intake: CaseIntake): string {
   const rows: Array<[string, string]> = [
     ['业务活动', intake.business_activity || '待补充'],
     ['数据类型', renderList(intake.data_types)],
     ['敏感个人信息', renderBool(intake.sensitive_personal_info)],
     ['跨境传输', renderBool(intake.cross_border_transfer)],
-    ['重要数据识别', intake.important_data_status],
-    ['关基运营者状态', intake.ciio_status],
+    ['重要数据识别', intakeEnumLabel(intake.important_data_status)],
+    ['关基运营者状态', intakeEnumLabel(intake.ciio_status)],
     ['非敏感个人信息数量', intake.annual_non_sensitive_count || '待补充'],
     ['敏感个人信息数量', intake.annual_sensitive_count || '待补充'],
     ['境外接收方', intake.overseas_recipient || '待补充'],
@@ -244,7 +260,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
   lines.push('');
   lines.push(intakeToMarkdown(saved.intake));
   lines.push('');
-  lines.push('## 四、AI 提取事实摘要');
+  lines.push('## 四、材料事实摘要');
   lines.push('');
   lines.push(factsToMarkdown(facts));
   lines.push('');
@@ -273,8 +289,8 @@ export function buildMarkdownReport(saved: SavedCase): string {
     lines.push('');
     lines.push('**二次检索计划：**');
     lines.push(`- 扩展查询数：${plan.expanded_queries.length}`);
-    lines.push(`- 增加 top_k：${plan.increased_top_k}`);
-    lines.push(`- 加强 boost：${plan.stronger_boost ? '是' : '否'}`);
+    lines.push(`- 扩大召回数量：${plan.increased_top_k}`);
+    lines.push(`- 提升关键词权重：${plan.stronger_boost ? '是' : '否'}`);
     lines.push(`- 原因：${mdEscape(plan.reason)}`);
   }
   lines.push('');
@@ -283,7 +299,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
   lines.push('');
   lines.push(`**风险等级：${RISK_LABELS[result.risk_level]}**`);
   lines.push('');
-  lines.push('### 审批摘要');
+  lines.push('### 审查摘要');
   lines.push('');
   lines.push(result.decision_summary);
   lines.push('');
@@ -305,7 +321,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
   }
 
   if (result.recommended_actions.length > 0) {
-    lines.push('## 九、建议动作');
+    lines.push('## 九、审查建议');
     lines.push('');
     result.recommended_actions.forEach((a, i) => lines.push(`${i + 1}. ${mdEscape(a)}`));
     lines.push('');
@@ -431,8 +447,8 @@ function intakeToHtml(intake: CaseIntake): string {
     ['数据类型', renderList(intake.data_types)],
     ['敏感个人信息', renderBool(intake.sensitive_personal_info)],
     ['跨境传输', renderBool(intake.cross_border_transfer)],
-    ['重要数据识别', intake.important_data_status],
-    ['关基运营者状态', intake.ciio_status],
+    ['重要数据识别', intakeEnumLabel(intake.important_data_status)],
+    ['关基运营者状态', intakeEnumLabel(intake.ciio_status)],
     ['非敏感个人信息数量', intake.annual_non_sensitive_count || '待补充'],
     ['敏感个人信息数量', intake.annual_sensitive_count || '待补充'],
     ['境外接收方', intake.overseas_recipient || '待补充'],
@@ -559,7 +575,7 @@ export function buildHtmlReport(saved: SavedCase): string {
 
   parts.push('<h2>三、人工确认事实</h2>');
   parts.push(intakeToHtml(saved.intake));
-  parts.push('<h2>四、AI 提取事实摘要</h2>');
+  parts.push('<h2>四、材料事实摘要</h2>');
   parts.push(factsToHtml(facts));
 
   parts.push('<h2>五、检索查询计划</h2>');
@@ -583,7 +599,7 @@ export function buildHtmlReport(saved: SavedCase): string {
 
   parts.push('<h2>七、审查结论</h2>');
   parts.push(`<p><span class="risk risk-${escHtml(result.risk_level)}">${escHtml(RISK_LABELS[result.risk_level])}</span></p>`);
-  parts.push('<h3>审批摘要</h3>');
+  parts.push('<h3>审查摘要</h3>');
   parts.push(`<p>${escHtml(result.decision_summary)}</p>`);
   parts.push('<h3>完整审查意见</h3>');
   parts.push(`<p>${escHtml(result.conclusion)}</p>`);
@@ -596,7 +612,7 @@ export function buildHtmlReport(saved: SavedCase): string {
     parts.push('</ul>');
   }
   if (result.recommended_actions.length > 0) {
-    parts.push(`<h2>${cnNum(idx++)}、建议动作</h2><ol>`);
+    parts.push(`<h2>${cnNum(idx++)}、审查建议</h2><ol>`);
     result.recommended_actions.forEach((a) => parts.push(`<li>${escHtml(a)}</li>`));
     parts.push('</ol>');
   }
@@ -697,7 +713,7 @@ function download(filename: string, content: string, mime: string): void {
 function safeFilename(id: string): string {
   const suffix = id.replace(/[^a-zA-Z0-9_-]/g, '').slice(-12) || 'case';
   const date = new Date().toISOString().slice(0, 10);
-  return `lawagent-review-${date}-${suffix}`;
+  return `crosscomply-review-${date}-${suffix}`;
 }
 
 export function downloadMarkdown(saved: SavedCase): void {

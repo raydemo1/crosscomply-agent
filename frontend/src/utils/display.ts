@@ -20,11 +20,20 @@ import type {
 // Label maps
 // ---------------------------------------------------------------------------
 
-export const RISK_LABELS: Record<RiskLevel, string> = {
+export const RISK_LABELS: Record<RiskLevel | 'pending', string> = {
   high: '高风险',
   medium: '中风险',
   low: '低风险',
   insufficient_evidence: '证据不足',
+  pending: '待评估',
+};
+
+export const RISK_HISTORY_CLASS: Record<string, string> = {
+  high: 'history-item__risk history-item__risk--high',
+  medium: 'history-item__risk history-item__risk--medium',
+  low: 'history-item__risk history-item__risk--low',
+  insufficient_evidence: 'history-item__risk history-item__risk--insufficient',
+  pending: 'history-item__risk history-item__risk--pending',
 };
 
 export const RISK_BADGE_CLASS: Record<RiskLevel, string> = {
@@ -71,9 +80,9 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
 export const LAW_STATUS_LABELS: Record<string, string> = {
   effective: '现行有效',
   not_yet_effective: '尚未生效',
-  amended: '已修订',
+  amended: '已修订，需核对适用版本',
   repealed: '已废止',
-  unknown: '状态未知',
+  unknown: '效力待核验',
 };
 
 /** Stable display order for citation groups. */

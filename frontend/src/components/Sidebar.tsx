@@ -3,7 +3,7 @@ import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus
 import type { QASummary } from '../types/qa';
 import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
-import { relativeTime, truncate } from '../utils/display';
+import { relativeTime, truncate, RISK_LABELS, RISK_HISTORY_CLASS } from '../utils/display';
 import { CASE_STATUS_LABELS } from '../utils/workflow';
 
 /**
@@ -38,21 +38,15 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
-const RISK_DISPLAY: Record<string, { label: string; className: string }> = {
-  high: { label: '高风险', className: 'history-item__risk history-item__risk--high' },
-  medium: { label: '中风险', className: 'history-item__risk history-item__risk--medium' },
-  low: { label: '低风险', className: 'history-item__risk history-item__risk--low' },
-  insufficient_evidence: { label: '证据不足', className: 'history-item__risk history-item__risk--insufficient' },
-  pending: { label: '待评估', className: 'history-item__risk history-item__risk--pending' },
-};
-
 function riskDisplay(item: SavedCase): { label: string; className: string } {
   const level = item.riskLevel ?? (
     item.response && 'review_result' in item.response
       ? item.response.review_result.risk_level
       : null
   );
-  return level ? (RISK_DISPLAY[level] ?? RISK_DISPLAY.pending) : RISK_DISPLAY.pending;
+  return level
+    ? { label: RISK_LABELS[level] ?? RISK_LABELS.pending, className: RISK_HISTORY_CLASS[level] ?? RISK_HISTORY_CLASS.pending }
+    : { label: RISK_LABELS.pending, className: RISK_HISTORY_CLASS.pending };
 }
 
 function summarizeCaseTitle(question: string): string {
@@ -247,7 +241,7 @@ export default function Sidebar({
         </div>
         <div className="sidebar-user-card__identity">
           <strong>{user.display_name}</strong>
-          <span>{user.role === 'admin' ? '管理员' : user.role === 'reviewer' ? '合规审核人' : '业务申请人'}</span>
+          <span>{user.role === 'admin' ? '管理员' : user.role === 'reviewer' ? '审核人' : '申报人'}</span>
         </div>
         <button type="button" className="sidebar-user-card__logout" onClick={() => { onCloseMobile(); onLogout(); }} title="退出登录" aria-label="退出登录"><LogOut size={16} strokeWidth={1.8} /></button>
       </div>

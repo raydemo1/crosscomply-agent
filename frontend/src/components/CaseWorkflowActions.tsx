@@ -112,7 +112,7 @@ export default function CaseWorkflowActions({
   const controls = (
     <div className="workflow-actions__controls">
       {canManage && saved.status === 'pending_review' ? (activeTask
-        ? <span>{saved.reviewTask?.status === 'queued' ? '审查任务已进入队列，等待 Worker 执行，无需手动启动。' : 'Agent 正在审查当前材料，完成后会自动更新结论。'}</span>
+        ? <span>{saved.reviewTask?.status === 'queued' ? '审查任务已进入队列，等待系统执行，无需手动启动。' : 'Agent 正在审查当前材料，完成后会自动更新结论。'}</span>
         : <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '正在入队…' : '重新进入审查队列'}</button>) : null}
       {canManage && saved.status === 'needs_info' && !activeTask ? (frozenInputAlreadyReviewed
         ? <span>当前冻结材料与事实已完成调查，请申报人补充材料或事实后重新提交，或由申报人发起整案复核。</span>
@@ -157,7 +157,7 @@ function workflowActionTitle(saved: SavedCase): string {
 function workflowActionHint(saved: SavedCase): string {
   if (saved.status === 'pending_source_verification') return saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '法源已完成核验，待负责人复核当前案件。' : '核验期间不发起最终审批。';
   if (saved.status === 'pending_review') {
-    if (saved.reviewTask?.status === 'queued') return '任务已进入队列，等待 Worker 执行，无需手动启动。';
+    if (saved.reviewTask?.status === 'queued') return '任务已进入队列，等待系统执行，无需手动启动。';
     if (saved.reviewTask?.status === 'running' || saved.reviewTask?.status === 'waiting_input') return 'Agent 正在调查材料、检索法源并核验证据，完成后自动更新结论。';
     return '正常提交会自动进入审查队列；若任务未开始，可由审核人重新入队。';
   }

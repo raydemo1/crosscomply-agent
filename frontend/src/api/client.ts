@@ -257,8 +257,8 @@ async function request<T>(
     throw new ApiError(
       0,
       controller.signal.aborted
-        ? `请求超时：${path}`
-        : `无法连接到 CrossComply 服务：${error instanceof Error ? error.message : String(error)}`,
+        ? `请求超时，请稍后重试。`
+        : `无法连接服务，请检查网络后重试。`,
       path,
     );
   } finally {
@@ -281,7 +281,7 @@ async function request<T>(
     // so keep it on the error for diagnostics and show a clear message instead.
     const message = response.status >= 500
       ? `CrossComply 服务暂时不可用（${response.status}），请稍后重试。`
-      : detailToString(detail) || `API 请求失败（${response.status}）`;
+      : detailToString(detail) || `请求失败（${response.status}），请稍后重试。`;
     throw new ApiError(
       response.status,
       message,
