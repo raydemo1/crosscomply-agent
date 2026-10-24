@@ -132,11 +132,20 @@
   color: var(--color-foreground-muted);
   font-size: var(--text-xs);
 }
-.review-followup-summary__more {
-  margin: var(--space-xs) 0 0;
-  color: var(--color-foreground-muted);
+.review-followup-summary__rest { margin-top: 2px; }
+.review-followup-summary__rest > summary {
+  width: fit-content;
+  padding: 6px 0;
+  color: var(--color-primary);
   font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  list-style: none;
 }
+.review-followup-summary__rest > summary::-webkit-details-marker { display: none; }
+.review-followup-summary__rest > summary::before { content: '+ 展开 '; color: var(--color-accent); }
+.review-followup-summary__rest[open] > summary::before { content: '− 收起 '; }
+.review-followup-summary__rest[open] > summary { margin-bottom: 4px; }
 @media (max-width: 767px) {
   .review-followup-summary__head { align-items: flex-start; flex-direction: column; gap: 4px; }
   .review-followup-summary__item-title { white-space: normal; }

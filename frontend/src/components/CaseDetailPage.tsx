@@ -385,7 +385,9 @@ function ReviewFollowupSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: (
   // 报告不重复描述案件阶段：只有当清单里确实还有未完成事项时才给出入口。
   if (pending === 0) return null;
   const PREVIEW = 3;
-  const preview = currentTasks.filter((task) => task.status !== 'completed').slice(0, PREVIEW);
+  const openTasks = currentTasks.filter((task) => task.status !== 'completed');
+  const preview = openTasks.slice(0, PREVIEW);
+  const rest = openTasks.slice(PREVIEW);
   return (
     <div className="review-followup-summary" aria-label="待补充与核实">
       <div className="review-followup-summary__head">
@@ -395,7 +397,7 @@ function ReviewFollowupSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: (
       {preview.length ? <ul className="review-followup-summary__items">
         {preview.map((task) => <li key={task.id}><span className={`task-state task-state--${task.status === 'pending_review' || task.status === 'in_progress' ? 'running' : 'failed'}`}>{task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理'}</span><span className="review-followup-summary__item-title">{task.title}</span>{task.due_date ? <small>截止 {task.due_date}</small> : null}</li>)}
       </ul> : null}
-      {pending > PREVIEW ? <p className="review-followup-summary__more">其余 {pending - PREVIEW} 项在完整清单中处理。</p> : null}
+      {rest.length ? <details className="review-followup-summary__rest"><summary>其余 {rest.length} 项</summary><ul className="review-followup-summary__items">{rest.map((task) => <li key={task.id}><span className={`task-state task-state--${task.status === 'pending_review' || task.status === 'in_progress' ? 'running' : 'failed'}`}>{task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理'}</span><span className="review-followup-summary__item-title">{task.title}</span>{task.due_date ? <small>截止 {task.due_date}</small> : null}</li>)}</ul></details> : null}
     </div>
   );
 }
