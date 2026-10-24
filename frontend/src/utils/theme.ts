@@ -15,9 +15,9 @@ export function currentTheme(): Theme {
 }
 
 export function applyTheme(theme: Theme): void {
-  const root = document.documentElement;
-  if (theme === 'dark') root.dataset.theme = 'dark';
-  else delete root.dataset.theme;
+  // 显式写入 light/dark：「跟随系统」由解析后的具体值表达，
+  // 否则删除属性后 `:root:not([data-theme='light'])` 在系统深色下仍会命中深色覆盖
+  document.documentElement.dataset.theme = theme;
 }
 
 export function storedPreference(): 'light' | 'dark' | 'system' {
