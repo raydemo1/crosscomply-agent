@@ -195,7 +195,7 @@ class PostgresEnrichmentStore:
                 """SELECT id, url, title, status, source_json, source_id, error,
                           raw_sha256, parsed_excerpt,
                           created_at, updated_at FROM knowledge_enrichment_jobs
-                   WHERE (%s IS NULL OR status=%s) ORDER BY created_at DESC LIMIT 100""",
+                   WHERE (%s::text IS NULL OR status=%s) ORDER BY created_at DESC LIMIT 100""",
                 (status, status),
             )
             return [dict(row) for row in cur.fetchall()]

@@ -1067,7 +1067,7 @@ class PostgresEnterpriseStore:
                 SET status = 'failed', current_node = %s, error_category = %s,
                     error_message = %s, lease_expires_at = NULL, updated_at = now()
                 WHERE id = %s AND status = 'running'
-                  AND (%s IS NULL OR attempt_count = %s)
+                  AND (%s::int IS NULL OR attempt_count = %s)
                 RETURNING *
                 """,
                 (
@@ -1109,7 +1109,7 @@ class PostgresEnterpriseStore:
                     lease_expires_at = now() + (%s * interval '1 second'),
                     updated_at = now()
                 WHERE id = %s AND status = 'running'
-                  AND (%s IS NULL OR attempt_count = %s)
+                  AND (%s::int IS NULL OR attempt_count = %s)
                 RETURNING *
                 """,
                 (
@@ -1154,7 +1154,7 @@ class PostgresEnterpriseStore:
                 SET status = 'waiting_input', agent_state_json = %s,
                     current_node = %s, lease_expires_at = NULL, updated_at = now()
                 WHERE id = %s AND status = 'running'
-                  AND (%s IS NULL OR attempt_count = %s)
+                  AND (%s::int IS NULL OR attempt_count = %s)
                 RETURNING *
                 """,
                 (Jsonb(state), current_node, task_id, expected_attempt, expected_attempt),
@@ -1268,7 +1268,7 @@ class PostgresEnterpriseStore:
                     error_category = NULL, error_message = NULL,
                     lease_expires_at = NULL, updated_at = now()
                 WHERE id = %s AND status = 'running'
-                  AND (%s IS NULL OR attempt_count = %s)
+                  AND (%s::int IS NULL OR attempt_count = %s)
                 RETURNING *
                 """,
                 (final_node, Jsonb(result), task_id, expected_attempt, expected_attempt),
