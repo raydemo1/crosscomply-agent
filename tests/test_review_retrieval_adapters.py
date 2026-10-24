@@ -105,7 +105,7 @@ def test_pgvector_adapter_embeds_query_and_maps_rows() -> None:
 
     adapter = PgVectorAdapter(search_fn=search_fn, embed_texts=embed_texts)
 
-    hits = adapter.search("数据出境", top_k=2, query_type="material_fact")
+    hits = adapter.search_many([("数据出境", "material_fact")], top_k=2)[0]
 
     assert embed_batches == [["数据出境"]]
     assert seen_vectors == [[0.1, 0.2, 0.3]]
@@ -141,7 +141,7 @@ def test_pgvector_adapter_batches_and_caches_query_embeddings() -> None:
         [("数据出境", "legal_issue"), ("数据出境", "material_fact"), ("标准合同", "legal_issue")],
         top_k=2,
     )
-    adapter.search("标准合同", top_k=2)
+    adapter.search_many([("标准合同", None)], top_k=2)
 
     assert embed_batches == [["数据出境", "标准合同"]]
     assert len(results) == 3

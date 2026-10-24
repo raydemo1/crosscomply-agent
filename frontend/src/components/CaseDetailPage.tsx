@@ -11,9 +11,10 @@ import CaseWorkflowActions from './CaseWorkflowActions';
 import CaseFactsPanel from './CaseFactsPanel';
 import MatterConversation from './MatterConversation';
 import { caseFactLedger } from '../utils/factFields';
+import { cssId } from '../utils/display';
 import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
-import { cssId } from './GroundedClaims';
+
 import MarkdownText from './MarkdownText';
 import ShareCaseDialog from './ShareCaseDialog';
 import type { RevisionSelection } from './RevisionWorkspace';

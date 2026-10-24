@@ -33,10 +33,6 @@ from law_agent.review.schemas import (
 # ---------------------------------------------------------------------------
 
 
-class CitationValidationError(Exception):
-    """Raised when a citation violates governance rules."""
-
-
 def validate_citation(hit: RetrievalHit, usage: CitationUsage) -> list[str]:
     """Validate a single hit for a given usage. Returns violation messages.
 
@@ -128,25 +124,24 @@ def _build_citation(
     )
 
 
-def _full_article_text(
-    hit: RetrievalHit,
+def assemble_article_text(
     chunks_by_id: dict[str, Chunk],
+    *,
+    source_id: str,
+    article_no: str,
 ) -> str | None:
-    """Assemble only the cited article, never adjacent article chunks."""
+    """按 source_id + article_no 聚合同一条款的全部 chunk，按序去重拼接。
 
-    chunk = chunks_by_id.get(hit.chunk_id)
-    article_no = chunk.article_no if chunk is not None else hit.article_no
-    if not article_no or not hit.can_cite_clause:
-        return None
+    引用与检索增强共用这一份拼装规则，避免多处实现漂移。
+    """
 
     article_chunks = [
         candidate
         for candidate in chunks_by_id.values()
-        if candidate.source_id == hit.source_id and candidate.article_no == article_no
+        if candidate.source_id == source_id and candidate.article_no == article_no
     ]
     if not article_chunks:
         return None
-
     texts: list[str] = []
     seen: set[str] = set()
     for candidate in sorted(article_chunks, key=lambda item: item.chunk_index):
@@ -157,6 +152,18 @@ def _full_article_text(
     return "\n".join(texts) or None
 
 
+def _full_article_text(
+    hit: RetrievalHit,
+    chunks_by_id: dict[str, Chunk],
+) -> str | None:
+    """Assemble only the cited article, never adjacent article chunks."""
+
+    chunk = chunks_by_id.get(hit.chunk_id)
+    article_no = chunk.article_no if chunk is not None else hit.article_no
+    if not article_no or not hit.can_cite_clause:
+        return None
+    return assemble_article_text(chunks_by_id, source_id=hit.source_id, article_no=article_no)
+
 # What a non-normative material *is*, so a demoted citation still states its
 # real nature instead of being flattened into a generic "参考材料".
 _REFERENCE_NATURE: dict[str, str] = {
@@ -166,6 +173,7 @@ _REFERENCE_NATURE: dict[str, str] = {
     "policy": "政策文件",
     "contract": "合同范本",
 }
+
 
 
 def _applicability_note(chunks: Sequence[Chunk]) -> str | None:
@@ -245,14 +253,12 @@ def group_citations(
 
     # First pass: determine usage and validate
     hits_with_usage: list[tuple[RetrievalHit, CitationUsage]] = []
-    demoted_hits: list[RetrievalHit] = []
 
     for hit in hits:
         usage = _determine_usage(hit)
         violations = validate_citation(hit, usage)
         if violations:
             # Demote to implementation_reference
-            demoted_hits.append(hit)
             hits_with_usage.append((hit, "implementation_reference"))
         else:
             hits_with_usage.append((hit, usage))
@@ -327,10 +333,3 @@ def group_citations(
 # ---------------------------------------------------------------------------
 
 
-def count_citations_by_usage(groups: list[CitationGroup]) -> dict[str, int]:
-    """Count citations per usage category."""
-
-    counts: dict[str, int] = {}
-    for group in groups:
-        counts[group.usage] = len(group.citations)
-    return counts

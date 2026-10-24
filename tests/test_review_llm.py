@@ -146,45 +146,6 @@ def test_result_prompt_contains_schema_and_original_evidence() -> None:
     assert "retrieval_queries" in combined
 
 
-def test_markdown_result_generation_persists_one_shared_decision_summary() -> None:
-    summary = (
-        "当前材料显示该境外 SaaS 场景属于个人信息出境，但现有事实尚未达到安全评估门槛。"
-        "建议采用标准合同或认证路径，并在上线前完成影响评估、合同签署备案和敏感信息范围核实。"
-    )
-    client = FakeClient(
-        outputs=[{
-            "risk_level": "medium",
-            "decision_summary": summary,
-            "report": (
-                "### 风险定性\n该场景属于个人信息出境，存在中等合规风险。\n\n"
-                "### 建议措施\n1. 完成个人信息保护影响评估。"
-            ),
-            "claims": [{
-                "text": "该场景属于个人信息出境。",
-                "supporting_chunk_ids": ["c1"],
-            }],
-            "trigger_reasons": ["cross_border_transfer"],
-        }]
-    )
-
-    result = build_review_result_with_deepseek(
-        review_result_id="result_markdown",
-        review_case_id="review_markdown",
-        trace_id="trace_markdown",
-        facts=ReviewFacts(cross_border_transfer=True),
-        self_check=EvidenceSelfCheck(status="sufficient"),
-        evidence_hits=[_hit()],
-        question="是否需要数据出境安全评估？",
-        material_text="采购境外 CRM 并向欧洲供应商提供客户与工单数据。",
-        client=client,  # type: ignore[arg-type]
-        max_retries=0,
-        output_format="markdown",
-    )
-
-    assert result.decision_summary == summary
-    assert result.conclusion.startswith("### 风险定性")
-    assert client.kwargs[0]["structured_output_mode"] == "json_object"
-
 
 def test_structured_node_retries_validation_failure() -> None:
     reset_telemetry()

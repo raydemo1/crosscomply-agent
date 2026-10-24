@@ -386,4 +386,3 @@ def plan_queries_with_deepseek(
     return queries
 
 
-plan_queries_with_llm = plan_queries_with_deepseek

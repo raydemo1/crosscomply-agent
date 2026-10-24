@@ -268,8 +268,6 @@ class AgentModel:
         return self.protocol.decide(state.tool_session, prompt=SYSTEM_PROMPT, context=review_context(state, intake))
 
 
-class AgentBudgetExceeded(RuntimeError):
-    pass
 
 
 def revision_targets(

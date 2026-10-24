@@ -19,13 +19,6 @@ from Crypto.Cipher import AES
 
 from law_agent.review.workflow import ApprovalDecision, CaseStatus
 
-FeishuInstanceStatus = Literal[
-    "PENDING",
-    "APPROVED",
-    "REJECTED",
-    "CANCELED",
-    "DELETED",
-]
 
 
 class HttpResponse(Protocol):

@@ -152,7 +152,8 @@ class PostgresQAStore(QAStore):
     def _connect(self):
         from law_agent.review.transactions import store_connection
 
-        return store_connection(self.dsn, lambda: psycopg.connect(self.dsn, row_factory=dict_row))
+        # 不传 factory：无共享事务时走 db_pool 连接池（与 case/enterprise 一致）
+        return store_connection(self.dsn)
 
     def _insert(self, row):
         with self._connect() as conn, conn.cursor() as cursor:

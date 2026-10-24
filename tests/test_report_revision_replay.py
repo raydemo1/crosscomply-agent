@@ -38,7 +38,6 @@ def test_declared_blocking_gap_cannot_reach_approval(payload, expected):
 
     from law_agent.review.enterprise_store import InMemoryEnterpriseStore
     from law_agent.review.remediation import reconcile_guided_action_list
-    from law_agent.review.worker import completion_has_missing_information
     from tests.test_review_worker import _queued_task
 
     class Store:
@@ -48,7 +47,7 @@ def test_declared_blocking_gap_cannot_reach_approval(payload, expected):
     store = InMemoryEnterpriseStore()
     task = _queued_task(store)
     task.result = payload
-    assert completion_has_missing_information(task)
+    assert review_has_missing_information(task.result)
     _, _, status = reconcile_guided_action_list(Store(), case_id="case", actor_id="reviewer",
                                                 requester_id=None, task_result=payload)
     assert status == expected

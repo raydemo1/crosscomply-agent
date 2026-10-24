@@ -177,11 +177,6 @@ class ReviewWorker:
         return failed
 
 
-def completion_has_missing_information(task: ReviewTask) -> bool:
-    """Keep unresolved Agent conclusions from being promoted to approval."""
-
-    return review_has_missing_information(task.result or {})
-
 
 def main() -> None:
     """Run the production worker until the container is stopped."""

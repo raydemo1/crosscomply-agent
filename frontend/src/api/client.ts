@@ -10,7 +10,6 @@ import type {
   CaseTemplateApi,
   CaseTemplatePayload,
   CaseStatus,
-  DashboardSummaryApi,
   EvalJobResponse,
   EvalRerankMode,
   EvalRunOptions,
@@ -699,10 +698,6 @@ export async function activateRemediationPlan(planId: string): Promise<Remediati
   return request<RemediationPlanApi>(`/api/remediation-plans/${encodeURIComponent(planId)}/activate`, { method: 'POST' });
 }
 
-export async function cancelRemediationPlan(planId: string): Promise<RemediationPlanApi> {
-  return request<RemediationPlanApi>(`/api/remediation-plans/${encodeURIComponent(planId)}/cancel`, { method: 'POST' });
-}
-
 export async function listMyRemediations(params: { scope?: 'mine' | 'review'; status?: string; overdue?: boolean } = {}): Promise<{ items: RemediationInboxItemApi[]; total: number }> {
   const query = new URLSearchParams();
   query.set('scope', params.scope ?? 'mine');
@@ -782,41 +777,6 @@ export async function saveFeedback(caseId: string, payload: {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-}
-
-export async function getDashboardSummary(): Promise<DashboardSummaryApi> {
-  return request<DashboardSummaryApi>('/api/dashboard/summary');
-}
-
-export async function runEvaluation(options: EvalRunOptions = {
-  retrieval_mode: 'service', top_k: 10, max_workers: 4, rerank_mode: 'off', suite: 'full',
-}): Promise<EvalJobResponse> {
-  return request<EvalJobResponse>('/api/eval/run', {
-    method: 'POST',
-    body: JSON.stringify(options),
-  });
-}
-
-export async function getEvalStatus(rerankMode: EvalRerankMode = 'off'): Promise<EvalJobResponse> {
-  return request<EvalJobResponse>(`/api/eval/status?rerank_mode=${encodeURIComponent(rerankMode)}`);
-}
-
-export async function getLatestEval(rerankMode: EvalRerankMode = 'off'): Promise<EvalSummary | null> {
-  try {
-    return await request<EvalSummary>(`/api/eval/latest?rerank_mode=${encodeURIComponent(rerankMode)}`);
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
-    throw error;
-  }
-}
-
-export async function checkHealth(): Promise<boolean> {
-  try {
-    const result = await request<HealthResponse>('/api/health', { timeoutMs: 5_000 });
-    return result?.status === 'ok';
-  } catch {
-    return false;
-  }
 }
 
 export interface FactBinding {

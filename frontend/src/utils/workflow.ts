@@ -22,11 +22,7 @@ export const REVIEW_TASK_STATUS_LABELS: Record<ReviewTaskStatus, string> = {
   superseded: '已被新提交取代',
 };
 
-export const TERMINAL_CASE_STATUSES = new Set<CaseStatus>([
-  'approved',
-  'conditionally_approved',
-  'rejected',
-]);
+
 
 /** Shared prompt so every exit path from the revision editor asks the same question. */
 export const REVISION_DISCARD_PROMPT = '文书修改内容尚未提交，关闭后需要重新编辑。确定关闭吗？';

@@ -114,20 +114,6 @@ class PgVectorAdapter:
         self.embed_texts = embed_texts
         self._query_cache: dict[str, list[float]] = {}
 
-    def search(
-        self,
-        query: str,
-        *,
-        top_k: int = 10,
-        query_type: RetrievalQueryType | None = None,
-    ) -> list[RetrievalHit]:
-        vector = self._embed_one(query)
-        rows = self.search_fn(vector, top_k)
-        return [
-            _hit_from_source(row, row.get("score", 0.0), rank, "pgvector", query_type)
-            for rank, row in enumerate(rows[:top_k])
-        ]
-
     def prewarm_queries(self, queries: Sequence[str]) -> int:
         """Embed uncached query strings in one batch. Returns newly cached count."""
 

@@ -3,7 +3,6 @@
 import pytest
 
 from law_agent.review.citations import (
-    count_citations_by_usage,
     group_citations,
     validate_citation,
 )
@@ -62,23 +61,6 @@ def test_group_citations_demotes_non_citable_legal_basis() -> None:
     assert violations == []  # demotion happens before validation, so no violations
     assert groups[0].usage == "implementation_reference"
 
-
-def test_count_citations_by_usage() -> None:
-    groups, _ = group_citations(
-        [
-            _hit(chunk_id="c1", can_cite=True),
-            _hit(
-                chunk_id="c2",
-                citation_role="interpretation_auxiliary",
-                can_cite=False,
-            ),
-        ],
-        ReviewFacts(),
-    )
-
-    counts = count_citations_by_usage(groups)
-    assert counts["legal_basis"] == 1
-    assert counts["policy_explanation"] == 1
 
 
 def test_inject_citation_markers_uses_paragraph_end_fallback() -> None:

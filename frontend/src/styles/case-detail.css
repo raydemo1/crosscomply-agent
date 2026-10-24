@@ -2427,7 +2427,7 @@ details[open] > summary > .case-disclosure-chevron { transform: rotate(180deg); 
 .matter-conversation > summary small { display: block; font-size: var(--text-xs); color: var(--color-muted-foreground); margin-top: 4px; }
 .matter-conversation[open] > summary { border-bottom: 1px solid var(--color-border); }
 .matter-conversation__body { padding: 16px 20px 20px; }
-.matter-conversation__scope { font-size: var(--text-xs); color: var(--color-foreground-faint); margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--color-hairline); }
+.matter-conversation__scope { font-size: var(--text-xs); color: var(--color-foreground-faint); margin: 0; padding: 10px 20px 14px; border-top: 1px solid var(--color-hairline); }
 .matter-conversation__history { max-height: 420px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .matter-conversation__empty { padding: 20px 16px; border-radius: var(--radius-md); background: var(--color-background); }
 .matter-conversation__empty > span { font-size: var(--text-base); font-weight: 600; }
@@ -2442,7 +2442,7 @@ details[open] > summary > .case-disclosure-chevron { transform: rotate(180deg); 
 .matter-conversation__suggestions { display: grid; gap: 6px; margin: 16px 0; }
 .matter-conversation__suggestions .case-header__action-btn { text-align: left; font-size: var(--text-sm); min-height: 40px; white-space: normal; padding: 9px 12px; background: var(--color-surface); }
 .matter-conversation__composer > label { display: block; font-size: var(--text-sm); font-weight: 600; margin-bottom: 8px; }
-.matter-conversation__composer > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.matter-conversation__composer > div { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .matter-conversation__composer small { font-size: var(--text-xs); color: var(--color-muted-foreground); }
 .matter-conversation__help { margin-top: 16px; font-size: var(--text-xs); color: var(--color-muted-foreground); }
 .matter-conversation__help summary { cursor: pointer; min-height: 32px; }

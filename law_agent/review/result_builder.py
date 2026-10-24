@@ -142,35 +142,8 @@ class LLMReviewResultDraft(StrictModel):
         return self
 
 
-class MarkdownReviewDraft(StrictModel):
-    """Simplified schema for markdown (frontend) path.
 
-    Unlike ``LLMReviewResultDraft`` which splits the report into
-    conclusion/recommended_actions/risk_boundaries/questions,
-    this schema collapses everything into a single ``report`` field.
-    The LLM writes one coherent markdown report with scene-adaptive
-    sections, instead of filling separate fields that the backend then
-    stitches back together. ``claims`` stays separate so evidence
-    grounding is preserved for the right-panel citation cards.
-    """
-
-    risk_level: RiskLevel
-    decision_summary: str = Field(min_length=40, max_length=240)
-    legal_path: str | None = None
-    report: str
-    legal_basis_gaps: list[str] = Field(default_factory=list, description=LEGAL_BASIS_GAP_GUIDANCE + "不是申请人待确认的业务事实")
-    claims: list[GroundedClaimDraft] = Field(default_factory=list)
-    trigger_reasons: list[str]
-    reference_chunk_ids: list[str] = Field(default_factory=list, description="正文实际使用的参考资料chunk_id，不提升其法律引用资格")
-
-    @model_validator(mode="after")
-    def claims_required_unless_abstaining(self) -> MarkdownReviewDraft:
-        if self.risk_level != "insufficient_evidence" and not self.claims:
-            raise ValueError("non-abstention report requires grounded claims")
-        return self
-
-
-def validate_legal_basis_gaps(draft: LLMReviewResultDraft | MarkdownReviewDraft) -> None:
+def validate_legal_basis_gaps(draft: LLMReviewResultDraft) -> None:
     if draft.legal_basis_gaps and (draft.risk_level != "insufficient_evidence" or draft.legal_path is not None):
         raise ValueError("阻塞当前目标的法律依据尚有缺口，应保留证据不足且不填写确定法律路径")
 
@@ -251,41 +224,6 @@ _SUMMARY_FACT_TOKEN_RE = re.compile(
     r"《[^》\n]{1,80}》|\d+(?:\.\d+)?\s*(?:万)?人|\d+(?:\.\d+)?\s*%"
 )
 
-
-def _sanitize_markdown_text(text: str) -> str:
-    """Gently clean LLM-generated markdown so the frontend renders safely.
-
-    - Downgrade ``#`` / ``##`` headings to ``###`` (page owns h1/h2).
-    - Strip fenced code block fences.
-    - Repair unpaired ``**`` by dropping the last occurrence.
-    - Un-bold spans longer than 50 chars (LLM sometimes bolds a whole
-      sentence against the prompt; the frontend bold style is intended
-      for short legal-term emphasis only).
-
-    Plain text (rule builder output) passes through unchanged because it
-    contains no markdown markers.
-    """
-    if not text:
-        return text
-
-    text = _CODE_FENCE_RE.sub("", text)
-    text = _HEADING_DOWNGRADE_RE.sub(r"### ", text)
-
-    # Repair unpaired ** : if count is odd, remove the last **.
-    bold_count = text.count("**")
-    if bold_count % 2 == 1:
-        idx = text.rfind("**")
-        text = text[:idx] + text[idx + 2 :]
-
-    # Un-bold overly long spans (whole-sentence bolding).
-    def _unbold_long(match: re.Match[str]) -> str:
-        inner = match.group(1)
-        if len(inner) > 50:
-            return inner
-        return match.group(0)
-
-    text = _BOLD_SPAN_RE.sub(_unbold_long, text)
-    return text
 
 
 def validate_plain_text_summary(summary: str) -> str:
@@ -437,49 +375,6 @@ def report_evidence(
     return [hit for hit in evidence_hits if hit.chunk_id in used]
 
 
-def _extract_markdown_section_items(report: str, section_titles: set[str]) -> list[str]:
-    """Extract ordered or bulleted items from a governed report section.
-
-    The frontend-facing markdown path intentionally keeps the report as one
-    coherent document.  The workbench still needs durable action records, so
-    this small parser promotes the explicitly labelled action section into
-    ``ReviewResult.recommended_actions`` without trying to infer actions from
-    arbitrary prose.
-    """
-
-    headings = list(re.finditer(r"(?m)^\s{0,3}#{1,6}\s+(.+?)\s*$", report))
-    target_start: int | None = None
-    target_end = len(report)
-    for index, match in enumerate(headings):
-        title = re.sub(r"[：:]\s*$", "", match.group(1).strip())
-        if title in section_titles:
-            target_start = match.end()
-            if index + 1 < len(headings):
-                target_end = headings[index + 1].start()
-            break
-    if target_start is None:
-        return []
-
-    actions: list[str] = []
-    for line in report[target_start:target_end].splitlines():
-        item = re.match(r"^\s*(?:[-*•]|\d+[.)、．])\s+(.+?)\s*$", line)
-        if not item:
-            continue
-        value = re.sub(r"(?:\*\*|__|`)", "", item.group(1)).strip()
-        value = re.sub(r"\s+", " ", value)
-        if value and value not in actions:
-            actions.append(value)
-    return actions
-
-
-# ---------------------------------------------------------------------------
-# Full result builder
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# DeepSeek structured result generation
-# ---------------------------------------------------------------------------
-
 
 def build_result_generation_messages(
     *,
@@ -491,11 +386,10 @@ def build_result_generation_messages(
     retrieval_queries: list[RetrievalQuery] | None = None,
     second_retrieval: dict[str, object] | None = None,
     source_evidence_packets: list[SourceEvidencePacket] | None = None,
-    output_format: Literal["plain", "markdown"] = "plain",
 ) -> list[ChatMessage]:
     """Provide original evidence and a schema, without legal-answer examples."""
 
-    output_model = MarkdownReviewDraft if output_format == "markdown" else LLMReviewResultDraft
+    output_model = LLMReviewResultDraft
     evidence_context = compact_evidence_context({"evidence": [hit.model_dump(mode="json") for hit in evidence_hits]})
     today = business_today()
     payload = {
@@ -524,11 +418,8 @@ def build_result_generation_messages(
 claims关联关键法律判断所在的完整段落，不要求逐句拆分；尽量保留正文原表述以便定位。supporting_chunk_ids只复制实际取得且can_cite_clause=true的原文标识，按实际支持关系选择，不为分散来源更换引用。正文实际使用的解释、标准等资料登记reference_chunk_ids；没有使用的资料不登记。编号、来源信息及展示位置由程序处理，不自行编排引用编号或HTML标记。
 decision_summary为单段纯文本，直接回答当前目标，保留决定性限制，不引入正文与材料没有的新事实。建议、待确认事实和已确认法律问题分别表达，不为填满栏目生成整改事项。仅依据当前中国数据合规语料，问题超出范围或缺少适用法源时说明限制，不补造其他法域规则。
 """
-    if output_format == "markdown":
-        system += "report使用简洁Markdown，按当前争点安排段落；建议措施需列出时可用同名小节。不强制报告长度或固定栏目。\n"
     system += "review_date是审查时点，current_date是运行日期。法律依据缺口写legal_basis_gaps，不让申请人确认法条内容或规则适用关系。\n"
-    if output_format == "plain":
-        system += "完整业务待确认清单写questions，每个问题及回答类型只填一次；issues通过question_indexes关联，只由questions生成事实确认任务。\n"
+    system += "完整业务待确认清单写questions，每个问题及回答类型只填一次；issues通过question_indexes关联，只由questions生成事实确认任务。\n"
     system += "output_schema=" + json.dumps(output_model.model_json_schema(), ensure_ascii=False)
     return [ChatMessage(role="system", content=system),
             ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False))]
@@ -550,34 +441,16 @@ def build_review_result_with_deepseek(
     source_evidence_packets: list[SourceEvidencePacket] | None = None,
     client: OpenAICompatibleClient | None = None,
     max_retries: int | None = None,
-    output_format: Literal["plain", "markdown"] = "plain",
 ) -> ReviewResult:
-    """Build a governed ReviewResult using DeepSeek for result content.
-
-    ``output_format="plain"`` (default, eval path) emits plain-text fields
-    and runs under the client's default structured_output_mode (usually
-    strict_tool) for tight schema validation. ``output_format="markdown"``
-    (frontend path) emits markdown-formatted conclusion/claims and forces
-    json_object mode, since strict_tool schema constraints clash with
-    free-form markdown; normalization is still guaranteed by Pydantic
-    strict validation + retry. Both paths share the same evidence/facts
-    payload and risk logic, so retrieval and risk judgements stay
-    consistent — only the textual rendering differs.
-    """
+    """Build a governed ReviewResult using DeepSeek for result content."""
 
     if chunks_by_id is None:
         chunks_by_id = {}
     if client is None:
         client = OpenAICompatibleClient(require_llm_config())
 
-    # markdown format forces json_object: strict_tool schema validation
-    # rejects free-form markdown inside string fields. plain format falls
-    # back to the client's configured mode (usually strict_tool) so eval
-    # gets the tightest schema guarantee.
-    node_mode = "json_object" if output_format == "markdown" else None
-    # markdown path uses a simplified schema (MarkdownReviewDraft) with a
-    # single `report` field; plain path uses the split-field schema.
-    output_model = MarkdownReviewDraft if output_format == "markdown" else LLMReviewResultDraft
+    node_mode = None
+    output_model = LLMReviewResultDraft
 
     node = StructuredLLMNode(
         node_name="result_generation",
@@ -601,11 +474,8 @@ def build_review_result_with_deepseek(
                             reference_chunk_ids=draft_to_validate.reference_chunk_ids,
                             additional_chunk_ids=[cid for issue in getattr(draft_to_validate, "issues", [])
                                                   for cid in issue.supporting_chunk_ids])
-            complete_review = getattr(
-                draft_to_validate,
-                "report",
-                getattr(draft_to_validate, "conclusion", ""),
-            )
+            complete_review = draft_to_validate.conclusion
+
             supported_summary_text = "\n".join([
                 complete_review,
                 material_text or "",
@@ -633,7 +503,6 @@ def build_review_result_with_deepseek(
                 retrieval_queries=retrieval_queries,
                 second_retrieval=second_retrieval,
                 source_evidence_packets=source_evidence_packets,
-                output_format=output_format,
             ),
             post_validate=validate_draft_grounding,
             post_validation_reason="claim_grounding_validation_failed",
@@ -647,44 +516,17 @@ def build_review_result_with_deepseek(
                                                          for cid in issue.supporting_chunk_ids])
         citation_groups, _ = group_citations(selected, facts, chunks_by_id)
         citation_ref_by_chunk_id = {c.chunk_id: c.citation_ref for g in citation_groups for c in g.citations}
-        # markdown path: sanitize the report text and use it as conclusion.
-        # The explicitly labelled action section is also promoted into
-        # durable case actions by the workbench API.
-        # plain path: pass through unchanged so eval sees exactly what the
-        # LLM emitted.
-        if output_format == "markdown":
-            md_draft: MarkdownReviewDraft = draft  # type: ignore[assignment]
-            md_draft = md_draft.model_copy(
-                update={"report": _sanitize_markdown_text(md_draft.report)}
-            )
-            decision_summary = md_draft.decision_summary.strip()
-            claims = validate_grounded_claims(md_draft.claims, evidence_hits)
-            claims = attach_citation_refs(claims, citation_groups)
-            conclusion = inject_citation_markers(
-                md_draft.report,
-                claims,
-                citation_ref_by_chunk_id,
-            )
-            trigger_reasons = md_draft.trigger_reasons
-            risk_level = md_draft.risk_level
-            missing_information: list[str] = []
-            recommended_actions = _extract_markdown_section_items(
-                md_draft.report,
-                {"建议措施", "建议动作"},
-            )
-            risk_boundaries: list[str] = []
-        else:
-            plain_draft: LLMReviewResultDraft = draft  # type: ignore[assignment]
-            decision_summary = plain_draft.decision_summary.strip()
-            conclusion = plain_draft.conclusion
-            claims = validate_grounded_claims(plain_draft.claims, evidence_hits)
-            claims = attach_citation_refs(claims, citation_groups)
-            trigger_reasons = plain_draft.trigger_reasons
-            risk_level = plain_draft.risk_level
-            missing_information = plain_draft.missing_information
-            missing_answer_types = plain_draft.missing_answer_types
-            recommended_actions = plain_draft.recommended_actions
-            risk_boundaries = plain_draft.risk_boundaries
+        decision_summary = draft.decision_summary.strip()
+        conclusion = draft.conclusion
+        claims = validate_grounded_claims(draft.claims, evidence_hits)
+        claims = attach_citation_refs(claims, citation_groups)
+        conclusion = inject_citation_markers(conclusion, claims, citation_ref_by_chunk_id)
+        trigger_reasons = draft.trigger_reasons
+        risk_level = draft.risk_level
+        missing_information = draft.missing_information
+        missing_answer_types = draft.missing_answer_types
+        recommended_actions = draft.recommended_actions
+        risk_boundaries = draft.risk_boundaries
     except ValueError as exc:
         raise ReviewWorkflowFailed(
             failed_node="result_generation",
@@ -714,7 +556,7 @@ def build_review_result_with_deepseek(
         trigger_reasons=trigger_reasons,
         missing_information=missing_information,
         legal_basis_gaps=draft.legal_basis_gaps,
-        missing_answer_types=missing_answer_types if output_format == "plain" else {},
+        missing_answer_types=missing_answer_types,
         recommended_actions=recommended_actions,
         risk_boundaries=risk_boundaries,
         claims=claims,

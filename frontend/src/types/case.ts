@@ -71,23 +71,5 @@ export interface SavedCase {
 }
 
 /** A lightweight summary used to render the sidebar history list. */
-export interface CaseSummary {
-  id: string;
-  savedAt: string;
-  question: string;
-  riskLevel: string | null;
-  status: CaseStatus;
-  hasFeedback: boolean;
-  conclusionUseful: boolean | null;
-}
-
 /** Default empty feedback for a freshly saved case. */
-export function emptyFeedback(): CaseFeedback {
-  return {
-    conclusionUseful: null,
-    citationVerdicts: {},
-    missingSources: '',
-    notes: '',
-    updatedAt: '',
-  };
-}
+

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Literal
 
 from law_agent.config import RerankMode, load_rerank_config
+from law_agent.review.citations import assemble_article_text
 from law_agent.review.evidence import (
     evaluate_after_second_retrieval,
     needs_llm_self_check,
@@ -77,7 +78,6 @@ DEFAULT_REVIEW_RUNS_DIR = Path("data/review_runs")
 PLACEHOLDER_CONCLUSION = "Review case created. Evidence retrieval has not run yet."
 DEFAULT_TOP_K = 10
 DEFAULT_CANDIDATE_TOP_K = 50
-ResultFormat = Literal["plain", "markdown"]
 DEFAULT_SUPPORTING_CHUNKS_PER_SOURCE = 2
 
 
@@ -263,26 +263,13 @@ def _enrich_hit_for_citation(
         "citation_label": getattr(chunk, "citation_label", hit.citation_label),
         "heading_path": getattr(chunk, "heading_path", hit.heading_path),
     }
-    article_no = getattr(chunk, "article_no", None)
+    article_no = getattr(chunk, "article_no", None) or hit.article_no
     if hit.can_cite_clause and article_no:
-        article_chunks = [
-            candidate
-            for candidate in chunks_by_id.values()
-            if getattr(candidate, "source_id", None) == hit.source_id
-            and getattr(candidate, "article_no", None) == article_no
-        ]
-        article_texts: list[str] = []
-        seen: set[str] = set()
-        for candidate in sorted(
-            article_chunks,
-            key=lambda item: getattr(item, "chunk_index", 0),
-        ):
-            text = str(getattr(candidate, "text", "")).strip()
-            if text and text not in seen:
-                article_texts.append(text)
-                seen.add(text)
-        if article_texts:
-            updates["full_article_text"] = "\n".join(article_texts)
+        article_text = assemble_article_text(
+            chunks_by_id, source_id=hit.source_id, article_no=article_no,
+        )
+        if article_text:
+            updates["full_article_text"] = article_text
     return hit.model_copy(update=updates)
 
 
@@ -357,7 +344,6 @@ def run_hybrid_retrieval(
     rerank_mode: RerankMode = "off",
     keyword_retriever: KeywordSearchAdapter,
     vector_retriever: VectorSearchAdapter,
-    output_format: ResultFormat = "plain",
 ) -> RetrievalTrace:
     """Run hybrid retrieval for an existing review case.
 
@@ -526,8 +512,7 @@ def run_hybrid_retrieval(
         # critical_facts_missing are treated as soft warnings and the status
         # is forced to sufficient or insufficient, never needs_second_retrieval.
         self_check = evaluate_after_second_retrieval(
-            hybrid2_hits, facts, chunks_by_id, self_check.issues
-        )
+            hybrid2_hits, facts, chunks_by_id)
         self_check = self_check.model_copy(update={"second_retrieval_triggered": True})
 
         # Use second retrieval results as final evidence
@@ -599,7 +584,6 @@ def run_hybrid_retrieval(
         retrieval_queries=updated_trace.queries,
         second_retrieval=updated_trace.second_retrieval,
         source_evidence_packets=source_evidence_packets,
-        output_format=output_format,
     )
 
     # Persist updated result
@@ -649,7 +633,6 @@ def run_service_retrieval(
     rerank_mode: RerankMode = "off",
     config: object | None = None,
     adapters: object | None = None,
-    output_format: ResultFormat = "plain",
 ) -> RetrievalTrace:
     """Run hybrid retrieval backed by real Elasticsearch + pgvector.
 
@@ -686,7 +669,6 @@ def run_service_retrieval(
             rerank_mode=rerank_mode,
             keyword_retriever=adapters.keyword,
             vector_retriever=adapters.vector,
-            output_format=output_format,
         )
     finally:
         if own_adapters:

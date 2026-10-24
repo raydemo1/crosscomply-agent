@@ -118,4 +118,3 @@ def extract_facts_with_deepseek(
     return ReviewFacts.model_validate(output.model_dump(), strict=True)
 
 
-extract_facts_with_llm = extract_facts_with_deepseek

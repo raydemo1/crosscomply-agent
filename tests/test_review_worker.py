@@ -3,7 +3,8 @@ from law_agent.review.agent import AgentState
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
 from law_agent.review.http.schemas import IntakePayload
 from law_agent.review.llm import ReviewWorkflowFailed
-from law_agent.review.worker import ReviewWorker, completion_has_missing_information
+from law_agent.review.worker import ReviewWorker
+from law_agent.review.workflow import review_has_missing_information
 
 
 def _queued_task(store: InMemoryEnterpriseStore):
@@ -138,7 +139,7 @@ def test_insufficient_agent_result_blocks_approval() -> None:
     queued = _queued_task(store)
     queued.result = {"review_result": {"risk_level": "insufficient_evidence", "missing_information": []}}
 
-    assert completion_has_missing_information(queued) is True
+    assert review_has_missing_information(queued.result) is True
 
 
 def test_grounded_agent_result_can_continue_to_approval() -> None:
@@ -146,4 +147,4 @@ def test_grounded_agent_result_can_continue_to_approval() -> None:
     queued = _queued_task(store)
     queued.result = {"review_result": {"risk_level": "medium", "missing_information": []}}
 
-    assert completion_has_missing_information(queued) is False
+    assert review_has_missing_information(queued.result) is False

@@ -458,12 +458,3 @@ class ReviewRunResponse(StrictModel):
     result_path: Path
 
 
-class ReviewFailedResponse(StrictModel):
-    """Minimal structured response for workflow failures."""
-
-    status: Literal["review_failed"] = "review_failed"
-    failed_node: str
-    reason: str
-    message: str
-    attempts: int
-    trace_id: str | None = None

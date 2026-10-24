@@ -875,11 +875,6 @@ export interface MaterialSnapshotApi {
   created_at: string;
 }
 
-export interface MissingFactApi {
-  key: string;
-  reason: string;
-}
-
 export interface IntakeSnapshotApi {
   id: string;
   case_id: string;

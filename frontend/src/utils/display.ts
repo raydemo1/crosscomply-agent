@@ -219,3 +219,8 @@ export function citationDisplayLabel(citation: {
   if (label) return stripCitationRef(label);
   return legalBasisLabel(citation.title, citation.article_no);
 }
+
+/** 生成可作 DOM id 的安全形式（引用编号等含中文/冒号）。 */
+export function cssId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, '-');
+}

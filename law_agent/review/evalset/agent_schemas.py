@@ -18,7 +18,6 @@ from pydantic import Field, model_validator
 
 from law_agent.data.schemas import StrictModel
 
-AgentSuite = Literal["smoke", "core"]
 AgentRunStatus = Literal["succeeded", "failed", "blocked", "unanswered_gate"]
 JudgeGrade = Literal["pass", "minor_issue", "fail", "not_applicable"]
 AnswerProvenance = Literal["applicant_statement", "reviewer_instruction"]
