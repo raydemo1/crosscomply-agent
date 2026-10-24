@@ -637,6 +637,10 @@
   cursor: pointer;
 }
 
+.sidebar-user-card__logout + .sidebar-user-card__logout {
+  margin-left: 0;
+}
+
 /* ---------- 启动加载 ---------- */
 .app-loading {
   min-height: 100vh;

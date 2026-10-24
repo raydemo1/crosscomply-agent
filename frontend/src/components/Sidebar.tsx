@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus2, LayoutTemplate, LogOut, MessageSquare, Search, Scale, ShieldCheck, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus2, LayoutTemplate, LogOut, MessageSquare, Moon, Search, Scale, ShieldCheck, Sun, X } from 'lucide-react';
 import type { QASummary } from '../types/qa';
 import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { relativeTime, truncate, RISK_LABELS, RISK_HISTORY_CLASS } from '../utils/display';
 import { CASE_STATUS_LABELS } from '../utils/workflow';
 import { useCaseStore } from '../store/caseStore';
+import { currentTheme, setTheme as persistTheme, watchSystemTheme, type Theme } from '../utils/theme';
 
 interface SidebarProps {
   user: WorkbenchUser;
@@ -68,6 +69,13 @@ export default function Sidebar({
   const previewTimer = useRef<number | null>(null);
   const knowledgePagesActive = currentPage === 'knowledge-legal' || currentPage === 'knowledge-policy';
   const [knowledgeMenuOpen, setKnowledgeMenuOpen] = useState(knowledgePagesActive);
+  const [theme, setThemeState] = useState<Theme>(() => currentTheme());
+  useEffect(() => { watchSystemTheme(); }, []);
+  const toggleTheme = (): void => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    persistTheme(next);
+    setThemeState(next);
+  };
 
   useEffect(() => {
     if (knowledgePagesActive) setKnowledgeMenuOpen(true);
@@ -238,6 +246,7 @@ export default function Sidebar({
           <strong>{user.display_name}</strong>
           <span>{user.role === 'admin' ? '管理员' : user.role === 'reviewer' ? '审核人' : '申报人'}</span>
         </div>
+        <button type="button" className="sidebar-user-card__logout" onClick={toggleTheme} title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'} aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}>{theme === 'dark' ? <Sun size={16} strokeWidth={1.8} /> : <Moon size={16} strokeWidth={1.8} />}</button>
         <button type="button" className="sidebar-user-card__logout" onClick={() => { onCloseMobile(); onLogout(); }} title="退出登录" aria-label="退出登录"><LogOut size={16} strokeWidth={1.8} /></button>
       </div>
     </aside>

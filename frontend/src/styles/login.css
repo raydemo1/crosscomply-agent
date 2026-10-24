@@ -54,7 +54,7 @@
   z-index: -1;
   inset: 0;
   content: '';
-  background: linear-gradient(90deg, rgba(241, 245, 249, 0.96) 0%, rgba(241, 245, 249, 0.78) 46%, rgba(241, 245, 249, 0.32) 100%);
+  background: linear-gradient(90deg, var(--login-veil-strong) 0%, var(--login-veil-mid) 46%, var(--login-veil-soft) 100%);
   pointer-events: none;
 }
 
@@ -64,7 +64,7 @@
   max-width: 560px;
   padding: clamp(28px, 5vw, 56px);
   border: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--login-card-bg);
   box-shadow: var(--shadow-lg);
 }
 
@@ -254,7 +254,7 @@
   }
 
   .login-shell::after {
-    background: rgba(241, 245, 249, 0.72);
+    background: var(--login-veil-mid);
   }
 
 }
@@ -441,5 +441,22 @@
   .evidence-card__footer {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+/* 登录页深色纱罩 */
+[data-theme='dark'] {
+  --login-veil-strong: rgba(10, 15, 26, 0.94);
+  --login-veil-mid: rgba(10, 15, 26, 0.8);
+  --login-veil-soft: rgba(10, 15, 26, 0.42);
+  --login-card-bg: rgba(15, 21, 35, 0.95);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --login-veil-strong: rgba(10, 15, 26, 0.94);
+    --login-veil-mid: rgba(10, 15, 26, 0.8);
+    --login-veil-soft: rgba(10, 15, 26, 0.42);
+    --login-card-bg: rgba(15, 21, 35, 0.95);
   }
 }

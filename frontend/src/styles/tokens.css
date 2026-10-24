@@ -131,3 +131,115 @@
   --content-reading: 900px;   /* 报告正文 */
   --content-qa: 808px;        /* 合规问答 */
 }
+
+/* ============================================================
+ * 深色主题
+ * 跟随系统（prefers-color-scheme）或手动 [data-theme='dark']。
+ * 藏青/金品牌色在深色下提亮一档以保持对比度。
+ * ============================================================ */
+
+[data-theme='dark'] {
+  --color-primary: #5f83e0;
+  --color-secondary: #7d9ded;
+  --color-on-primary: #0d1424;
+  --color-accent: #d9a45b;
+  --color-accent-strong: #e5b56e;
+  --color-on-accent: #1a1408;
+
+  --color-background: #0d1424;
+  --color-surface: #131c2e;
+  --color-muted: #1b2639;
+  --color-foreground: #e4eaf3;
+  --color-foreground-secondary: #c3cddf;
+  --color-foreground-muted: #8fa0b8;
+  --color-foreground-faint: #5f7089;
+  --color-border: #2c3a52;
+  --color-hairline: #212d42;
+
+  --color-success: #45c48c;
+  --color-success-bg: rgba(69, 196, 140, 0.13);
+  --color-success-border: rgba(69, 196, 140, 0.38);
+  --color-warning: #d9a45b;
+  --color-warning-bg: rgba(217, 164, 91, 0.12);
+  --color-warning-border: rgba(217, 164, 91, 0.4);
+  --color-danger: #ef8a8a;
+  --color-danger-strong: #f3a5a5;
+  --color-danger-bg: rgba(239, 138, 138, 0.1);
+  --color-danger-border: rgba(239, 138, 138, 0.4);
+  --color-info: #6e93e6;
+  --color-info-bg: rgba(110, 147, 230, 0.1);
+  --color-info-border: rgba(110, 147, 230, 0.35);
+  --color-neutral: #8fa0b8;
+  --color-neutral-bg: rgba(143, 160, 184, 0.1);
+  --color-neutral-border: rgba(143, 160, 184, 0.35);
+
+  --tint-navy-bg: rgba(110, 147, 230, 0.1);
+  --tint-navy-bg-active: rgba(110, 147, 230, 0.17);
+  --tint-navy-border: rgba(110, 147, 230, 0.35);
+
+  --color-risk-high: #ef8a8a;
+  --color-risk-medium: #d9a45b;
+  --color-risk-low: #45c48c;
+  --color-risk-insufficient: #8fa0b8;
+
+  --color-ring: #6e93e6;
+  --focus-ring: 0 0 0 3px rgba(110, 147, 230, 0.22);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-primary: #5f83e0;
+    --color-secondary: #7d9ded;
+    --color-on-primary: #0d1424;
+    --color-accent: #d9a45b;
+    --color-accent-strong: #e5b56e;
+    --color-on-accent: #1a1408;
+
+    --color-background: #0d1424;
+    --color-surface: #131c2e;
+    --color-muted: #1b2639;
+    --color-foreground: #e4eaf3;
+    --color-foreground-secondary: #c3cddf;
+    --color-foreground-muted: #8fa0b8;
+    --color-foreground-faint: #5f7089;
+    --color-border: #2c3a52;
+    --color-hairline: #212d42;
+
+    --color-success: #45c48c;
+    --color-success-bg: rgba(69, 196, 140, 0.13);
+    --color-success-border: rgba(69, 196, 140, 0.38);
+    --color-warning: #d9a45b;
+    --color-warning-bg: rgba(217, 164, 91, 0.12);
+    --color-warning-border: rgba(217, 164, 91, 0.4);
+    --color-danger: #ef8a8a;
+    --color-danger-strong: #f3a5a5;
+    --color-danger-bg: rgba(239, 138, 138, 0.1);
+    --color-danger-border: rgba(239, 138, 138, 0.4);
+    --color-info: #6e93e6;
+    --color-info-bg: rgba(110, 147, 230, 0.1);
+    --color-info-border: rgba(110, 147, 230, 0.35);
+    --color-neutral: #8fa0b8;
+    --color-neutral-bg: rgba(143, 160, 184, 0.1);
+    --color-neutral-border: rgba(143, 160, 184, 0.35);
+
+    --tint-navy-bg: rgba(110, 147, 230, 0.1);
+    --tint-navy-bg-active: rgba(110, 147, 230, 0.17);
+    --tint-navy-border: rgba(110, 147, 230, 0.35);
+
+    --color-risk-high: #ef8a8a;
+    --color-risk-medium: #d9a45b;
+    --color-risk-low: #45c48c;
+    --color-risk-insufficient: #8fa0b8;
+
+    --color-ring: #6e93e6;
+    --focus-ring: 0 0 0 3px rgba(110, 147, 230, 0.22);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  }
+}
