@@ -1,4 +1,9 @@
-"""Private Q&A conversations and leased investigation runs."""
+"""Private Q&A conversations and leased investigation runs.
+
+Conversation metadata/materials stay in qa_conversations.data (JSONB); runs
+live in their own qa_runs table (migration 0019) so worker claim polling is an
+indexed status lookup instead of a full-table jsonb_array_elements scan.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +18,8 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+LEASE_SECONDS = 5 * 60
+
 
 def now():
     return datetime.now(UTC).isoformat()
@@ -24,6 +31,11 @@ def identifier(prefix):
 
 class QAConflict(ValueError):
     pass
+
+
+def _failed_result(run: dict) -> dict:
+    return {"citations": [], "material_citations": [], "conditions": [],
+            **(run.get("result") or {}), "generation_status": "failed"}
 
 
 class QAStore:
@@ -74,26 +86,6 @@ class QAStore:
             return run
         return self._edit(conversation_id, change)
 
-    def claim(self):
-        for conversation_id in self._candidates():
-            def change(row):
-                for run in row["runs"]:
-                    expired = run["status"] == "running" and run["lease_expires_at"] < now()
-                    if expired:
-                        run.update(status="failed", error="执行中断，请重试", progress="执行中断")
-                        run["result"] = {"citations": [], "material_citations": [], "conditions": [],
-                                         **(run["result"] or {}), "generation_status": "failed"}
-                    if run["status"] == "queued":
-                        run.update(status="running", attempt=run["attempt"] + 1,
-                                   lease_expires_at=(datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
-                                   progress="正在分析问题")
-                        return {"conversation": deepcopy(row), "run": run}
-                return None
-            claimed = self._edit(conversation_id, change)
-            if claimed:
-                return claimed
-        return None
-
     def checkpoint(self, conversation_id, run_id, attempt, **changes):
         def change(row):
             run = next(r for r in row["runs"] if r["id"] == run_id)
@@ -101,36 +93,31 @@ class QAStore:
                 raise QAConflict("本次执行已失效")
             run.update(changes)
             if run["status"] == "failed":
-                run["result"] = {"citations": [], "material_citations": [], "conditions": [],
-                                 **(run["result"] or {}), "generation_status": "failed"}
-            run["lease_expires_at"] = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
+                run["result"] = _failed_result(run)
+            run["lease_expires_at"] = (datetime.now(UTC) + timedelta(seconds=LEASE_SECONDS)).isoformat()
             return run
         return self._edit(conversation_id, change)
 
 
 class InMemoryQAStore(QAStore):
     def __init__(self):
-        self.rows = {}
+        self.rows: dict[str, dict] = {}
         self._lock = RLock()
 
     def _insert(self, row):
         with self._lock:
-            self.rows[row["id"]] = deepcopy(row)
+            self.rows[row["id"]] = row
 
     def get(self, conversation_id):
         with self._lock:
-            return deepcopy(self.rows.get(conversation_id))
+            row = self.rows.get(conversation_id)
+            return deepcopy(row) if row else None
 
     def list(self, owner_id):
         with self._lock:
-            return sorted([deepcopy(r) for r in self.rows.values() if r["owner_id"] == owner_id],
-                          key=lambda r: r["updated_at"], reverse=True)
-
-    def _candidates(self):
-        with self._lock:
-            return [r["id"] for r in self.rows.values() if any(
-                run["status"] == "queued" or (run["status"] == "running" and run["lease_expires_at"] < now())
-                for run in r["runs"])]
+            rows = [row for row in self.rows.values() if row["owner_id"] == owner_id]
+            rows.sort(key=lambda row: row["updated_at"], reverse=True)
+            return deepcopy(rows)
 
     def _edit(self, conversation_id, change):
         with self._lock:
@@ -142,6 +129,21 @@ class InMemoryQAStore(QAStore):
                 self.rows[conversation_id] = row
             return deepcopy(result)
 
+    def claim(self):
+        with self._lock:
+            for row in self.rows.values():
+                for run in row["runs"]:
+                    expired = run["status"] == "running" and run["lease_expires_at"] < now()
+                    if expired:
+                        run.update(status="failed", error="执行中断，请重试", progress="执行中断")
+                        run["result"] = _failed_result(run)
+                    if run["status"] == "queued":
+                        run.update(status="running", attempt=run["attempt"] + 1,
+                                   lease_expires_at=(datetime.now(UTC) + timedelta(seconds=LEASE_SECONDS)).isoformat(),
+                                   progress="正在分析问题")
+                        return {"conversation": deepcopy(row), "run": deepcopy(run)}
+        return None
+
 
 class PostgresQAStore(QAStore):
     def __init__(self, dsn):
@@ -149,51 +151,156 @@ class PostgresQAStore(QAStore):
 
     def _connect(self):
         from law_agent.review.transactions import store_connection
+
         return store_connection(self.dsn, lambda: psycopg.connect(self.dsn, row_factory=dict_row))
 
     def _insert(self, row):
         with self._connect() as conn, conn.cursor() as cursor:
             cursor.execute("INSERT INTO qa_conversations (id, owner_id, data) VALUES (%s, %s, %s)",
-                           (row["id"], row["owner_id"], Jsonb(row)))
+                           (row["id"], row["owner_id"], Jsonb({k: v for k, v in row.items() if k != "runs"})))
 
     def get(self, conversation_id):
         with self._connect() as conn, conn.cursor() as cursor:
             cursor.execute("SELECT data FROM qa_conversations WHERE id = %s", (conversation_id,))
             row = cursor.fetchone()
-            return row["data"] if row else None
+            if row is None:
+                return None
+            conversation = row["data"]
+            conversation["runs"] = self._load_runs(cursor, conversation_id)
+            return conversation
 
     def list(self, owner_id):
         with self._connect() as conn, conn.cursor() as cursor:
-            cursor.execute("SELECT data FROM qa_conversations WHERE owner_id = %s ORDER BY updated_at DESC", (owner_id,))
-            return [r["data"] for r in cursor.fetchall()]
+            # 列表投影：不展开 runs/materials 大字段，标题与时间足够侧栏展示
+            cursor.execute(
+                "SELECT data - 'runs' - 'materials' AS head FROM qa_conversations "
+                "WHERE owner_id = %s ORDER BY updated_at DESC LIMIT 100",
+                (owner_id,),
+            )
+            heads = [r["head"] for r in cursor.fetchall()]
+            for head in heads:
+                head.setdefault("materials", [])
+                head.setdefault("runs", [])
+            return heads
 
-    def _candidates(self):
-        with self._connect() as conn, conn.cursor() as cursor:
-            cursor.execute("""SELECT id FROM qa_conversations WHERE EXISTS (
-                SELECT 1 FROM jsonb_array_elements(data->'runs') r
-                WHERE r->>'status' = 'queued' OR (r->>'status' = 'running'
-                AND (r->>'lease_expires_at')::timestamptz < now())) ORDER BY updated_at LIMIT 32""")
-            return [r["id"] for r in cursor.fetchall()]
+    @staticmethod
+    def _load_runs(cursor, conversation_id):
+        cursor.execute(
+            "SELECT * FROM qa_runs WHERE conversation_id = %s ORDER BY created_at",
+            (conversation_id,),
+        )
+        return [
+            {
+                "id": r["id"],
+                "request_id": r["request_id"],
+                "question": r["question"],
+                "material_ids": r["material_ids"],
+                "status": r["status"],
+                "attempt": r["attempt"],
+                "state": r["state"] or {},
+                "answer": r["answer"],
+                "result": r["result"],
+                "error": r["error"],
+                "progress": r["progress"],
+                "lease_expires_at": r["lease_expires_at"].isoformat() if r["lease_expires_at"] else None,
+                "created_at": r["created_at"].isoformat(),
+            }
+            for r in cursor.fetchall()
+        ]
 
     def _edit(self, conversation_id, change):
+        """会话级编辑（材料/标题/run 状态变更）：runs 已拆表，编辑后单独同步。"""
+
         from law_agent.review.transactions import _active
+
         with self._connect() as conn, conn.cursor() as cursor:
             cursor.execute("SELECT data FROM qa_conversations WHERE id = %s FOR UPDATE", (conversation_id,))
             record = cursor.fetchone()
             if record is None:
                 raise KeyError(conversation_id)
             row = record["data"]
+            row["runs"] = self._load_runs(cursor, conversation_id)
             token = _active.set((self.dsn, conn))
             try:
-                before = json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
                 result = change(row)
-                if json.dumps(row, ensure_ascii=False, sort_keys=True, default=str) == before:
-                    # 无变更（如 claim 轮询到无可领任务）时不重写整行、不刷新 updated_at，
-                    # 否则排序键被自身写入打乱，轮询变成每轮全量重写。
-                    return deepcopy(result)
-                row["updated_at"] = now()
-                cursor.execute("UPDATE qa_conversations SET data = %s, updated_at = now() WHERE id = %s",
-                               (Jsonb(row), conversation_id))
+                self._sync_runs(cursor, conversation_id, row["runs"])
+                stored = {k: v for k, v in row.items() if k != "runs"}
+                stored["updated_at"] = now()
+                cursor.execute(
+                    "UPDATE qa_conversations SET data = %s, updated_at = now() WHERE id = %s",
+                    (Jsonb(stored), conversation_id),
+                )
             finally:
                 _active.reset(token)
             return deepcopy(result)
+
+    @staticmethod
+    def _sync_runs(cursor, conversation_id, runs):
+        for run in runs:
+            cursor.execute(
+                """
+                INSERT INTO qa_runs (
+                    id, conversation_id, request_id, question, material_ids, status,
+                    attempt, state, answer, result, error, progress, lease_expires_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::timestamptz)
+                ON CONFLICT (id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    attempt = EXCLUDED.attempt,
+                    state = EXCLUDED.state,
+                    answer = EXCLUDED.answer,
+                    result = EXCLUDED.result,
+                    error = EXCLUDED.error,
+                    progress = EXCLUDED.progress,
+                    lease_expires_at = EXCLUDED.lease_expires_at
+                """,
+                (
+                    run["id"], conversation_id, run["request_id"], run["question"],
+                    Jsonb(run["material_ids"]), run["status"], run["attempt"],
+                    Jsonb(run["state"]), run["answer"],
+                    Jsonb(run["result"]) if run["result"] is not None else None,
+                    run["error"], run["progress"],
+                    run.get("lease_expires_at"),
+                ),
+            )
+
+    def claim(self):
+        """从 qa_runs 部分索引领取：先标记过期租约为失败，再领取最早排队任务。"""
+
+        with self._connect() as conn, conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE qa_runs SET status = 'failed', error = '执行中断，请重试',
+                    progress = '执行中断',
+                    result = jsonb_build_object(
+                        'citations', '[]'::jsonb, 'material_citations', '[]'::jsonb,
+                        'conditions', '[]'::jsonb, 'generation_status', 'failed')
+                WHERE status = 'running' AND lease_expires_at < now()
+                """
+            )
+            cursor.execute(
+                """
+                UPDATE qa_runs SET status = 'running', attempt = attempt + 1,
+                    progress = '正在分析问题',
+                    lease_expires_at = now() + (%s * interval '1 second')
+                WHERE id = (
+                    SELECT id FROM qa_runs
+                    WHERE status = 'queued'
+                    ORDER BY created_at
+                    FOR UPDATE SKIP LOCKED
+                    LIMIT 1
+                )
+                RETURNING conversation_id
+                """,
+                (LEASE_SECONDS,),
+            )
+            claimed = cursor.fetchone()
+            if claimed is None:
+                conn.rollback()
+                return None
+            conversation_id = claimed["conversation_id"]
+            cursor.execute("SELECT data FROM qa_conversations WHERE id = %s", (conversation_id,))
+            conversation = cursor.fetchone()["data"]
+            conversation["runs"] = self._load_runs(cursor, conversation_id)
+            run = next(r for r in conversation["runs"] if r["status"] == "running")
+            conn.commit()
+            return {"conversation": conversation, "run": run}

@@ -1,1 +1,1 @@
-EXPECTED_SCHEMA_REVISION = "0018_qa_conversations"
+EXPECTED_SCHEMA_REVISION = "0019_qa_runs_table"
