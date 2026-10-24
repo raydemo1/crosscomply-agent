@@ -382,14 +382,20 @@ function ReviewFollowupSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: (
   const pending = pendingFollowupCount(saved);
   const pendingReview = currentTasks.filter((task) => task.status === 'pending_review').length;
   const href = `?case=${encodeURIComponent(saved.id)}&remediation=plan`;
-  // 报告不重复描述案件阶段：只有当清单里确实还有未完成事项时才给出一行入口。
+  // 报告不重复描述案件阶段：只有当清单里确实还有未完成事项时才给出入口。
   if (pending === 0) return null;
+  const PREVIEW = 3;
+  const preview = currentTasks.filter((task) => task.status !== 'completed').slice(0, PREVIEW);
   return (
     <div className="review-followup-summary" aria-label="待补充与核实">
-      <p className="review-followup-summary__count">
-        {pending} 项待核实事项{pendingReview ? ` · ${pendingReview} 项待复核` : ''}
-      </p>
-      {onOpen ? <button type="button" className="btn-secondary" onClick={onOpen}>查看清单</button> : <a className="btn-secondary" href={href}>查看清单</a>}
+      <div className="review-followup-summary__head">
+        <h2>待核实事项 <span>{pending} 项{pendingReview ? ` · ${pendingReview} 项待复核` : ''}</span></h2>
+        {onOpen ? <button type="button" className="btn-link" onClick={onOpen}>查看完整清单 →</button> : <a className="btn-link" href={href}>查看完整清单 →</a>}
+      </div>
+      {preview.length ? <ul className="review-followup-summary__items">
+        {preview.map((task) => <li key={task.id}><span className={`task-state task-state--${task.status === 'pending_review' || task.status === 'in_progress' ? 'running' : 'failed'}`}>{task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理'}</span><span className="review-followup-summary__item-title">{task.title}</span>{task.due_date ? <small>截止 {task.due_date}</small> : null}</li>)}
+      </ul> : null}
+      {pending > PREVIEW ? <p className="review-followup-summary__more">其余 {pending - PREVIEW} 项在完整清单中处理。</p> : null}
     </div>
   );
 }
@@ -705,7 +711,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
               <span className="decision-summary__label">审查摘要</span>
               <p>{result.decision_summary}</p>
             </div>
-             <details className="report-inline-disclosure"><summary>阅读完整审查意见</summary><MarkdownText
+            <MarkdownText
               variant="report"
               className="case-conclusion__body"
               onCitationClick={(citationRef) => {
@@ -714,7 +720,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
               }}
             >
               {conclusionForDisplay}
-             </MarkdownText></details>
+            </MarkdownText>
           </section>
 
           {(pendingFollowupCount(saved) > 0 || outstandingRecommendations.length > 0) ? <section className="report-section review-next-steps" id="report-next">
@@ -730,7 +736,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
             />
           </section> : null}
 
-          <details className="card report-disclosure report-basis" id="report-basis">
+          <details className="report-disclosure report-basis" id="report-basis">
             <summary>法律依据 · {citationCount} 条引用</summary>
             <div className="report-disclosure__body">
             {result.legal_basis_gaps?.length ? <div className="report-record-subsection">
@@ -765,7 +771,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           </details>
 
           {riskBoundariesForDisplay.length > 0 ? (
-            <details className="card report-disclosure review-boundaries" id="report-boundaries">
+            <details className="report-disclosure review-boundaries" id="report-boundaries">
               <summary>结论适用边界</summary>
               <div className="report-disclosure__body">
               <div className="warning-list">
@@ -775,7 +781,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
             </details>
           ) : null}
 
-          <details className="card report-disclosure report-review-disclosure" id="report-review">
+          <details className="report-disclosure report-review-disclosure" id="report-review">
             <summary>{viewerRole === 'requester' ? '反馈审查问题' : '引用核查与复核意见'}</summary>
             <div className="report-disclosure__body">
               {viewerRole !== 'requester' ? <p className="report-disclosure__intro">核对引用并记录人工复核意见。</p> : null}
