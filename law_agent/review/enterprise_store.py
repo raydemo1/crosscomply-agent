@@ -1122,7 +1122,15 @@ class PostgresEnterpriseStore:
             row = cur.fetchone()
             if row is None:
                 self._raise_invalid_state(cur, task_id, "只有运行中的审查任务可以保存 Agent 进度")
+            # 只插入新增步骤：每次 checkpoint 重插全部历史步骤是 O(n²) 写放大
+            cur.execute(
+                "SELECT COALESCE(MAX(step_number), 0) AS max_step FROM review_task_steps WHERE task_id = %s",
+                (task_id,),
+            )
+            max_step = int(cur.fetchone()["max_step"])
             for step in steps:
+                if int(step["number"]) <= max_step:
+                    continue
                 cur.execute(
                     """
                     INSERT INTO review_task_steps (

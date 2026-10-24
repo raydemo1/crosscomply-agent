@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import json
 
+from pydantic import Field
+
 from law_agent.config import require_llm_config
 from law_agent.data.schemas import Chunk, StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
@@ -71,8 +73,9 @@ class LLMEvidenceIssue(StrictModel):
 
 
 class LLMSecondRetrievalPlan(StrictModel):
-    expanded_queries: list[LLMRetrievalQuery]
-    increased_top_k: int
+    expanded_queries: list[LLMRetrievalQuery] = Field(max_length=8)
+    # 检索扩张幅度由 LLM 提议但受护栏约束：过大会让 ES size 超限直接杀死整次审查
+    increased_top_k: int = Field(ge=10, le=50)
     stronger_boost: bool
     reason: str
 
