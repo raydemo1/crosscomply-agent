@@ -1,39 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus2, LayoutTemplate, LogOut, MessageSquare, Search, Scale, ShieldCheck, X } from 'lucide-react';
 import type { QASummary } from '../types/qa';
 import type { WorkbenchUser } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { relativeTime, truncate, RISK_LABELS, RISK_HISTORY_CLASS } from '../utils/display';
 import { CASE_STATUS_LABELS } from '../utils/workflow';
-
-/**
- * Top-level shell destinations. Legal sources and internal policies share one
- * governance surface, with the library kind carried by the child destination.
- */
-export type Page =
-  | 'home'
-  | 'qa'
-  | 'workbench'
-  | 'governance'
-  | 'case-detail'
-  | 'case-templates'
-  | 'my-remediations'
-  | 'remediation-plan'
-  | 'knowledge-legal'
-  | 'knowledge-policy';
+import { useCaseStore } from '../store/caseStore';
 
 interface SidebarProps {
-  qaHistory: QASummary[];
-  activeQAId: string | null;
-  onOpenQA: (id: string | null) => void;
-  currentPage: Page;
-  onPageChange: (page: Page) => void;
-  onOpenCase: (caseId: string) => void;
-  activeCaseId?: string | null;
-  cases: SavedCase[];
   user: WorkbenchUser;
-  onLogout: () => void;
-  onOpenGovernance: () => void;
+  qaHistory: QASummary[];
+  onLogout: () => void | Promise<void>;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
 }
@@ -65,20 +43,24 @@ interface CasePreviewPosition {
 }
 
 export default function Sidebar({
-  qaHistory,
-  activeQAId,
-  onOpenQA,
-  currentPage,
-  onPageChange,
-  onOpenCase,
-  activeCaseId,
-  cases,
   user,
+  qaHistory,
   onLogout,
-  onOpenGovernance,
   isMobileOpen,
   onCloseMobile,
 }: SidebarProps): JSX.Element {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const cases = useCaseStore();
+  const activeCaseId = location.pathname.startsWith('/cases/') ? decodeURIComponent(location.pathname.slice('/cases/'.length)) : null;
+  const activeQAId = location.pathname.match(/^\/qa\/(.+)$/)?.[1] ?? null;
+  const currentPage = location.pathname.startsWith('/workbench') ? 'workbench'
+    : location.pathname.startsWith('/templates') ? 'case-templates'
+    : location.pathname.startsWith('/reviews') ? 'my-remediations'
+    : location.pathname.startsWith('/knowledge/legal') ? 'knowledge-legal'
+    : location.pathname.startsWith('/knowledge') ? 'knowledge-policy'
+    : location.pathname.startsWith('/governance') ? 'governance'
+    : 'home';
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [showAllCases, setShowAllCases] = useState(false);
@@ -136,36 +118,36 @@ export default function Sidebar({
 
       <nav className="sidebar-section" aria-label="主导航">
         <div className="sidebar-nav">
-          <button type="button" className={'sidebar-nav-item' + (currentPage === 'home' || currentPage === 'qa' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenQA(null); }}>
+          <button type="button" className={'sidebar-nav-item' + (currentPage === 'home' ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate('/qa'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><MessageSquare size={18} strokeWidth={1.8} /></span>
             <span>合规问答</span>
           </button>
-          <button type="button" className={'sidebar-nav-item' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('workbench'); }}>
+          <button type="button" className={'sidebar-nav-item' + (currentPage === 'workbench' ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate('/workbench'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><FilePlus2 size={18} strokeWidth={1.8} /></span>
             <span>新建案件</span>
           </button>
-          <button type="button" className={'sidebar-nav-item' + (currentPage === 'case-templates' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('case-templates'); }}>
+          <button type="button" className={'sidebar-nav-item' + (currentPage === 'case-templates' ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate('/templates'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><LayoutTemplate size={18} strokeWidth={1.8} /></span>
             <span>使用模板</span>
           </button>
-          <button type="button" className={'sidebar-nav-item' + (currentPage === 'my-remediations' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('my-remediations'); }}>
+          <button type="button" className={'sidebar-nav-item' + (currentPage === 'my-remediations' ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate('/reviews'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><ClipboardCheck size={18} strokeWidth={1.8} /></span>
             <span>我的复核</span>
           </button>
           {user.role === 'admin' ? (
             <>
-              <button type="button" className={'sidebar-nav-item sidebar-nav-item--group' + (knowledgePagesActive ? ' is-active' : '')} aria-expanded={knowledgeMenuOpen} onClick={() => { setKnowledgeMenuOpen((open) => !open); if (!knowledgePagesActive) onPageChange('knowledge-legal'); }}>
+              <button type="button" className={'sidebar-nav-item sidebar-nav-item--group' + (knowledgePagesActive ? ' is-active' : '')} aria-expanded={knowledgeMenuOpen} onClick={() => { setKnowledgeMenuOpen((open) => !open); if (!knowledgePagesActive) navigate('/knowledge/legal'); }}>
                 <span className="sidebar-nav-item-icon" aria-hidden="true"><Database size={18} strokeWidth={1.8} /></span>
                 <span>知识库</span>
                 <span className="sidebar-nav-item-chevron" aria-hidden="true">{knowledgeMenuOpen ? <ChevronDown size={15} strokeWidth={1.8} /> : <ChevronRight size={15} strokeWidth={1.8} />}</span>
               </button>
               {knowledgeMenuOpen ? (
                 <div className="sidebar-nav-submenu">
-                  <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'knowledge-legal' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('knowledge-legal'); }}>
+                  <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'knowledge-legal' ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate('/knowledge/legal'); }}>
                     <span className="sidebar-nav-subitem-icon" aria-hidden="true"><Scale size={16} strokeWidth={1.8} /></span>
                     <span>法律法规</span>
                   </button>
-                  <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'knowledge-policy' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('knowledge-policy'); }}>
+                  <button type="button" className={'sidebar-nav-subitem' + (currentPage === 'knowledge-policy' ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate('/knowledge/policy'); }}>
                     <span className="sidebar-nav-subitem-icon" aria-hidden="true"><BookOpen size={16} strokeWidth={1.8} /></span>
                     <span>规章制度</span>
                   </button>
@@ -174,7 +156,7 @@ export default function Sidebar({
             </>
           ) : null}
           {user.role === 'admin' ? (
-            <button type="button" className={'sidebar-nav-item' + (currentPage === 'governance' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenGovernance(); }}>
+            <button type="button" className={'sidebar-nav-item' + (currentPage === 'governance' ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate('/governance'); }}>
               <span className="sidebar-nav-item-icon" aria-hidden="true"><ShieldCheck size={18} strokeWidth={1.8} /></span>
               <span>用户管理</span>
             </button>
@@ -182,7 +164,7 @@ export default function Sidebar({
         </div>
       </nav>
 
-      {qaHistory.length ? <div className="sidebar-section sidebar-history-group qa-sidebar-history"><div className="sidebar-section-label sidebar-history__header"><span>最近问答 <span className="sidebar-history__count">{qaHistory.length}</span></span></div><div className="sidebar-history__list">{qaHistory.slice(0, 5).map((item) => <button key={item.id} type="button" className={'history-item history-item--button' + (currentPage === 'qa' && item.id === activeQAId ? ' is-active' : '')} onClick={() => { onCloseMobile(); onOpenQA(item.id); }}><div className="history-item__top"><span className="history-item__question">{item.title}</span></div><div className="history-item__meta"><span>问答</span><span>{relativeTime(item.updated_at)}</span></div></button>)}</div>{qaHistory.length > 5 ? <details className="qa-history-more"><summary>查看更早问答</summary>{qaHistory.slice(5).map((item) => <button type="button" className="history-item history-item--button" key={item.id} onClick={() => { onCloseMobile(); onOpenQA(item.id); }}>{item.title}</button>)}</details> : null}</div> : null}
+      {qaHistory.length ? <div className="sidebar-section sidebar-history-group qa-sidebar-history"><div className="sidebar-section-label sidebar-history__header"><span>最近问答 <span className="sidebar-history__count">{qaHistory.length}</span></span></div><div className="sidebar-history__list">{qaHistory.slice(0, 5).map((item) => <button key={item.id} type="button" className={'history-item history-item--button' + (item.id === activeQAId ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate(`/qa/${item.id}`); }}><div className="history-item__top"><span className="history-item__question">{item.title}</span></div><div className="history-item__meta"><span>问答</span><span>{relativeTime(item.updated_at)}</span></div></button>)}</div>{qaHistory.length > 5 ? <details className="qa-history-more"><summary>查看更早问答</summary>{qaHistory.slice(5).map((item) => <button type="button" className="history-item history-item--button" key={item.id} onClick={() => { onCloseMobile(); navigate(`/qa/${item.id}`); }}>{item.title}</button>)}</details> : null}</div> : null}
 
       <div className="sidebar-section sidebar-history-group sidebar-history">
         <div className="sidebar-section-label sidebar-history__header">
@@ -211,7 +193,7 @@ export default function Sidebar({
                 onMouseLeave={clearCasePreview}
                 onFocus={(event) => showCasePreview(item, event.currentTarget)}
                 onBlur={clearCasePreview}
-                onClick={() => { clearCasePreview(); onCloseMobile(); onOpenCase(item.id); }}
+                onClick={() => { clearCasePreview(); onCloseMobile(); navigate(`/cases/${item.id}`); }}
               >
                 <div className="history-item__top">
                   <span className="history-item__question">{summarizeCaseTitle(item.question)}</span>

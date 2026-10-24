@@ -8,9 +8,9 @@
  */
 export function buildCaseShareUrl(caseId: string): string {
   const url = new URL(window.location.href);
+  url.pathname = `/cases/${caseId}`;
   url.search = '';
   url.hash = '';
-  url.searchParams.set('case', caseId);
   return url.toString();
 }
 

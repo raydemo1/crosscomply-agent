@@ -230,7 +230,7 @@ export default function CaseDetailPage({
           ) : null}
           {failed ? <AuditDisclosure saved={saved} /> : null}
         </div>
-        <aside className="case-workspace__aside" aria-label="案件问答" hidden={detailView === 'document'}><MatterConversation saved={saved} viewerRole={viewerRole} /></aside>
+        {detailView === 'report' ? <aside className="case-workspace__aside" aria-label="案件问答"><MatterConversation saved={saved} viewerRole={viewerRole} /></aside> : null}
       </div>
     </div>
   );
@@ -320,13 +320,13 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
     <section className={'enterprise-chain' + (embedded ? ' enterprise-chain--embedded' : '')} aria-label="企业决策证据链">
       {includeMaterial && materialSnapshot ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record'}>
-          <div className="enterprise-record__heading"><div><span>01</span><h2>材料快照</h2></div><code title={materialSnapshot.fingerprint}>{materialSnapshot.fingerprint.slice(0, 12)}</code></div>
+          <div className="enterprise-record__heading"><div><span>01</span><h2>材料快照</h2></div></div>
           <p>本次审查绑定不可变材料快照，共 {materialSnapshot.version_ids.length} 个原件版本。</p>
           <div className="enterprise-materials">
             {materialSnapshot.version_ids.map((versionId, index) => (
               <div key={versionId}>
                 <span><strong>材料版本 {index + 1}</strong><small>已冻结到本次审查</small></span>
-                <span><code title={versionId}>{versionId}</code></span>
+                
               </div>
             ))}
           </div>
@@ -335,7 +335,7 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
 
       {intakeSnapshot ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record enterprise-record--rules'}>
-          <div className="enterprise-record__heading"><div><span>02</span><h2>申报人确认事实</h2></div><code title={intakeSnapshot.fingerprint}>{intakeSnapshot.fingerprint.slice(0, 12)}</code></div>
+          <div className="enterprise-record__heading"><div><span>02</span><h2>申报人确认事实</h2></div></div>
           <p>本次审查绑定不可变事实快照，法律路径由 Agent 结合材料和正式法源独立判断。</p>
           <div className="enterprise-record__facts"><div><span>业务活动</span><strong>{intakeSnapshot.intake.business_activity || '未确认'}</strong></div><div><span>人数统计口径</span><strong>{intakeSnapshot.intake.count_period || '未提供'}</strong></div></div>
         </article>
@@ -344,14 +344,8 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
       {reviewTask ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record'}>
           <div className="enterprise-record__heading"><div><span>03</span><h2>Agent 证据审查</h2></div><span className={`task-state task-state--${reviewTask.status}`}>{REVIEW_TASK_STATUS_LABELS[reviewTask.status]}</span></div>
-          <div className="enterprise-record__facts">
-            <div><span>任务编号</span><code>{reviewTask.id.slice(0, 18)}</code></div>
-            <div><span>当前节点</span><strong>{reviewTask.current_node || (reviewTask.status === 'queued' ? '等待执行' : '准备审查')}</strong></div>
-            <div><span>执行模型</span><strong>{reviewTask.model_id}</strong></div>
-            <div><span>执行次数</span><strong>{reviewTask.attempt_count}</strong></div>
-          </div>
-          {reviewTask.agent_state?.plan?.length ? <div className="enterprise-callout"><strong>Agent 当前计划</strong><ol>{reviewTask.agent_state.plan.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ol></div> : null}
-          {reviewTask.steps?.length ? <div className="enterprise-materials">{reviewTask.steps.map((step) => <div key={step.number}><span><strong>{step.summary}</strong><small>{step.action}</small></span><span><code>#{step.number}</code></span></div>)}</div> : null}
+          {reviewTask.current_node ? <div className="enterprise-record__facts"><div><span>当前节点</span><strong>{reviewTask.current_node}</strong></div></div> : null}
+          {reviewTask.steps?.length ? <div className="enterprise-materials">{reviewTask.steps.map((step) => <div key={step.number}><span><strong>{step.summary}</strong><small>{step.action}</small></span></div>)}</div> : null}
           {reviewTask.status === 'failed' ? <div className="enterprise-callout enterprise-callout--danger"><strong>{reviewTask.error_category || '审查任务失败'}</strong><span>{reviewTask.error_message || '可由审核人发起重试，失败节点和记录已保留。'}</span></div> : null}
         </article>
       ) : null}

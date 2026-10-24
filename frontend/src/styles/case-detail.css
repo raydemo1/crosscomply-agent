@@ -2806,3 +2806,20 @@ dialog.share-dialog {
   color: var(--color-muted-foreground);
   font-size: var(--text-sm);
 }
+
+/* 决策链视觉减重：编号与标题同行缩小 */
+.enterprise-record__heading > div { align-items: center; }
+.enterprise-record__heading > div > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--tint-navy-border);
+  background: var(--tint-navy-bg);
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.enterprise-record__heading h2 { font-size: var(--text-lg); }

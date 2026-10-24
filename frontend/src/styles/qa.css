@@ -170,3 +170,17 @@
 .qa-incomplete-draft { margin-block: 10px; color: var(--color-foreground-muted); }
 .qa-incomplete-draft summary { cursor: pointer; font-size: var(--text-sm); }
 .qa-incomplete-draft pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; }
+
+/* 新用户三步引导 */
+.qa-onboarding { margin: 24px auto 0; max-width: 640px; padding: 20px 22px; border: 1px solid var(--color-hairline); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-sm); text-align: left; }
+.qa-onboarding__head { display: flex; align-items: center; justify-content: space-between; }
+.qa-onboarding__head strong { font-size: var(--text-lg); }
+.qa-onboarding__steps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 12px; }
+.qa-onboarding__steps li { display: flex; align-items: flex-start; gap: 12px; }
+.qa-onboarding__icon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 auto; border-radius: var(--radius-md); background: var(--tint-navy-bg-active); color: var(--color-primary); }
+.qa-onboarding__steps > li > div { flex: 1; min-width: 0; }
+.qa-onboarding__steps strong { font-size: var(--text-md); }
+.qa-onboarding__steps p { margin: 3px 0 0; color: var(--color-foreground-muted); font-size: var(--text-sm); line-height: 1.55; }
+.qa-onboarding__steps button { display: inline-flex; align-items: center; gap: 2px; align-self: center; padding: 6px 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-primary); font: var(--weight-medium) var(--text-sm) var(--font-body); cursor: pointer; white-space: nowrap; }
+.qa-onboarding__steps button:hover { background: var(--tint-navy-bg-active); }
+.qa-onboarding__foot { margin: 16px 0 0; color: var(--color-foreground-faint); font-size: var(--text-xs); line-height: 1.6; }

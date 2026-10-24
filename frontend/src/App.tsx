@@ -1,18 +1,16 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { Menu } from 'lucide-react';
-import { isReviewFailedResponse } from './types/api';
-import type { CaseIntake, CaseTemplateApi, DashboardSummaryApi, WorkbenchUser } from './types/api';
-import type { Page } from './components/Sidebar';
+import type { WorkbenchUser } from './types/api';
+import type { QAHandoff, QASummary } from './types/qa';
 import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
 import LoginPage from './components/LoginPage';
-import { ApiError, createCase, createCaseFromQA, extractIntake, freezeMaterialSnapshot, getCurrentUser, getDashboardSummary, listMaterialVersions, listQAConversations, login, logout, updateCase, updateCaseStatus, uploadMaterial } from './api/client';
-import type { QAHandoff, QASummary } from './types/qa';
-import ComplianceQAPage from './components/ComplianceQAPage';
-import { EMPTY_INTAKE, openCase, refreshCases, useCaseStore } from './store/caseStore';
-import { allocateUploadNames, PASTED_MATERIAL_LOGICAL_NAME } from './utils/materialNames';
-import { confirmDiscardDocumentEdit } from './utils/workflow';
+import { ApiError, getCurrentUser, listQAConversations, login, logout } from './api/client';
+import { openCase, refreshCases, useCaseStore } from './store/caseStore';
 
+const ComplianceQAPage = lazy(() => import('./components/ComplianceQAPage'));
 const GovernanceConsolePage = lazy(() => import('./components/GovernanceConsolePage'));
 const KnowledgeBasePage = lazy(() => import('./components/KnowledgeBasePage'));
 const CaseDetailPage = lazy(() => import('./components/CaseDetailPage'));
@@ -23,228 +21,36 @@ const MyRemediationsPage = lazy(async () => {
   return { default: module.MyRemediationsPage };
 });
 
-function materialOriginal(material: string): File {
-  return new File([material], 'case-material.txt', { type: 'text/plain;charset=utf-8' });
-}
+const TRANSITIONAL_STATUSES = ['pending_review', 'review_running'];
 
-const MATERIAL_FALLBACK_PREFIX = '材料以附件形式提供：';
-
-/** Editing the prose is an update to the pasted material, not a brand new upload. */
-function replacesPastedMaterial(text: string, originalText: string): boolean {
-  return Boolean(text.trim()) && text !== originalText;
-}
-
-function materialFallback(files: File[]): string {
-  return files.length ? `${MATERIAL_FALLBACK_PREFIX}${files.map((file) => file.name).join('、')}` : '';
-}
-
-interface MaterialUpload {
-  logicalName: string;
-  file: File;
-}
-
-interface KnownVersion {
-  id: string;
-  logicalName: string;
-  versionNumber: number;
-}
-
-/**
- * Only the versions already frozen for this case may carry over. Reading every historical
- * version would silently resurrect superseded drafts and discarded attachments.
- */
-async function loadFrozenVersions(
-  caseId: string,
-  keptVersionIds: string[],
-): Promise<KnownVersion[]> {
-  if (!keptVersionIds.length) return [];
-  const keptIds = new Set(keptVersionIds);
-  const kept = (await listMaterialVersions(caseId))
-    .filter((version) => keptIds.has(version.id))
-    .map((version) => ({
-      id: version.id,
-      logicalName: version.logical_name,
-      versionNumber: version.version_number,
-    }));
-  if (kept.length !== keptIds.size) {
-    throw new ApiError(0, '本案已有材料发生变化，请刷新页面后重新提交。', '/api/cases');
-  }
-  return kept;
-}
-
-/**
- * A snapshot holds at most one version per logical material, so a higher version of a frozen
- * material replaces it instead of freezing both drafts side by side.
- */
-function frozenVersionIds(versions: KnownVersion[]): string[] {
-  const newest = new Map<string, KnownVersion>();
-  for (const version of versions) {
-    const current = newest.get(version.logicalName);
-    if (!current || version.versionNumber > current.versionNumber) {
-      newest.set(version.logicalName, version);
-    }
-  }
-  return [...newest.values()].map((version) => version.id);
-}
-
-/**
- * A file-only case stores a filename summary in material_text. Keep it out of the
- * editable box so it can never be re-submitted as if it were the real material.
- */
-function editableMaterialText(materialText: string): string {
-  return materialText.startsWith(MATERIAL_FALLBACK_PREFIX) ? '' : materialText;
-}
-
-function linkedCaseId(): string | null {
-  const value = new URLSearchParams(window.location.search).get('case')?.trim();
-  return value || null;
-}
-
-function linkedRemediationPlan(): boolean {
-  return new URLSearchParams(window.location.search).get('remediation') === 'plan';
+interface ShellContext {
+  user: WorkbenchUser;
+  refreshQaHistory: () => Promise<void>;
+  closeMobileNav: () => void;
 }
 
 export default function App(): JSX.Element {
   const [user, setUser] = useState<WorkbenchUser | null>(null);
   const [booting, setBooting] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [page, setPage] = useState<Page>(new URLSearchParams(window.location.search).has('qa') ? 'qa' : 'home');
-  const [activeQAId, setActiveQAId] = useState<string | null>(new URLSearchParams(window.location.search).get('qa'));
-  const [qaHistory, setQAHistory] = useState<QASummary[]>([]);
-  const [qaHandoff, setQAHandoff] = useState<QAHandoff | null>(null);
-  const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
-  const [remediationCaseId, setRemediationCaseId] = useState<string | null>(null);
-  /** Set when the next case view has to open on the Agent question instead of the report top. */
-  const [focusAgentAnswer, setFocusAgentAnswer] = useState(false);
-  const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
-  const [editingVersionIds, setEditingVersionIds] = useState<string[]>([]);
-  /** Names already frozen on the edited case; new uploads are numbered to avoid them. */
-  const [editingMaterialNames, setEditingMaterialNames] = useState<string[]>([]);
-  const [editingMaterialText, setEditingMaterialText] = useState('');
-  const [question, setQuestion] = useState('');
-  const [material, setMaterial] = useState('');
-  const [intake, setIntake] = useState<CaseIntake>({ ...EMPTY_INTAKE });
-  const [loading, setLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [missingFacts, setMissingFacts] = useState<Array<{ key: string; reason: string; input_type: 'choice' | 'text' | 'count' | 'exemption' | 'free_text' }>>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummaryApi | null>(null);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const openCaseRequest = useRef(0);
-  /** Mirrors the case view's unsubmitted revision edits; kept in a ref so navigation stays render-free. */
-  const documentDirtyRef = useRef(false);
-  const cases = useCaseStore();
-  const activeCase = useMemo(() => activeCaseId ? cases.find((item) => item.id === activeCaseId) ?? null : null, [cases, activeCaseId]);
-
-  const refreshQAHistory = useCallback((): void => {
-    void listQAConversations().then(setQAHistory).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : '无法读取问答历史'));
-  }, []);
-
-  useEffect(() => {
-    if (user) refreshQAHistory();
-    else setQAHistory([]);
-  }, [user, refreshQAHistory]);
-
-  const selectQA = useCallback((id: string | null): void => {
-    setActiveQAId(id);
-    setPage(id ? 'qa' : 'home');
-    const url = new URL(window.location.href);
-    url.searchParams.delete('case');
-    url.searchParams.delete('remediation');
-    if (id) url.searchParams.set('qa', id);
-    else url.searchParams.delete('qa');
-    window.history.replaceState(null, '', url);
-  }, []);
-
-  // Numbering of new uploads depends on the names already frozen on the case, so fetch them up
-  // front. Reading them only at submit time would make the preview disagree with what gets frozen.
-  useEffect(() => {
-    if (!editingCaseId || !editingVersionIds.length) {
-      setEditingMaterialNames([]);
-      return;
-    }
-    let cancelled = false;
-    const keptIds = new Set(editingVersionIds);
-    void listMaterialVersions(editingCaseId)
-      .then((versions) => {
-        if (cancelled) return;
-        setEditingMaterialNames(
-          versions.filter((version) => keptIds.has(version.id)).map((version) => version.logical_name),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setEditingMaterialNames([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [editingCaseId, editingVersionIds]);
 
   useEffect(() => {
     let mounted = true;
-    void getCurrentUser().then(async (current) => {
-      if (!mounted) return;
-      setUser(current);
-      if (current) {
-        const [, summary] = await Promise.all([refreshCases(), getDashboardSummary()]);
-        if (mounted) setDashboardSummary(summary);
-        const caseId = linkedCaseId();
-        if (caseId) {
-          try {
-            await openCase(caseId);
-            if (mounted) {
-              setActiveCaseId(caseId);
-              if (linkedRemediationPlan()) {
-                setRemediationCaseId(caseId);
-                setPage('remediation-plan');
-              } else {
-                setPage('case-detail');
-              }
-            }
-          } catch (reason) {
-            if (mounted) setError(reason instanceof Error ? reason.message : '无法打开飞书关联案件');
-          }
-        }
-      }
+    void getCurrentUser().then((current) => {
+      if (mounted) setUser(current);
     }).catch((reason) => {
-      if (mounted) setAuthError(reason instanceof Error ? reason.message : '无法连接到 CrossComply 服务');
+      if (mounted) setAuthError(reason instanceof Error ? reason.message : '无法连接到 CrossComply 服务，请检查网络后重试。');
     }).finally(() => {
       if (mounted) setBooting(false);
     });
     return () => { mounted = false; };
   }, []);
 
-  // Reloading or closing the tab drops the revision text too, so warn while it is unsubmitted.
-  useEffect(() => {
-    const warnOnUnload = (event: BeforeUnloadEvent): void => {
-      if (!documentDirtyRef.current) return;
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', warnOnUnload);
-    return () => window.removeEventListener('beforeunload', warnOnUnload);
-  }, []);
-
-  const handleDocumentDirty = useCallback((dirty: boolean): void => {
-    documentDirtyRef.current = dirty;
-  }, []);
-
-  /**
-   * Single checkpoint for navigation that unmounts the case view. The case page guards its own
-   * routes; this one covers the sidebar, page switches and logout that it cannot see.
-   */
-  const leaveDocument = useCallback((): boolean => {
-    if (!documentDirtyRef.current) return true;
-    if (!confirmDiscardDocumentEdit()) return false;
-    documentDirtyRef.current = false;
-    return true;
-  }, []);
-
   const handleLogin = useCallback(async (username: string, password: string): Promise<void> => {
     setAuthError(null);
-    let current: WorkbenchUser;
     try {
-      current = await login(username, password);
+      const current = await login(username, password);
+      setUser(current);
     } catch (reason) {
       setAuthError(
         reason instanceof ApiError && reason.status === 401
@@ -253,254 +59,7 @@ export default function App(): JSX.Element {
             ? reason.message
             : '登录失败，请稍后重试。',
       );
-      return;
     }
-    setUser(current);
-    const [, summary] = await Promise.all([refreshCases(), getDashboardSummary()]);
-    setDashboardSummary(summary);
-    const caseId = linkedCaseId();
-    if (caseId) {
-      await openCase(caseId);
-      setActiveCaseId(caseId);
-      if (linkedRemediationPlan()) {
-        setRemediationCaseId(caseId);
-        setPage('remediation-plan');
-      } else {
-        setPage('case-detail');
-      }
-    }
-  }, []);
-
-  const handleLogout = useCallback(async (): Promise<void> => {
-    if (documentDirtyRef.current && !confirmDiscardDocumentEdit()) return;
-    setError(null);
-    try {
-      await logout();
-    } catch (reason) {
-      // The session survives a failed logout, so the unsubmitted revision must stay protected.
-      setError(reason instanceof Error ? reason.message : '退出登录失败，请稍后重试。');
-      return;
-    }
-    documentDirtyRef.current = false;
-    setUser(null);
-    setDashboardSummary(null);
-    setActiveCaseId(null);
-    setEditingCaseId(null);
-    setQAHandoff(null);
-    setActiveQAId(null);
-    setPage('home');
-  }, []);
-
-  const handleOpenGovernance = useCallback((): void => {
-    if (user?.role !== 'admin') return;
-    if (!leaveDocument()) return;
-    setError(null);
-    setPage('governance');
-  }, [user, leaveDocument]);
-
-  const handleAnalyze = useCallback(async (q: string, m: string, files: File[]): Promise<boolean> => {
-    setAnalyzing(true);
-    setError(null);
-    try {
-      const result = await extractIntake(q, m, files);
-      setIntake((current) => ({ ...current, ...result.intake, data_types: [...result.intake.data_types] }));
-      setMissingFacts(result.missing);
-      return true;
-    } catch (reason) {
-      setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'Agent 无法读取材料，请检查文件后重试');
-      return false;
-    } finally {
-      setAnalyzing(false);
-    }
-  }, []);
-
-  const handleSubmit = useCallback(async (q: string, m: string, confirmedIntake: CaseIntake, files: File[]): Promise<void> => {
-    if (!user) return;
-    setLoading(true);
-    setError(null);
-    const textMaterial = m.trim();
-    const keptVersionIds = editingCaseId ? editingVersionIds : [];
-    // Only genuinely new material is uploaded. Supplementing facts must never re-upload the
-    // frozen originals, and pasted prose replaces its own previous version instead of adding one.
-    const updatesPastedMaterial = replacesPastedMaterial(textMaterial, editingMaterialText);
-    const clearEditingState = (): void => {
-      setEditingCaseId(null);
-      setEditingVersionIds([]);
-      setEditingMaterialText('');
-    };
-    try {
-      if (!keptVersionIds.length && !files.length && !updatesPastedMaterial) {
-        throw new ApiError(0, '请提供至少一份待审查材料。', '/api/cases');
-      }
-      const originFiles = qaHandoff?.files ?? [];
-      const selectedOriginIds = qaHandoff ? qaHandoff.materialIds.filter((_, index) => files.includes(originFiles[index])) : [];
-      const saved = editingCaseId
-        ? await updateCase(editingCaseId, {
-          question: q,
-          ...(updatesPastedMaterial ? { material_text: textMaterial } : {}),
-          intake: confirmedIntake,
-        })
-        : qaHandoff
-          ? await createCaseFromQA(qaHandoff.conversationId, { question: q, material_text: textMaterial || materialFallback(files), intake: confirmedIntake,
-            run_id: qaHandoff.runId, request_id: qaHandoff.requestId, material_ids: selectedOriginIds })
-          : await createCase({ question: q, materialText: textMaterial || materialFallback(files), intake: confirmedIntake });
-      const frozenVersions = await loadFrozenVersions(saved.case.id, keptVersionIds);
-      const importedVersions = 'imported_versions' in saved ? saved.imported_versions as import('./types/api').MaterialVersionApi[] : [];
-      frozenVersions.push(...importedVersions.map((version) => ({ id: version.id, logicalName: version.logical_name, versionNumber: version.version_number })));
-      const newFiles = files.filter((file) => !originFiles.includes(file));
-      const fileNames = allocateUploadNames(
-        newFiles.map((file) => file.name),
-        frozenVersions.map((version) => version.logicalName),
-        updatesPastedMaterial,
-      );
-      const uploads: MaterialUpload[] = newFiles.map((file, index) => ({
-        logicalName: fileNames[index],
-        file,
-      }));
-      if (updatesPastedMaterial) {
-        uploads.push({ logicalName: PASTED_MATERIAL_LOGICAL_NAME, file: materialOriginal(textMaterial) });
-      }
-      const uploaded: KnownVersion[] = [];
-      for (const upload of uploads) {
-        const created = await uploadMaterial(saved.case.id, upload.logicalName, upload.file);
-        uploaded.push({
-          id: created.id,
-          logicalName: created.logical_name,
-          versionNumber: created.version_number,
-        });
-      }
-      await freezeMaterialSnapshot(
-        saved.case.id,
-        frozenVersionIds([...frozenVersions, ...uploaded]),
-      );
-      const pending = await updateCaseStatus(saved.case.id, 'pending_review');
-      clearEditingState();
-      setQAHandoff(null);
-      await openCase(pending.case.id);
-      setActiveCaseId(pending.case.id);
-      setPage('case-detail');
-      setDashboardSummary(await getDashboardSummary());
-    } catch (reason) {
-      setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : '提交案件时发生未知错误');
-    } finally {
-      setLoading(false);
-    }
-  }, [editingCaseId, editingVersionIds, editingMaterialText, qaHandoff, user, openCase]);
-
-  const handleNavigate = useCallback((next: Page): void => {
-    if (next !== page && !leaveDocument()) return;
-    if (next === 'workbench') {
-      setQAHandoff(null);
-      setQuestion('');
-      setMaterial('');
-      setIntake({ ...EMPTY_INTAKE });
-      setEditingCaseId(null);
-      setEditingVersionIds([]);
-      setEditingMaterialText('');
-      setMissingFacts([]);
-      setError(null);
-    }
-    setPage(next);
-  }, [page, leaveDocument]);
-
-  const handleQAHandoff = useCallback((handoff: QAHandoff): void => {
-    setQAHandoff(handoff);
-    setQuestion(handoff.question);
-    setMaterial('');
-    setIntake({ ...EMPTY_INTAKE });
-    setEditingCaseId(null);
-    setEditingVersionIds([]);
-    setEditingMaterialText('');
-    setMissingFacts([]);
-    setError(null);
-    setPage('workbench');
-  }, []);
-
-  const handleOpenCase = useCallback(async (caseId: string): Promise<void> => {
-    // Re-clicking the case that is already on screen keeps the same component key, so the editor
-    // stays mounted with its unsubmitted text; nothing has been left, so nothing may be cleared.
-    if (caseId === activeCaseId && page === 'case-detail') return;
-    if (documentDirtyRef.current && !confirmDiscardDocumentEdit()) return;
-    const requestId = ++openCaseRequest.current;
-    setError(null);
-    try {
-      await openCase(caseId);
-      if (requestId !== openCaseRequest.current) return;
-      // Only now is the edited document really gone; a failed load must keep the protection.
-      documentDirtyRef.current = false;
-      setActiveCaseId(caseId);
-      setPage('case-detail');
-    } catch (reason) {
-      if (requestId !== openCaseRequest.current) return;
-      setError(reason instanceof Error ? reason.message : '无法打开案件');
-    }
-  }, [activeCaseId, page]);
-
-  const handleOpenRemediationPlan = useCallback((caseId: string): void => {
-    setRemediationCaseId(caseId);
-    setActiveCaseId(caseId);
-    setPage('remediation-plan');
-  }, []);
-
-  /** The remediation page has no answer form, so its answer button returns to the case report and lands on the Agent question. */
-  const handleOpenAgentQuestion = useCallback((): void => {
-    if (!remediationCaseId) return;
-    setFocusAgentAnswer(true);
-    void handleOpenCase(remediationCaseId);
-  }, [remediationCaseId, handleOpenCase]);
-
-  const handleAgentAnswerFocused = useCallback((): void => {
-    setFocusAgentAnswer(false);
-  }, []);
-
-  const handleUseTemplate = useCallback((template: CaseTemplateApi): void => {
-    setQAHandoff(null);
-    setQuestion(template.question);
-    setMaterial('');
-    setIntake({ ...EMPTY_INTAKE, ...template.intake, data_types: [...(template.intake.data_types ?? [])] });
-    setEditingCaseId(null);
-    setEditingVersionIds([]);
-    setEditingMaterialText('');
-    setActiveCaseId(null);
-    setError(null);
-    setMissingFacts([]);
-    setPage('workbench');
-  }, []);
-
-  const remediationRecommendations = activeCase?.response && !isReviewFailedResponse(activeCase.response)
-    ? activeCase.response.review_result.recommended_actions
-    : [];
-
-  const remediationIssues = activeCase && activeCase.id === remediationCaseId && activeCase.response && !isReviewFailedResponse(activeCase.response)
-    ? activeCase.response.review_result.issues
-    : [];
-
-  const handleEditCase = useCallback((saved: NonNullable<typeof activeCase>): void => {
-    setQAHandoff(null);
-    const editableMaterial = editableMaterialText(saved.materialText);
-    setQuestion(saved.question);
-    setMaterial(editableMaterial);
-    setIntake({ ...saved.intake, data_types: [...saved.intake.data_types] });
-    setEditingCaseId(saved.id);
-    // Keep the frozen material versions so supplementing facts never replaces them.
-    setEditingVersionIds(saved.materialSnapshot?.version_ids ?? []);
-    setEditingMaterialText(editableMaterial);
-    setError(null);
-    setMissingFacts([]);
-    setPage('workbench');
-  }, []);
-
-  const handleRerun = useCallback((q: string, m: string): void => {
-    setQAHandoff(null);
-    setQuestion(q);
-    setMaterial(editableMaterialText(m));
-    setIntake({ ...EMPTY_INTAKE });
-    setEditingCaseId(null);
-    setEditingVersionIds([]);
-    setEditingMaterialText('');
-    setActiveCaseId(null);
-    setMissingFacts([]);
-    setPage('workbench');
   }, []);
 
   if (booting) {
@@ -509,10 +68,90 @@ export default function App(): JSX.Element {
   if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
 
   return (
+    <Routes>
+      <Route element={<Shell user={user} onLogout={logout} onUserChanged={() => setUser(null)} />}>
+        <Route path="/qa/:conversationId?" element={<QaRoute user={user} />} />
+        <Route path="/workbench" element={<WorkbenchRoute user={user} />} />
+        <Route path="/templates" element={<TemplateRoute user={user} />} />
+        <Route path="/reviews" element={<MyRemediationsRoute user={user} />} />
+        <Route path="/reviews/plan/:caseId" element={<RemediationPlanRoute user={user} />} />
+        <Route path="/cases/:caseId" element={<CaseDetailRoute user={user} />} />
+        <Route path="/knowledge/:kind" element={<KnowledgeRoute user={user} />} />
+        <Route path="/governance" element={<GovernanceRoute user={user} />} />
+        <Route path="/index.html" element={<LegacyRedirect />} />
+        <Route path="*" element={<LegacyRedirect />} />
+      </Route>
+    </Routes>
+  );
+}
+
+/** 旧版链接（/?case=…&remediation=plan、/?qa=…）与未知路径的重定向。 */
+function LegacyRedirect(): JSX.Element {
+  const params = new URLSearchParams(window.location.search);
+  const caseId = params.get('case');
+  const qaId = params.get('qa');
+  if (caseId) {
+    return <Navigate to={params.get('remediation') === 'plan' ? `/reviews/plan/${caseId}` : `/cases/${caseId}`} replace />;
+  }
+  if (qaId) return <Navigate to={`/qa/${qaId}`} replace />;
+  return <Navigate to="/qa" replace />;
+}
+
+function pageLabel(pathname: string): string {
+  if (pathname.startsWith('/qa')) return '合规问答';
+  if (pathname.startsWith('/workbench')) return '新建案件';
+  if (pathname.startsWith('/templates')) return '使用模板';
+  if (pathname.startsWith('/reviews/plan')) return '处理清单';
+  if (pathname.startsWith('/reviews')) return '我的复核';
+  if (pathname.startsWith('/cases')) return '案件详情';
+  if (pathname.startsWith('/knowledge/legal')) return '知识库 · 法律法规';
+  if (pathname.startsWith('/knowledge')) return '知识库 · 规章制度';
+  if (pathname.startsWith('/governance')) return '用户管理';
+  return '合规问答';
+}
+
+/** 已登录外壳：侧栏 + 主内容。问答历史等跨页状态在这里持有。 */
+function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogout: typeof logout; onUserChanged: () => void }): JSX.Element {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [qaHistory, setQaHistory] = useState<QASummary[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
+
+  const refreshQaHistory = useCallback(async (): Promise<void> => {
+    try {
+      setQaHistory(await listQAConversations());
+      setError(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '无法读取问答历史，请稍后重试。');
+    }
+  }, []);
+
+  useEffect(() => { void refreshQaHistory(); void refreshCases(); }, [refreshQaHistory]);
+
+  // 页面切换时关闭移动端抽屉
+  useEffect(() => { setMobileSidebarOpen(false); }, [location.pathname]);
+
+  const handleLogout = useCallback(async (): Promise<void> => {
+    setError(null);
+    try {
+      await onLogout();
+      onUserChanged();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '退出登录失败，请稍后重试。');
+    }
+  }, [onLogout, onUserChanged]);
+
+  return (
     <div className="app-shell">
-      <Sidebar qaHistory={qaHistory} activeQAId={activeQAId} onOpenQA={(id) => { if (leaveDocument()) selectQA(id); }} currentPage={page} onPageChange={handleNavigate} onOpenCase={handleOpenCase} activeCaseId={activeCaseId} cases={cases} user={user} onLogout={() => void handleLogout()} onOpenGovernance={handleOpenGovernance} isMobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+      <Sidebar
+        user={user}
+        qaHistory={qaHistory}
+        onLogout={handleLogout}
+        isMobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
+      />
       {mobileSidebarOpen ? <button type="button" className="sidebar-scrim" onClick={() => setMobileSidebarOpen(false)} aria-label="关闭案件导航" /> : null}
-      <main className={'app-center' + (page === 'home' || page === 'qa' ? ' app-center--qa' : '')}>
+      <main className="app-center">
         <div className="app-mobile-nav">
           <button type="button" className="app-mobile-menu" onClick={() => setMobileSidebarOpen(true)} aria-expanded={mobileSidebarOpen} aria-controls="primary-sidebar" aria-label="打开案件导航">
             <Menu size={20} strokeWidth={1.8} aria-hidden="true" />
@@ -522,20 +161,173 @@ export default function App(): JSX.Element {
             <span>CrossComply</span>
           </div>
           <div className="app-mobile-actions">
-            <span className="app-mobile-surface">{page === 'home' || page === 'qa' ? '合规问答' : page === 'governance' ? '用户管理' : page === 'knowledge-legal' ? '知识库 · 法律法规' : page === 'knowledge-policy' ? '知识库 · 规章制度' : page === 'my-remediations' ? '我的复核' : page === 'remediation-plan' ? '我的复核' : page === 'case-detail' ? '案件详情' : page === 'case-templates' ? '使用模板' : '新建案件'}</span>
+            <span className="app-mobile-surface">{pageLabel(location.pathname)}</span>
           </div>
         </div>
-        {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
-        {page === 'home' || page === 'qa' ? <ComplianceQAPage key={user.id} conversationId={activeQAId} onConversationChange={selectQA} onHistoryChange={refreshQAHistory} onNewConversation={() => selectQA(null)} onHandoff={handleQAHandoff} /> : null}
-        {page === 'governance' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载用户管理…</div></div>}><GovernanceConsolePage user={user} /></Suspense> : null}
-        {page === 'knowledge-legal' || page === 'knowledge-policy' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载知识库…</div></div>}><KnowledgeBasePage user={user} initialLibraryKind={page === 'knowledge-legal' ? 'legal' : 'internal_policy'} /></Suspense> : null}
-        {page === 'my-remediations' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载待核实事项…</div></div>}><MyRemediationsPage user={user} /></Suspense> : null}
-        {page === 'remediation-plan' && remediationCaseId ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载待核实事项…</div></div>}><RemediationPlanPage key={remediationCaseId} caseId={remediationCaseId} user={user} recommendations={remediationRecommendations} issues={remediationIssues} onOpenAgentQuestion={handleOpenAgentQuestion} /></Suspense> : null}
-        {page === 'case-detail' && activeCase ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载案件详情…</div></div>}><CaseDetailPage key={activeCase.id} saved={activeCase} canEdit={user.role === 'requester'} canManageActions={user.role === 'reviewer' || user.role === 'admin'} viewerRole={user.role} onEdit={handleEditCase} onRerun={handleRerun} onBack={() => setPage('workbench')} onOpenRemediationPlan={() => handleOpenRemediationPlan(activeCase.id)} focusAgentAnswer={focusAgentAnswer} onAgentAnswerFocused={handleAgentAnswerFocused} onDocumentDirtyChange={handleDocumentDirty} /></Suspense> : null}
-        {page === 'case-templates' ? <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载使用模板…</div></div>}><TemplateCenterPage user={user} onUseTemplate={handleUseTemplate} /></Suspense> : null}
-        {page === 'workbench' ? <WorkbenchPage key={qaHandoff?.requestId ?? editingCaseId ?? 'new'} initialFiles={qaHandoff?.files} investigationLeads={qaHandoff?.leads} question={question} material={material} intake={intake} editingCaseId={editingCaseId} existingMaterialNames={editingMaterialNames} reservePastedMaterial={replacesPastedMaterial(material, editingMaterialText)} onQuestionChange={setQuestion} onMaterialChange={setMaterial} onIntakeChange={setIntake} onAnalyze={handleAnalyze} onSubmit={(q, m, confirmedIntake, files) => void handleSubmit(q, m, confirmedIntake, files)} loading={loading} analyzing={analyzing} error={error} missingFacts={missingFacts} /> : null}
-        {page === 'case-detail' && !activeCase ? <div className="state-block card"><h2>正在加载案件</h2><p>请从最近案件中选择一个案件。</p></div> : null}
+        {error ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
+        <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载…</div></div>}>
+          <Outlet context={{ user, refreshQaHistory, closeMobileNav: () => setMobileSidebarOpen(false) } satisfies ShellContext} />
+        </Suspense>
       </main>
     </div>
   );
+}
+
+function useShellContext(): ShellContext {
+  return useOutletContext<ShellContext>();
+}
+
+// ---------------------------------------------------------------------------
+// 路由包装组件：按路由参数加载 store 数据并组装页面 props
+// ---------------------------------------------------------------------------
+
+function QaRoute({ user }: { user: WorkbenchUser }): JSX.Element {
+  const { conversationId } = useParams();
+  const navigate = useNavigate();
+  const { refreshQaHistory, closeMobileNav } = useShellContext();
+  return <ComplianceQAPage
+    conversationId={conversationId ?? null}
+    onConversationChange={(id) => navigate(id ? `/qa/${id}` : '/qa', { replace: true })}
+    onNewConversation={() => { closeMobileNav(); navigate('/qa'); }}
+    onHistoryChange={() => void refreshQaHistory()}
+    onHandoff={(handoff: QAHandoff) => { closeMobileNav(); navigate('/workbench', { state: { handoff } }); }}
+  />;
+}
+
+function WorkbenchRoute({ user }: { user: WorkbenchUser }): JSX.Element {
+  const { caseId } = useParams();
+  const location = useLocation();
+  const cases = useCaseStore();
+  const saved = caseId ? cases.find((item) => item.id === caseId) ?? null : null;
+  const [loading, setLoading] = useState(Boolean(caseId));
+
+  useEffect(() => {
+    if (!caseId) { setLoading(false); return; }
+    let mounted = true;
+    setLoading(true);
+    void openCase(caseId).catch(() => {}).finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [caseId]);
+
+  if (loading) return <div className="card state-block"><div className="state-block__title">正在读取案件…</div></div>;
+  if (caseId && !saved) return <div className="card state-block"><div className="state-block__title">未找到案件</div><p>请从最近案件中选择一个案件。</p></div>;
+
+  const seed = (location.state ?? null) as { handoff?: QAHandoff; template?: import('./types/api').CaseTemplateApi; rerun?: { question: string; material: string } } | null;
+  return <WorkbenchPage editSeed={caseId ? saved : null} seed={seed} />;
+}
+
+function TemplateRoute({ user }: { user: WorkbenchUser }): JSX.Element {
+  const navigate = useNavigate();
+  const { closeMobileNav } = useShellContext();
+  return <TemplateCenterPage
+    user={user}
+    onUseTemplate={(template) => { closeMobileNav(); navigate('/workbench', { state: { template } }); }}
+  />;
+}
+
+function MyRemediationsRoute({ user }: { user: WorkbenchUser }): JSX.Element {
+  return <MyRemediationsPage user={user} />;
+}
+
+function RemediationPlanRoute({ user }: { user: WorkbenchUser }): JSX.Element {
+  const { caseId } = useParams();
+  const navigate = useNavigate();
+  const cases = useCaseStore();
+  const saved = cases.find((item) => item.id === caseId) ?? null;
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    void openCase(caseId ?? '').catch(() => {}).finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [caseId]);
+
+  if (loading) return <div className="card state-block"><div className="state-block__title">正在读取案件…</div></div>;
+  if (!saved) return <div className="card state-block"><div className="state-block__title">未找到案件</div><p>请从最近案件中选择一个案件。</p></div>;
+
+  const report = saved.response !== null && 'review_result' in saved.response
+    ? saved.response.review_result
+    : null;
+  const recommendations = report?.recommended_actions ?? [];
+  const issues = report?.issues ?? [];
+  return <RemediationPlanPage
+    key={saved.id}
+    caseId={saved.id}
+    user={user}
+    recommendations={recommendations}
+    issues={issues}
+    onOpenAgentQuestion={() => navigate(`/cases/${saved.id}`, { state: { focusAgentAnswer: true } })}
+  />;
+}
+
+function CaseDetailRoute({ user }: { user: WorkbenchUser }): JSX.Element {
+  const { caseId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const cases = useCaseStore();
+  const saved = cases.find((item) => item.id === caseId) ?? null;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const dirtyRef = useRef(false);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    setError(null);
+    void openCase(caseId ?? '').then(() => {
+      if (mounted) dirtyRef.current = false;
+    }).catch((reason) => {
+      if (mounted) setError(reason instanceof Error ? reason.message : '无法打开案件');
+    }).finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [caseId]);
+
+  // 排队/运行中的案件每 8 秒自动刷新，完成后停止
+  const status = saved?.status ?? null;
+  useEffect(() => {
+    if (!caseId || !status || !TRANSITIONAL_STATUSES.includes(status)) return undefined;
+    const timer = window.setInterval(() => { void openCase(caseId).catch(() => {}); }, 8000);
+    return () => window.clearInterval(timer);
+  }, [caseId, status]);
+
+  useEffect(() => {
+    document.title = status !== null && TRANSITIONAL_STATUSES.includes(status)
+      ? '审查运行中… · CrossComply'
+      : 'CrossComply - 数据出境合规智能体';
+    return () => { document.title = 'CrossComply - 数据出境合规智能体'; };
+  }, [status]);
+
+  if (loading) return <div className="card state-block"><div className="state-block__title">正在读取案件详情…</div></div>;
+  if (error) return <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div>;
+  if (!saved) return <div className="card state-block"><div className="state-block__title">未找到案件</div><p>请从最近案件中选择一个案件。</p></div>;
+
+  const guard = (): boolean => {
+    if (!dirtyRef.current) return true;
+    return window.confirm('原文审阅有未提交的修改，离开将丢失。确定离开吗？');
+  };
+
+  return <CaseDetailPage
+    key={saved.id}
+    saved={saved}
+    canEdit={user.role === 'requester'}
+    canManageActions={user.role === 'reviewer' || user.role === 'admin'}
+    viewerRole={user.role}
+    focusAgentAnswer={Boolean((location.state as { focusAgentAnswer?: boolean } | null)?.focusAgentAnswer)}
+    onAgentAnswerFocused={() => navigate(`/cases/${saved.id}`, { replace: true, state: null })}
+    onDocumentDirtyChange={(dirty) => { dirtyRef.current = dirty; }}
+    onEdit={() => { if (guard()) navigate(`/workbench?case=${saved.id}`); }}
+    onRerun={(question, material) => navigate('/workbench', { state: { rerun: { question, material } } })}
+    onBack={() => { if (guard()) navigate('/workbench'); }}
+    onOpenRemediationPlan={() => navigate(`/reviews/plan/${saved.id}`)}
+  />;
+}
+
+function KnowledgeRoute({ user }: { user: WorkbenchUser }): JSX.Element {
+  const { kind } = useParams();
+  return <KnowledgeBasePage user={user} initialLibraryKind={kind === 'internal_policy' ? 'internal_policy' : 'legal'} />;
+}
+
+function GovernanceRoute({ user }: { user: WorkbenchUser }): JSX.Element {
+  return <GovernanceConsolePage user={user} />;
 }

@@ -22,7 +22,7 @@ export default function CaseFactsPanel({ saved, viewerRole }: { saved: SavedCase
   ];
   if (!sections.some((s) => s.entries.length)) return null;
   return <section className="card case-facts" aria-label="案件事实与来源">
-    <div className="case-facts__heading"><span className="case-module-kicker">判断的事实基础</span><h2>案件事实与核对</h2><p>区分已确认内容、材料发现和补充说明，避免把尚未核实的信息当作事实。</p></div>
+    <div className="case-facts__heading"><h2>案件事实与核对</h2><p>区分已确认内容、材料发现和补充说明，避免把尚未核实的信息当作事实。</p></div>
     {sections.filter((s) => s.entries.length).map((section) => <details className={`case-facts__group case-facts__group--${section.kind}`} key={`${task?.id}-${section.kind}`} open={section.kind === 'conflict' || section.kind === 'statement' && task?.status !== 'waiting_input'}>
       <summary><section.icon size={19} aria-hidden="true" /><span><strong>{section.title}</strong><small>{section.note}</small></span><span className="case-facts__count">{section.entries.length} 条</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
       <FactValues entries={section.entries} viewerRole={viewerRole} />
