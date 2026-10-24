@@ -360,7 +360,9 @@ class PostgresCaseStore:
             cur.execute(f"SELECT * FROM review_cases {where} ORDER BY updated_at DESC", params)
             return [_row_case(row) for row in cur.fetchall()]
 
-    def update_case(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
+    def update_case(
+        self, identifier: str, *, expected_status: str | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         allowed = {
             "title",
             "question",
@@ -379,7 +381,8 @@ class PostgresCaseStore:
         for key in ("intake_json", "response_json"):
             if key in updates:
                 updates[key] = _jsonb(updates[key])
-        if not updates:
+        status_guard = expected_status is not None
+        if not updates and not status_guard:
             case = self.get_case(identifier)
             if case is None:
                 raise KeyError(identifier)
@@ -387,15 +390,25 @@ class PostgresCaseStore:
         updates["updated_at"] = datetime.now(UTC)
         assignments = ", ".join(f"{key} = %s" for key in updates)
         values = list(updates.values()) + [identifier]
+        where = "id = %s"
+        if status_guard:
+            assignments_extra = ""  # guard goes into WHERE only
+            where += " AND status = %s"
+            values.append(expected_status)
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
-                f"UPDATE review_cases SET {assignments} WHERE id = %s RETURNING *",
+                f"UPDATE review_cases SET {assignments} WHERE {where} RETURNING *",
                 values,
             )
             row = cur.fetchone()
             conn.commit()
         if row is None:
-            raise KeyError(identifier)
+            current = self.get_case(identifier)
+            if current is None:
+                raise KeyError(identifier)
+            raise ValueError(
+                f"案件状态已变化（当前 {current['status']}，预期 {expected_status}），请刷新后重试"
+            )
         return _row_case(row)
 
     def add_event(self, identifier: str, actor_id: str, **kwargs: Any) -> dict[str, Any]:

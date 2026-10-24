@@ -283,13 +283,17 @@ def main() -> None:
                 payload={"task_id": task.id, "error": f"{exc.__class__.__name__}: {exc}"[:500]},
             )
             return
-        case_store.update_case(
-            task.case_id,
-            status=final_status,
-            risk_level=review_result.get("risk_level"),
-            trace_id=task.result.get("trace_id"),
-            response_json=task.result,
-        )
+        try:
+            case_store.update_case(
+                task.case_id,
+                status=final_status,
+                risk_level=review_result.get("risk_level"),
+                trace_id=task.result.get("trace_id"),
+                response_json=task.result,
+                expected_status="review_running",
+            )
+        except ValueError:
+            return  # 案件已被并发流转，不覆盖终态写入
         case_store.add_event(
             task.case_id,
             actor(case),
@@ -318,7 +322,10 @@ def main() -> None:
         case = case_store.get_case(task.case_id)
         if case is None:
             return
-        case_store.update_case(task.case_id, status="run_failed")
+        try:
+            case_store.update_case(task.case_id, status="run_failed", expected_status="review_running")
+        except ValueError:
+            return  # 案件已被并发流转（如审批回写），不覆盖
         case_store.add_event(
             task.case_id,
             actor(case),
@@ -336,7 +343,10 @@ def main() -> None:
         case = case_store.get_case(task.case_id)
         if case is None:
             return
-        case_store.update_case(task.case_id, status="needs_info")
+        try:
+            case_store.update_case(task.case_id, status="needs_info", expected_status="review_running")
+        except ValueError:
+            return  # 案件已被并发流转，不覆盖
         case_store.add_event(
             task.case_id,
             actor(case),

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from threading import RLock
@@ -133,9 +135,11 @@ class InMemoryQAStore(QAStore):
     def _edit(self, conversation_id, change):
         with self._lock:
             row = deepcopy(self.rows[conversation_id])
+            before = json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
             result = change(row)
-            row["updated_at"] = now()
-            self.rows[conversation_id] = row
+            if json.dumps(row, ensure_ascii=False, sort_keys=True, default=str) != before:
+                row["updated_at"] = now()
+                self.rows[conversation_id] = row
             return deepcopy(result)
 
 
@@ -181,7 +185,12 @@ class PostgresQAStore(QAStore):
             row = record["data"]
             token = _active.set((self.dsn, conn))
             try:
+                before = json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
                 result = change(row)
+                if json.dumps(row, ensure_ascii=False, sort_keys=True, default=str) == before:
+                    # 无变更（如 claim 轮询到无可领任务）时不重写整行、不刷新 updated_at，
+                    # 否则排序键被自身写入打乱，轮询变成每轮全量重写。
+                    return deepcopy(result)
                 row["updated_at"] = now()
                 cursor.execute("UPDATE qa_conversations SET data = %s, updated_at = now() WHERE id = %s",
                                (Jsonb(row), conversation_id))
