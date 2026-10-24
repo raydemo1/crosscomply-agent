@@ -146,8 +146,24 @@ class OpenAICompatibleClient:
         if stream:
             return receive_json_response(payload, self.config)
         data = self._post_chat(payload, self.config.base_url)
-        content = data["choices"][0]["message"]["content"]
-        return json.loads(content)
+        choice = data["choices"][0]
+        if choice.get("finish_reason") == "length":
+            # 截断是确定性的：用同一 payload 重试不可能成功，立即以独立原因失败
+            raise RuntimeError(
+                "LLM response truncated by max output tokens (finish_reason=length); "
+                "payload must be shortened or max_tokens raised"
+            )
+        content = choice["message"]["content"]
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            # 宽松修复常见的小破损（尾逗号/未闭合）；修复后再失败才视为真实错误
+            import json_repair
+
+            repaired = json_repair.loads(content)
+            if isinstance(repaired, (dict, list)):
+                return repaired
+            raise
 
     def chat_tools(self, messages: list[ChatMessage], *, tools: list[dict], model: str | None = None,
                    on_text=None) -> dict:

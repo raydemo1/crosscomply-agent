@@ -44,6 +44,8 @@ def filter_hits_as_of(
         published = _parsed(chunk.publish_date)
         effective = _parsed(chunk.effective_date)
         expires = _parsed(chunk.valid_to)
+        # 缺失日期按保守策略保留：只有明确晚于 as_of 才排除。
+        # 语料元数据并非条条完整，把无日期一概排除会静默丢掉大量可用证据。
         if published and published > as_of:
             continue
         if effective and effective > as_of:
@@ -57,8 +59,11 @@ def filter_hits_as_of(
         key = chunk.instrument_key or chunk.title.strip()
         if effective and key and effective < latest.get(key, effective):
             continue
+        # 仅在能确证存在更新版本（同 key 有更晚 effective）时降级引用；
+        # 纯粹缺日期元数据的语料不应被整体剥夺引用资格
+        superseded = bool(effective and key and effective < latest.get(key, date.min))
         filtered.append(
             hit.model_copy(update={"can_cite_clause": False})
-            if chunk.law_status == "unknown" else hit
+            if superseded or chunk.law_status in {"repealed", "amended"} else hit
         )
     return filtered

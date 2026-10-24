@@ -397,6 +397,14 @@ def run_hybrid_retrieval(
     vector_hits_per_query = vector_retriever.search_many(
         retrieval_queries, top_k=candidate_top_k
     )
+    # 法律时效过滤与生产 Agent 路径（agent_tools finalize）保持同一规则：
+    # 晚于 as_of 发布或已废止的法条不进入证据集
+    from law_agent.review.dates import business_today
+    from law_agent.review.retrieval.temporal import filter_hits_as_of
+
+    as_of = facts.as_of_date or business_today()
+    keyword_hits_per_query = [filter_hits_as_of(hits, chunks_by_id, as_of=as_of) for hits in keyword_hits_per_query]
+    vector_hits_per_query = [filter_hits_as_of(hits, chunks_by_id, as_of=as_of) for hits in vector_hits_per_query]
     merged_keyword = merge_hits_by_chunk_id(keyword_hits_per_query, top_k=candidate_top_k)
     merged_vector = merge_hits_by_chunk_id(vector_hits_per_query, top_k=candidate_top_k)
 
@@ -471,8 +479,14 @@ def run_hybrid_retrieval(
             (query.text, query.query_type)
             for query in list(target_trace.queries) + plan.expanded_queries
         ]
-        kw2_per_query = keyword_retriever.search_many(all_queries, top_k=expanded_candidate_top_k)
-        vec2_per_query = vector_retriever.search_many(all_queries, top_k=expanded_candidate_top_k)
+        kw2_per_query = [
+            filter_hits_as_of(hits, chunks_by_id, as_of=as_of)
+            for hits in keyword_retriever.search_many(all_queries, top_k=expanded_candidate_top_k)
+        ]
+        vec2_per_query = [
+            filter_hits_as_of(hits, chunks_by_id, as_of=as_of)
+            for hits in vector_retriever.search_many(all_queries, top_k=expanded_candidate_top_k)
+        ]
 
         merged_kw2 = merge_hits_by_chunk_id(kw2_per_query, top_k=expanded_candidate_top_k)
         merged_vec2 = merge_hits_by_chunk_id(vec2_per_query, top_k=expanded_candidate_top_k)
