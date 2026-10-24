@@ -531,28 +531,17 @@
 
 /* ---------- 案件悬浮预览卡 ---------- */
 .history-hover-card {
-  position: fixed;
+  position: absolute;
   z-index: var(--z-tooltip);
-  width: min(300px, calc(100vw - 32px));
+  max-height: 180px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 12px 14px;
   border: 1px solid var(--tint-navy-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
-  box-shadow: 0 12px 28px rgba(15, 35, 66, 0.16);
-  pointer-events: none;
-}
-
-.history-hover-card::before {
-  position: absolute;
-  top: 17px;
-  left: -6px;
-  width: 10px;
-  height: 10px;
-  border-bottom: 1px solid var(--tint-navy-border);
-  border-left: 1px solid var(--tint-navy-border);
-  background: var(--color-surface);
-  content: '';
-  transform: rotate(45deg);
+  box-shadow: 0 8px 20px rgba(15, 35, 66, 0.14);
+  pointer-events: auto;
 }
 
 .history-hover-card strong,

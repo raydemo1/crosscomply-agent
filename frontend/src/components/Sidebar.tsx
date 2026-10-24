@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, ChevronDown, ChevronRight, ClipboardCheck, Database, FilePlus2, LayoutTemplate, LogOut, MessageSquare, Search, Scale, ShieldCheck, X } from 'lucide-react';
 import type { QASummary } from '../types/qa';
 import type { WorkbenchUser } from '../types/api';
@@ -59,8 +59,9 @@ function summarizeCaseTitle(question: string): string {
 
 interface CasePreviewPosition {
   item: SavedCase;
-  top: number;
-  left: number;
+  /** 相对侧栏：优先悬浮在列表项上方，顶部空间不足时落到下方 */
+  top?: number;
+  bottom?: number;
 }
 
 export default function Sidebar({
@@ -82,6 +83,7 @@ export default function Sidebar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [showAllCases, setShowAllCases] = useState(false);
   const [casePreview, setCasePreview] = useState<CasePreviewPosition | null>(null);
+  const previewTimer = useRef<number | null>(null);
   const knowledgePagesActive = currentPage === 'knowledge-legal' || currentPage === 'knowledge-policy';
   const [knowledgeMenuOpen, setKnowledgeMenuOpen] = useState(knowledgePagesActive);
 
@@ -96,17 +98,27 @@ export default function Sidebar({
   }, [cases, query]);
   const visibleCases = query.trim() || showAllCases ? filtered : filtered.slice(0, 5);
 
-  const showCasePreview = (item: SavedCase, element: HTMLElement): void => {
-    const rect = element.getBoundingClientRect();
-    setCasePreview({
-      item,
-      top: Math.max(12, Math.min(rect.top, window.innerHeight - 148)),
-      left: rect.right + 12,
-    });
+  const clearCasePreview = (): void => {
+    if (previewTimer.current) {
+      window.clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
+    setCasePreview(null);
   };
 
-  const clearCasePreview = (caseId: string): void => {
-    setCasePreview((current) => current?.item.id === caseId ? null : current);
+  const showCasePreview = (item: SavedCase, element: HTMLElement): void => {
+    if (previewTimer.current) window.clearTimeout(previewTimer.current);
+    previewTimer.current = window.setTimeout(() => {
+      const sidebar = element.closest('.app-sidebar');
+      if (!sidebar) return;
+      const sidebarRect = sidebar.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      const itemTop = rect.top - sidebarRect.top;
+      // 优先悬浮在列表项上方；顶部空间不足则放到下方，始终留在侧栏内
+      setCasePreview(itemTop > 220
+        ? { item, bottom: sidebarRect.height - itemTop + 6 }
+        : { item, top: itemTop + rect.height + 6 });
+    }, 350);
   };
 
   return (
@@ -195,12 +207,11 @@ export default function Sidebar({
                 type="button"
                 className={'history-item history-item--button' + (item.id === activeCaseId ? ' is-active' : '')}
                 aria-label={item.question}
-                aria-describedby={casePreview?.item.id === item.id ? 'recent-case-tooltip' : undefined}
                 onMouseEnter={(event) => showCasePreview(item, event.currentTarget)}
-                onMouseLeave={() => clearCasePreview(item.id)}
+                onMouseLeave={clearCasePreview}
                 onFocus={(event) => showCasePreview(item, event.currentTarget)}
-                onBlur={() => clearCasePreview(item.id)}
-                onClick={() => { onCloseMobile(); onOpenCase(item.id); }}
+                onBlur={clearCasePreview}
+                onClick={() => { clearCasePreview(); onCloseMobile(); onOpenCase(item.id); }}
               >
                 <div className="history-item__top">
                   <span className="history-item__question">{summarizeCaseTitle(item.question)}</span>
@@ -214,23 +225,25 @@ export default function Sidebar({
             );
           })}
         </div>
-        {casePreview ? (
-          <div
-            id="recent-case-tooltip"
-            className="history-hover-card"
-            role="tooltip"
-            style={{ top: casePreview.top, left: casePreview.left }}
-          >
-            <strong>{casePreview.item.question}</strong>
-            <span>{riskDisplay(casePreview.item).label} · {CASE_STATUS_LABELS[casePreview.item.status]} · {relativeTime(casePreview.item.savedAt)}</span>
-          </div>
-        ) : null}
         {!query.trim() && cases.length > 5 ? (
           <button type="button" className="sidebar-history__toggle" onClick={() => setShowAllCases((shown) => !shown)}>
             {showAllCases ? '收起案件' : `展开全部（${cases.length}）`}
           </button>
         ) : null}
       </div>
+
+      {casePreview ? (
+        <div
+          className="history-hover-card"
+          role="tooltip"
+          style={casePreview.top !== undefined
+            ? { top: casePreview.top, left: 10, right: 10 }
+            : { bottom: casePreview.bottom, left: 10, right: 10 }}
+        >
+          <strong>{casePreview.item.question}</strong>
+          <span>{riskDisplay(casePreview.item).label} · {CASE_STATUS_LABELS[casePreview.item.status]} · {relativeTime(casePreview.item.savedAt)}</span>
+        </div>
+      ) : null}
 
       <div className="sidebar-user-card sidebar-user-card--bottom">
         <div className="sidebar-user-card__avatar" aria-hidden="true">
