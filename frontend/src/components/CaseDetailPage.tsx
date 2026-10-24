@@ -389,16 +389,17 @@ function ReviewFollowupSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: (
   const openTasks = currentTasks.filter((task) => task.status !== 'completed');
   const preview = openTasks.slice(0, PREVIEW);
   const rest = openTasks.slice(PREVIEW);
+  const [showAll, setShowAll] = useState(false);
   return (
     <div className="review-followup-summary" aria-label="待补充与核实">
       <div className="review-followup-summary__head">
         <h2>待核实事项 <span>{pending} 项{pendingReview ? ` · ${pendingReview} 项待复核` : ''}</span></h2>
         {onOpen ? <button type="button" className="btn-link" onClick={onOpen}>查看完整清单 →</button> : <a className="btn-link" href={href}>查看完整清单 →</a>}
       </div>
-      {preview.length ? <ul className="review-followup-summary__items">
-        {preview.map((task) => <li key={task.id}><span className={`task-state task-state--${task.status === 'pending_review' || task.status === 'in_progress' ? 'running' : 'failed'}`}>{task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理'}</span><span className="review-followup-summary__item-title">{task.title}</span>{task.due_date ? <small>截止 {task.due_date}</small> : null}</li>)}
-      </ul> : null}
-      {rest.length ? <details className="review-followup-summary__rest"><summary><span className="rest-toggle"><span>其余 {rest.length} 项</span><ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" /></span></summary><ul className="review-followup-summary__items">{rest.map((task) => <li key={task.id}><span className={`task-state task-state--${task.status === 'pending_review' || task.status === 'in_progress' ? 'running' : 'failed'}`}>{task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理'}</span><span className="review-followup-summary__item-title">{task.title}</span>{task.due_date ? <small>截止 {task.due_date}</small> : null}</li>)}</ul></details> : null}
+      <ul className="review-followup-summary__items">
+        {(showAll ? openTasks : preview).map((task) => <li key={task.id}><span className={`task-state task-state--${task.status === 'pending_review' || task.status === 'in_progress' ? 'running' : 'failed'}`}>{task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理'}</span><span className="review-followup-summary__item-title">{task.title}</span>{task.due_date ? <small>截止 {task.due_date}</small> : null}</li>)}
+      </ul>
+      {rest.length ? <button type="button" className="review-followup-summary__more" aria-expanded={showAll} onClick={() => setShowAll((value) => !value)}><span className="rest-line" aria-hidden="true" /><span className="rest-toggle">{showAll ? '收起' : `展开其余 ${rest.length} 项`}<ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" /></span><span className="rest-line" aria-hidden="true" /></button> : null}
     </div>
   );
 }

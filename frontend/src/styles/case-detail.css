@@ -132,28 +132,29 @@
   color: var(--color-foreground-muted);
   font-size: var(--text-xs);
 }
-/* 其余事项展开：一条横线 + 居中箭头，点击翻转 */
-.review-followup-summary__rest { margin-top: 4px; }
-.review-followup-summary__rest > summary {
+/* 其余事项展开：一条横线 + 居中箭头，点击翻转；列表为同一 <ul>，新项自然续排 */
+.review-followup-summary__more {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  width: 100%;
+  margin-top: 4px;
   padding: 4px 0;
+  border: 0;
+  background: transparent;
   color: var(--color-foreground-muted);
+  font: inherit;
   font-size: var(--text-sm);
   cursor: pointer;
-  list-style: none;
   user-select: none;
 }
-.review-followup-summary__rest > summary::-webkit-details-marker { display: none; }
-.review-followup-summary__rest > summary::before,
-.review-followup-summary__rest > summary::after {
-  content: '';
+.review-followup-summary__more .rest-line {
   flex: 1;
   height: 1px;
   background: var(--color-hairline);
+  transition: background var(--transition-fast);
 }
-.review-followup-summary__rest > summary .rest-toggle {
+.review-followup-summary__more .rest-toggle {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -161,12 +162,24 @@
   color: var(--color-foreground-muted);
   transition: color var(--transition-fast);
 }
-.review-followup-summary__rest > summary:hover .rest-toggle { color: var(--color-primary); }
-.review-followup-summary__rest > summary .rest-toggle svg {
+.review-followup-summary__more:hover .rest-toggle { color: var(--color-primary); }
+.review-followup-summary__more:hover .rest-line { background: var(--color-border); }
+.review-followup-summary__more .rest-toggle svg {
   transition: transform var(--transition-base);
 }
-.review-followup-summary__rest[open] > summary .rest-toggle svg { transform: rotate(180deg); }
-.review-followup-summary__rest[open] > summary { margin-bottom: 4px; }
+.review-followup-summary__more[aria-expanded='true'] .rest-toggle svg { transform: rotate(180deg); }
+
+/* 展开动效：新出现的列表项自上而下淡入 */
+@keyframes followup-item-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.review-followup-summary__items li:nth-child(n + 4) {
+  animation: followup-item-in 220ms ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .review-followup-summary__items li:nth-child(n + 4) { animation: none; }
+}
 @media (max-width: 767px) {
   .review-followup-summary__head { align-items: flex-start; flex-direction: column; gap: 4px; }
   .review-followup-summary__item-title { white-space: normal; }
