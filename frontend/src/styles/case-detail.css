@@ -1701,9 +1701,9 @@
 }
 
 .review-recommendations__list {
-  margin-top: 20px;
-  font-size: var(--text-xl);
-  line-height: 1.8;
+  margin-top: 12px;
+  font-size: var(--text-base);
+  line-height: 1.65;
 }
 
 .review-gaps__heading p {
@@ -2938,3 +2938,76 @@ dialog.share-dialog {
   font-size: var(--text-xs);
 }
 .enterprise-record__heading h2 { font-size: var(--text-lg); }
+
+/* ============================================================
+ * 下一步行动：卡片清单（衬线序号 + 动作句 + 内联详情）
+ * ============================================================ */
+.review-recommendations__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: 10px;
+}
+.review-recommendations__heading h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+}
+.review-recommendations__heading span {
+  color: var(--color-foreground-muted);
+  font-size: var(--text-sm);
+}
+.review-recommendations__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+.review-recommendations__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-hairline);
+}
+.review-recommendations__list li:last-child { border-bottom: 0; }
+.review-recommendations__index {
+  flex: 0 0 auto;
+  min-width: 1.4em;
+  color: var(--color-primary);
+  font-family: var(--font-heading);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  text-align: right;
+}
+.review-recommendations__body { flex: 1; min-width: 0; }
+.review-recommendations__action {
+  margin: 0;
+  color: var(--color-foreground);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: 1.6;
+}
+.review-recommendations__detail { margin-top: 2px; }
+.review-recommendations__detail > summary {
+  width: fit-content;
+  padding: 2px 0;
+  color: var(--color-foreground-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.review-recommendations__detail > summary::-webkit-details-marker { display: none; }
+.review-recommendations__detail > summary::after { content: ' ⌄'; color: var(--color-accent); }
+.review-recommendations__detail[open] > summary::after { content: ' ⌃'; }
+.review-recommendations__detail > summary:hover { color: var(--color-primary); }
+.review-recommendations__detail p {
+  margin: 6px 0 0;
+  color: var(--color-foreground-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+}

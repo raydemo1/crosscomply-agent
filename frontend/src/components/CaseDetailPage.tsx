@@ -404,19 +404,39 @@ function ReviewFollowupSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: (
   );
 }
 
+/** 一条建议分两层：首句是要执行的动作，其余是补充说明（默认收起）。 */
+function splitAction(text: string): { action: string; detail: string } {
+  const boundary = text.search(/[。；;.!?！？]/u);
+  if (boundary < 0 || boundary >= text.length - 1) return { action: text, detail: '' };
+  return { action: text.slice(0, boundary + 1), detail: text.slice(boundary + 1).trim() };
+}
+
 function ReviewRecommendations({ items }: { items: string[] }): JSX.Element | null {
   if (items.length === 0) return null;
   return (
-    <div className="review-recommendations">
+    <div className="review-recommendations" aria-label="下一步行动">
       <div className="review-recommendations__heading">
-        <h2>审查建议</h2>
+        <h2>下一步行动</h2>
         <span>{items.length} 项</span>
       </div>
       <ol className="review-recommendations__list">
-        {items.map((item, index) => <li key={index}><MarkdownText variant="note">{item}</MarkdownText></li>)}
+        {items.map((item, index) => {
+          const { action, detail } = splitAction(cleanPlain(item));
+          return <li key={index}>
+            <span className="review-recommendations__index" aria-hidden="true">{index + 1}</span>
+            <div className="review-recommendations__body">
+              <p className="review-recommendations__action">{action}</p>
+              {detail ? <details className="review-recommendations__detail"><summary>详情</summary><p>{detail}</p></details> : null}
+            </div>
+          </li>;
+        })}
       </ol>
     </div>
   );
+}
+
+function cleanPlain(text: string): string {
+  return text.replace(/[*_`~]/g, '').trim();
 }
 
 function ReviewIssues({
@@ -729,7 +749,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
 
           {(pendingFollowupCount(saved) > 0 || outstandingRecommendations.length > 0) ? <section className="report-section review-next-steps" id="report-next">
             <ReviewFollowupSummary saved={saved} onOpen={onOpenRemediationPlan} />
-            {outstandingRecommendations.length ? <details className="report-inline-disclosure"><summary>其他建议</summary><ReviewRecommendations items={outstandingRecommendations} /></details> : null}
+            {outstandingRecommendations.length ? <ReviewRecommendations items={outstandingRecommendations} /> : null}
           </section> : null}
 
           {issues.length ? <section className="report-main-issues" id="report-issues" aria-label="主要问题">
@@ -741,36 +761,42 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           </section> : null}
 
           <details className="report-disclosure report-basis" id="report-basis">
-            <summary>法律依据 · {citationCount} 条引用</summary>
+            <summary>法律依据 <span className="report-disclosure__count">{citationCount} 条</span></summary>
             <div className="report-disclosure__body">
-            {result.legal_basis_gaps?.length ? <div className="report-record-subsection">
-              <div className="section-title">待核法律依据</div>
-              <ul>{result.legal_basis_gaps.map((gap, index) => <li key={index}>{gap}</li>)}</ul>
-            </div> : null}
-            <GroundedClaims
-              claims={result.claims}
-              evidenceChunks={evidenceChunks}
-              citations={citations}
-              compact
-              headerAction={(
-                <button
-                  type="button"
-                  className="evidence-drawer-trigger evidence-drawer-trigger--inline"
-                  onClick={() => setEvidenceDrawerOpen(true)}
-                  aria-controls="evidence-sidebar"
-                  aria-expanded={evidenceDrawerOpen}
-                >
-                  <span>查看条文</span>
-                  <span className="evidence-drawer-trigger__count">{citationCount} 条</span>
-                  <span className="evidence-drawer-trigger__icon" aria-hidden="true">↗</span>
-                </button>
-              )}
-              onEvidenceSelect={handleEvidenceSelect}
-              onCitationClick={(citationRef) => {
-                const citation = citations.find((item) => item.citation_ref === citationRef);
-                handleEvidenceSelect(citationRef, citation?.citation_label ?? citationRef);
-              }}
-            />
+              {result.legal_basis_gaps?.length ? <div className="report-record-subsection">
+                <div className="section-title">待核法律依据</div>
+                <ul>{result.legal_basis_gaps.map((gap, index) => <li key={index}>{gap}</li>)}</ul>
+              </div> : null}
+              <ul className="basis-clause-list">
+                {citations.map((citation) => (
+                  <li key={citation.citation_ref}>
+                    <details className="basis-clause">
+                      <summary>
+                        <span className="basis-clause__name">{citation.citation_label ?? citation.title}</span>
+                        <span className="basis-clause__ref">{citation.citation_ref}</span>
+                      </summary>
+                      <div className="basis-clause__body">
+                        {citation.full_article_text ? <blockquote className="basis-clause__text">{citation.full_article_text}</blockquote> : <p className="basis-clause__text basis-clause__text--missing">暂无条文原文，点击右上「查看条文」打开证据抽屉。</p>}
+                        <div className="basis-clause__meta">
+                          <span>{CITATION_ROLE_LABELS[citation.citation_role] ?? ''}</span>
+                          <button type="button" className="btn-link" onClick={() => handleEvidenceSelect(citation.citation_ref, citation.citation_label ?? citation.title)}>在证据抽屉中查看 ↗</button>
+                        </div>
+                      </div>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="evidence-drawer-trigger evidence-drawer-trigger--inline"
+                onClick={() => setEvidenceDrawerOpen(true)}
+                aria-controls="evidence-sidebar"
+                aria-expanded={evidenceDrawerOpen}
+              >
+                <span>查看条文</span>
+                <span className="evidence-drawer-trigger__count">{citationCount} 条</span>
+                <span className="evidence-drawer-trigger__icon" aria-hidden="true">↗</span>
+              </button>
             </div>
           </details>
 
