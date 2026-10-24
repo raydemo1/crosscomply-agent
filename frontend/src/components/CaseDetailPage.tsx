@@ -13,7 +13,7 @@ import MatterConversation from './MatterConversation';
 import { caseFactLedger } from '../utils/factFields';
 import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
-import GroundedClaims, { cssId } from './GroundedClaims';
+import { cssId } from './GroundedClaims';
 import MarkdownText from './MarkdownText';
 import ShareCaseDialog from './ShareCaseDialog';
 import type { RevisionSelection } from './RevisionWorkspace';
@@ -745,6 +745,14 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
             >
               {conclusionForDisplay}
             </MarkdownText>
+            {riskBoundariesForDisplay.length > 0 ? (
+              <div className="conclusion-boundaries" aria-label="结论适用边界">
+                <span className="conclusion-boundaries__label">结论适用边界</span>
+                <ul className="conclusion-boundaries__list">
+                  {riskBoundariesForDisplay.map((item, index) => <li key={index}><MarkdownText variant="note">{item}</MarkdownText></li>)}
+                </ul>
+              </div>
+            ) : null}
           </section>
 
           {(pendingFollowupCount(saved) > 0 || outstandingRecommendations.length > 0) ? <section className="report-section review-next-steps" id="report-next">
@@ -800,19 +808,8 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
             </div>
           </details>
 
-          {riskBoundariesForDisplay.length > 0 ? (
-            <details className="report-disclosure review-boundaries" id="report-boundaries">
-              <summary>结论适用边界</summary>
-              <div className="report-disclosure__body">
-              <div className="warning-list">
-                {riskBoundariesForDisplay.map((item, index) => <div className="warning-note" key={index}><MarkdownText variant="note">{item}</MarkdownText></div>)}
-              </div>
-              </div>
-            </details>
-          ) : null}
-
-          <details className="report-disclosure report-review-disclosure" id="report-review">
-            <summary>{viewerRole === 'requester' ? '反馈审查问题' : '引用核查与复核意见'}</summary>
+          <details className={'report-disclosure report-review-disclosure' + (viewerRole === 'requester' ? ' report-review-disclosure--applicant' : '')} id="report-review">
+            <summary>{viewerRole === 'requester' ? '对审查结果有疑问？反馈审查问题' : '引用核查与复核意见'}</summary>
             <div className="report-disclosure__body">
               {viewerRole !== 'requester' ? <p className="report-disclosure__intro">核对引用并记录人工复核意见。</p> : null}
               {canManageActions ? <CitationList
