@@ -48,10 +48,9 @@
 .btn-primary:hover {
   background: var(--color-secondary);
   border-color: var(--color-secondary);
-  opacity: 1;
 }
 .btn-primary:active {
-  box-shadow: var(--shadow-sm);
+  background: var(--color-primary);
 }
 .btn-primary:disabled {
   opacity: 0.5;
@@ -68,9 +67,6 @@
   border-color: var(--color-primary);
   background: var(--tint-navy-bg);
   color: var(--color-primary);
-}
-.btn-secondary:active {
-  background: var(--tint-navy-bg-active);
 }
 .btn-secondary:disabled {
   opacity: 0.5;
@@ -134,29 +130,19 @@
   flex-shrink: 0;
 }
 
-.badge-high {
-  color: var(--color-risk-high);
-  background: var(--color-danger-bg);
-  border-color: var(--color-danger-border);
-}
-
-.badge-medium {
-  color: var(--color-risk-medium);
-  background: var(--color-warning-bg);
-  border-color: var(--color-warning-border);
-}
-
-.badge-low {
-  color: var(--color-risk-low);
-  background: var(--color-success-bg);
-  border-color: var(--color-success-border);
-}
-
+/* 风险徽章：中性底 + 彩色圆点/文字 —— 色彩只承担语义，不再铺底 */
+.badge-high,
+.badge-medium,
+.badge-low,
 .badge-insufficient {
-  color: var(--color-risk-insufficient);
-  background: var(--color-neutral-bg);
-  border-color: var(--color-neutral-border);
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
+
+.badge-high { color: var(--color-risk-high); }
+.badge-medium { color: var(--color-risk-medium); }
+.badge-low { color: var(--color-risk-low); }
+.badge-insufficient { color: var(--color-risk-insufficient); }
 
 /* ---------- 反馈条（错误 / 成功 / 提示，唯一实现） ---------- */
 .feedback-note {

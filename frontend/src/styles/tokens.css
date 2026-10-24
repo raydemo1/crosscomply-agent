@@ -84,7 +84,7 @@
   --text-4xl: clamp(1.75rem, 2.7vw, 2.15rem); /* 页面标题 */
 
   --font-size-base: 16px;
-  --line-height-base: 1.6;
+  --line-height-base: 1.65;
 
   /* ---- 字重（3 档） ---- */
   --weight-medium: 500;
@@ -106,9 +106,9 @@
   --radius-pill: 9999px;
 
   /* ---- 阴影（calm, auditable — no glow） ---- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 2px 6px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 6px 16px rgba(15, 23, 42, 0.09);
 
   /* ---- 焦点 ---- */
   --color-ring: #1e3a8a;
@@ -185,9 +185,9 @@
   --color-ring: #6e93e6;
   --focus-ring: 0 0 0 3px rgba(110, 147, 230, 0.22);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 6px 16px rgba(0, 0, 0, 0.45);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -238,8 +238,8 @@
     --color-ring: #6e93e6;
     --focus-ring: 0 0 0 3px rgba(110, 147, 230, 0.22);
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 6px 16px rgba(0, 0, 0, 0.45);
   }
 }

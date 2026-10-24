@@ -758,6 +758,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--space-xs);
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   font-size: var(--text-xs);
@@ -765,18 +766,27 @@
   white-space: nowrap;
   min-height: 27px;
   padding: 4px 10px;
-  background: var(--color-muted);
+  background: transparent;
+  border-color: var(--color-border);
+}
+.status-chip::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
-.status-chip--draft { color: var(--color-foreground-secondary); background: var(--color-muted); }
-.status-chip--needs_info { color: var(--color-accent-strong); background: var(--color-warning-bg); }
-.status-chip--pending_review { color: var(--color-secondary); background: var(--tint-navy-bg-active); }
-.status-chip--review_running { color: var(--color-accent-strong); background: var(--color-warning-bg); }
-.status-chip--pending_feishu_approval { color: var(--color-secondary); background: var(--tint-navy-bg); }
-.status-chip--approved { color: var(--color-success); background: var(--color-success-bg); }
-.status-chip--conditionally_approved { color: var(--color-accent-strong); background: var(--color-warning-bg); }
+.status-chip--draft { color: var(--color-foreground-secondary); }
+.status-chip--needs_info { color: var(--color-accent-strong); }
+.status-chip--pending_review { color: var(--color-secondary); }
+.status-chip--review_running { color: var(--color-accent-strong); }
+.status-chip--pending_feishu_approval { color: var(--color-secondary); }
+.status-chip--approved { color: var(--color-success); }
+.status-chip--conditionally_approved { color: var(--color-accent-strong); }
 .status-chip--rejected,
-.status-chip--run_failed { color: var(--color-danger-strong); background: var(--color-danger-bg); }
+.status-chip--run_failed { color: var(--color-danger-strong); }
 
 /* ============================================================
  * Inline citation markers (①②③) in conclusion text
@@ -2673,17 +2683,27 @@ dialog.share-dialog {
 .task-state {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-xs);
   min-height: 25px;
   padding: 3px 9px;
   border-radius: var(--radius-pill);
-  background: var(--color-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
   color: var(--color-foreground-secondary);
   font-size: 0.7rem;
   font-weight: 700;
 }
-.task-state--running { background: var(--color-warning-bg); color: var(--color-accent-strong); }
-.task-state--succeeded { background: var(--color-success-bg); color: var(--color-success); }
-.task-state--failed { background: var(--color-danger-bg); color: var(--color-danger-strong); }
+.task-state::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.task-state--running { background: transparent; border: 1px solid var(--color-border); color: var(--color-accent-strong); }
+.task-state--succeeded { background: transparent; border: 1px solid var(--color-border); color: var(--color-success); }
+.task-state--failed { background: transparent; border: 1px solid var(--color-border); color: var(--color-danger-strong); }
 
 .enterprise-record__facts,
 .approval-ledger {
