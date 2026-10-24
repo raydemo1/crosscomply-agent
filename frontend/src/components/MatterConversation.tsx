@@ -6,7 +6,6 @@ import { useMatterConversation } from '../hooks/useMatterConversation';
 import { factLabel, factValue, valuesChanged } from '../utils/factFields';
 import MarkdownText from './MarkdownText';
 
-const QUESTIONS = ['为什么得出目前的判断？', '这条结论对应哪份材料？', '还缺什么才能送审？'];
 
 export default function MatterConversation({ saved, viewerRole }: { saved: SavedCase; viewerRole: UserRole }) {
   const { turns, busy, loading, error, ask, confirm, key } = useMatterConversation(saved);
@@ -28,7 +27,6 @@ export default function MatterConversation({ saved, viewerRole }: { saved: Saved
     <p className="matter-conversation__scope">基于本案材料与事实回答，不改变正式审查结果。</p>
     <div className="matter-conversation__history" ref={historyRef} role="region" aria-label="当前案件的问答记录" tabIndex={turns.length ? 0 : undefined}>
     {loading && <p role="status">正在读取当前案件对话…</p>}
-    {!loading && !turns.length ? <div className="matter-conversation__empty"><span>对结论有疑问？</span><p>从下面的问题开始，或直接写下你想了解的内容。</p></div> : null}
     {turns.map((turn) => <section className="matter-conversation__turn" key={turn.id}>
       <h3><span>你问</span>{turn.question}</h3>
       <span className="matter-conversation__answer-label">Agent 回答</span>
@@ -44,9 +42,8 @@ export default function MatterConversation({ saved, viewerRole }: { saved: Saved
     </section>)}
     {busy ? <p className="matter-conversation__busy" role="status"><LoaderCircle className="case-busy-icon" size={16} aria-hidden="true" />正在处理，请稍候…</p> : null}
     </div>
-    <div className="matter-conversation__suggestions">{QUESTIONS.map((q) => <button type="button" className="case-header__action-btn" key={q} disabled={busy} onClick={() => setQuestion(q)}>{q}</button>)}</div>
     <form className="matter-conversation__composer" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-    <label htmlFor="matter-question">你的问题</label><textarea id="matter-question" value={question} maxLength={2000} rows={3} disabled={busy} onChange={(e) => setQuestion(e.target.value)} placeholder="也可以问：如果接收方改成日本，会有什么影响？" />
+    <label htmlFor="matter-question">你的问题</label><textarea id="matter-question" value={question} maxLength={2000} rows={3} disabled={busy} onChange={(e) => setQuestion(e.target.value)} placeholder="例如：如果接收方改成日本，会有什么影响？" />
     <div><small>仅针对当前案件</small><button type="submit" className="btn-primary" disabled={busy || loading || !question.trim()}><ArrowUp size={16} aria-hidden="true" />询问 Agent</button></div>
     </form>
     {error && <p className="matter-conversation__error" role="alert">{error}</p>}
