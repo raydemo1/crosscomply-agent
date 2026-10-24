@@ -243,8 +243,22 @@ export default function Sidebar({
           </svg>
         </div>
         <div className="sidebar-user-card__identity">
-          <strong>{user.display_name}</strong>
-          <span>{user.role === 'admin' ? '管理员' : user.role === 'reviewer' ? '审核人' : '申报人'}</span>
+          {user.role === 'admin' ? (
+            <button
+              type="button"
+              className="sidebar-user-card__profile"
+              title="打开用户管理"
+              onClick={() => { onCloseMobile(); navigate('/governance'); }}
+            >
+              <strong>{user.display_name}</strong>
+              <span>管理员 · 用户管理</span>
+            </button>
+          ) : (
+            <div>
+              <strong>{user.display_name}</strong>
+              <span>{user.role === 'reviewer' ? '审核人' : '申报人'}</span>
+            </div>
+          )}
         </div>
         <button type="button" className="sidebar-user-card__logout" onClick={toggleTheme} title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'} aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}>{theme === 'dark' ? <Sun size={16} strokeWidth={1.8} /> : <Moon size={16} strokeWidth={1.8} />}</button>
         <button type="button" className="sidebar-user-card__logout" onClick={() => { onCloseMobile(); onLogout(); }} title="退出登录" aria-label="退出登录"><LogOut size={16} strokeWidth={1.8} /></button>

@@ -524,7 +524,7 @@
 }
 
 .history-item__risk--high { color: var(--color-risk-high); }
-.history-item__risk--medium { color: #92400e; }
+.history-item__risk--medium { color: var(--color-accent-strong); }
 .history-item__risk--low { color: var(--color-risk-low); }
 .history-item__risk--insufficient,
 .history-item__risk--pending { color: var(--color-foreground-secondary); }
@@ -732,3 +732,24 @@
   margin-inline: auto;
   padding-inline: 0;
 }
+
+/* 管理员身份区可点击进入用户管理 */
+.sidebar-user-card__profile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.sidebar-user-card__profile:hover { background: var(--tint-navy-bg-active); }
+.sidebar-user-card__profile strong { color: var(--color-foreground); font-size: var(--text-md); font-weight: var(--weight-semibold); line-height: 1.2; }
+.sidebar-user-card__profile span { color: var(--color-foreground-muted); font-size: var(--text-xs); line-height: 1.2; }

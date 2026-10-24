@@ -25,7 +25,7 @@
   align-items: end;
   margin-top: 18px;
   padding: 14px;
-  border: 1px solid #dbe3ed;
+  border: 1px solid var(--color-hairline);
   border-radius: var(--radius-md);
   background: var(--color-background);
 }
@@ -124,7 +124,7 @@
 .knowledge-danger-btn--solid { min-height: 40px; border-color: var(--color-danger-strong); background: var(--color-danger-strong); color: var(--color-surface); }
 .knowledge-source-list { display: flex; flex-direction: column; }
 .knowledge-source-row { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--color-muted); cursor: pointer; transition: background var(--transition-fast), box-shadow var(--transition-fast); }
-.knowledge-source-row:hover, .knowledge-source-row.is-open { background: #fffcf6; box-shadow: inset 3px 0 var(--color-accent); }
+.knowledge-source-row:hover, .knowledge-source-row.is-open { background: var(--color-warning-bg); box-shadow: inset 3px 0 var(--color-accent); }
 .knowledge-source-row__body { min-width: 0; flex: 1; }
 .knowledge-source-row__title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .knowledge-source-row__title strong { overflow: hidden; color: var(--color-primary); font-size: 0.9375rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
@@ -211,7 +211,7 @@ dialog.knowledge-modal::backdrop { background: rgba(15, 23, 42, 0.48); }
 .knowledge-action--error { background: var(--color-danger-bg); color: var(--color-danger); }
 .knowledge-preview > .btn-primary { width: 100%; margin-top: 14px; }
 .knowledge-delete-summary { display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px; padding: 13px 14px; border-left: 3px solid var(--color-danger); background: var(--color-danger-bg); }
-.knowledge-delete-summary strong { color: #7f1d1d; font-size: 0.9375rem; }
+.knowledge-delete-summary strong { color: var(--color-danger-strong); font-size: 0.9375rem; }
 .knowledge-delete-summary span, .knowledge-delete-summary small { color: var(--color-danger-strong); font-size: 0.8125rem; }
 .knowledge-delete-summary small { line-height: 1.45; }
 .knowledge-modal--danger .form-field { margin-bottom: 13px; }
@@ -379,8 +379,8 @@ dialog.knowledge-modal::backdrop { background: rgba(15, 23, 42, 0.48); }
   white-space: nowrap;
 }
 
-.issue-kind--material_conflict { border-color: #fed7aa; background: var(--color-surface)7ed; color: #7c2d12; }
-.issue-kind--legal_gap { border-color: #fecaca; background: var(--color-danger-bg); color: #7f1d1d; }
+.issue-kind--material_conflict { border-color: var(--color-warning-border); background: var(--color-surface)7ed; color: var(--color-accent-strong); }
+.issue-kind--legal_gap { border-color: var(--color-danger-border); background: var(--color-danger-bg); color: var(--color-danger-strong); }
 .issue-kind--missing_information { border-color: var(--tint-navy-border); background: var(--tint-navy-bg); color: var(--color-secondary); }
 
 .review-issue__finding {
