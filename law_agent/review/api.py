@@ -235,8 +235,23 @@ def _normalize_review_response_payload(response: dict[str, Any]) -> dict[str, An
     return normalized
 
 
+def _case_participant_ids(case: dict[str, Any]) -> set[str]:
+    """案件的申报侧参与者：创建人与当前 owner（转办后两者都算）。"""
+
+    return {case.get("owner_id"), case.get("created_by")} - {None, ""}
+
+
 def _can_view(user: UserRecord, case: dict[str, Any]) -> bool:
-    return user.role in {"reviewer", "admin"} or case["created_by"] == user.id
+    # reviewer/admin 全局可见；申报人可见自己创建或被转办给自己的案件
+    return user.role in {"reviewer", "admin"} or user.id in _case_participant_ids(case)
+
+
+def _can_act_as_requester(user: UserRecord, case: dict[str, Any]) -> bool:
+    """申报侧写操作（重提/答问/复核）只归当前 owner；原创建人转办后仅保留只读。"""
+
+    return user.role != "requester" or case.get("owner_id") == user.id or (
+        case.get("owner_id") in (None, "") and case.get("created_by") == user.id
+    )
 
 
 def _compact_approval_text(value: Any, *, limit: int) -> str:

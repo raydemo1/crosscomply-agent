@@ -503,6 +503,14 @@ def register_case_routes(
             values["intake_json"] = values.pop("intake")
         if user.role == "requester":
             values.pop("owner_id", None)
+        if "owner_id" in values and values["owner_id"] != case.get("owner_id"):
+            # 转办仅 reviewer/admin（requester 分支已 pop）；留审计事件，原创建人转办后保留只读
+            store().add_event(
+                identifier,
+                user.id,
+                event_type="case_owner_changed",
+                payload={"from": case.get("owner_id") or case.get("created_by"), "to": values["owner_id"]},
+            )
         updated = store().update_case(identifier, **values)
         store().add_event(
             identifier,
@@ -636,8 +644,9 @@ def register_case_routes(
         case = store().get_case(identifier)
         if case is None or not can_view(user, case):
             raise HTTPException(status_code=404, detail="案件不存在或无权访问")
-        requester_id = case.get("owner_id") or case.get("created_by")
-        if user.role != "requester" or requester_id != user.id:
+        from law_agent.review.api import _can_act_as_requester
+
+        if user.role != "requester" or not _can_act_as_requester(user, case):
             raise HTTPException(status_code=404, detail="案件不存在或无权访问")
         if case["status"] != "needs_info":
             raise HTTPException(status_code=409, detail="只有等待补充与整改的案件可以重新审查")
@@ -723,7 +732,9 @@ def register_case_routes(
             if case is None:
                 raise HTTPException(status_code=404, detail="案件不存在")
             if user.role == "requester":
-                if (case.get("owner_id") or case.get("created_by")) != user.id:
+                from law_agent.review.api import _can_act_as_requester
+
+                if not _can_act_as_requester(user, case):
                     raise HTTPException(status_code=404, detail="审查任务不存在或无权访问")
             else:
                 reviewer_only(user)

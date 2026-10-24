@@ -349,15 +349,22 @@ class PostgresCaseStore:
         conditions = []
         params: list[Any] = []
         if user.role == "requester":
-            conditions.append("created_by = %s")
-            params.append(user.id)
+            conditions.append("(created_by = %s OR owner_id = %s)")
+            params.extend([user.id, user.id])
         if query and query.strip():
             conditions.append("(question ILIKE %s OR id ILIKE %s OR title ILIKE %s)")
             pattern = f"%{query.strip()}%"
             params.extend([pattern, pattern, pattern])
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        # 列表只需摘要字段：不携带材料正文与完整审查结果（数 MB 级大列）
+        columns = (
+            "id, case_number, title, question, material_source, intake_json, status,"
+            " rerank_mode, created_by, owner_id, facts_confirmed, risk_level, trace_id,"
+            " NULL::text AS material_text, NULL::jsonb AS response_json,"
+            " created_at, updated_at"
+        )
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute(f"SELECT * FROM review_cases {where} ORDER BY updated_at DESC", params)
+            cur.execute(f"SELECT {columns} FROM review_cases {where} ORDER BY updated_at DESC LIMIT 200", params)
             return [_row_case(row) for row in cur.fetchall()]
 
     def update_case(
@@ -928,18 +935,35 @@ class PostgresCaseStore:
         return self.get_feedback(identifier, actor_id) or {"case_id": identifier}
 
     def dashboard_summary(self, user: UserRecord) -> dict[str, Any]:
-        cases = self.list_cases(user)
-        counts = {status: 0 for status in CASE_TRANSITIONS}
-        risk_counts = {"high": 0, "medium": 0, "low": 0, "insufficient_evidence": 0}
-        for item in cases:
-            counts[item["status"]] = counts.get(item["status"], 0) + 1
-            if item.get("risk_level") in risk_counts:
-                risk_counts[item["risk_level"]] += 1
+        scope = ""
+        params: list[Any] = []
+        if user.role == "requester":
+            scope = "WHERE created_by = %s OR owner_id = %s"
+            params = [user.id, user.id]
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                f"SELECT status, count(*) AS n FROM review_cases {scope} GROUP BY status",
+                params,
+            )
+            counts = {status: 0 for status in CASE_TRANSITIONS}
+            total = 0
+            for row in cur.fetchall():
+                counts[row["status"]] = counts.get(row["status"], 0) + row["n"]
+                total += row["n"]
+            cur.execute(
+                f"SELECT risk_level, count(*) AS n FROM review_cases {scope} AND risk_level IS NOT NULL GROUP BY risk_level",
+                params,
+            )
+            risk_counts = {"high": 0, "medium": 0, "low": 0, "insufficient_evidence": 0}
+            for row in cur.fetchall():
+                if row["risk_level"] in risk_counts:
+                    risk_counts[row["risk_level"]] += row["n"]
+        recent = self.list_cases(user)[:5]
         return {
-            "total_cases": len(cases),
+            "total_cases": total,
             "status_counts": counts,
             "risk_counts": risk_counts,
-            "recent_cases": cases[:5],
+            "recent_cases": recent,
         }
 
 
@@ -1052,7 +1076,10 @@ class InMemoryCaseStore:
     def list_cases(self, user: UserRecord, query: str | None = None) -> list[dict[str, Any]]:
         items = list(self.cases.values())
         if user.role == "requester":
-            items = [item for item in items if item.created_by == user.id]
+            items = [
+                item for item in items
+                if user.id in {item.created_by, getattr(item, "owner_id", None)}
+            ]
         if query and query.strip():
             needle = query.strip().lower()
             items = [
