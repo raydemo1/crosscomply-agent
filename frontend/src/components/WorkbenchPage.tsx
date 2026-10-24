@@ -186,7 +186,15 @@ export default function WorkbenchPage({
     if (canSubmit) onSubmit(question.trim(), material.trim(), intake, files);
   };
 
-  const askedFacts = missingFacts.slice(0, MAX_QUESTIONS);
+  // 多个事实可能指向同一问题（如敏感/非敏感人数共享统计口径），按问题文本去重
+  const seenQuestions = new Set<string>();
+  const uniqueFacts = missingFacts.filter((fact) => {
+    const question = FACT_QUESTIONS[fact.key] ?? fact.reason;
+    if (seenQuestions.has(question)) return false;
+    seenQuestions.add(question);
+    return true;
+  });
+  const askedFacts = uniqueFacts.slice(0, MAX_QUESTIONS);
   const requestedFields = [...new Set(missingFacts.flatMap((item) => FACT_FIELDS[item.key] ?? []))];
   const askedKeys = new Set(requestedFields);
 
@@ -275,18 +283,18 @@ export default function WorkbenchPage({
           </div>
           {fileError ? <div className="form-error">{fileError}</div> : null}
           {existingMaterialNames.length ? <p className="intake-hint">本案已有 {existingMaterialNames.length} 份材料，将原样保留在下次审查中；此处新增的文件只会追加，不会替换它们。</p> : null}
-          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={() => void goToStepTwo()}>{analyzing ? 'Agent 正在读取材料…' : hasNewMaterialToRead ? '读取材料并继续' : '继续补充关键信息'}</button></div>
+          <div className="intake-card__footer"><span className="intake-card__hint">{!canSubmit && !busy ? '请先填写审查问题并提供材料' : ''}</span><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={() => void goToStepTwo()}>{analyzing ? 'Agent 正在读取材料…' : hasNewMaterialToRead ? '读取材料并继续' : '继续补充关键信息'}</button></div>
         </section>
       ) : (
         <section className="card intake-card">
           <div className="section-heading-row"><h2>确认关键信息</h2><button type="button" className="btn-link" onClick={() => setStep(1)}>← 返回材料</button></div>
           <p className="intake-hint">
             {missingFacts.length
-              ? `Agent 已读完材料，还有 ${missingFacts.length} 项会影响结论，需要你确认；未确认的内容可以留空。`
+              ? `Agent 已读完材料，还有 ${uniqueFacts.length} 项会影响结论，需要你确认；未确认的内容可以留空。`
               : '未从材料中识别到会影响结论的缺口；可核对下方案件要素，未确认的内容可以留空。'}
           </p>
           {askedFacts.map(renderFact)}
-          {missingFacts.length > MAX_QUESTIONS ? <details className="intake-group--optional"><summary>还有 {missingFacts.length - MAX_QUESTIONS} 项待确认</summary>{missingFacts.slice(MAX_QUESTIONS).map((fact) => {
+          {uniqueFacts.length > MAX_QUESTIONS ? <details className="intake-group--optional"><summary>还有 {uniqueFacts.length - MAX_QUESTIONS} 项待确认</summary>{uniqueFacts.slice(MAX_QUESTIONS).map((fact) => {
             return renderFact(fact);
           })}</details> : null}
           <details className="intake-group--optional" open={askedFacts.length === 0}>

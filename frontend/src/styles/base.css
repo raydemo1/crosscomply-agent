@@ -145,3 +145,44 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+ * 错误边界页
+ * ============================================================ */
+.app-error-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-lg);
+  background: var(--color-background);
+}
+
+.app-error-page__card {
+  max-width: 480px;
+  padding: var(--space-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.app-error-page__card h1 {
+  font-size: var(--text-2xl);
+}
+
+.app-error-page__card p {
+  margin: var(--space-md) 0;
+  color: var(--color-foreground-muted);
+  font-size: var(--text-md);
+}
+
+.app-error-page__card pre {
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md);
+  overflow-x: auto;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--color-danger);
+}

@@ -150,7 +150,7 @@ export default function Sidebar({
           </button>
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'my-remediations' ? ' is-active' : '')} onClick={() => { onCloseMobile(); onPageChange('my-remediations'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><ClipboardCheck size={18} strokeWidth={1.8} /></span>
-            <span>待核实事项</span>
+            <span>我的复核</span>
           </button>
           {user.role === 'admin' ? (
             <>

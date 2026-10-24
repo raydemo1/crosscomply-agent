@@ -80,6 +80,8 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDialogElement>(null);
+  const archiveDialogRef = useRef<HTMLDialogElement>(null);
+  const [archiveTarget, setArchiveTarget] = useState<CaseTemplateApi | null>(null);
 
   // 编辑器是原生 dialog：showModal 提供顶层渲染、Esc 关闭与焦点圈定
   useEffect(() => {
@@ -91,6 +93,16 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
       dialog.close();
     }
   }, [editorOpen]);
+
+  useEffect(() => {
+    const dialog = archiveDialogRef.current;
+    if (!dialog) return;
+    if (archiveTarget) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [archiveTarget]);
 
   const load = async (): Promise<void> => {
     const result = await listCaseTemplates(query);
@@ -161,7 +173,6 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
   };
 
   const archive = async (template: CaseTemplateApi): Promise<void> => {
-    if (!window.confirm(`确认归档“${template.name}”？归档后不会再出现在选择列表中。`)) return;
     setBusy(true);
     try {
       await archiveCaseTemplate(template.id);
@@ -171,6 +182,7 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
       setMessage(reason instanceof Error ? reason.message : '归档模板失败');
     } finally {
       setBusy(false);
+      setArchiveTarget(null);
     }
   };
 
@@ -241,7 +253,7 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
             <div className="template-card__top"><div><h2>{template.name}</h2><p>{template.description || '未填写适用场景说明'}</p></div><span className="template-card__date">更新于 {formatDate(template.updated_at)}</span></div>
             <div className="template-card__question"><span>审查问题</span><strong>{template.question}</strong></div>
             <div className="template-card__meta"><span>字段预设：已保存</span></div>
-            <div className="template-card__actions"><button className="btn-primary" type="button" onClick={() => onUseTemplate?.(template)} disabled={!onUseTemplate || serviceUnavailable}>使用此模板</button>{canManageTemplates ? <><button className="btn-ghost template-icon-btn" type="button" title="编辑模板" aria-label="编辑模板" onClick={() => openEdit(template)} disabled={serviceUnavailable}><Pencil size={17} /></button><button className="btn-ghost template-icon-btn" type="button" title="导出 JSON" aria-label="导出 JSON" onClick={() => exportTemplate(template)} disabled={serviceUnavailable}><Download size={17} /></button><button className="btn-ghost template-icon-btn template-icon-btn--accent" type="button" title="归档模板" aria-label="归档模板" onClick={() => void archive(template)} disabled={busy || serviceUnavailable}><Archive size={17} /></button></> : null}</div>
+            <div className="template-card__actions"><button className="btn-primary" type="button" onClick={() => onUseTemplate?.(template)} disabled={!onUseTemplate || serviceUnavailable}>使用此模板</button>{canManageTemplates ? <><button className="btn-ghost template-icon-btn" type="button" title="编辑模板" aria-label="编辑模板" onClick={() => openEdit(template)} disabled={serviceUnavailable}><Pencil size={17} /></button><button className="btn-ghost template-icon-btn" type="button" title="导出 JSON" aria-label="导出 JSON" onClick={() => exportTemplate(template)} disabled={serviceUnavailable}><Download size={17} /></button><button className="btn-ghost template-icon-btn template-icon-btn--accent" type="button" title="归档模板" aria-label="归档模板" onClick={() => setArchiveTarget(template)} disabled={busy || serviceUnavailable}><Archive size={17} /></button></> : null}</div>
           </article>
         ))}
       </section>
@@ -262,6 +274,17 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
           <div className="template-editor__footer"><button className="btn-secondary" type="button" onClick={closeEditor} disabled={busy}>取消</button><button className="btn-primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? '保存中…' : '保存模板'}</button></div>
         </dialog>
       ) : null}
+
+      {archiveTarget ? <dialog
+        ref={archiveDialogRef}
+        className="template-confirm card"
+        aria-labelledby="template-confirm-title"
+        onClose={() => setArchiveTarget(null)}
+      >
+        <h2 id="template-confirm-title">确认归档“{archiveTarget.name}”？</h2>
+        <p>归档后不会再出现在选择列表中。</p>
+        <div className="template-confirm__actions"><button type="button" className="btn-secondary" onClick={() => setArchiveTarget(null)} disabled={busy}>取消</button><button type="button" className="btn-primary" disabled={busy} onClick={() => void archive(archiveTarget)}>确认归档</button></div>
+      </dialog> : null}
     </section>
   );
 }

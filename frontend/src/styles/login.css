@@ -15,32 +15,6 @@
   letter-spacing: -0.06em;
 }
 
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.status-chip {
-  min-height: 27px;
-  padding: 4px 10px;
-  background: var(--color-muted);
-}
-
-.status-chip--draft { color: var(--color-foreground-secondary); background: var(--color-muted); }
-.status-chip--needs_info { color: var(--color-accent-strong); background: var(--color-warning-bg); }
-.status-chip--pending_review { color: var(--color-secondary); background: var(--tint-navy-bg-active); }
-.status-chip--review_running { color: var(--color-accent-strong); background: var(--color-warning-bg); }
-.status-chip--pending_feishu_approval { color: var(--color-secondary); background: var(--tint-navy-bg); }
-.status-chip--approved { color: var(--color-success); background: var(--color-success-bg); }
-.status-chip--conditionally_approved { color: #854d0e; background: #fef9c3; }
-.status-chip--rejected,
-.status-chip--run_failed { color: var(--color-danger-strong); background: var(--color-danger-bg); }
-
 /* Enterprise case — an auditable gate, not a decorative marketing stepper. */
 
 /* ============================================================

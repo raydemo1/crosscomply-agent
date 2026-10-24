@@ -61,8 +61,8 @@ export default function GovernanceConsolePage({ user }: GovernanceConsolePagePro
         </div>
       </section>
 
-      <section className="card user-admin" aria-labelledby="user-admin-title">
-        <div className="user-admin__heading"><div><h2 id="user-admin-title">企业用户管理</h2></div><strong>{users.length} 个账户</strong></div>
+      <section className="card user-admin" aria-label={`企业用户管理 · ${users.length} 个账户`}>
+        <div className="user-admin__heading"><div><span className="user-admin__kicker">企业管理</span></div><strong>{users.length} 个账户</strong></div>
         <div className="user-admin__create">
           <label className="form-field"><span>登录名</span><input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="buyer@example.com" /></label>
           <label className="form-field"><span>显示名称</span><input value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} placeholder="例如：王申请" /></label>

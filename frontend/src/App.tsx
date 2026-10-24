@@ -522,7 +522,7 @@ export default function App(): JSX.Element {
             <span>CrossComply</span>
           </div>
           <div className="app-mobile-actions">
-            <span className="app-mobile-surface">{page === 'home' || page === 'qa' ? '合规问答' : page === 'governance' ? '用户管理' : page === 'knowledge-legal' ? '知识库 · 法律法规' : page === 'knowledge-policy' ? '知识库 · 规章制度' : page === 'my-remediations' ? '待核实事项' : page === 'remediation-plan' ? '待核实事项' : page === 'case-detail' ? '案件详情' : page === 'case-templates' ? '使用模板' : '新建案件'}</span>
+            <span className="app-mobile-surface">{page === 'home' || page === 'qa' ? '合规问答' : page === 'governance' ? '用户管理' : page === 'knowledge-legal' ? '知识库 · 法律法规' : page === 'knowledge-policy' ? '知识库 · 规章制度' : page === 'my-remediations' ? '我的复核' : page === 'remediation-plan' ? '我的复核' : page === 'case-detail' ? '案件详情' : page === 'case-templates' ? '使用模板' : '新建案件'}</span>
           </div>
         </div>
         {error && page !== 'workbench' ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}

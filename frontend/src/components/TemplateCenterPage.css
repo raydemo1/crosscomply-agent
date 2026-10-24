@@ -52,3 +52,10 @@ dialog.template-editor::backdrop { background: rgba(15, 35, 66, 0.28); }
   .template-editor { max-height: calc(100vh - 20px); padding: 18px; }
   .template-editor__grid { grid-template-columns: 1fr; gap: 0; }
 }
+
+/* 归档确认弹窗 */
+dialog.template-confirm { width: min(440px, 100%); padding: 22px; }
+dialog.template-confirm::backdrop { background: rgba(15, 35, 66, 0.28); }
+dialog.template-confirm h2 { margin: 0; color: var(--color-foreground); font-family: var(--font-heading); font-size: var(--text-xl); }
+dialog.template-confirm p { margin: 10px 0 0; color: var(--color-foreground-muted); font-size: var(--text-md); line-height: 1.6; }
+.template-confirm__actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
