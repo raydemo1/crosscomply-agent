@@ -2,7 +2,6 @@ import type { FactLedgerEntryApi, UserRole } from '../types/api';
 import { CheckCircle2, Files, TriangleAlert, MessageCircle, ChevronDown } from 'lucide-react';
 import type { SavedCase } from '../types/case';
 import { caseFactLedger, factLabel, factValue } from '../utils/factFields';
-import './CaseFacts.css';
 
 export default function CaseFactsPanel({ saved, viewerRole }: { saved: SavedCase; viewerRole: UserRole }) {
   const task = saved.reviewTask;

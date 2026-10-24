@@ -5,7 +5,6 @@ import { answerReviewTask, confirmCaseFacts, recordFactAnswer, waitForReviewTask
 import { openCase } from '../store/caseStore';
 import { FACT_FIELDS, factValue, valuesChanged, type FactField } from '../utils/factFields';
 import FactValueInput from './FactValueInput';
-import './CaseFacts.css';
 
 export default function AgentQuestionPanel({ saved, requester, busy, execute, onEditMaterial }: {
   saved: SavedCase; requester: boolean; busy: boolean;

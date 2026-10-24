@@ -20,6 +20,7 @@ import DocumentReview from './DocumentReview';
 import CaseProgress from './CaseProgress';
 import { downloadHtml, downloadMarkdown } from '../utils/report';
 import { CASE_STATUS_LABELS, REVIEW_TASK_STATUS_LABELS, confirmDiscardDocumentEdit } from '../utils/workflow';
+import '../styles/case-detail.css';
 import './RemediationPlanPage.css';
 import {
   EVIDENCE_ISSUE_LABELS,
@@ -27,6 +28,7 @@ import {
   EVIDENCE_STATUS_LABELS,
   AUTHORITY_LABELS,
   CITATION_ROLE_LABELS,
+  LAW_STATUS_LABELS,
   ISSUE_KIND_LABELS,
   citationDisplayLabel,
   DOC_TYPE_LABELS,
@@ -86,14 +88,6 @@ const FACT_FIELDS: Array<{ key: string; label: string; render: (f: ReviewFacts) 
 const DISCLAIMER_SENTENCE_DETECTOR = /本结论基于当前材料(?:和|及|、)\s*已召回证据[，,、]?\s*\**不构成正式法律意见\**[。；;]?/;
 const CONCLUSION_DISCLAIMER_SENTENCE = /本结论基于当前材料(?:和|及|、)\s*已召回证据[，,、]?\s*\**不构成正式法律意见\**[。；;]?/g;
 const TRAILING_CITATION_NOTE = /(?:^|\n)\s*引用说明[：:][^\n]*(?=\n|$)/g;
-const LAW_STATUS_LABELS: Record<string, string> = {
-  effective: '现行有效',
-  not_yet_effective: '尚未生效',
-  amended: '已修订，需核对适用版本',
-  repealed: '已废止',
-  unknown: '效力待核验',
-};
-
 function cleanConclusionForDisplay(value: string, removeWhenBoundaryAlreadyShows: boolean): string {
   let cleaned = value
     .replace(TRAILING_CITATION_NOTE, '\n')
@@ -341,18 +335,18 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
 
       {intakeSnapshot ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record enterprise-record--rules'}>
-          <div className="enterprise-record__heading"><div><span>02</span><h2>申请人确认事实</h2></div><code title={intakeSnapshot.fingerprint}>{intakeSnapshot.fingerprint.slice(0, 12)}</code></div>
+          <div className="enterprise-record__heading"><div><span>02</span><h2>申报人确认事实</h2></div><code title={intakeSnapshot.fingerprint}>{intakeSnapshot.fingerprint.slice(0, 12)}</code></div>
           <p>本次审查绑定不可变事实快照，法律路径由 Agent 结合材料和正式法源独立判断。</p>
-          <div className="enterprise-record__facts"><div><span>业务活动</span><strong>{intakeSnapshot.intake.business_activity || '未确认'}</strong></div><div><span>人数统计口径</span><strong>{intakeSnapshot.intake.count_period || 'unknown'}</strong></div></div>
+          <div className="enterprise-record__facts"><div><span>业务活动</span><strong>{intakeSnapshot.intake.business_activity || '未确认'}</strong></div><div><span>人数统计口径</span><strong>{intakeSnapshot.intake.count_period || '未提供'}</strong></div></div>
         </article>
       ) : null}
 
       {reviewTask ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record'}>
-          <div className="enterprise-record__heading"><div><span>03</span><h2>证据化审查任务</h2></div><span className={`task-state task-state--${reviewTask.status}`}>{REVIEW_TASK_STATUS_LABELS[reviewTask.status]}</span></div>
+          <div className="enterprise-record__heading"><div><span>03</span><h2>Agent 证据审查</h2></div><span className={`task-state task-state--${reviewTask.status}`}>{REVIEW_TASK_STATUS_LABELS[reviewTask.status]}</span></div>
           <div className="enterprise-record__facts">
             <div><span>任务编号</span><code>{reviewTask.id.slice(0, 18)}</code></div>
-            <div><span>当前节点</span><strong>{reviewTask.current_node || (reviewTask.status === 'queued' ? '等待 Worker' : '准备审查')}</strong></div>
+            <div><span>当前节点</span><strong>{reviewTask.current_node || (reviewTask.status === 'queued' ? '等待执行' : '准备审查')}</strong></div>
             <div><span>执行模型</span><strong>{reviewTask.model_id}</strong></div>
             <div><span>执行次数</span><strong>{reviewTask.attempt_count}</strong></div>
           </div>
@@ -568,16 +562,15 @@ function FailedChain({ response }: { response: Extract<ReviewApiResponse, { stat
     <section className="error-box" role="alert">
       <span className="error-box__mark" aria-hidden="true">!</span>
       <div>
-        <div style={{ fontWeight: 700, marginBottom: '4px' }}>LLM 审查节点失败</div>
-        <div style={{ wordBreak: 'break-word' }}>
-          {response.failed_node}：{response.message}
+        <div className="failed-chain__title">本次审查未完成</div>
+        <div className="failed-chain__detail">
+          系统在审查过程中遇到问题，未产出审查结论。可补充或更正材料后重新发起审查。
         </div>
-        <div style={{ marginTop: '6px', fontSize: '0.8125rem', color: '#64748b' }}>
-          已重试 {response.attempts} 次 · 原因：{response.reason}
-          {response.trace_id ? ` · Trace ${response.trace_id}` : ''}
+        <div className="failed-chain__meta">
+          已自动重试 {response.attempts} 次 · 失败环节：{response.reason}
         </div>
-        <div className="warning-note" style={{ marginTop: '10px' }}>
-          案件已保留完整的失败节点与追踪信息，可补充材料后重新运行。
+        <div className="warning-note failed-chain__note">
+          案件与材料均已保留，技术细节可在下方「技术执行记录」中查看。
         </div>
       </div>
     </section>

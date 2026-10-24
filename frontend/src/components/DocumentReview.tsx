@@ -6,7 +6,6 @@ import {
 } from '../api/client';
 import RevisionWorkspace, { type RevisionSelection } from './RevisionWorkspace';
 import { confirmDiscardAnnotation, confirmDiscardAnnotationMode, confirmDiscardRevisionEdit } from '../utils/workflow';
-import './DocumentReview.css';
 
 type LocatedItem = {
   id: string;

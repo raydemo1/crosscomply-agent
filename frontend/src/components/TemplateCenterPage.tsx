@@ -79,6 +79,18 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
   const [message, setMessage] = useState<string | null>(null);
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLDialogElement>(null);
+
+  // 编辑器是原生 dialog：showModal 提供顶层渲染、Esc 关闭与焦点圈定
+  useEffect(() => {
+    const dialog = editorRef.current;
+    if (!dialog) return;
+    if (editorOpen) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [editorOpen]);
 
   const load = async (): Promise<void> => {
     const result = await listCaseTemplates(query);
@@ -91,7 +103,7 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
       setServiceUnavailable(true);
       setMessage(
         reason instanceof ApiError && reason.status === 404
-            ? '模板服务尚未就绪，请先执行 alembic upgrade head。'
+            ? '模板服务暂不可用，请稍后重试或联系管理员。'
             : reason instanceof Error ? reason.message : '无法加载模板',
       );
     });
@@ -208,8 +220,8 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
         {canManageTemplates ? (
           <div className="template-page__actions">
             <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={(event) => void importTemplate(event)} />
-            <button className="button button--secondary" type="button" onClick={() => importRef.current?.click()} disabled={busy || serviceUnavailable}><Upload size={16} />导入模板</button>
-            <button className="button button--primary" type="button" onClick={openCreate} disabled={serviceUnavailable}><Plus size={17} />新建模板</button>
+            <button className="btn-secondary" type="button" onClick={() => importRef.current?.click()} disabled={busy || serviceUnavailable}><Upload size={16} />导入模板</button>
+            <button className="btn-primary" type="button" onClick={openCreate} disabled={serviceUnavailable}><Plus size={17} />新建模板</button>
           </div>
         ) : null}
       </header>
@@ -224,28 +236,32 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
 
       <section className="template-grid" aria-label="模板列表">
         {visibleTemplates.length === 0 ? (
-          <div className="template-empty card"><FileJson size={30} /><h2>{serviceUnavailable ? '模板服务未连接' : canManageTemplates ? '还没有模板' : '还没有可用的模板'}</h2><p>{serviceUnavailable ? (canManageTemplates ? '连接服务端并完成数据库升级后，即可在这里管理可复用的案件字段。' : '连接服务端并完成数据库升级后，即可在这里查看可复用的案件字段。') : canManageTemplates ? '把高频审查场景保存下来，下一次新建案件可以直接套用。' : '模板由管理员维护。你可以先直接新建案件，或请管理员把常用场景加进来。'}</p>{canManageTemplates ? <button className="button button--primary" type="button" onClick={openCreate} disabled={serviceUnavailable}><Plus size={16} />新建第一个模板</button> : null}</div>
+          <div className="template-empty card"><FileJson size={30} /><h2>{serviceUnavailable ? '模板服务未连接' : canManageTemplates ? '还没有模板' : '还没有可用的模板'}</h2><p>{serviceUnavailable ? (canManageTemplates ? '模板服务暂不可用，请联系管理员检查服务状态，恢复后即可在这里管理可复用的案件字段。' : '模板服务暂不可用，请联系管理员检查服务状态。') : canManageTemplates ? '把高频审查场景保存下来，下一次新建案件可以直接套用。' : '模板由管理员维护。你可以先直接新建案件，或请管理员把常用场景加进来。'}</p>{canManageTemplates ? <button className="btn-primary" type="button" onClick={openCreate} disabled={serviceUnavailable}><Plus size={16} />新建第一个模板</button> : null}</div>
         ) : visibleTemplates.map((template) => (
           <article className="template-card card" key={template.id}>
             <div className="template-card__top"><div><h2>{template.name}</h2><p>{template.description || '未填写适用场景说明'}</p></div><span className="template-card__date">更新于 {formatDate(template.updated_at)}</span></div>
             <div className="template-card__question"><span>审查问题</span><strong>{template.question}</strong></div>
             <div className="template-card__meta"><span>字段预设：已保存</span></div>
-            <div className="template-card__actions"><button className="button button--primary" type="button" onClick={() => onUseTemplate?.(template)} disabled={!onUseTemplate || serviceUnavailable}>使用此模板</button>{canManageTemplates ? <><button className="icon-button" type="button" title="编辑模板" aria-label="编辑模板" onClick={() => openEdit(template)} disabled={serviceUnavailable}><Pencil size={17} /></button><button className="icon-button" type="button" title="导出 JSON" aria-label="导出 JSON" onClick={() => exportTemplate(template)} disabled={serviceUnavailable}><Download size={17} /></button><button className="icon-button icon-button--danger" type="button" title="归档模板" aria-label="归档模板" onClick={() => void archive(template)} disabled={busy || serviceUnavailable}><Archive size={17} /></button></> : null}</div>
+            <div className="template-card__actions"><button className="btn-primary" type="button" onClick={() => onUseTemplate?.(template)} disabled={!onUseTemplate || serviceUnavailable}>使用此模板</button>{canManageTemplates ? <><button className="btn-ghost template-icon-btn" type="button" title="编辑模板" aria-label="编辑模板" onClick={() => openEdit(template)} disabled={serviceUnavailable}><Pencil size={17} /></button><button className="btn-ghost template-icon-btn" type="button" title="导出 JSON" aria-label="导出 JSON" onClick={() => exportTemplate(template)} disabled={serviceUnavailable}><Download size={17} /></button><button className="btn-ghost template-icon-btn template-icon-btn--accent" type="button" title="归档模板" aria-label="归档模板" onClick={() => void archive(template)} disabled={busy || serviceUnavailable}><Archive size={17} /></button></> : null}</div>
           </article>
         ))}
       </section>
 
       {canManageTemplates && editorOpen ? (
-        <div className="template-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
-          <section className="template-editor card" role="dialog" aria-modal="true" aria-labelledby="template-editor-title">
-            <div className="template-editor__header"><div><h2 id="template-editor-title">{editing ? '编辑模板' : '新建模板'}</h2></div><button className="icon-button" type="button" aria-label="关闭编辑器" onClick={closeEditor}><X size={18} /></button></div>
-            <label className="template-field"><span>模板名称</span><input value={draft.name} maxLength={120} onChange={(event) => updateDraft('name', event.target.value)} placeholder="例如：个人信息出境审查" /></label>
-            <label className="template-field"><span>适用场景说明</span><input value={draft.description} maxLength={500} onChange={(event) => updateDraft('description', event.target.value)} placeholder="说明什么时候适合使用" /></label>
-            <label className="template-field"><span>审查问题</span><textarea value={draft.question} maxLength={4000} onChange={(event) => updateDraft('question', event.target.value)} rows={4} placeholder="例如：这个业务是否需要数据出境安全评估？" /></label>
-            <p className="template-editor__note">模板仅保存字段设置，不包含案件材料或审查记录。</p>
-            <div className="template-editor__footer"><button className="button button--secondary" type="button" onClick={closeEditor} disabled={busy}>取消</button><button className="button button--primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? '保存中…' : '保存模板'}</button></div>
-          </section>
-        </div>
+        <dialog
+          ref={editorRef}
+          className="template-editor card"
+          aria-labelledby="template-editor-title"
+          onClose={() => { if (!busy) closeEditor(); }}
+          onClick={(event) => { if (event.target === editorRef.current) closeEditor(); }}
+        >
+          <div className="template-editor__header"><div><h2 id="template-editor-title">{editing ? '编辑模板' : '新建模板'}</h2></div><button className="btn-ghost template-icon-btn" type="button" aria-label="关闭编辑器" onClick={closeEditor}><X size={18} /></button></div>
+          <label className="template-field"><span>模板名称</span><input value={draft.name} maxLength={120} onChange={(event) => updateDraft('name', event.target.value)} placeholder="例如：个人信息出境审查" /></label>
+          <label className="template-field"><span>适用场景说明</span><input value={draft.description} maxLength={500} onChange={(event) => updateDraft('description', event.target.value)} placeholder="说明什么时候适合使用" /></label>
+          <label className="template-field"><span>审查问题</span><textarea value={draft.question} maxLength={4000} onChange={(event) => updateDraft('question', event.target.value)} rows={4} placeholder="例如：这个业务是否需要数据出境安全评估？" /></label>
+          <p className="template-editor__note">模板仅保存字段设置，不包含案件材料或审查记录。</p>
+          <div className="template-editor__footer"><button className="btn-secondary" type="button" onClick={closeEditor} disabled={busy}>取消</button><button className="btn-primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? '保存中…' : '保存模板'}</button></div>
+        </dialog>
       ) : null}
     </section>
   );

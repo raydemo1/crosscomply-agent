@@ -1,0 +1,471 @@
+
+/* ============================================================
+ * 登录品牌徽标
+ * ============================================================ */
+.login-brand > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px 12px 12px 4px;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.06em;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-chip {
+  min-height: 27px;
+  padding: 4px 10px;
+  background: var(--color-muted);
+}
+
+.status-chip--draft { color: var(--color-foreground-secondary); background: var(--color-muted); }
+.status-chip--needs_info { color: var(--color-accent-strong); background: var(--color-warning-bg); }
+.status-chip--pending_review { color: var(--color-secondary); background: var(--tint-navy-bg-active); }
+.status-chip--review_running { color: var(--color-accent-strong); background: var(--color-warning-bg); }
+.status-chip--pending_feishu_approval { color: var(--color-secondary); background: var(--tint-navy-bg); }
+.status-chip--approved { color: var(--color-success); background: var(--color-success-bg); }
+.status-chip--conditionally_approved { color: #854d0e; background: #fef9c3; }
+.status-chip--rejected,
+.status-chip--run_failed { color: var(--color-danger-strong); background: var(--color-danger-bg); }
+
+/* Enterprise case — an auditable gate, not a decorative marketing stepper. */
+
+/* ============================================================
+ * 登录页（原 global 段）
+ * ============================================================ */
+.login-shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(380px, 0.9fr) minmax(280px, 0.55fr);
+  align-items: center;
+  gap: clamp(28px, 8vw, 120px);
+  min-height: 100vh;
+  width: 100%;
+  max-width: 1520px;
+  margin-inline: auto;
+  padding: clamp(28px, 8vw, 90px);
+  overflow: hidden;
+  background: var(--color-muted);
+  isolation: isolate;
+  font-family: var(--font-body);
+}
+
+.login-shell::before {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  content: '';
+  background-image: url('/crosscomply-login-atmosphere.png');
+  background-position: center;
+  background-size: cover;
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+.login-shell::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: '';
+  background: linear-gradient(90deg, rgba(241, 245, 249, 0.96) 0%, rgba(241, 245, 249, 0.78) 46%, rgba(241, 245, 249, 0.32) 100%);
+  pointer-events: none;
+}
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+  padding: clamp(28px, 5vw, 56px);
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow-lg);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-brand__mark {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+}
+
+.login-brand strong,
+.login-brand small {
+  display: block;
+}
+
+.login-brand strong {
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  letter-spacing: -0.035em;
+}
+
+.login-brand strong em {
+  color: var(--color-accent);
+  font-style: normal;
+}
+
+.login-brand small {
+  color: var(--color-muted-foreground);
+  font-size: var(--text-xs);
+}
+
+.login-card__copy {
+  margin: 54px 0 30px;
+}
+
+.login-card__copy h1 {
+  margin: 8px 0 14px;
+  font-family: var(--font-heading);
+  font-size: clamp(2.4rem, 6vw, 4.6rem);
+  line-height: 1.02;
+  letter-spacing: -0.065em;
+}
+
+.login-word {
+  display: inline-block;
+  position: relative;
+  transform: translate3d(0, 0, 0);
+  transition: color 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1), text-shadow 320ms ease;
+}
+
+.login-word::after {
+  position: absolute;
+  right: 0.04em;
+  bottom: -0.06em;
+  left: 0.04em;
+  height: 0.08em;
+  border-radius: 999px;
+  background: currentColor;
+  content: '';
+  opacity: 0;
+  transform: scaleX(0.15);
+  transform-origin: left center;
+  transition: opacity 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.login-word:hover,
+.login-word:focus-visible {
+  transform: translate3d(0.08em, -0.035em, 0);
+  text-shadow: 0 0.08em 0 var(--tint-navy-bg-active);
+}
+
+.login-word:hover::after,
+.login-word:focus-visible::after {
+  opacity: 0.65;
+  transform: scaleX(1);
+}
+
+.login-word--navy {
+  color: var(--color-foreground);
+}
+
+.login-word--accent {
+  color: var(--color-accent);
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-form__submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.login-card__note {
+  margin-top: 22px;
+  color: var(--color-muted-foreground);
+  font-size: var(--text-xs);
+}
+
+.login-aside {
+  position: relative;
+  align-self: start;
+  justify-self: end;
+  width: min(100%, 500px);
+  margin-top: clamp(72px, 14vh, 128px);
+  padding: 38px 0 34px 20px;
+  animation: login-aside-reveal 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.login-aside__mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--color-accent);
+  font-family: var(--font-heading);
+  font-size: 5rem;
+  line-height: 0.7;
+}
+
+.login-aside blockquote {
+  margin: 0;
+  color: var(--color-primary);
+  font-family: var(--font-heading);
+  font-size: clamp(1.65rem, 2.5vw, 2.3rem);
+  line-height: 1.38;
+  text-wrap: balance;
+}
+
+@keyframes login-aside-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-word,
+  .login-word::after,
+  .login-aside {
+    transition: none;
+    animation: none;
+  }
+}
+
+.login-ornament {
+  position: absolute;
+  border: 1px solid rgba(30, 58, 138, 0.12);
+  border-radius: 50%;
+}
+
+.login-ornament--one {
+  width: 520px;
+  height: 520px;
+  right: 8%;
+  bottom: -260px;
+}
+
+.login-ornament--two {
+  width: 260px;
+  height: 260px;
+  right: 30%;
+  top: -140px;
+}
+
+@media (max-width: 900px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+    padding: 22px;
+  }
+
+  .login-shell::before {
+    background-position: 70% center;
+    opacity: 0.38;
+  }
+
+  .login-shell::after {
+    background: rgba(241, 245, 249, 0.72);
+  }
+
+}
+
+@media (max-width: 620px) {
+  .draft-case-card__grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+.login-card__copy h1 {
+  letter-spacing: -0.035em;
+}
+
+@media (min-width: 1101px) {
+  .login-shell {
+    grid-template-columns: minmax(520px, 640px) minmax(360px, 500px);
+    justify-content: space-between;
+    gap: clamp(40px, 5vw, 80px);
+    padding-inline: clamp(32px, 5vw, 80px);
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 640px;
+  }
+
+}
+
+@media (max-width: 1100px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 640px);
+    justify-content: center;
+    padding: clamp(32px, 6vw, 64px);
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 640px;
+  }
+
+  .login-aside {
+    display: none;
+  }
+
+  .enterprise-chain {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-admin__create {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .user-admin__row {
+    grid-template-columns: minmax(180px, 1fr) 140px auto auto;
+  }
+
+}
+
+@media (max-width: 767px) {
+  .case-detail,
+  .review-report-layout {
+    max-width: none;
+  }
+
+  .review-report > .remediation-summary {
+    padding: 1.25rem 1rem;
+  }
+
+  .case-header__top {
+    display: block;
+  }
+
+  .case-header__actions {
+    width: 100%;
+    margin-top: var(--space-sm);
+  }
+
+  .case-header__action-btn {
+    min-height: 44px;
+    flex: 1 1 140px;
+  }
+
+  .enterprise-record {
+    padding: 18px 16px;
+  }
+
+  .user-admin { padding: 18px 16px; }
+  .user-admin__create,
+  .user-admin__row { grid-template-columns: minmax(0, 1fr); }
+  .user-admin__reset { grid-column: auto; flex-direction: column; }
+  .user-admin__reset > input { width: 100%; }
+
+  .workflow-actions { grid-template-columns: minmax(0, 1fr); padding: 16px; }
+  .workflow-actions__controls { justify-content: stretch; }
+  .workflow-actions__controls > * { flex: 1 1 100%; text-align: center; }
+
+  .enterprise-record__facts,
+  .approval-ledger {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .case-conclusion__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .case-header__meta {
+    gap: var(--space-sm);
+    font-size: 0.8125rem;
+  }
+
+  .pipeline {
+    padding: var(--space-md);
+  }
+
+  .pipeline__track {
+    margin-inline: calc(-1 * var(--space-md));
+    padding-inline: var(--space-md);
+  }
+
+  .report-disclosure__body {
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 640px) {
+  .login-shell {
+    align-items: start;
+    justify-content: start;
+    min-height: 100svh;
+    padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+
+  .login-card {
+    max-width: none;
+    padding: 28px 24px;
+  }
+
+  .login-card__copy {
+    margin: 42px 0 26px;
+  }
+
+  .login-card__copy h1 {
+    font-size: clamp(2.35rem, 11vw, 3.25rem);
+    line-height: 1.05;
+  }
+
+  .evidence-sidebar {
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 8px;
+    width: auto;
+    max-height: min(82svh, 720px);
+    border-radius: var(--radius-lg);
+  }
+
+  .evidence-sidebar__head {
+    padding: 12px 14px;
+  }
+
+  .evidence-sidebar__list {
+    max-height: calc(min(82svh, 720px) - 78px);
+    padding: 12px 14px max(var(--space-md), env(safe-area-inset-bottom));
+  }
+
+  .evidence-card__meta-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  .evidence-card__meta-grid strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .evidence-card__full-article {
+    max-height: 28rem;
+    font-size: 1rem;
+  }
+
+  .evidence-card__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

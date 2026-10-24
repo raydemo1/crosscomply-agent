@@ -5,7 +5,6 @@ import type { SavedCase } from '../types/case';
 import { useMatterConversation } from '../hooks/useMatterConversation';
 import { factLabel, factValue, valuesChanged } from '../utils/factFields';
 import MarkdownText from './MarkdownText';
-import './CaseFacts.css';
 
 const QUESTIONS = ['为什么得出目前的判断？', '这条结论对应哪份材料？', '还缺什么才能送审？'];
 

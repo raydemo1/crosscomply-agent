@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import '../styles/login.css';
 import type { FormEvent } from 'react';
 
 interface LoginPageProps {
