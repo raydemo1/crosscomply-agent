@@ -198,6 +198,9 @@ def register_remediation_routes(
             return text, ("ready" if text.strip() else "failed")
         if not item.get("object_key"):
             return None, "failed"
+        # object_key 必须落在本案的对象前缀内，防止跨案件读取任意对象
+        if not str(item["object_key"]).startswith(f"cases/{case_id}/"):
+            raise HTTPException(status_code=422, detail="引用的附件不属于本案")
         try:
             content = originals().get_original(item["object_key"])
         except Exception:  # noqa: BLE001 - an unreadable attachment must not block submission
@@ -836,9 +839,12 @@ def register_remediation_routes(
             raise HTTPException(status_code=503, detail="整改证据暂时无法下载") from exc
         if evidence.get("sha256") and hashlib.sha256(content).hexdigest() != evidence["sha256"]:
             raise HTTPException(status_code=409, detail="整改证据哈希校验失败")
+        from law_agent.review.http.qa import _download_media_type
+
         return Response(
             content=content,
-            media_type=evidence.get("content_type") or "application/octet-stream",
+            media_type=_download_media_type(evidence.get("content_type")),
+            headers={"Content-Disposition": 'attachment; filename="evidence"', "X-Content-Type-Options": "nosniff"},
         )
 
     app.include_router(router)

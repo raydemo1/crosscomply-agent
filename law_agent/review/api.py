@@ -559,7 +559,7 @@ def create_app(
             raise HTTPException(status_code=403, detail="该操作需要管理员权限")
 
     register_knowledge_routes(app, current_user=current_user, admin_only=admin_only)
-    register_system_routes(app)
+    register_system_routes(app, current_user=current_user, admin_only=admin_only)
     register_auth_routes(app, current_user=current_user, store=store)
     register_evaluation_routes(app, current_user=current_user, admin_only=admin_only)
     register_template_routes(

@@ -50,6 +50,21 @@ def public_conversation(row):
             "materials": [public_material(m) for m in row["materials"]], "runs": [public_run(r) for r in row["runs"]]}
 
 
+_SAFE_DOWNLOAD_TYPES = {
+    "application/pdf", "application/json", "application/octet-stream",
+    "text/plain", "text/markdown", "text/csv",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+
+def _download_media_type(content_type: str | None) -> str:
+    """上传内容类型不可信：非白名单一律按二进制流下载。"""
+
+    base = (content_type or "application/octet-stream").split(";")[0].strip().lower()
+    return base if base in _SAFE_DOWNLOAD_TYPES else "application/octet-stream"
+
+
 def register_qa_routes(app, *, current_user, cases, enterprise, originals, case_payload):
     router = APIRouter(prefix="/api/qa/conversations")
 
@@ -98,7 +113,14 @@ def register_qa_routes(app, *, current_user, cases, enterprise, originals, case_
         material = next((m for m in row["materials"] if m["id"] == material_id), None)
         if material is None:
             raise HTTPException(404, "材料不存在")
-        return StreamingResponse(BytesIO(originals().get_original(material["object_key"])), media_type=material["content_type"])
+        return StreamingResponse(
+            BytesIO(originals().get_original(material["object_key"])),
+            media_type=_download_media_type(material["content_type"]),
+            headers={
+                "Content-Disposition": 'attachment; filename="download"',
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
 
     @router.post("/{conversation_id}/messages")
     def send(conversation_id: str, payload: MessageRequest, user=Depends(current_user)):

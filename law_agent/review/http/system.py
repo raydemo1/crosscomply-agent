@@ -5,23 +5,41 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 
 from law_agent.config import load_llm_config, load_service_config
 from law_agent.review.http.schemas import HealthResponse
 
 
-def register_system_routes(app: FastAPI) -> None:
+def register_system_routes(app: FastAPI, *, current_user, admin_only) -> None:
     router = APIRouter()
 
-    @router.get("/api/health", response_model=HealthResponse)
-    async def health_check() -> HealthResponse:
+    @router.get("/api/health")
+    async def health_check() -> dict[str, str]:
+        # 公开端点只报状态，不暴露 base_url/路径/异常原文；详情走 admin 诊断端点
         llm_config = load_llm_config()
         try:
             from law_agent.review.retrieval.service_backends import healthcheck
 
             services = healthcheck(load_service_config())
-        except Exception as exc:  # noqa: BLE001 - health must report degraded state
+        except Exception:  # noqa: BLE001 - health must report degraded state
+            services = {"elasticsearch": False, "postgres": False}
+        status = (
+            "ok"
+            if services.get("elasticsearch") and services.get("postgres") and llm_config.enabled
+            else "degraded"
+        )
+        return {"status": status}
+
+    @router.get("/api/admin/diagnostics", response_model=HealthResponse)
+    async def diagnostics(user=Depends(current_user)) -> HealthResponse:
+        admin_only(user)
+        llm_config = load_llm_config()
+        try:
+            from law_agent.review.retrieval.service_backends import healthcheck
+
+            services = healthcheck(load_service_config())
+        except Exception as exc:  # noqa: BLE001 - diagnostics must report degraded state
             services: dict[str, Any] = {
                 "elasticsearch": False,
                 "postgres": False,
