@@ -24,7 +24,6 @@ export default function MatterConversation({ saved, viewerRole }: { saved: Saved
   return <details className="card matter-conversation" open={initiallyOpen}>
     <summary><MessageCircle size={20} aria-hidden="true" /><span><strong>案件问答</strong><small>解释结论 · 找到依据 · 了解缺口</small></span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
     <div className="matter-conversation__body">
-    <p className="matter-conversation__scope">基于本案材料与事实回答，不改变正式审查结果。</p>
     <div className="matter-conversation__history" ref={historyRef} role="region" aria-label="当前案件的问答记录" tabIndex={turns.length ? 0 : undefined}>
     {loading && <p role="status">正在读取当前案件对话…</p>}
     {turns.map((turn) => <section className="matter-conversation__turn" key={turn.id}>
@@ -44,10 +43,10 @@ export default function MatterConversation({ saved, viewerRole }: { saved: Saved
     </div>
     <form className="matter-conversation__composer" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
     <label htmlFor="matter-question">你的问题</label><textarea id="matter-question" value={question} maxLength={2000} rows={3} disabled={busy} onChange={(e) => setQuestion(e.target.value)} placeholder="例如：如果接收方改成日本，会有什么影响？" />
-    <div><small>仅针对当前案件</small><button type="submit" className="btn-primary" disabled={busy || loading || !question.trim()}><ArrowUp size={16} aria-hidden="true" />询问 Agent</button></div>
+    <div><button type="submit" className="btn-primary" disabled={busy || loading || !question.trim()}><ArrowUp size={16} aria-hidden="true" />询问 Agent</button></div>
     </form>
     {error && <p className="matter-conversation__error" role="alert">{error}</p>}
-    <details className="matter-conversation__help"><summary>回答基于哪些内容？</summary><p>本次审查冻结的材料、事实来源、正式报告及已核验证据。对话不会自行确认事实或改变审批状态。</p></details>
     </div>
+    <p className="matter-conversation__scope">基于本案材料与事实回答，不改变正式审查结果。</p>
   </details>;
 }
