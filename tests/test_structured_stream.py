@@ -185,7 +185,7 @@ def test_total_deadline_cancels_the_connection_even_with_continuous_keepalives(m
     monkeypatch.setenv("NO_PROXY", "127.0.0.1")
 
     def write(stream):
-        for _ in range(150):
+        for _ in range(500):
             stream.write(b": keep-alive\n\n")
             stream.flush()
             time.sleep(0.02)
