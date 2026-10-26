@@ -92,4 +92,3 @@ def test_pdf_renders_multipage_table_and_all_report_sections(tmp_path):
     assert text.count('核对条件') > 1
     assert '**' not in text
     assert '| ---' not in text
-

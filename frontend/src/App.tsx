@@ -21,7 +21,8 @@ const MyRemediationsPage = lazy(async () => {
   return { default: module.MyRemediationsPage };
 });
 
-const TRANSITIONAL_STATUSES = ['pending_review', 'review_running'];
+// needs_info 也要轮询：申请人补充、审核人应答都会让它随时回到审查运行中
+const TRANSITIONAL_STATUSES = ['pending_review', 'review_running', 'needs_info'];
 
 interface ShellContext {
   user: WorkbenchUser;
@@ -112,6 +113,7 @@ function pageLabel(pathname: string): string {
 
 /** 已登录外壳：侧栏 + 主内容。问答历史等跨页状态在这里持有。 */
 function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogout: typeof logout; onUserChanged: () => void }): JSX.Element {
+  const navigate = useNavigate();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [qaHistory, setQaHistory] = useState<QASummary[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -136,10 +138,11 @@ function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogou
     try {
       await onLogout();
       onUserChanged();
+      navigate('/qa', { replace: true });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '退出登录失败，请稍后重试。');
     }
-  }, [onLogout, onUserChanged]);
+  }, [onLogout, onUserChanged, navigate]);
 
   return (
     <div className="app-shell">
@@ -320,6 +323,7 @@ function CaseDetailRoute({ user }: { user: WorkbenchUser }): JSX.Element {
     onRerun={(question, material) => navigate('/workbench', { state: { rerun: { question, material } } })}
     onBack={() => { if (guard()) navigate('/workbench'); }}
     onOpenRemediationPlan={() => navigate(`/reviews/plan/${saved.id}`)}
+    onReviewSettled={() => { if (caseId) void openCase(caseId).catch(() => {}); }}
   />;
 }
 

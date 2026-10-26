@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "node --experimental-strip-types --test src/utils/materialNames.test.ts src/utils/factFields.test.ts src/utils/qaCitations.test.ts src/utils/qaQuestions.test.ts src/components/QAAnswer.test.ts",
+    "test": "node --experimental-strip-types --test src/utils/materialNames.test.ts src/utils/factFields.test.ts src/utils/qaCitations.test.ts src/utils/qaQuestions.test.ts src/utils/matterStream.test.ts src/components/QAAnswer.test.ts src/utils/reportContent.test.ts src/components/ReportConclusion.test.ts",
     "preview": "vite preview"
   },
   "devDependencies": {

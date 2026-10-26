@@ -94,6 +94,11 @@ export interface FactLedgerEntryApi {
   status: 'confirmed' | 'extracted' | 'unverified' | 'conflicted';
 }
 
+export type MatterSelection = (
+  | { kind: 'material'; material_version_id: string; start_offset: number; end_offset: number }
+  | { kind: 'report'; review_result_id: string }
+) & { quote: string; label?: string };
+
 export interface MatterTurnApi {
   id: string;
   task_id: string;
@@ -101,6 +106,7 @@ export interface MatterTurnApi {
   intake_snapshot_id: string;
   question: string;
   created_at: string;
+  selection?: MatterSelection | null;
   reply: {
     answer: string;
     claims: GroundedClaim[];
@@ -595,12 +601,11 @@ export type CaseStatus =
   | 'conditionally_approved'
   | 'rejected'
   | 'run_failed';
-export type ActionStatus = 'open' | 'in_progress' | 'completed';
 export type ReviewTaskStatus = 'queued' | 'running' | 'waiting_input' | 'succeeded' | 'failed' | 'superseded';
 
 /**
  * Independent remediation-plan workflow. These models deliberately stay
- * separate from the legacy CaseAction record used by old case snapshots.
+ * managed through the remediation plan.
  */
 export type RemediationPlanStatus = 'draft' | 'active' | 'completed' | 'cancelled';
 export type RemediationTaskStatus = 'open' | 'in_progress' | 'pending_review' | 'completed';
@@ -1024,18 +1029,6 @@ export interface CaseTemplatePayload {
   rerank_mode?: 'off' | 'embedding';
 }
 
-export interface CaseAction {
-  id: string;
-  case_id: string;
-  title: string;
-  description: string;
-  owner_role: string;
-  priority: 'high' | 'medium' | 'low';
-  status: ActionStatus;
-  due_date: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 export interface CaseEvent {
   id: string;
@@ -1080,6 +1073,8 @@ export interface CaseSummaryApi {
   created_at: string;
   updated_at: string;
   has_result: boolean;
+  /** 有未完成整改/核实事项时才附带，用于侧栏案件卡的待办徽标。 */
+  pending_followup_count?: number;
 }
 
 export interface CaseRecordApi extends CaseSummaryApi {
@@ -1094,7 +1089,6 @@ export interface CaseRecordApi extends CaseSummaryApi {
 export interface CaseDetailApi {
   case: CaseRecordApi;
   /** Legacy field may be absent; current remediation data lives in remediation_plan. */
-  actions?: CaseAction[];
   events: CaseEvent[];
   feedback: CaseFeedbackApi | null;
   feedback_entries: CaseFeedbackEntryApi[];

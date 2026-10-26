@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MaterialEvidenceRef, ReviewAnnotationApi, ReviewIssue, ReviewMaterialApi } from '../types/api';
+import type { MatterSelection, MaterialEvidenceRef, ReviewAnnotationApi, ReviewIssue, ReviewMaterialApi } from '../types/api';
 import {
   decideReviewAnnotation, followupReviewAnnotation, getReviewMaterials,
   listReviewAnnotations, saveReviewAnnotation,
 } from '../api/client';
+import { useCaseAssistant } from '../hooks/useCaseAssistant';
 import RevisionWorkspace, { type RevisionSelection } from './RevisionWorkspace';
 import { confirmDiscardAnnotation, confirmDiscardAnnotationMode, confirmDiscardRevisionEdit } from '../utils/workflow';
 
@@ -58,6 +59,7 @@ function orderMaterials(materials: ReviewMaterialApi[], issues: ReviewIssue[]): 
 }
 
 export default function DocumentReview({ caseId, reviewResultId, issues, canManageActions, focusTarget, onFocusHandled, onOpenReportIssue, onDirtyChange }: DocumentReviewProps): JSX.Element {
+  const assistant = useCaseAssistant();
   const [materials, setMaterials] = useState<ReviewMaterialApi[]>([]);
   const [annotations, setAnnotations] = useState<ReviewAnnotationApi[]>([]);
   const [materialId, setMaterialId] = useState<string | null>(null);
@@ -166,6 +168,7 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
 
   const clearSelection = (restoreFocus = false): boolean => {
     if (!confirmDiscardRevision() || !confirmDiscardAnnotationDraft()) return false;
+    assistant.close('document');
     const priorSelection = selectedId;
     setSelectedId(null);
     setSelectedRange(null);
@@ -197,6 +200,7 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
 
   const selectLocation = (item: LocatedItem, fromText = false): boolean => {
     if (!confirmDiscardRevision() || !confirmDiscardAnnotationDraft()) return false;
+    if (!assistant.activate('document')) return false;
     if (selectedId === item.id && !selectedRange && fromText) return clearSelection();
     setPendingLocate(null);
     setRevisionSelection(null);
@@ -236,30 +240,20 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
     }));
   }, [material, locations]);
 
-  const captureSelection = (): void => {
-    const selection = window.getSelection();
-    const paper = paperRef.current;
-    if (!selection || selection.isCollapsed || !paper || !selection.rangeCount) return;
-    const range = selection.getRangeAt(0);
-    if (!paper.contains(range.startContainer) || !paper.contains(range.endContainer)) return;
-    // Selecting another passage also leaves the current revision target, so it needs the same confirmation.
-    if (!confirmDiscardRevision() || !confirmDiscardAnnotationDraft()) { selection.removeAllRanges(); return; }
-    const prefix = range.cloneRange();
-    prefix.selectNodeContents(paper);
-    prefix.setEnd(range.startContainer, range.startOffset);
-    const start = prefix.toString().length;
-    const end = start + range.toString().length;
-    if (end > start && end - start <= 2000 && material?.parsed_text.slice(start, end) === range.toString()) {
-      setPendingLocate(null);
-      setRevisionSelection(null);
-      setRevisionDirty(false);
-      setFinding('');
-      setQuestion('');
-      setSelectedRange({ start, end });
-      setSelectedId(null);
-      setAnnotationMode('comment');
-    }
+  const captureSelection = (selection: MatterSelection): void => {
+    if (selection.kind !== 'material' || material?.id !== selection.material_version_id) return;
+    if (!confirmDiscardRevision() || !confirmDiscardAnnotationDraft()) return;
+    setPendingLocate(null);
+    setRevisionSelection(null);
+    setRevisionDirty(false);
+    setFinding('');
+    setQuestion('');
+    setSelectedRange({ start: selection.start_offset, end: selection.end_offset });
+    setSelectedId(null);
+    setAnnotationMode('comment');
   };
+  useEffect(() => assistant.registerDocument(() => clearSelection(), captureSelection));
+  useEffect(() => () => assistant.close('document'), [assistant.close]);
 
   const mutate = async (action: () => Promise<unknown>): Promise<void> => {
     setBusy(true); setError(null);
@@ -288,6 +282,7 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
   };
 
   const openRevision = (issue: ReviewIssue, target: MaterialEvidenceRef): void => {
+    if (!assistant.activate('document')) return;
     setRevisionDirty(false);
     setRevisionSelection({ issue, target });
   };
@@ -317,7 +312,7 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
       <div className={'document-review__layout' + (selectedRange || selected || revisionSelection ? ' document-review__layout--focused' : '')}>
         <div className="document-review__paper-shell">
           <div className="document-review__paper-header"><strong>{material?.filename}</strong><span>冻结原文</span></div>
-          <div className="document-review__paper" ref={paperRef} tabIndex={-1} onMouseUp={captureSelection} onKeyUp={captureSelection} onClick={(event) => { if (!(event.target as HTMLElement).closest('mark') && window.getSelection()?.isCollapsed) clearSelection(); }} role="tabpanel" aria-label="冻结材料原文">
+          <div className="document-review__paper" ref={paperRef} tabIndex={-1} data-matter-source="material" data-material-id={material?.id} data-material-label={material?.filename} onClick={(event) => { if (!(event.target as HTMLElement).closest('mark') && window.getSelection()?.isCollapsed) clearSelection(); }} role="tabpanel" aria-label="冻结材料原文">
             {segments.map((segment) => segment.items.length === 0 ? <span key={segment.start}>{segment.text}</span> : <mark key={segment.start}
               data-review-items={segment.items.map((item) => item.id).join('|')}
               tabIndex={0} role="button" aria-label={`${segment.items.length} 条批注，点击查看`}

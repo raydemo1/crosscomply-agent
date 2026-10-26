@@ -805,3 +805,31 @@ export async function getMatterConversation(caseId: string): Promise<MatterTurnA
 export async function askMatterAgent(caseId: string, payload: FactBinding & { question: string }): Promise<MatterTurnApi> {
   return request(`/api/cases/${encodeURIComponent(caseId)}/conversation`, { method: 'POST', body: JSON.stringify(payload), timeoutMs: REVIEW_TIMEOUT_MS });
 }
+
+import { readMatterStream, type MatterStreamEvent } from '../utils/matterStream';
+import type { MatterSelection } from '../types/api';
+
+/** 流式案件问答，保存后以 done 事件下发完整轮次。 */
+export async function streamMatterAnswer(
+  caseId: string,
+  payload: FactBinding & { question: string; selection?: MatterSelection },
+  onEvent: (event: MatterStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(buildUrl(`/api/cases/${encodeURIComponent(caseId)}/conversation/stream`), {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({ ...payload, selection: payload.selection ? (({ label: _label, ...selection }) => selection)(payload.selection) : undefined }),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(300_000)]) : AbortSignal.timeout(300_000),
+  });
+  if (!response.ok || !response.body) {
+    let message = '暂时无法开始回答，请稍后重试';
+    try {
+      const detail = (await response.json()).detail;
+      if (typeof detail === 'string') message = detail;
+    } catch { /* 保留默认话术 */ }
+    throw new ApiError(response.status, message, `/api/cases/${caseId}/conversation/stream`);
+  }
+  await readMatterStream(response.body, onEvent);
+}

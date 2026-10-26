@@ -120,6 +120,7 @@ function GovernanceRow({
             <div className="cite-row__verdicts">
               <button
                 type="button"
+                aria-pressed={verdict === 'correct'}
                 className={'cite-verdict' + (verdict === 'correct' ? ' is-active is-correct' : '')}
                 onClick={() => onVerdictChange(citation.chunk_id, verdict === 'correct' ? null : 'correct')}
               >
@@ -127,6 +128,7 @@ function GovernanceRow({
               </button>
               <button
                 type="button"
+                aria-pressed={verdict === 'wrong'}
                 className={'cite-verdict' + (verdict === 'wrong' ? ' is-active is-wrong' : '')}
                 onClick={() => onVerdictChange(citation.chunk_id, verdict === 'wrong' ? null : 'wrong')}
               >

@@ -507,6 +507,17 @@
   min-width: 0;
 }
 
+.history-item__todo {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--color-warning-bg);
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
 .history-item__meta {
   display: flex;
   align-items: center;

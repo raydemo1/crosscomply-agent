@@ -4,7 +4,6 @@
 
 import type { ReviewApiResponse, RiskLevel } from './api';
 import type {
-  CaseAction,
   CaseEvent,
   CaseIntake,
   CaseStatus,
@@ -46,6 +45,8 @@ export interface SavedCase {
   savedAt: string;
   /** The case title/question shown in the workbench. */
   question: string;
+  /** 仅列表摘要携带：未完成的整改/核实事项数，侧栏待办徽标用；详情视图不依赖。 */
+  pendingFollowupCount?: number;
   /** Server-persisted material text. */
   materialText: string;
   /** Source name for uploaded files. */
@@ -56,7 +57,6 @@ export interface SavedCase {
   riskLevel: RiskLevel | null;
   status: CaseStatus;
   intake: CaseIntake;
-  actions: CaseAction[];
   events: CaseEvent[];
   feedback: CaseFeedback | null;
   feedbackEntries: import('./api').CaseFeedbackEntryApi[];

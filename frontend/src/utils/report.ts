@@ -1,3 +1,5 @@
+import { renderReportMarkdown } from './reportHtml';
+import { partitionReportContent } from './reportContent';
 /**
  * Report exporter — generate Markdown and HTML review reports from a saved
  * case and trigger a browser download.
@@ -194,13 +196,7 @@ function actionsToMarkdown(saved: SavedCase): string {
       return (index + 1) + '. **' + mdEscape(task.title) + '**（' + state + '，负责人：' + mdEscape(assignee) + due + '）' + description;
     }).join('\n');
   }
-  if (saved.actions.length === 0) return '_暂无整改任务_';
-  return saved.actions.map((action, index) => {
-    const due = action.due_date ? '，截止 ' + action.due_date : '';
-    const state = action.status === 'completed' ? '已完成' : action.status === 'in_progress' ? '处理中' : '待处理';
-    const description = action.description ? '：' + mdEscape(action.description) : '';
-    return (index + 1) + '. **' + mdEscape(action.title) + '**（' + state + '，负责人角色：' + mdEscape(action.owner_role) + due + '）' + description;
-  }).join('\n');
+  return '_暂无整改任务_';
 }
 
 function knowledgeSnapshotToMarkdown(response: NonNullable<SavedCase['response']>): string {
@@ -305,7 +301,8 @@ export function buildMarkdownReport(saved: SavedCase): string {
   lines.push('');
   lines.push('### 完整审查意见');
   lines.push('');
-  lines.push(result.conclusion);
+  const display = partitionReportContent(result.conclusion, result.risk_boundaries);
+  lines.push(display.body);
   lines.push('');
   const groundedClaims = claimsToMarkdown(result.claims, response.citation_groups);
   if (groundedClaims) {
@@ -314,7 +311,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
   }
 
   if (result.trigger_reasons.length > 0) {
-    lines.push('## 八、触发原因');
+    lines.push('## 八、判断要点');
     lines.push('');
     result.trigger_reasons.forEach((r) => lines.push(`- ${mdEscape(r)}`));
     lines.push('');
@@ -327,12 +324,14 @@ export function buildMarkdownReport(saved: SavedCase): string {
     lines.push('');
   }
 
-  if (result.risk_boundaries.length > 0) {
-    lines.push('## 十、风险边界');
+  if (display.conditions.length > 0) {
+    lines.push('## 十、结论适用边界');
     lines.push('');
-    result.risk_boundaries.forEach((b) => lines.push(`- ${mdEscape(b)}`));
+    display.conditions.forEach((b) => lines.push(`- ${mdEscape(b)}`));
     lines.push('');
   }
+
+  if (display.usageNotes.length) lines.push('### 使用说明', '', ...display.usageNotes, '');
 
   if (result.missing_information.length > 0) {
     lines.push('## 十一、缺失信息');
@@ -392,10 +391,10 @@ function escHtml(text: string): string {
 }
 
 const HTML_STYLE = `
-body{font-family:'Source Sans 3','Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;background:#f8fafc;color:#0f172a;line-height:1.6;max-width:880px;margin:0 auto;padding:40px 24px;}
-h1{font-family:'Source Serif 4','Noto Serif SC',Georgia,serif;color:#1e3a8a;border-bottom:3px solid #b45309;padding-bottom:8px;}
-h2{font-family:'Source Serif 4','Noto Serif SC',Georgia,serif;color:#1e3a8a;margin-top:32px;border-left:4px solid #b45309;padding-left:10px;}
-h3{font-family:'Source Serif 4','Noto Serif SC',Georgia,serif;color:#1e40af;margin-top:20px;}
+html{background:#f8fafc;}body{box-sizing:border-box;font-family:'Noto Sans SC','Microsoft YaHei',system-ui,sans-serif;background:#fff;color:#334155;font-size:16px;line-height:1.75;max-width:960px;margin:24px auto;padding:32px 40px;border:1px solid #e2e8f0;border-radius:12px;}strong{font-weight:600;color:#0f172a;}
+h1{font-family:inherit;font-size:26px;font-weight:600;line-height:1.4;color:#0f172a;margin:0 0 24px;}
+h2{font-family:inherit;font-size:18px;font-weight:600;line-height:1.5;color:#0f172a;margin:32px 0 16px;}
+h3{font-family:inherit;font-size:16px;font-weight:600;line-height:1.5;color:#0f172a;margin:28px 0 12px;}
 .meta{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:16px;margin:16px 0;font-size:14px;}
 .meta div{margin:2px 0;}
 .risk{display:inline-block;padding:3px 12px;border-radius:999px;font-weight:700;font-size:13px;}
@@ -419,6 +418,23 @@ blockquote{border-left:4px solid #b45309;background:rgba(180,83,9,.05);margin:10
 .cite-chunk{margin-top:8px;background:#f8fafc;border-left:3px solid #1e3a8a;padding:8px 12px;font-size:13px;white-space:pre-wrap;}
 a{color:#1e40af;}
 .muted{color:#64748b;}
+.review-summary{background:#f6f7fa;border:1px solid #e2e8f0;border-radius:8px;padding:20px 24px;margin:20px 0 24px;}
+.review-summary-top{display:flex;justify-content:space-between;align-items:center;gap:16px;color:#475569;font-size:14px;}
+.review-summary>p{font-size:18px;line-height:1.65;font-weight:500;color:#0f172a;margin:12px 0 0;}
+.review-prose{font-size:16px;line-height:1.75;overflow-wrap:anywhere;}
+.review-prose h3{margin:28px 0 12px;font-size:16px;}
+.review-table-scroll{max-width:100%;overflow-x:auto;margin:24px 0;border:1px solid #e2e8f0;border-radius:8px;}.review-table-scroll:focus-visible{outline:2px solid #1e3a8a;outline-offset:3px;}.review-prose table{display:table;width:100%;margin:0;}
+.review-prose th{background:#f1f5f9;color:#334155;font-weight:500;}
+.review-prose td{vertical-align:top;}.review-prose th,.review-prose td{padding:12px 16px;border:0;border-bottom:1px solid #e2e8f0;}.review-prose tr:nth-child(even){background:transparent;}
+.review-points{padding-left:24px;}.review-points li{padding-left:4px;margin:8px 0;}
+.review-points p{margin:0;}
+.review-boundaries{margin-top:32px;padding:20px 24px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;}
+.review-boundaries h3{margin-top:0;font-size:14px;}
+.review-boundaries p{margin:0;}
+.review-boundaries li{margin:10px 0;font-size:14px;}
+.review-usage{margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:13px;color:#475569;}
+.review-usage p{margin:6px 0;}
+@media(max-width:600px){body{margin:0;padding:20px 16px;border-radius:0;}.review-summary,.review-boundaries{padding:16px;}.review-table-scroll table{min-width:520px;}}
 footer{margin-top:40px;padding-top:16px;border-top:1px solid #cbd5e1;font-size:12px;color:#94a3b8;}
 `.trim();
 
@@ -597,29 +613,35 @@ export function buildHtmlReport(saved: SavedCase): string {
     parts.push('</ul>');
   }
 
+  const display = partitionReportContent(result.conclusion, result.risk_boundaries);
   parts.push('<h2>七、审查结论</h2>');
-  parts.push(`<p><span class="risk risk-${escHtml(result.risk_level)}">${escHtml(RISK_LABELS[result.risk_level])}</span></p>`);
-  parts.push('<h3>审查摘要</h3>');
-  parts.push(`<p>${escHtml(result.decision_summary)}</p>`);
+  parts.push(`<div class="review-summary"><div class="review-summary-top"><strong>审查摘要</strong><span class="risk risk-${escHtml(result.risk_level)}">${escHtml(RISK_LABELS[result.risk_level])}</span></div><p>${escHtml(result.decision_summary)}</p>`);
+  if (result.legal_path) parts.push(`<div class="muted">当前适用路径：<strong>${escHtml(result.legal_path)}</strong></div>`);
+  parts.push('</div>');
+  if (result.trigger_reasons.length) {
+    parts.push('<h3>判断要点</h3><ul class="review-points">');
+    result.trigger_reasons.forEach((reason) => parts.push(`<li>${renderReportMarkdown(reason)}</li>`));
+    parts.push('</ul>');
+  }
   parts.push('<h3>完整审查意见</h3>');
-  parts.push(`<p>${escHtml(result.conclusion)}</p>`);
+  parts.push(`<div class="review-prose">${renderReportMarkdown(display.body)}</div>`);
   parts.push(claimsToHtml(result.claims, response.citation_groups));
 
   let idx = 8;
-  if (result.trigger_reasons.length > 0) {
-    parts.push(`<h2>${cnNum(idx++)}、触发原因</h2><ul>`);
-    result.trigger_reasons.forEach((r) => parts.push(`<li>${escHtml(r)}</li>`));
-    parts.push('</ul>');
-  }
   if (result.recommended_actions.length > 0) {
     parts.push(`<h2>${cnNum(idx++)}、审查建议</h2><ol>`);
     result.recommended_actions.forEach((a) => parts.push(`<li>${escHtml(a)}</li>`));
     parts.push('</ol>');
   }
-  if (result.risk_boundaries.length > 0) {
-    parts.push(`<h2>${cnNum(idx++)}、风险边界</h2><ul>`);
-    result.risk_boundaries.forEach((b) => parts.push(`<li>${escHtml(b)}</li>`));
-    parts.push('</ul>');
+  if (display.conditions.length) {
+    parts.push('<section class="review-boundaries"><h3>结论适用边界</h3><ul>');
+    display.conditions.forEach((condition) => parts.push(`<li>${renderReportMarkdown(condition)}</li>`));
+    parts.push('</ul></section>');
+  }
+  if (display.usageNotes.length) {
+    parts.push('<aside class="review-usage"><strong>使用说明</strong>');
+    display.usageNotes.forEach((note) => parts.push(`<p>${escHtml(note)}</p>`));
+    parts.push('</aside>');
   }
   if (result.missing_information.length > 0) {
     parts.push(`<h2>${cnNum(idx++)}、缺失信息</h2><ul>`);
@@ -641,15 +663,8 @@ export function buildHtmlReport(saved: SavedCase): string {
         parts.push('<li><strong>' + escHtml(task.title) + '</strong>（' + state + '，负责人：' + escHtml(assignee) + due + '）' + description + '</li>');
       });
     }
-  } else if (saved.actions.length === 0) {
-    parts.push('<li class="muted">暂无整改任务</li>');
   } else {
-    saved.actions.forEach((action) => {
-      const due = action.due_date ? '，截止 ' + escHtml(action.due_date) : '';
-      const state = action.status === 'completed' ? '已完成' : action.status === 'in_progress' ? '处理中' : '待处理';
-      const description = action.description ? '：' + escHtml(action.description) : '';
-      parts.push('<li><strong>' + escHtml(action.title) + '</strong>（' + state + '，负责人角色：' + escHtml(action.owner_role) + due + '）' + description + '</li>');
-    });
+    parts.push('<li class="muted">暂无整改任务</li>');
   }
   parts.push('</ol>');
   parts.push('<h2>十三、法规知识库快照</h2>');
