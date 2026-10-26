@@ -2,6 +2,12 @@
 
 当前部署事实。架构与产品设计见 [architecture.md](./architecture.md)，数据治理见 [data-governance-design.md](./data-governance-design.md)。
 
+## Vercel 公开演示
+
+Vercel 仅发布前端示例站，使用 `frontend/vercel.json` 中的 `npm run build:demo` 构建。示例案件、材料与回答均在 `frontend/src/demo/` 中预编写，不读取案件数据库，不调用后端或模型 API，不开放真实材料上传和业务提交。问答仅逐段展示预设内容，对话保存在当前页面会话内。
+
+`demo` 构建固定启用 `VITE_PUBLIC_DEMO` 并清空 API 地址；请求入口只处理示例读取，未知路径和写入操作直接拒绝。站点 CSP 额外设置 `connect-src 'none'`。`npm run build` 与 Docker 的正式服务构建保持原有行为。
+
 ## 服务拓扑（docker compose）
 
 | 服务 | 镜像 / 入口 | 职责 |

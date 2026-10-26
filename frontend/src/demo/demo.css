@@ -1,0 +1,64 @@
+.demo-shell { display: flex; min-height: 100dvh; background: var(--color-background); }
+.demo-sidebar { flex: 0 0 248px; position: sticky; top: 0; display: flex; flex-direction: column; height: 100dvh; padding: 28px 20px 24px; border-right: 1px solid var(--color-hairline); background: var(--color-surface); }
+.demo-brand { display: flex; align-items: center; gap: 12px; color: var(--color-foreground); text-decoration: none; }
+.demo-brand img { width: 36px; height: 36px; }
+.demo-brand strong { display: block; font-size: 18px; font-weight: 600; letter-spacing: -.4px; }
+.demo-brand small { display: block; margin-top: 3px; color: var(--color-foreground-muted); font-size: 11px; }
+.demo-overview-link { display: flex; align-items: center; gap: 10px; margin-top: 40px; padding: 12px; color: var(--color-primary); background: var(--color-muted); border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; }
+.demo-nav-label { margin: 32px 12px 12px; color: var(--color-foreground-muted); font-size: 12px; }
+.demo-sidebar nav { display: grid; gap: 6px; }
+.demo-sidebar nav a { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; color: var(--color-foreground-secondary); text-decoration: none; font-size: 14px; }
+.demo-sidebar nav a:hover { background: var(--color-background); }
+.demo-sidebar nav a > span:nth-child(2) { flex: 1; }
+.demo-sidebar nav small { display: block; margin-top: 5px; color: var(--color-foreground-muted); font-size: 12px; }
+.demo-nav-index { font: 12px var(--font-mono); color: var(--color-foreground-muted); }
+.demo-sidebar-footer { margin-top: auto; padding: 24px 12px 0; }
+.demo-sidebar-footer p { margin: 12px 0 20px; color: var(--color-foreground-muted); font-size: 12px; line-height: 1.8; }
+.demo-sidebar-footer button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--color-foreground-secondary); font-size: 13px; cursor: pointer; }
+.demo-main { flex: 1; min-width: 0; padding: 24px 40px 56px; }
+.demo-notice { display: flex; align-items: center; gap: 12px; width: min(1100px, 100%); margin: 0 auto 28px; color: var(--color-foreground-muted); }
+.demo-notice p { margin: 0; font-size: 12px; line-height: 1.7; }
+.demo-badge { display: inline-flex; flex: 0 0 auto; align-items: center; width: fit-content; padding: 3px 8px; border: 1px solid var(--color-border); border-radius: 5px; color: var(--color-foreground-secondary); font-size: 11px; line-height: 1.5; }
+.demo-overview { max-width: 980px; margin: auto; }
+.demo-hero { padding: 52px 0 60px; }
+.demo-eyebrow { margin: 0 0 24px; color: var(--color-foreground-muted); font: 11px/1.7 var(--font-mono); letter-spacing: .12em; }
+.demo-hero h1 { margin: 0; color: var(--color-foreground); font: 500 clamp(38px, 4.1vw, 60px)/1.25 var(--font-heading); letter-spacing: -.04em; }
+.demo-hero > p:not(.demo-eyebrow) { margin: 24px 0 28px; color: var(--color-foreground-secondary); font-size: 16px; line-height: 1.8; }
+.demo-primary { display: inline-flex; align-items: center; justify-content: center; gap: 24px; min-height: 46px; padding: 12px 20px; background: var(--color-primary); border: 1px solid var(--color-primary); border-radius: 8px; color: var(--color-on-primary); font-size: 14px; text-decoration: none; }
+.demo-primary:hover { background: var(--color-secondary); }
+.demo-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--color-border); }
+.demo-section-head h2 { margin: 0; font: 600 18px/1.6 var(--font-body); }
+.demo-section-head > span { color: var(--color-foreground-muted); font-size: 12px; }
+.demo-example { display: grid; grid-template-columns: 40px minmax(0, 1fr) 24px; gap: 20px; align-items: start; padding: 28px 0; border-bottom: 1px solid var(--color-hairline); color: inherit; text-decoration: none; }
+.demo-example-number { padding-top: 5px; color: var(--color-foreground-muted); font: 12px/1.6 var(--font-mono); }
+.demo-example-title { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.demo-example h3 { margin: 0; font: 600 18px/1.6 var(--font-body); }
+.demo-example p { margin: 10px 0 8px; color: var(--color-foreground-secondary); font-size: 14px; line-height: 1.75; }
+.demo-example-question { color: var(--color-foreground-muted); font-size: 13px; line-height: 1.7; }
+.demo-example-arrow { margin-top: 5px; color: var(--color-foreground-muted); }
+.demo-example:hover h3, .demo-example:hover .demo-example-arrow { color: var(--color-primary); }
+.demo-capabilities { display: flex; flex-wrap: wrap; gap: 16px 28px; margin-top: 32px; }
+.demo-capabilities span { display: flex; align-items: center; gap: 8px; color: var(--color-foreground-secondary); font-size: 12px; }
+.demo-capabilities svg { color: var(--color-primary); }
+.demo-footnote { margin: 24px 0 0; color: var(--color-foreground-muted); font-size: 12px; line-height: 1.8; }
+.demo-mobile-bar, .demo-scrim { display: none; }
+.demo-shell :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }
+@media (max-width: 1000px) { .demo-sidebar { flex-basis: 220px; padding-inline: 16px; } .demo-main { padding-inline: 24px; } }
+@media (max-width: 767px) {
+  .demo-sidebar { position: fixed; left: 0; z-index: 110; width: 248px; transform: translateX(-100%); visibility: hidden; }
+  .demo-sidebar.is-open { transform: none; visibility: visible; }
+  .demo-scrim { display: block; position: fixed; inset: 0; z-index: 109; border: 0; background: rgb(15 23 42 / .3); }
+  .demo-main { padding: 0 16px 32px; }
+  .demo-mobile-bar { display: flex; align-items: center; gap: 12px; padding-block: 14px; min-height: 60px; }
+  .demo-mobile-bar button { display: grid; place-items: center; min-width: 44px; min-height: 44px; margin-left: -8px; padding: 0; color: var(--color-foreground); border: 0; background: transparent; }
+  .demo-mobile-bar > span:nth-child(2) { flex: 1; font-size: 16px; font-weight: 600; }
+  .demo-notice { margin: 0 auto 20px; align-items: flex-start; }
+  .demo-notice > .demo-badge { display: none; }
+  .demo-hero { padding: 28px 0 40px; }
+  .demo-hero > p:not(.demo-eyebrow) { font-size: 14px; }
+  .demo-example { grid-template-columns: 24px minmax(0, 1fr) 18px; gap: 12px; padding-block: 24px; }
+  .demo-example-title { gap: 8px; }
+  .demo-example h3 { font-size: 16px; }
+  .demo-section-head > span { font-size: 11px; }
+  .demo-capabilities { gap: 16px; }
+}

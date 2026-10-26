@@ -20,6 +20,7 @@ import FeedbackPanel from './FeedbackPanel';
 import MarkdownText from './MarkdownText';
 import ReportConclusion from './ReportConclusion';
 import ReportHeading from './ReportHeading';
+import { PUBLIC_DEMO } from '../runtime';
 import ShareCaseDialog from './ShareCaseDialog';
 import type { RevisionSelection } from './RevisionWorkspace';
 import DocumentReview from './DocumentReview';
@@ -532,11 +533,11 @@ function CaseHeader({ saved, onBack, onRerun, viewerRole }: CaseHeaderProps): JS
               审批完成后生成报告
             </button>
           ) : null}
-          <button type="button" className="case-header__action-btn case-header__action-btn--share" onClick={() => setShareOpen(true)}>分享案件</button>
+          {!PUBLIC_DEMO ? <button type="button" className="case-header__action-btn case-header__action-btn--share" onClick={() => setShareOpen(true)}>分享案件</button> : null}
           <details className="case-header__more" ref={moreRef}>
             <summary className="case-header__action-btn">更多</summary>
             <div className="case-header__more-menu">
-              <button type="button" onClick={() => { closeMore(); onRerun(); }}>以此为模板重审</button>
+              {!PUBLIC_DEMO ? <button type="button" onClick={() => { closeMore(); onRerun(); }}>以此为模板重审</button> : null}
               <button type="button" onClick={async () => { closeMore(); const { downloadMarkdown } = await import('../utils/report'); downloadMarkdown(saved); }}>导出 Markdown</button>
               <button type="button" onClick={async () => { closeMore(); const { downloadHtml } = await import('../utils/report'); downloadHtml(saved); }}>导出 HTML</button>
             </div>
@@ -744,7 +745,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
             </div>
           </details>
 
-          <details className={'report-disclosure report-review-disclosure' + (viewerRole === 'requester' ? ' report-review-disclosure--applicant' : '')} id="report-review">
+          {!PUBLIC_DEMO ? <details className={'report-disclosure report-review-disclosure' + (viewerRole === 'requester' ? ' report-review-disclosure--applicant' : '')} id="report-review">
             <summary>
               {viewerRole !== 'requester' && <span className="report-chapter-no">{nextChapterNo()}</span>}
               <span className="report-section-title">{viewerRole === 'requester' ? '对审查结果有疑问？反馈审查问题' : '引用核查与复核意见'}</span>
@@ -760,7 +761,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
               /> : null}
               <FeedbackPanel saved={saved} viewerRole={viewerRole} />
             </div>
-          </details>
+          </details> : null}
 
           </> : null}
 

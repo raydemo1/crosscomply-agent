@@ -1,4 +1,5 @@
 /** Client for the CrossComply persisted case workbench API. */
+import { PUBLIC_DEMO } from '../runtime';
 
 import type {
   MatterTurnApi,
@@ -78,6 +79,7 @@ export function uploadQAMaterial(id: string, file: File): Promise<QAMaterial> {
 }
 
 export function subscribeQARun(id: string, runId: string, onSnapshot: (run: QARun) => void, onError: () => void): () => void {
+  if (PUBLIC_DEMO) throw new Error('示例演示不连接真实问答服务。');
   const events = new EventSource(buildUrl(`${qaPath(id)}/runs/${encodeURIComponent(runId)}/events`), { withCredentials: true });
   events.addEventListener('snapshot', (event: MessageEvent<string>) => {
     const run = JSON.parse(event.data) as QARun;
@@ -89,6 +91,7 @@ export function subscribeQARun(id: string, runId: string, onSnapshot: (run: QARu
 }
 
 export async function downloadQAMaterial(id: string, material: QAMaterial): Promise<File> {
+  if (PUBLIC_DEMO) throw new Error('示例演示不提供真实材料下载。');
   const path = `${qaPath(id)}/materials/${encodeURIComponent(material.id)}/original`;
   const response = await fetch(buildUrl(path), { credentials: 'include' });
   if (!response.ok) throw new ApiError(response.status, '无法读取原始材料，请重试。', path);
@@ -236,6 +239,10 @@ async function request<T>(
   path: string,
   options: RequestInit & { timeoutMs?: number } = {},
 ): Promise<T> {
+  if (PUBLIC_DEMO) {
+    const { demoRequest } = await import('../demo/transport');
+    return await demoRequest(path, options) as T;
+  }
   const { timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
   const controller = new AbortController();
   const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
@@ -816,6 +823,10 @@ export async function streamMatterAnswer(
   onEvent: (event: MatterStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  if (PUBLIC_DEMO) {
+    const { streamExampleAnswer } = await import('../demo/transport');
+    return streamExampleAnswer(caseId, payload, onEvent, signal);
+  }
   const response = await fetch(buildUrl(`/api/cases/${encodeURIComponent(caseId)}/conversation/stream`), {
     method: 'POST',
     credentials: 'include',

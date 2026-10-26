@@ -6,6 +6,7 @@ import { useMatterConversation } from '../hooks/useMatterConversation';
 import { useCaseAssistant } from '../hooks/useCaseAssistant';
 import { factLabel, factValue, valuesChanged } from '../utils/factFields';
 import MarkdownText from './MarkdownText';
+import { PUBLIC_DEMO } from '../runtime';
 
 export function PassageQuote({ selection, onRemove }: { selection: MatterSelection; onRemove?: () => void }) {
   return <div className="matter-quote"><div><Quote size={14} aria-hidden="true" /><span>{selection.label || (selection.kind === 'material' ? '材料原文' : '审查报告')}</span>{onRemove ? <button type="button" onClick={onRemove} aria-label="移除引用"><X size={14} /></button> : null}</div><p>{selection.quote}</p></div>;
@@ -96,12 +97,12 @@ export default function MatterConversation({ saved, viewerRole }: { saved: Saved
     <div className="matter-panel__bottom">
       {latest ? <button type="button" className="matter-panel__latest" onClick={toLatest}><ArrowDown size={14} aria-hidden="true" />回到最新</button> : null}
       {selection ? <PassageQuote selection={selection} onRemove={() => setSelection(undefined)} /> : null}
-      {selection && !busy ? <div className="matter-panel__suggestions" aria-label="快捷问题">{['解释这段内容', '与本案结论有什么关系', '还需补充哪些信息'].map((text) => <button type="button" key={text} onClick={() => { setQuestion(text); document.getElementById('matter-question')?.focus(); }}>{text}</button>)}</div> : null}
+      {(selection || PUBLIC_DEMO) && !busy ? <div className="matter-panel__suggestions" aria-label="快捷问题">{['解释这段内容', '与本案结论有什么关系', '还需补充哪些信息'].map((text) => <button type="button" key={text} onClick={() => { setQuestion(text); document.getElementById('matter-question')?.focus(); }}>{text}</button>)}</div> : null}
       <form className="matter-panel__composer" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-        <label className="sr-only" htmlFor="matter-question">向 CrossComply 提问</label><textarea id="matter-question" value={question} maxLength={2000} rows={3} onChange={(event) => setQuestion(event.target.value)} placeholder={busy ? '可以先写下一个问题…' : '继续问问本案的结论、依据或材料…'} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
+        <label className="sr-only" htmlFor="matter-question">向 CrossComply 提问</label><textarea id="matter-question" value={question} readOnly={PUBLIC_DEMO} maxLength={2000} rows={3} onChange={(event) => setQuestion(event.target.value)} placeholder={PUBLIC_DEMO ? '选择上方快捷问题，体验预编写的示例回答' : busy ? '可以先写下一个问题…' : '继续问问本案的结论、依据或材料…'} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
         <div><span>Enter 发送 · Shift + Enter 换行</span><button type="submit" disabled={busy || loading || !question.trim()} aria-label="发送问题"><ArrowUp size={18} aria-hidden="true" /></button></div>
       </form>
-      <p className="matter-panel__scope" id="matter-scope">基于本案材料与事实回答，不改变正式审查结果。</p>
+      <p className="matter-panel__scope" id="matter-scope">{PUBLIC_DEMO ? '预编写回答的流式展示，未调用模型。不接收真实业务问题或材料。' : '基于本案材料与事实回答，不改变正式审查结果。'}</p>
     </div>
   </aside>;
 }
