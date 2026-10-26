@@ -53,16 +53,15 @@ def make_claim_repairer(
 ) -> Callable[[LLMReviewResultDraft, str, list[RetrievalHit]], LLMReviewResultDraft]:
     """构造 run_agent 使用的 repair_claims 回调；失败时抛 ReviewWorkflowFailed。"""
 
-    node = StructuredLLMNode(
-        node_name="claim_repair",
-        output_model=RepairedClaims,
-        client=client or OpenAICompatibleClient(require_agent_llm_config()),
-        max_retries=1,
-    )
-
     def repair_claims(
         draft: LLMReviewResultDraft, error_message: str, evidence_hits: list[RetrievalHit]
     ) -> LLMReviewResultDraft:
+        node = StructuredLLMNode(
+            node_name="claim_repair",
+            output_model=RepairedClaims,
+            client=client or OpenAICompatibleClient(require_agent_llm_config()),
+            max_retries=1,
+        )
         citable = [
             {
                 "chunk_id": hit.chunk_id,

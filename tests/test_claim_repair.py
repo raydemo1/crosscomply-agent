@@ -198,3 +198,13 @@ def test_chat_tools_rejects_truncated_tool_response(monkeypatch):
 def test_repaired_claims_model_rejects_non_list_payload():
     with pytest.raises(Exception):
         RepairedClaims.model_validate({"claims": "not-a-list"})
+
+
+def test_repairer_defers_config_until_a_repair_is_needed(monkeypatch):
+    def unavailable_config():
+        raise RuntimeError("模型尚未配置")
+
+    monkeypatch.setattr("law_agent.review.claim_repair.require_agent_llm_config", unavailable_config)
+    repair = make_claim_repairer(model_id="test")
+    with pytest.raises(RuntimeError, match="模型尚未配置"):
+        repair(_draft(), CITATION_ERROR, [])

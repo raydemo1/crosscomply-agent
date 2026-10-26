@@ -1,3 +1,4 @@
+import asyncio
 import json
 import threading
 import time
@@ -200,7 +201,10 @@ def test_total_deadline_cancels_the_connection_even_with_continuous_keepalives(m
     assert records[0]["error_stage"] == "total_deadline"
 
 
-@pytest.mark.asyncio
-async def test_sync_verifier_client_can_also_run_from_an_existing_event_loop(monkeypatch):
+def test_sync_verifier_client_can_also_run_from_an_existing_event_loop(monkeypatch):
     mock_response(monkeypatch, COMPLETE)
-    assert call() == {"status": "supported"}
+
+    async def verify():
+        assert call() == {"status": "supported"}
+
+    asyncio.run(verify())
