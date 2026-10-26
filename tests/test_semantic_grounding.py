@@ -39,7 +39,7 @@ def test_production_verifier_request_meets_json_object_message_requirement(monke
                        api_key="fake", model="test", timeout_seconds=60,
                        structured_output_mode="json_object", reasoning_effort="low")
     requests = []
-    def receive(payload, _config):
+    def receive(payload, _config, **_kwargs):
         requests.append(payload)
         assert payload["response_format"] == {"type": "json_object"}
         assert any("json" in str(message["content"]).lower() for message in payload["messages"])

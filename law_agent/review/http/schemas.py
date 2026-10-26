@@ -197,11 +197,26 @@ class FactConfirmRequest(StrictModel):
         return value
 
 
+class MatterMaterialSelection(StrictModel):
+    kind: Literal["material"]
+    quote: str = Field(min_length=1, max_length=2000)
+    material_version_id: str
+    start_offset: int = Field(ge=0)
+    end_offset: int = Field(gt=0)
+
+
+class MatterReportSelection(StrictModel):
+    kind: Literal["report"]
+    quote: str = Field(min_length=1, max_length=2000)
+    review_result_id: str
+
+
 class MatterQuestionRequest(StrictModel):
     task_id: str
     material_snapshot_id: str
     intake_snapshot_id: str
     question: str = Field(min_length=1, max_length=2000)
+    selection: MatterMaterialSelection | MatterReportSelection | None = Field(default=None, discriminator="kind")
 
 
 class RemediationEvidenceRequest(BaseModel):

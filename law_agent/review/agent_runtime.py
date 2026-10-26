@@ -14,6 +14,7 @@ from typing import Any, Protocol
 from law_agent.config import RerankMode
 from law_agent.review.agent import AgentModel, AgentState, run_agent
 from law_agent.review.agent_tools import ComplianceAgentTools
+from law_agent.review.claim_repair import make_claim_repairer
 from law_agent.review.enterprise_store import MaterialVersion, ReviewTask
 from law_agent.review.fact_provenance import confirmed_intake_ledger
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
@@ -82,6 +83,7 @@ def execute_agent_task(
             read_evidence=tools.read_evidence,
             web_search=tools.search_web,
             on_web_findings=on_web_findings,
+            repair_claims=make_claim_repairer(model_id=task.model_id),
             finalize=lambda draft, current: tools.finalize(
                 draft,
                 current,

@@ -12,6 +12,7 @@ from law_agent.config import require_agent_llm_config
 from law_agent.data.schemas import StrictModel
 from law_agent.llm.openai_compatible import OpenAICompatibleClient
 from law_agent.review.agent_context import compact_evidence_context, search_observation_context
+from law_agent.review.claim_repair import is_claim_citation_error
 from law_agent.review.dates import business_today
 from law_agent.review.fact_provenance import append_fact
 from law_agent.review.llm import ReviewWorkflowFailed
@@ -521,6 +522,7 @@ def run_agent(
     abstain: Callable[[LLMReviewResultDraft, AgentState], dict[str, Any]] | None = None,
     checkpoint: Callable[[AgentState], None],
     on_web_findings: Callable[[list[WebFinding]], None] | None = None,
+    repair_claims: Callable[[LLMReviewResultDraft, str, list[RetrievalHit]], LLMReviewResultDraft] | None = None,
 ) -> AgentState:
     """Only the model selects the next action; code enforces budgets and tool contracts."""
     if state.status != "running":
@@ -584,12 +586,29 @@ def run_agent(
                 state.gate_id = f"input_{state.turns}"
                 observation = {"question": decision.question}
             else:
-                state.report_draft = decision.draft
-                checkpoint(state)
-                state.result = finalize(decision.draft, state)
+                draft = decision.draft
+                claims_repaired = False
+                try:
+                    state.report_draft = draft
+                    checkpoint(state)
+                    state.result = finalize(draft, state)
+                except SemanticGroundingRejected:
+                    raise  # 语义核验是实质争议，必须走结构化反馈的全量修订循环
+                except ValueError as exc:
+                    # 引用簿记类驳回只修 claims 的引用集合，不整份重写；
+                    # 修复失败（含修复后仍不通过）回落到原有的全量修订循环。
+                    if repair_claims is None or not is_claim_citation_error(str(exc)):
+                        raise
+                    try:
+                        draft = repair_claims(draft, str(exc), list(state.evidence))
+                    except (ReviewWorkflowFailed, ValueError, OSError, RuntimeError) as repair_exc:
+                        raise exc from repair_exc
+                    claims_repaired = True
+                    decision = decision.model_copy(update={"draft": draft})
+                    state.result = finalize(draft, state)
                 state.report_draft = None
                 state.status = "completed"
-                observation = {"completed": True}
+                observation = {"completed": True, **({"claims_repaired": True} if claims_repaired else {})}
         except SemanticGroundingRejected as exc:
             observation = {
                 "semantic_grounding": exc.verdict.model_dump(mode="json"),

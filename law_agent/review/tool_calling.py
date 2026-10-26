@@ -11,7 +11,7 @@ from typing import Any
 from pydantic import Field
 
 from law_agent.data.schemas import StrictModel
-from law_agent.llm.openai_compatible import ChatMessage
+from law_agent.llm.openai_compatible import ChatMessage, _loads_tool_arguments
 from law_agent.llm.usage import usage_scope
 from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.telemetry import record_llm_call, record_retry
@@ -193,7 +193,9 @@ class ToolCallingAgent:
         if name not in self.specs:
             raise InvalidToolCall(f"未注册工具：{name}")
         try:
-            arguments = json.loads(call["function"]["arguments"])
+            # 调查类工具参数短且可自校验，解析失败用宽松修复省一次完整模型重调；
+            # finish 携带整份报告，静默修复可能把截断文本补成合法形状，保持严格解析。
+            arguments = _loads_tool_arguments(call["function"]["arguments"], allow_repair=name != "finish")
             if not isinstance(arguments, dict) or set(arguments) - {*self.shared, *self.specs[name].fields}:
                 raise ValueError("工具参数必须是该工具定义内的字段")
             return self.decision_model.model_validate_json(json.dumps({"action": name, **arguments}), strict=True)

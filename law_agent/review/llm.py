@@ -99,6 +99,8 @@ class StructuredLLMNode(Generic[ModelT]):
         post_validate: Callable[[ModelT], ModelT] | None = None,
         post_validation_reason: str = "post_validation_failed",
         post_validation_hint: str = "",
+        on_answer_delta: Callable[[str], None] | None = None,
+        on_stream_reset: Callable[[], None] | None = None,
     ) -> ModelT:
         attempts_allowed = self.max_retries + 1
         last_reason = "llm_api_error"
@@ -115,6 +117,8 @@ class StructuredLLMNode(Generic[ModelT]):
                         structured_output_mode=self.structured_output_mode,
                         **({"model": self.model} if getattr(self, "model", None) else {}),
                         **({"stream": True} if self.stream else {}),
+                        **({"on_answer_delta": on_answer_delta, "on_stream_reset": on_stream_reset}
+                           if on_answer_delta is not None else {}),
                     )
                 parsed = self.output_model.model_validate(raw, strict=True)
             except ValidationError as exc:

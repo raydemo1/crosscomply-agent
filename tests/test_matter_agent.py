@@ -41,16 +41,10 @@ def test_frozen_context_excludes_other_versions_and_unverified_formal_report(mat
 def test_answer_quotes_exact_material_and_uses_ledger_without_writes(matter):
     m = matter
     context = matter_context(m.cases, m.enterprise, m.case["id"], MatterQuestionRequest(**binding(m), question="材料在哪里"))
-    seen = []
-    def verifier(**kwargs):
-        seen.append(kwargs)
-        return supported()
     client = FakeClient(outputs=[reply(material_citations=[{"material_version_id": context["materials"][0]["id"], "quote": "客户信息传输至境外"}])])
     before = deepcopy((m.cases.cases, m.enterprise.tasks))
-    result = answer_matter("材料在哪里", context, client=client, verifier=verifier)
+    result = answer_matter("材料在哪里", context, client=client)
     assert result["material_citations"][0]["filename"] == "facts.txt"
-    assert seen[0]["fact_ledger"] and seen[0]["confirmed_intake"] == m.intake.intake
-    assert seen[0]["review_goal"] == "材料在哪里"
     assert (m.cases.cases, m.enterprise.tasks) == before
 
 
@@ -59,27 +53,25 @@ def test_answer_quotes_exact_material_and_uses_ledger_without_writes(matter):
     {"material_citations": [{"material_version_id": "invented", "quote": "客户信息"}]},
     {"material_citations": [{"material_version_id": "current", "quote": "不存在的原文"}]},
 ])
-def test_forged_citations_never_reach_semantic_verifier(matter, changes):
+def test_forged_citations_are_stripped_and_answer_survives(matter, changes):
     m = matter
     context = matter_context(m.cases, m.enterprise, m.case["id"], MatterQuestionRequest(**binding(m), question="为什么"))
     for c in changes.get("material_citations", []):
         if c["material_version_id"] == "current":
             c["material_version_id"] = context["materials"][0]["id"]
-    def forbidden(**_kwargs):
-        pytest.fail("invalid citation reached verifier")
-    with pytest.raises(ValueError):
-        answer_matter("为什么", context, client=FakeClient(outputs=[reply(**changes)]), verifier=forbidden)
+    result = answer_matter("为什么", context, client=FakeClient(outputs=[reply(**changes)]))
+    assert result["claims"] == []
+    assert result["material_citations"] == []
+    assert result["answer"] == "材料只说明客户信息传输至境外，尚缺统计口径，不能确定具体法律路径。"
 
 
-def test_unsupported_reply_and_oversized_context_rejected(matter):
+def test_oversized_context_rejected_before_any_llm_call(matter):
     m = matter
-    context = matter_context(m.cases, m.enterprise, m.case["id"], MatterQuestionRequest(**binding(m), question="为什么"))
-    with pytest.raises(SemanticGroundingRejected):
-        answer_matter("为什么", context, client=FakeClient(outputs=[reply()]), verifier=lambda **_: SemanticVerdict(status="uncertain", claim_checks=[], conclusion_reason="断言缺乏支持"))
     client = FakeClient(outputs=[reply()])
+    context = matter_context(m.cases, m.enterprise, m.case["id"], MatterQuestionRequest(**binding(m), question="为什么"))
     context["materials"][0]["text"] = "过长" * 70_000
     with pytest.raises(ValueError, match="容量"):
-        answer_matter("为什么", context, client=client, verifier=supported)
+        answer_matter("为什么", context, client=client)
     assert not client.calls
 
 
@@ -138,12 +130,10 @@ def test_verified_legal_reply_preserves_applicability_and_checks_current_corpus(
     context["verified_evidence"] = [hit.model_dump(mode="json")]
     client = FakeClient(outputs=[
         reply(claims=[{"text": "该规则具有适用范围，仍需确认本案是否落入。", "supporting_chunk_ids": [hit.chunk_id]}]),
-        {"status": "supported", "claim_checks": [{"claim_index": 0, "status": "supported", "reason": "仅作条件性解释"}], "conclusion_reason": "保留适用边界"},
-        {"checks": [{"target": "risk_boundaries:0", "status": "supported", "reason": "说明问答权限"}], "conclusion_reason": "范围支持"},
     ])
     answer_matter("地方依据", context, client=client)
-    check = json.loads(client.calls[1][1].content)["cited_authorities"][0]
-    assert check["applicable_region"] == "CN-SH" and check["applicable_subjects"] == ["再保险"]
+    authority = json.loads(client.calls[0][1].content)["matter"]["applicability"][hit.chunk_id]
+    assert authority["region"] == "CN-SH" and authority["subjects"] == ["再保险"]
     chunk.can_cite_clause = False
     empty = FakeClient(outputs=[reply()])
     with pytest.raises(ValueError, match="法源库已变化"):
