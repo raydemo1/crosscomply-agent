@@ -10,6 +10,12 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from law_agent.review.report_markdown import (
+    partition_report_content,
+    pdf_report_text,
+    report_markdown,
+)
+
 try:
     from reportlab.lib.units import mm
     from reportlab.platypus import Flowable, TableStyle
@@ -54,6 +60,7 @@ class AIReviewSummary:
     risk_level: str = ""
     decision_summary: str = ""
     conclusion: str = ""
+    trigger_reasons: tuple[str, ...] = ()
     missing_information: tuple[str, ...] = ()
     recommended_actions: tuple[str, ...] = ()
     risk_boundaries: tuple[str, ...] = ()
@@ -93,17 +100,6 @@ SOFT_GOLD = "#FFFBEB"
 SOFT_GREEN = "#F0FDF4"
 GREEN = "#047857"
 RED = "#B91C1C"
-
-_REVIEW_SECTION_TITLES = (
-    "风险定性",
-    "关键法律依据",
-    "合规义务与缺口",
-    "建议措施",
-    "建议动作",
-    "风险边界",
-)
-_REVIEW_SECTION_PATTERN = "|".join(map(re.escape, _REVIEW_SECTION_TITLES))
-
 
 def generate_decision_report(data: DecisionReportData) -> DecisionReportArtifact:
     """Render a deterministic, multi-page PDF and return its SHA-256."""
@@ -191,7 +187,7 @@ def generate_decision_report(data: DecisionReportData) -> DecisionReportArtifact
     story: list[Flowable] = []
     story.extend(_cover_page(data, styles, colors, page_width, body_font, bold_font))
     story.append(PageBreak())
-    story.extend(_rich_decision_packet(data, styles, colors))
+    story.extend(_rich_decision_packet(data, styles, colors, page_width - left_margin - right_margin))
     doc.build(story, canvasmaker=StableCanvas)
 
     pdf_bytes = buffer.getvalue()
@@ -284,10 +280,10 @@ def _build_styles(ParagraphStyle, get_sample_styles, *, body_font, bold_font, mo
         "table_mono": ParagraphStyle("table_mono", parent=sample["BodyText"], fontName=mono_font, fontSize=8.2, leading=11, textColor=colors.HexColor(INK), splitLongWords=True),
         "callout": ParagraphStyle("callout", parent=sample["BodyText"], fontName=body_font, fontSize=9.2, leading=14, textColor=colors.HexColor(INK)),
         "opinion_label": ParagraphStyle("opinion_label", parent=sample["BodyText"], fontName=bold_font, fontSize=10.2, leading=14, textColor=colors.white),
-        "summary_body": ParagraphStyle("summary_body", parent=sample["BodyText"], fontName=body_font, fontSize=10.6, leading=16.5, textColor=colors.HexColor(INK)),
-        "opinion_heading": ParagraphStyle("opinion_heading", parent=sample["Heading3"], fontName=bold_font, fontSize=11.2, leading=16, textColor=colors.HexColor(NAVY), spaceBefore=6, spaceAfter=3),
-        "opinion_body": ParagraphStyle("opinion_body", parent=sample["BodyText"], fontName=body_font, fontSize=10.4, leading=16, textColor=colors.HexColor(INK), spaceAfter=5),
-        "opinion_list": ParagraphStyle("opinion_list", parent=sample["BodyText"], fontName=body_font, fontSize=10.2, leading=15.5, textColor=colors.HexColor(INK), leftIndent=13, firstLineIndent=-13, spaceAfter=3),
+        "summary_body": ParagraphStyle("summary_body", parent=sample["BodyText"], fontName=body_font, fontSize=11.2, leading=18.5, textColor=colors.HexColor(INK)),
+        "opinion_heading": ParagraphStyle("opinion_heading", parent=sample["Heading3"], fontName=bold_font, fontSize=11.2, leading=16, textColor=colors.HexColor(INK), spaceBefore=10, spaceAfter=5),
+        "opinion_body": ParagraphStyle("opinion_body", parent=sample["BodyText"], fontName=body_font, fontSize=10.4, leading=17, textColor=colors.HexColor(INK), spaceAfter=5),
+        "opinion_list": ParagraphStyle("opinion_list", parent=sample["BodyText"], fontName=body_font, fontSize=10.2, leading=17, textColor=colors.HexColor(INK), leftIndent=13, firstLineIndent=-13, spaceAfter=3),
     }
 
 
@@ -344,90 +340,113 @@ def _join_review_fragments(left: str, right: str) -> str:
     return f"{left} {right}"
 
 
-def _review_markdown_blocks(value: object) -> tuple[tuple[str, str, str], ...]:
-    """Parse the small Markdown subset used by generated review reports.
-
-    The LLM may put a section heading and its first sentence on the same line,
-    or wrap source text at arbitrary positions.  Those source wraps must not
-    become hard PDF line breaks.
-    """
-
-    text = html.unescape(str(value or ""))
-    text = re.sub(r"<[^>]+>", "", text)
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = re.sub(r"\\[ \t]*\n[ \t]*", "", text)
-    text = re.sub(
-        rf"(?<!\n)[ \t]*(?=#{{1,6}}\s*(?:{_REVIEW_SECTION_PATTERN}))",
-        "\n",
-        text,
-    )
-    blocks: list[tuple[str, str, str]] = []
-    paragraph = ""
-
-    def flush_paragraph() -> None:
-        nonlocal paragraph
-        cleaned = paragraph.strip()
-        if cleaned:
-            blocks.append(("paragraph", "", cleaned))
-        paragraph = ""
-
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line:
-            flush_paragraph()
-            continue
-
-        heading = re.match(
-            rf"^#{{1,6}}\s*({_REVIEW_SECTION_PATTERN})\s*(.*)$",
-            line,
-        )
-        if heading:
-            flush_paragraph()
-            blocks.append(("heading", "", heading.group(1)))
-            remainder = heading.group(2).strip()
-            if remainder:
-                paragraph = remainder
-            continue
-
-        bullet = re.match(r"^[-*+]\s+(.+)$", line)
-        numbered = re.match(r"^(\d+)[.、)]\s*(.+)$", line)
-        if bullet or numbered:
-            flush_paragraph()
-            marker = "•" if bullet else f"{numbered.group(1)}."
-            item = bullet.group(1) if bullet else numbered.group(2)
-            blocks.append(("list", marker, item.strip().strip("；;")))
-            continue
-
-        paragraph = _join_review_fragments(paragraph, line)
-
-    flush_paragraph()
-    return tuple(blocks)
-
-
 def _review_inline_html(value: str) -> str:
-    text = re.sub(r"[①②③④⑤⑥⑦⑧⑨⑩]+", "", value)
-    escaped = html.escape(text)
-    escaped = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
-    escaped = re.sub(r"__(.+?)__", r"<b>\1</b>", escaped)
-    return escaped.replace("`", "")
+    tokens = report_markdown().parseInline(value)
+    result: list[str] = []
+    children = (tokens[0].children or []) if tokens else []
+    link_stack: list[bool] = []
+    for index, token in enumerate(children):
+        if token.type in {"text", "code_inline"}:
+            result.append(html.escape(token.content))
+        elif token.type in {"strong_open", "strong_close", "em_open", "em_close"}:
+            tag = "b" if token.type.startswith("strong") else "i"
+            result.append(f"<{tag}>" if token.nesting == 1 else f"</{tag}>")
+        elif token.type == "hardbreak":
+            result.append("<br/>")
+        elif token.type == "softbreak":
+            left = children[index - 1].content if index else ""
+            right = children[index + 1].content if index + 1 < len(children) else ""
+            if _join_review_fragments(left, right) == f"{left} {right}":
+                result.append(" ")
+        elif token.type == "link_open":
+            href = token.attrGet("href") or ""
+            allowed = href.startswith(("https://", "http://", "mailto:", "#"))
+            link_stack.append(allowed)
+            if allowed:
+                result.append(f'<a href="{html.escape(href, quote=True)}">')
+        elif token.type == "link_close":
+            if link_stack.pop():
+                result.append("</a>")
+        elif token.type == "image":
+            result.append(html.escape(token.content))
+    return "".join(result)
 
 
-def _review_block_flowables(value: object, styles) -> list[Flowable]:
+def _review_table_widths(rows, width: float) -> list[float]:
+    weights = [
+        max(8, min(36, sum(len(row[index].getPlainText()) for row in rows) / len(rows)))
+        for index in range(len(rows[0]))
+    ]
+    return [width * weight / sum(weights) for weight in weights]
+
+
+def _review_block_flowables(value: object, styles, *, width: float) -> list[Flowable]:
+    from reportlab.lib import colors
+    from reportlab.platypus import Table
+
+    text = pdf_report_text(value)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    tokens = report_markdown().parse(text)
     flowables: list[Flowable] = []
-    for kind, marker, text in _review_markdown_blocks(value):
-        if kind == "heading":
-            flowables.append(_p(_review_inline_html(text), styles["opinion_heading"], escape=False))
-        elif kind == "list":
-            marker_html = html.escape(marker)
-            flowables.append(
-                _p(
-                    f'<font color="{GOLD}"><b>{marker_html}</b></font>　{_review_inline_html(text)}',
-                    styles["opinion_list"],
-                    escape=False,
-                )
-            )
-        else:
-            flowables.append(_p(_review_inline_html(text), styles["opinion_body"], escape=False))
+    lists: list[int | None] = []
+    marker = ""
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token.type == "table_open":
+            rows: list[list] = []
+            row: list = []
+            header = False
+            index += 1
+            while index < len(tokens) and tokens[index].type != "table_close":
+                item = tokens[index]
+                if item.type == "tr_open":
+                    row = []
+                elif item.type in {"th_open", "td_open"}:
+                    header = item.type == "th_open"
+                elif item.type == "inline":
+                    cell_style = styles["table_body"].clone("review_cell", fontName=styles["table_head"].fontName if header else styles["table_body"].fontName, wordWrap="CJK")
+                    row.append(_p(_review_inline_html(item.content), cell_style, escape=False))
+                elif item.type == "tr_close":
+                    rows.append(row)
+                index += 1
+            if rows:
+                table = Table(rows, colWidths=_review_table_widths(rows, width),
+                              repeatRows=1, splitByRow=1, splitInRow=1, hAlign="LEFT",
+                              spaceBefore=7, spaceAfter=10)
+                table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(BG)),
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.4, colors.HexColor(BORDER)),
+                    ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor(BORDER)),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 7),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ]))
+                flowables.append(table)
+        elif token.type in {"bullet_list_open", "ordered_list_open"}:
+            lists.append(int(token.attrGet("start") or 1) if token.type == "ordered_list_open" else None)
+        elif token.type in {"bullet_list_close", "ordered_list_close"}:
+            lists.pop()
+            marker = ""
+        elif token.type == "list_item_open":
+            if lists[-1] is None:
+                marker = "•"
+            else:
+                marker = f"{lists[-1]}."
+                lists[-1] += 1
+        elif token.type == "inline":
+            heading = index > 0 and tokens[index - 1].type == "heading_open"
+            style = styles["opinion_heading" if heading else "opinion_list" if lists else "opinion_body"]
+            content = _review_inline_html(token.content)
+            if marker:
+                content = f'{html.escape(marker)}　{content}'
+                marker = ""
+            flowables.append(_p(content, style, escape=False))
+        elif token.type in {"fence", "code_block"}:
+            flowables.append(_p(html.escape(token.content), styles["opinion_body"], escape=False))
+        index += 1
     return flowables
 
 
@@ -561,7 +580,7 @@ class BrandMark(Flowable):
         canvas.restoreState()
 
 
-def _rich_decision_packet(data, styles, colors):
+def _rich_decision_packet(data, styles, colors, content_width):
     from reportlab.platypus import Spacer, Table, TableStyle
 
     status, _, _ = _status_label(data.decision)
@@ -570,10 +589,11 @@ def _rich_decision_packet(data, styles, colors):
     if data.ai_review is not None:
         ai = data.ai_review
         risk_label, risk_color, risk_bg = _risk_label(ai.risk_level)
-        conclusion_flowables = _review_block_flowables(ai.conclusion, styles)
+        body, boundaries, usage_notes = partition_report_content(ai.conclusion, ai.risk_boundaries)
+        conclusion_flowables = _review_block_flowables(body, styles, width=content_width)
         risk_card = Table([
             [_p("风险等级", styles["card_label"]), _p(risk_label, styles["card_value"])],
-        ], colWidths=[38 * mm, 117 * mm])
+        ], colWidths=[content_width * 0.24, content_width * 0.76])
         risk_card.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.white),
             ("BACKGROUND", (0, 0), (0, 0), colors.HexColor(risk_bg)),
@@ -590,46 +610,41 @@ def _rich_decision_packet(data, styles, colors):
         if ai.decision_summary:
             story.append(Spacer(1, 9 * mm))
             summary_card = Table([
-                [_p("审批摘要", styles["opinion_label"])],
+                [_p("审查摘要", styles["card_label"])],
                 [_p(ai.decision_summary, styles["summary_body"])],
-            ], colWidths=[155 * mm])
+            ], colWidths=[content_width])
             summary_card.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(NAVY)),
-                ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor(SOFT_GOLD)),
-                ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#FDE68A")),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(SOFT_BLUE)),
+                ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor(BORDER)),
                 ("LEFTPADDING", (0, 0), (-1, -1), 12),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 12),
                 ("TOPPADDING", (0, 0), (-1, -1), 8),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
             ]))
             story.append(summary_card)
+        if ai.trigger_reasons:
+            story.extend([Spacer(1, 6 * mm), _p("判断要点", styles["opinion_heading"])])
+            for reason in ai.trigger_reasons:
+                story.append(_p(f"•　{_review_inline_html(reason)}", styles["opinion_list"], escape=False))
         if conclusion_flowables:
-            story.extend([
-                Spacer(1, 9 * mm),
-            ])
-            opinion_rows = [[_p("完整审查意见", styles["opinion_label"])]]
-            opinion_rows.extend([[flowable] for flowable in conclusion_flowables])
-            opinion_card = Table(
-                opinion_rows,
-                colWidths=[155 * mm],
-                repeatRows=1,
-                splitInRow=1,
-            )
-            opinion_card.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(NAVY)),
-                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor(SOFT_BLUE)),
-                ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#BFDBFE")),
-                ("LINEBELOW", (0, 0), (-1, 0), 0.7, colors.HexColor("#BFDBFE")),
+            story.extend([Spacer(1, 6 * mm), _p("完整审查意见", styles["opinion_heading"])])
+            story.extend(conclusion_flowables)
+        if boundaries:
+            story.extend([Spacer(1, 6 * mm), _p("结论适用边界", styles["opinion_heading"])])
+            boundary_rows = [[_p(_review_inline_html(item), styles["body_muted"], escape=False)] for item in boundaries]
+            boundary_table = Table(boundary_rows, colWidths=[content_width], splitInRow=1)
+            boundary_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(BG)),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor(BORDER)),
                 ("LEFTPADDING", (0, 0), (-1, -1), 12),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-                ("TOPPADDING", (0, 0), (-1, 0), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                ("TOPPADDING", (0, 1), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 1), (-1, -1), 4),
-                ("TOPPADDING", (0, 1), (-1, 1), 10),
-                ("BOTTOMPADDING", (0, -1), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
             ]))
-            story.append(opinion_card)
+            story.append(boundary_table)
+        if usage_notes:
+            story.extend([Spacer(1, 4 * mm), _p("使用说明", styles["body_muted"])])
+            story.extend(_p(note, styles["body_muted"]) for note in usage_notes)
 
         context_rows = []
         for label, value in (
@@ -661,7 +676,6 @@ def _rich_decision_packet(data, styles, colors):
         attention.extend(
             f"材料缺口：{_clean_ai_text(item, limit=180)}" for item in ai.missing_information
         )
-        attention.extend(f"边界：{_clean_ai_text(item, limit=180)}" for item in ai.risk_boundaries)
         attention = list(dict.fromkeys(attention))
         if attention:
             story.extend([Spacer(1, 9 * mm), _p("待核实事项", styles["section"])])

@@ -11,6 +11,7 @@ import html
 import re
 from typing import Any
 
+from law_agent.review.report_markdown import pdf_report_text
 from law_agent.review.reports import AIReviewSummary, LegalSource, RemediationDetail
 
 
@@ -23,7 +24,7 @@ def _compact_text(value: Any, *, limit: int) -> str:
 
 
 def _narrative_text(value: Any, *, limit: int | None = 1200) -> str:
-    text = html.unescape(re.sub(r"<[^>]+>", "", str(value or "")))
+    text = pdf_report_text(value)
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"\n\s*\n+", "\n\n", text).strip()
     if limit is None or len(text) <= limit:
@@ -31,12 +32,12 @@ def _narrative_text(value: Any, *, limit: int | None = 1200) -> str:
     return f"{text[: limit - 1].rstrip()}…"
 
 
-def _text_items(values: Any, *, limit: int = 320) -> tuple[str, ...]:
+def _text_items(values: Any, *, limit: int | None = 320) -> tuple[str, ...]:
     if not isinstance(values, list):
         return ()
     items: list[str] = []
     for value in values:
-        text = _compact_text(value, limit=limit)
+        text = _narrative_text(value, limit=None) if limit is None else _compact_text(value, limit=limit)
         if text and text not in items:
             items.append(text)
     return tuple(items)
@@ -54,14 +55,15 @@ def build_ai_review(case: dict[str, Any]) -> AIReviewSummary | None:
         facts = {}
     return AIReviewSummary(
         risk_level=str(result.get("risk_level") or ""),
-        decision_summary=_compact_text(result.get("decision_summary"), limit=240),
+        decision_summary=_narrative_text(result.get("decision_summary"), limit=None),
         # The decision report is an audit artifact. Keep the complete review;
         # pagination belongs to the renderer and must not be replaced by a
         # silent character limit here.
         conclusion=_narrative_text(result.get("conclusion"), limit=None),
         missing_information=_text_items(result.get("missing_information")),
         recommended_actions=_text_items(result.get("recommended_actions")),
-        risk_boundaries=_text_items(result.get("risk_boundaries")),
+        risk_boundaries=_text_items(result.get("risk_boundaries"), limit=None),
+        trigger_reasons=_text_items(result.get("trigger_reasons"), limit=None),
         business_activity=_compact_text(facts.get("business_activity"), limit=220),
         overseas_recipient=_compact_text(facts.get("overseas_recipient"), limit=180),
         processing_purpose=_compact_text(facts.get("processing_purpose"), limit=220),
@@ -196,7 +198,7 @@ def build_legal_sources(case: dict[str, Any]) -> tuple[LegalSource, ...]:
 
 def build_remediation_details(actions: list[dict[str, Any]]) -> tuple[RemediationDetail, ...]:
     priority_labels = {"high": "高优先级", "medium": "中优先级", "low": "低优先级"}
-    status_labels = {"open": "待完成", "in_progress": "进行中", "completed": "已完成"}
+    status_labels = {"open": "待完成", "in_progress": "进行中", "pending_review": "待复核", "completed": "已完成"}
     details: list[RemediationDetail] = []
     for item in actions:
         title = _compact_text(item.get("title"), limit=180)
@@ -206,11 +208,11 @@ def build_remediation_details(actions: list[dict[str, Any]]) -> tuple[Remediatio
             RemediationDetail(
                 title=title,
                 description=_compact_text(item.get("description"), limit=180),
-                owner_role=_compact_text(item.get("owner_role"), limit=80),
+                owner_role=_compact_text((item.get("assignee") or {}).get("display_name") or item.get("assignee_id"), limit=80),
                 priority=priority_labels.get(str(item.get("priority") or "").lower(), ""),
                 required_before=_compact_text(item.get("due_date"), limit=80),
                 status=status_labels.get(str(item.get("status") or "").lower(), "待完成"),
-                evidence_expected=_compact_text(item.get("evidence_expected"), limit=180),
+                evidence_expected=_compact_text(item.get("acceptance_criteria"), limit=180),
             )
         )
     return tuple(details)

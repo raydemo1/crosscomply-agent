@@ -104,7 +104,7 @@ def test_report_surfaces_case_specific_ai_review_and_action_details(tmp_path) ->
     assert destination.read_bytes() == artifact.pdf_bytes
     assert "NimbusCRM 境外 SaaS 上线前审查" in text
     assert "建议附条件通过" in text
-    assert "审批摘要" in text
+    assert "审查摘要" in text
     assert "当前材料支持附条件通过" in text
     assert "完整审查意见" in text
     assert "尚未提供分处理者清单" in text
@@ -123,11 +123,11 @@ def test_report_renders_markdown_review_without_literal_markup_or_forced_wraps(t
         ai_review=AIReviewSummary(
             risk_level="medium",
             conclusion=(
-                "### 风险定性 该场景涉及**个人信息跨境提供**，存在中等合规风险。\n"
+                "### 风险定性\n\n该场景涉及**个人信息跨境提供**，存在中等合规风险。\n"
                 "企业拟采购境外 CRM / AI SaaS，向欧洲供应商\n"
                 "传输客户联系人和工单数据。\n\n"
-                "###\\\n关键法律依据 依据《促进和规范数据跨境流动规定》第八条②，\n"
-                "自当\\\n年1月1日起累计人数达到门槛时，应当订立标准合同。\n\n"
+                "### 关键法律依据\n\n依据《促进和规范数据跨境流动规定》第八条②，\n"
+                "自当年1月1日起累计人数达到门槛时，应当订立标准合同。\n\n"
                 "### 合规义务与缺口\n"
                 "- 需确认累计向境外提供的个人信息主体人数；\n"
                 "- 需开展个人信息保护影响评估。"

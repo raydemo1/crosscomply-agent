@@ -43,7 +43,7 @@ def ensure_decision_report(
 
     existing = governance_store.get_latest_report(case_id)
     # 复用仅限同一审批：案件重新审批后必须为新决定重建报告
-    if existing is not None and getattr(existing, "approval_id", None) == str(approval.id):
+    if existing is not None and existing.approval_id == str(approval.id):
         return existing
 
     approved_task = enterprise_store.get_task(approval.task_id)
@@ -57,12 +57,7 @@ def ensure_decision_report(
     versions = [
         enterprise_store.get_material_version(version_id) for version_id in snapshot.version_ids
     ]
-    snapshot_actions = approval.payload.get("report_actions_snapshot")
-    actions = (
-        [dict(item) for item in snapshot_actions if isinstance(item, dict)]
-        if isinstance(snapshot_actions, list)
-        else case_store.list_actions(case_id)
-    )
+    tasks = case_store.list_remediation_tasks(case_id)
     review_result = dict((approved_task.result or {}).get("review_result") or {})
     selected_path = str(review_result.get("legal_path") or "")
     report_data = DecisionReportData(
@@ -70,14 +65,14 @@ def ensure_decision_report(
         decision=approval.status,
         material_hashes=tuple(item.sha256 for item in versions if item is not None),
         legal_sources=build_legal_sources(case),
-        remediation_items=tuple(item["title"] for item in actions),
+        remediation_items=tuple(item["title"] for item in tasks),
         approver=approval.approver_name or "未记录审批人",
         approved_at=approval.decided_at or approval.updated_at,
         case_title=case.get("title", ""),
         selected_path=selected_path,
         manual_confirmation_items=tuple(review_result.get("missing_information") or ()),
         ai_review=build_ai_review(case),
-        remediation_details=build_remediation_details(actions),
+        remediation_details=build_remediation_details(tasks),
     )
     artifact = generate_decision_report(report_data)
     stored = object_store.put_original(

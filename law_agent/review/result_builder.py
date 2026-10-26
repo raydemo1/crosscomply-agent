@@ -14,6 +14,7 @@ import json
 import re
 from collections.abc import Sequence
 from html import escape
+from itertools import pairwise
 from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
@@ -25,6 +26,7 @@ from law_agent.review.agent_context import compact_evidence_context
 from law_agent.review.citations import group_citations
 from law_agent.review.dates import business_today
 from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
+from law_agent.review.report_markdown import REPORT_WRITING_GUIDANCE, report_markdown
 from law_agent.review.schemas import (
     LEGAL_BASIS_GAP_GUIDANCE,
     Citation,
@@ -103,10 +105,10 @@ class LLMReviewResultDraft(StrictModel):
     risk_level: RiskLevel = Field(description="针对本次审查目标的风险判断；关键事实或法律依据不足而无法判断时用insufficient_evidence，不以medium代替未知")
     decision_summary: str = Field(min_length=40, max_length=240, description="直接概括本次判断及决定性的前提或限制，不补造人数、规模或持续时间")
     legal_path: str | None = Field(default=None, description="仅填写事实和法源已支持的个案确定路径；条件分支流程写正文，此字段留空")
-    conclusion: str = Field(description="围绕当前目标的完整中文答复，说明关键事实、规则与适用推导；条件分支可在此说明，未知不得写成否定")
+    conclusion: str = Field(description=REPORT_WRITING_GUIDANCE)
     claims: list[GroundedClaimDraft] = Field(default_factory=list, description="正文法律判断对应的可追溯主张，仅引用本轮实际返回且can_cite_clause=true的chunk_id；解释、清单、标准内容可在正文准确说明，不升级为法律claims")
     reference_chunk_ids: list[str] = Field(default_factory=list, description="报告实际使用的解释、指南、标准等参考原文chunk_id；不升级为正式法律主张；未使用的调查资料不登记")
-    trigger_reasons: list[str] = Field(default_factory=list, description="有事实及法源支持的当前风险理由，不添加未经确认的情节")
+    trigger_reasons: list[str] = Field(default_factory=list, description="有事实及法源支持的决定性判断要点，通常2至4项，每项简短且保留必要条件；不添加未经确认的情节，没有则留空，不重复全文")
     questions: list[ReviewQuestionDraft] = Field(default_factory=list, description="完整业务待确认清单，包含材料冲突所需问题；问题项通过下标引用，事实确认任务仅由此清单生成")
     legal_basis_gaps: list[str] = Field(default_factory=list, description=LEGAL_BASIS_GAP_GUIDANCE + "由Agent补查或审查人员核实，不生成申请人事实确认或整改任务")
     recommended_actions: list[str] = Field(default_factory=list, description="与当前问题有关的必要下一步；一般建议放此处，不制造issues，没有相关建议可留空")
@@ -267,33 +269,50 @@ def _compact_markdown_text(value: str) -> str:
 
 
 def _report_paragraph_ranges(report: str) -> list[tuple[int, int]]:
-    """Return body ranges for markdown paragraphs, excluding heading-only blocks."""
+    """Locate prose, list items and body cells without altering source offsets."""
 
+    lines = report.splitlines(keepends=True)
+    offsets = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line))
     ranges: list[tuple[int, int]] = []
-
-    def add_block(start: int, end: int) -> None:
-        block = report[start:end]
-        left_trimmed = block.lstrip()
-        if not left_trimmed.strip():
-            return
-        content_start = start + (len(block) - len(left_trimmed))
-        content_end = start + len(block.rstrip())
-        first_line_end = report.find("\n", content_start, content_end)
-        first_line = report[content_start : first_line_end if first_line_end >= 0 else content_end]
-        if first_line.lstrip().startswith("#"):
-            if first_line_end < 0:
-                return
-            content_start = first_line_end + 1
-            content_end = start + len(block.rstrip())
-            if not report[content_start:content_end].strip():
-                return
-        ranges.append((content_start, content_end))
-
-    block_start = 0
-    for separator in re.finditer(r"\n\s*\n+", report):
-        add_block(block_start, separator.start())
-        block_start = separator.end()
-    add_block(block_start, len(report))
+    cell_indexes: dict[int, int] = {}
+    tokens = report_markdown().parse(report)
+    for index, token in enumerate(tokens):
+        if token.type != "inline" or token.map is None:
+            continue
+        parent = tokens[index - 1].type if index else ""
+        start_line, end_line = token.map
+        if parent == "td_open":
+            line = lines[start_line].rstrip("\r\n")
+            pipes = []
+            slashes = 0
+            for position, char in enumerate(line):
+                if char == "|" and slashes % 2 == 0:
+                    pipes.append(position)
+                slashes = slashes + 1 if char == "\\" else 0
+            edges = [-1, *pipes, len(line)]
+            cells = [(left + 1, right) for left, right in pairwise(edges)]
+            if pipes and not line[:pipes[0]].strip():
+                cells = cells[1:]
+            if pipes and not line[pipes[-1] + 1:].strip():
+                cells = cells[:-1]
+            cell_index = cell_indexes.get(start_line, 0)
+            cell_indexes[start_line] = cell_index + 1
+            if cell_index >= len(cells):
+                continue
+            start, end = cells[cell_index]
+            start += len(line[start:end]) - len(line[start:end].lstrip())
+            end = start + len(line[start:end].rstrip())
+            if end > start:
+                ranges.append((offsets[start_line] + start, offsets[start_line] + end))
+        elif parent == "paragraph_open":
+            start, end = offsets[start_line], offsets[end_line]
+            source = report[start:end]
+            start += len(source) - len(source.lstrip())
+            end = start + len(report[start:end].rstrip())
+            if end > start:
+                ranges.append((start, end))
     return ranges
 
 
@@ -415,7 +434,7 @@ def build_result_generation_messages(
 原文与同源evidence_sources合并理解，完整原文和full_article_text中的条件、例外及适用范围一起使用。代表命中、同源支持和相邻内容的来源身份相同，不因检索位置而改变法律效力。依据不足时如实说明，不以自检sufficient或已存在一些业务信息为由强行确定路径、风险或义务。
 关键前提不足以支持本次个案判断时，risk_level为insufficient_evidence、legal_path留空，正文仍可给有依据的条件分支。范围外缺口不阻塞已经确定的限定结论。不得用medium/high/low代替未知，也不得增加材料未提供的人数、持续时间或身份。
 结论、摘要、理由、清单和建议在明确关联的条件下保持一致，不必逐句重复条件；不能用末段的待确认事项挽救前面的无条件结论。区分处理依据、程序机制和具体义务，各自结合适用条件及例外。参考标准与政策解释可支持说明或建议，不独立创设法定义务。
-claims关联关键法律判断所在的完整段落，不要求逐句拆分；尽量保留正文原表述以便定位。supporting_chunk_ids只复制实际取得且can_cite_clause=true的原文标识，按实际支持关系选择，不为分散来源更换引用。正文实际使用的解释、标准等资料登记reference_chunk_ids；没有使用的资料不登记。编号、来源信息及展示位置由程序处理，不自行编排引用编号或HTML标记。
+claims关联关键法律判断所在的完整段落、独立列表项或表格单元格，不要求逐句拆分；尽量保留正文原表述以便定位。supporting_chunk_ids只复制实际取得且can_cite_clause=true的原文标识，按实际支持关系选择，不为分散来源更换引用。正文实际使用的解释、标准等资料登记reference_chunk_ids；没有使用的资料不登记。编号、来源信息及展示位置由程序处理，不自行编排引用编号或HTML标记。
 decision_summary为单段纯文本，直接回答当前目标，保留决定性限制，不引入正文与材料没有的新事实。建议、待确认事实和已确认法律问题分别表达，不为填满栏目生成整改事项。仅依据当前中国数据合规语料，问题超出范围或缺少适用法源时说明限制，不补造其他法域规则。
 """
     system += "review_date是审查时点，current_date是运行日期。法律依据缺口写legal_basis_gaps，不让申请人确认法条内容或规则适用关系。\n"
@@ -512,7 +531,7 @@ def build_review_result_with_deepseek(
         )
         selected = report_evidence(evidence_hits, claims=draft.claims,
                                    reference_chunk_ids=draft.reference_chunk_ids,
-                                   additional_chunk_ids=[cid for issue in getattr(draft, "issues", [])
+                                   additional_chunk_ids=[cid for issue in draft.issues
                                                          for cid in issue.supporting_chunk_ids])
         citation_groups, _ = group_citations(selected, facts, chunks_by_id)
         citation_ref_by_chunk_id = {c.chunk_id: c.citation_ref for g in citation_groups for c in g.citations}

@@ -133,16 +133,6 @@ def _row_case(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _report_task_shape(item: dict[str, Any]) -> dict[str, Any]:
-    report_item = dict(item)
-    report_item["owner_role"] = item.get("assignee_id") or "未分派"
-    report_item["evidence_expected"] = item.get("acceptance_criteria") or ""
-    report_item["status"] = {
-        "open": "open", "in_progress": "in_progress", "pending_review": "in_progress", "completed": "completed"
-    }.get(str(item.get("status")), "open")
-    return report_item
-
-
 def _row_user(row: dict[str, Any]) -> UserRecord:
     return UserRecord(
         id=row["id"],
@@ -176,7 +166,6 @@ class CaseStore(Protocol):
     def list_events(self, case_id: str) -> list[dict[str, Any]]: ...
 
     # Internal report projection; this does not read or write the removed case_actions table.
-    def list_actions(self, case_id: str) -> list[dict[str, Any]]: ...
 
     def get_user(self, user_id: str) -> UserRecord | None: ...
 
@@ -548,10 +537,6 @@ class PostgresCaseStore:
                 for item in cur.fetchall()
             ]
             return plan
-
-    def list_actions(self, identifier: str) -> list[dict[str, Any]]:
-        """Return remediation tasks in the legacy report detail shape."""
-        return [_report_task_shape(item) for item in self.list_remediation_tasks(identifier)]
 
     def create_remediation_plan(self, identifier: str, created_by: str, **kwargs: Any) -> dict[str, Any]:
         plan_identifier = kwargs.get("id") or remediation_plan_id()
@@ -1130,10 +1115,6 @@ class InMemoryCaseStore:
         result["tasks"] = tasks
         result["events"] = [dict(item) for item in self.remediation_events if item["plan_id"] == plan["id"]]
         return result
-
-    def list_actions(self, identifier: str) -> list[dict[str, Any]]:
-        """Return remediation tasks in the report detail shape; no old table is used."""
-        return [_report_task_shape(item) for item in self.list_remediation_tasks(identifier)]
 
     def create_remediation_plan(self, identifier: str, created_by: str, **kwargs: Any) -> dict[str, Any]:
         if any(item["case_id"] == identifier for item in self.remediation_plans.values()):
