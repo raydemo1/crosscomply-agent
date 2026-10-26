@@ -24,8 +24,6 @@ export default function LoginPage({ onLogin, error }: LoginPageProps): JSX.Eleme
 
   return (
     <main className="login-shell">
-      <div className="login-ornament login-ornament--one" />
-      <div className="login-ornament login-ornament--two" />
       <section className="login-card">
         <div className="login-brand"><img src="/crosscomply-logo.svg" alt="" className="login-brand__mark" /><div><strong><span>Cross</span><em>Comply</em></strong><small>跨境数据合规系统</small></div></div>
         <div className="login-card__copy"><h1><span className="login-word login-word--navy" tabIndex={0}>让合规判断</span><br /><span className="login-word login-word--accent" tabIndex={0}>有据可依</span></h1></div>

@@ -27,9 +27,8 @@
   align-items: center;
   gap: clamp(28px, 8vw, 120px);
   min-height: 100vh;
+  min-height: 100svh;
   width: 100%;
-  max-width: 1520px;
-  margin-inline: auto;
   padding: clamp(28px, 8vw, 90px);
   overflow: hidden;
   background: var(--color-muted);
@@ -42,10 +41,9 @@
   z-index: -2;
   inset: 0;
   content: '';
-  background-image: url('/crosscomply-login-atmosphere.png');
+  background-image: url('/login-backgrounds/balance.png');
   background-position: center;
   background-size: cover;
-  opacity: 0.62;
   pointer-events: none;
 }
 
@@ -54,7 +52,7 @@
   z-index: -1;
   inset: 0;
   content: '';
-  background: linear-gradient(90deg, var(--login-veil-strong) 0%, var(--login-veil-mid) 46%, var(--login-veil-soft) 100%);
+  background: var(--login-background-overlay, transparent);
   pointer-events: none;
 }
 
@@ -64,7 +62,7 @@
   max-width: 560px;
   padding: clamp(28px, 5vw, 56px);
   border: 1px solid var(--color-border);
-  background: var(--login-card-bg);
+  background: var(--login-card-bg, rgba(255, 255, 255, 0.94));
   box-shadow: var(--shadow-lg);
 }
 
@@ -222,26 +220,6 @@
   }
 }
 
-.login-ornament {
-  position: absolute;
-  border: 1px solid rgba(30, 58, 138, 0.12);
-  border-radius: 50%;
-}
-
-.login-ornament--one {
-  width: 520px;
-  height: 520px;
-  right: 8%;
-  bottom: -260px;
-}
-
-.login-ornament--two {
-  width: 260px;
-  height: 260px;
-  right: 30%;
-  top: -140px;
-}
-
 @media (max-width: 900px) {
   .login-shell {
     grid-template-columns: 1fr;
@@ -249,12 +227,7 @@
   }
 
   .login-shell::before {
-    background-position: 70% center;
-    opacity: 0.38;
-  }
-
-  .login-shell::after {
-    background: var(--login-veil-mid);
+    background-position: left center;
   }
 
 }
@@ -275,7 +248,7 @@
     grid-template-columns: minmax(520px, 640px) minmax(360px, 500px);
     justify-content: space-between;
     gap: clamp(40px, 5vw, 80px);
-    padding-inline: clamp(32px, 5vw, 80px);
+    padding-inline: max(clamp(32px, 5vw, 80px), calc((100% - 1360px) / 2));
   }
 
   .login-card {
@@ -446,17 +419,13 @@
 
 /* 登录页深色纱罩 */
 [data-theme='dark'] {
-  --login-veil-strong: rgba(10, 15, 26, 0.94);
-  --login-veil-mid: rgba(10, 15, 26, 0.8);
-  --login-veil-soft: rgba(10, 15, 26, 0.42);
+  --login-background-overlay: linear-gradient(90deg, rgba(10, 15, 26, 0.94) 0%, rgba(10, 15, 26, 0.8) 46%, rgba(10, 15, 26, 0.72) 100%);
   --login-card-bg: rgba(15, 21, 35, 0.95);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --login-veil-strong: rgba(10, 15, 26, 0.94);
-    --login-veil-mid: rgba(10, 15, 26, 0.8);
-    --login-veil-soft: rgba(10, 15, 26, 0.42);
+    --login-background-overlay: linear-gradient(90deg, rgba(10, 15, 26, 0.94) 0%, rgba(10, 15, 26, 0.8) 46%, rgba(10, 15, 26, 0.72) 100%);
     --login-card-bg: rgba(15, 21, 35, 0.95);
   }
 }
