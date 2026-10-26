@@ -552,7 +552,7 @@ function RemediationTaskDetail({ task, user, assignableUsers, caseStatus, onChan
           <button type="button" className="remediation-text-button" onClick={() => setShowMaterials((value) => !value)}>{showMaterials ? '收起材料' : '补充材料'}</button>
           {showMaterials ? <div className="remediation-materials"><p className="remediation-muted">已有材料无需重复上传。</p><label><span>上传文件</span><input type="file" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []))} /></label>{files.length ? <div className="remediation-file-list">{files.map((file) => <span key={`${file.name}-${file.size}`}>{file.name}</span>)}</div> : null}<label><span>补充链接（每行一个）</span><textarea className="remediation-submit__links" value={links} onChange={(event) => setLinks(event.target.value)} placeholder="https://…" /></label></div> : null}
           {!factQuestion && choice === 'completed' && !files.length ? <p className="remediation-muted">可先提交完成声明。没有实施材料时，审核人会看到这一情况并决定是否验收。</p> : null}
-          <button type="button" className="remediation-button remediation-button--primary" disabled={busy || (needsDetail && !note.trim())} onClick={() => void submit()}>{busy ? '正在提交…' : '提交回答'}</button>
+          <div className="remediation-submit__actions"><button type="button" className="remediation-button remediation-button--primary" disabled={busy || (needsDetail && !note.trim())} onClick={() => void submit()}>{busy ? '正在提交…' : '提交回答'}</button></div>
         </> : null}
       </div> : null}
       <AgentReviewCard assessment={task.latest_assessment ?? null} submission={latest} onAnswer={answer} />

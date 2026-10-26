@@ -462,7 +462,20 @@ def register_case_routes(
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
         cases = store().list_cases(user, query)
-        return {"items": [case_summary(case) for case in cases], "total": len(cases)}
+        items = []
+        for case in cases:
+            summary = case_summary(case)
+            # 侧栏案件卡展示待办数：仅在有未完成事项时附带，避免列表膨胀
+            if case["status"] not in {"draft", "run_failed"}:
+                plan = store().get_remediation_plan(case["id"])
+                pending = sum(
+                    1 for task in (plan or {}).get("tasks") or []
+                    if task.get("is_current") is not False and task.get("status") != "completed"
+                )
+                if pending:
+                    summary["pending_followup_count"] = pending
+            items.append(summary)
+        return {"items": items, "total": len(items)}
 
     @router.get("/api/cases/{identifier}")
     async def get_case(

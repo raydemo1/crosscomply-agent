@@ -205,6 +205,7 @@ export default function Sidebar({
               >
                 <div className="history-item__top">
                   <span className="history-item__question">{summarizeCaseTitle(item.question)}</span>
+                  {item.pendingFollowupCount ? <span className="history-item__todo">{item.pendingFollowupCount} 项待处理</span> : null}
                 </div>
                 <div className="history-item__meta">
                   <span className={risk.className}>{risk.label}</span>

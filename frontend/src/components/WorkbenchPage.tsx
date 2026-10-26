@@ -361,10 +361,15 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
 
   // 多个事实可能指向同一问题（如敏感/非敏感人数共享统计口径），按问题文本去重
   const seenQuestions = new Set<string>();
+  // 人数口径已随两处人数问题内联出现，不再单独提问
+  const countPeriodShared = missingFacts.some(
+    (item) => item.key !== 'count_period' && (FACT_FIELDS[item.key] ?? []).includes('count_period'),
+  );
   const uniqueFacts = missingFacts.filter((fact) => {
     const questionText = FACT_QUESTIONS[fact.key] ?? fact.reason;
     if (seenQuestions.has(questionText)) return false;
     seenQuestions.add(questionText);
+    if (fact.key === 'count_period' && countPeriodShared) return false;
     return true;
   });
   const askedFacts = uniqueFacts.slice(0, MAX_QUESTIONS);

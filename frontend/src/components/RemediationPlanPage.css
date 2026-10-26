@@ -259,6 +259,15 @@
 .remediation-button:disabled,
 .remediation-text-button:disabled { cursor: not-allowed; opacity: 0.55; }
 .remediation-submit > .remediation-button { margin-top: 14px; }
+/* 选中处理方式后提交按钮吸底：长详情里无需滚动即可见、可点 */
+.remediation-submit__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin-top: 10px;
+  padding: 12px 0 4px;
+  background: linear-gradient(to top, var(--color-surface) 62%, transparent);
+}
 .remediation-review__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .remediation-message,
 .remediation-form-error { margin-top: 10px; color: var(--color-secondary); font-size: var(--text-sm); }
