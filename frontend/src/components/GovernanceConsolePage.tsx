@@ -67,8 +67,8 @@ export default function GovernanceConsolePage({ user }: GovernanceConsolePagePro
 
       <section className="card user-admin" aria-label={`企业用户管理 · ${users.length} 个账户`}>
         {creating ? <div className="user-admin__create" id="user-create-form">
-          <label className="form-field"><span>登录名</span><input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="buyer@example.com" /></label>
-          <label className="form-field"><span>显示名称</span><input value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} placeholder="例如：王申请" /></label>
+          <label className="form-field"><span>登录名</span><input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="zhangsan@company.com" /></label>
+          <label className="form-field"><span>显示名称</span><input value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} placeholder="例如：张三（法务部）" /></label>
           <label className="form-field"><span>初始密码</span><input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="至少 12 位" /></label>
           <label className="form-field"><span>角色</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as UserRole })}><option value="requester">申报人</option><option value="reviewer">审核人</option><option value="admin">管理员</option></select></label>
           <button type="button" className="btn-primary" disabled={busy || !form.username.trim() || !form.display_name.trim() || form.password.length < 12} onClick={() => void createUser()}>创建用户</button>

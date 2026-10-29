@@ -87,7 +87,7 @@ def test_pdf_renders_multipage_table_and_all_report_sections(tmp_path):
     pages = PdfReader(destination).pages
     text = '\n'.join(page.extract_text() or '' for page in pages)
     assert len(pages) > 3
-    for value in ['判断要点', '适用条件比较', '条件 64', '末尾完整保留标记', '结论适用边界', '使用说明']:
+    for value in ['判断要点', '适用条件比较', '条件 64', '末尾完整保留标记', '结论适用前提与范围', '使用说明']:
         assert value in text
     assert text.count('核对条件') > 1
     assert '**' not in text

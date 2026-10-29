@@ -112,11 +112,11 @@ export default function CaseWorkflowActions({
   const controls = (
     <div className="workflow-actions__controls">
       {canManage && saved.status === 'pending_review' ? (activeTask
-        ? <span>{saved.reviewTask?.status === 'queued' ? '审查任务已进入队列，等待系统执行，无需手动启动。' : 'Agent 正在审查当前材料，完成后会自动更新结论。'}</span>
+        ? <span>{saved.reviewTask?.status === 'queued' ? '审查任务已进入队列，等待执行。' : 'CrossComply 正在审查当前材料，完成后会自动更新结论。'}</span>
         : <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '正在入队…' : '重新进入审查队列'}</button>) : null}
-      {canManage && saved.status === 'needs_info' && !activeTask && !frozenInputAlreadyReviewed ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '调查启动中…' : '按最新材料重新调查'}</button> : null}
-      {canManage && saved.status === 'pending_source_verification' ? <span>{saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '法源已完成核验，案件待人工复核；原结论未自动改写' : '法律依据尚待核实或补充，案件暂缓送审；原结论不会自动改写'}</span> : null}
-      {canManage && saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? (guidedActionSyncFailed ? '正在恢复整改清单…' : '重新运行中…') : (guidedActionSyncFailed ? '重试整改清单保存' : '重试失败任务')}</button> : null}
+      {canManage && saved.status === 'needs_info' && !activeTask && !frozenInputAlreadyReviewed ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '正在启动审查…' : '基于最新材料重新审查'}</button> : null}
+      {canManage && saved.status === 'pending_source_verification' ? <span>{saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '法规来源已完成核验，案件待人工复核；原结论未自动改写' : '法规依据尚待核实或补充，案件暂缓送审；原结论不会自动改写'}</span> : null}
+      {canManage && saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? (guidedActionSyncFailed ? '正在恢复待办事项清单…' : '重新运行中…') : (guidedActionSyncFailed ? '重试待办事项清单保存' : '重试失败任务')}</button> : null}
       {canManage && saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
     </div>
   );
@@ -129,7 +129,7 @@ export default function CaseWorkflowActions({
     <section className="card workflow-actions" aria-label="审核流程操作">
       <div className="workflow-actions__copy">
         <span>{canManage ? '审核人操作' : '申报人补充'}</span>
-        <strong>{canAnswerAgent ? 'Agent 等待申报人补充信息' : workflowActionTitle(saved)}</strong>
+        <strong>{canAnswerAgent ? 'CrossComply 等待申报人补充信息' : workflowActionTitle(saved)}</strong>
         <small>{canAnswerAgent ? '请直接回答下方问题；回答会进入本次审查过程。' : workflowActionHint(saved)}</small>
       </div>
       {controls}
@@ -139,30 +139,30 @@ export default function CaseWorkflowActions({
 }
 
 function workflowActionTitle(saved: SavedCase): string {
-  if (saved.status === 'pending_source_verification') return '法律依据核验与案件复核';
+  if (saved.status === 'pending_source_verification') return '法规依据核验与案件复核';
   if (saved.status === 'pending_review') {
     if (saved.reviewTask?.status === 'queued') return '审查任务排队中';
-    if (saved.reviewTask?.status === 'running' || saved.reviewTask?.status === 'waiting_input') return 'Agent 正在审查';
+    if (saved.reviewTask?.status === 'running' || saved.reviewTask?.status === 'waiting_input') return 'CrossComply 正在审查';
     return '材料已提交，等待进入审查队列';
   }
   if (saved.status === 'run_failed') return hasUnresolvedGuidedActionSyncFailure(saved)
-    ? '审查结果已保存，整改清单生成失败'
+    ? '审查结果已保存，待办事项清单生成失败'
     : '失败记录已保留，可以人工重试';
-  if (saved.status === 'pending_feishu_approval') return saved.feishuApproval ? '飞书审批已发起，等待权威回写' : '审查已完成，可以发起飞书审批';
+  if (saved.status === 'pending_feishu_approval') return saved.feishuApproval ? '飞书审批已发起，等待审批结果同步' : '审查已完成，可以发起飞书审批';
   return '流程状态已更新';
 }
 
 function workflowActionHint(saved: SavedCase): string {
-  if (saved.status === 'pending_source_verification') return saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '法源已完成核验，待负责人复核当前案件。' : '核验期间不发起最终审批。';
+  if (saved.status === 'pending_source_verification') return saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '法规来源已完成核验，待负责人复核当前案件。' : '核验期间不发起最终审批。';
   if (saved.status === 'pending_review') {
-    if (saved.reviewTask?.status === 'queued') return '任务已进入队列，等待系统执行，无需手动启动。';
-    if (saved.reviewTask?.status === 'running' || saved.reviewTask?.status === 'waiting_input') return 'Agent 正在调查材料、检索法源并核验证据，完成后自动更新结论。';
+    if (saved.reviewTask?.status === 'queued') return '任务已进入队列，等待执行。';
+    if (saved.reviewTask?.status === 'running' || saved.reviewTask?.status === 'waiting_input') return 'CrossComply 正在核查材料、检索法规并核验证据，完成后自动更新结论。';
     return '正常提交会自动进入审查队列；若任务未开始，可由审核人重新入队。';
   }
   if (saved.status === 'run_failed') return hasUnresolvedGuidedActionSyncFailure(saved)
-    ? '可以单独重试整改清单保存，不会重新运行审查模型。'
+    ? '可以单独重试待办事项清单保存，不会重新运行审查模型。'
     : `失败节点：${saved.reviewTask?.current_node || '未记录'}；重试不会覆盖历史尝试。`;
-  if (saved.status === 'pending_feishu_approval') return '最终通过、退回或撤回状态仅接受飞书验签事件。';
+  if (saved.status === 'pending_feishu_approval') return '最终通过、退回或撤回状态以飞书审批结果为准。';
   return '流程状态已更新。';
 }
 

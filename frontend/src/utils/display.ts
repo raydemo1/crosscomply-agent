@@ -44,8 +44,8 @@ export const RISK_BADGE_CLASS: Record<RiskLevel, string> = {
 };
 
 export const USAGE_LABELS: Record<CitationUsage, string> = {
-  legal_basis: '直接法律依据',
-  conditional_basis: '条件性法律依据',
+  legal_basis: '直接法规依据',
+  conditional_basis: '条件性法规依据',
   implementation_reference: '实施标准与指南',
   policy_explanation: '政策释义与背景材料',
 };
@@ -60,11 +60,11 @@ export const AUTHORITY_LABELS: Record<string, string> = {
   public_interpretation: '公开政策释义',
   privacy_policy: '隐私政策',
   simulated_internal_policy: '内部制度（模拟）',
-  unknown: '权威等级未提供',
+  unknown: '效力层级未提供',
 };
 
 export const DOC_TYPE_LABELS: Record<string, string> = {
-  unknown: '法源类型未提供',
+  unknown: '依据类型未提供',
   law: '法律',
   regulation: '法规/规章',
   policy: '政策文件',
@@ -94,7 +94,7 @@ export const USAGE_ORDER: CitationUsage[] = [
 ];
 
 export const CITATION_ROLE_LABELS: Record<ClauseCitationRole, string> = {
-  primary_legal_basis: '主要法律依据',
+  primary_legal_basis: '主要法规依据',
   conditional_local_basis: '条件 · 地域依据',
   conditional_industry_basis: '条件 · 行业依据',
   implementation_reference: '实施参考',
@@ -116,7 +116,7 @@ export const EVIDENCE_STATUS_BADGE_CLASS: Record<EvidenceStatus, string> = {
 };
 
 export const EVIDENCE_ISSUE_LABELS: Record<EvidenceIssueType, string> = {
-  no_primary_legal_basis: '缺少主要法律依据',
+  no_primary_legal_basis: '缺少主要法规依据',
   region_mismatch: '地域不匹配',
   industry_mismatch: '行业不匹配',
   only_auxiliary_evidence: '仅有辅助证据',
@@ -205,7 +205,7 @@ function stripCitationRef(value: string): string {
 /** Render a legal basis as the law name and, when available, its article. */
 export function legalBasisLabel(title: string | null | undefined, article?: string | null): string {
   const cleanTitle = stripCitationRef(title || '').replace(/^《|》$/g, '').trim();
-  if (!cleanTitle) return article?.trim() || '未提供法律依据';
+  if (!cleanTitle) return article?.trim() || '未提供法规依据';
   return `《${cleanTitle}》${article?.trim() || ''}`;
 }
 

@@ -142,6 +142,8 @@ class KnowledgeBaseAdminService:
         items: list[SourceSummary] = []
         for item in records:
             source = item.source
+            if source.authority == "simulated_internal_policy":
+                continue
             if library_kind and source.library_kind != library_kind:
                 continue
             if status and (source.internal_status if source.library_kind == "internal_policy" else source.law_status) != status:

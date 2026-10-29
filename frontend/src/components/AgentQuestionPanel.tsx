@@ -55,7 +55,7 @@ export default function AgentQuestionPanel({ saved, requester, busy, execute, on
   });
   const changed = valuesChanged(state.pending_fact_values ?? {}, saved.intakeSnapshot?.intake ?? saved.intake);
   const keepOriginal = () => void execute('answer', async () => {
-    const resumed = await answerReviewTask(task.id, state.gate_id!, '已核对上述事实，仍以原冻结事实为准。');
+    const resumed = await answerReviewTask(task.id, state.gate_id!, '已核对上述事实，仍以原申报信息为准。');
     await continueTask(resumed.id);
   });
   const inputs = <div className="case-fact-question__fields">{fields.map((field) => <label key={field}>
@@ -72,12 +72,12 @@ export default function AgentQuestionPanel({ saved, requester, busy, execute, on
       <p>{changed ? '核对以下内容。确认后将更新案件事实，并基于原有材料自动重新审查。' : '补充值与原填报内容一致，可继续当前审查。如需修改，请展开下方的补充内容。'}</p>
       <dl className="case-facts__values case-fact-question__comparison">{Object.entries(state.pending_fact_values ?? {}).map(([field, value]) => <div key={field}><dt>{FACT_FIELDS[field as FactField].label}</dt><dd><small>补充值 · 待确认</small><strong>{factValue(field, value)}</strong><small>原填报值：{factValue(field, saved.intakeSnapshot?.intake[field as FactField])}</small></dd></div>)}</dl>
       <div className="case-fact-question__footer"><button type="button" className="btn-primary" disabled={busy} onClick={changed ? confirm : keepOriginal}>{busy ? <LoaderCircle size={16} className="case-busy-icon" /> : <Check size={16} />}{changed ? '确认这些事实并继续审查' : '保留原事实，继续当前审查'}</button><small>{changed ? '确认前，补充内容仍未核实。' : '补充值与已确认事实一致。'}</small></div>
-      <details className="case-fact-question__alternative"><summary>{changed ? '修改补充内容，或保留原事实' : '修改补充内容'}</summary>{inputs}<button type="button" className="case-header__action-btn" disabled={busy} onClick={submit}>重新记录，供我确认</button>{changed ? <button type="button" className="case-header__action-btn" disabled={busy} onClick={keepOriginal}>保留原事实，继续当前审查</button> : null}</details>
+      <details className="case-fact-question__alternative"><summary>{changed ? '修改补充内容，或保留原事实' : '修改补充内容'}</summary>{inputs}<button type="button" className="case-header__action-btn" disabled={busy} onClick={submit}>识别并核对补充事实</button>{changed ? <button type="button" className="case-header__action-btn" disabled={busy} onClick={keepOriginal}>保留原事实，继续当前审查</button> : null}</details>
     </> : <>
       {requester && !asked.length && <label>需要更正已确认的业务事实？<select value={chosenField} disabled={busy} onChange={(e) => { const field = e.target.value as FactField | ''; setChosenField(field); if (field) setValues((current) => ({ ...current, [field]: saved.intakeSnapshot?.intake[field] ?? saved.intake[field] })); }}><option value="">仅补充说明，不更改事实</option>{Object.entries(FACT_FIELDS).map(([field, spec]) => <option key={field} value={field}>{spec.label}</option>)}</select></label>}
       {requester ? inputs : null}
       <label>{requester && fields.length ? '补充说明（可选）' : requester ? '补充说明' : '审查操作指引'}<textarea value={answer} disabled={busy} onChange={(e) => setAnswer(e.target.value)} rows={3} placeholder={requester ? '说明具体业务事实或尚不确定的事项' : '这段内容仅作为操作指引，不会成为案件事实'} /></label>
-      <div className="case-fact-question__footer"><button type="button" className="btn-primary" disabled={busy || (!fields.length || !requester) && !answer.trim()} onClick={submit}>{busy ? <LoaderCircle size={16} className="case-busy-icon" /> : <ArrowRight size={16} />}{busy ? '正在处理…' : requester && fields.length ? '记录补充事实，供我确认' : '回答并继续'}</button><small>{requester && fields.length ? '下一步：核对内容并明确确认' : requester ? '补充说明不会自动变成已确认事实' : '操作指引不会写入案件事实'}</small></div>
+      <div className="case-fact-question__footer"><button type="button" className="btn-primary" disabled={busy || (!fields.length || !requester) && !answer.trim()} onClick={submit}>{busy ? <LoaderCircle size={16} className="case-busy-icon" /> : <ArrowRight size={16} />}{busy ? '正在处理…' : requester && fields.length ? '识别并核对补充事实' : '回答并继续'}</button><small>{requester && fields.length ? '下一步：核对内容并明确确认' : requester ? '补充说明不会自动变成已确认事实' : '操作指引不会写入案件事实'}</small></div>
     </>}
     {onEditMaterial && <div className="case-fact-question__materials"><span>需要用材料说明？</span><button type="button" className="btn-link" disabled={busy} onClick={onEditMaterial}><FilePlus2 size={15} aria-hidden="true" />上传或更新材料</button></div>}
   </section>;

@@ -51,7 +51,7 @@ export default function CitationList({
   return (
     <div className="cite-list cite-list--governance">
       <div className="cite-list__notice">
-        在线核查见右侧法源面板。
+        在线核查见右侧依据面板。
       </div>
       {ordered.map((group) => (
         <section className="cite-list__group" key={group.usage}>
@@ -104,15 +104,15 @@ function GovernanceRow({
       {open ? (
         <div className="cite-row__body">
           <div className="cite-row__meta cite-row__meta--authority">
-            <span><span className="cite-row__meta-label">法源</span>{AUTHORITY_LABELS[citation.authority] ?? citation.authority}</span>
+            <span><span className="cite-row__meta-label">效力层级</span>{AUTHORITY_LABELS[citation.authority] ?? citation.authority}</span>
             <span><span className="cite-row__meta-label">角色</span>{CITATION_ROLE_LABELS[citation.citation_role] ?? '引用角色未提供'}</span>
             <span><span className="cite-row__meta-label">发布机关</span>{citation.issuing_body || '未提供'}</span>
           </div>
           {viewerRole === 'admin' && chunk ? (
             <div className="cite-row__meta">
-              <span><span className="cite-row__meta-label">chunk</span><code>{chunk.chunk_id}</code></span>
-              <span><span className="cite-row__meta-label">检索器</span><code>{chunk.retriever}</code></span>
-              <span><span className="cite-row__meta-label">评分</span><code>{chunk.score.toFixed(4)}</code></span>
+              <span><span className="cite-row__meta-label">文本片段</span><code>{chunk.chunk_id}</code></span>
+              <span><span className="cite-row__meta-label">检索方式</span><code>{chunk.retriever}</code></span>
+              <span><span className="cite-row__meta-label">检索得分</span><code>{chunk.score.toFixed(4)}</code></span>
             </div>
           ) : null}
           {readOnly || viewerRole === 'requester' ? null : <div className="cite-row__feedback">

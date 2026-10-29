@@ -65,10 +65,10 @@ def register_annotation_routes(
         task = enterprise().get_task(task_id) if task_id else enterprise().get_latest_task(case["id"])
         snapshot = enterprise().get_material_snapshot(task.material_snapshot_id) if task else None
         if snapshot is None or target.material_version_id not in snapshot.version_ids:
-            raise HTTPException(status_code=409, detail="所选材料不属于本次审查的冻结快照")
+            raise HTTPException(status_code=409, detail="所选材料不属于本次审查的送审版本")
         material = enterprise().get_material_version(target.material_version_id)
         if material is None or material.case_id != case["id"] or material.parsed_text is None:
-            raise HTTPException(status_code=404, detail="冻结材料不存在")
+            raise HTTPException(status_code=404, detail="送审材料不存在")
         if target.end_offset > len(material.parsed_text) or target.end_offset - target.start_offset > 2000:
             raise HTTPException(status_code=422, detail="请选择不超过 2000 字的原文")
         quote = material.parsed_text[target.start_offset:target.end_offset]

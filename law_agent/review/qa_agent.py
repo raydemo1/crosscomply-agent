@@ -522,7 +522,7 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
             state.tool_session.complete({}, context(), stop=True)
             gaps = decision.evidence_gaps if isinstance(decision, QADecision) else []
             decision = QADecision(action="finish", summary="根据已取得资料回答", chunk_ids=[h.chunk_id for h in state.evidence[:12]],
-                                  evidence_gaps=list(dict.fromkeys([*gaps, "本轮调查已达到执行上限，回答仅基于已取得的资料。"])))
+                                  evidence_gaps=list(dict.fromkeys([*gaps, "本次分析已达处理上限"])))
         limitations = {"budget_exhausted": exhausted,
                        "evidence_gaps": decision.evidence_gaps if isinstance(decision, QADecision) else []}
         checkpoint(result={"citations": [], "material_citations": [], "conditions": [],

@@ -21,7 +21,7 @@ test('interrupted legal prose is collapsed plaintext with no live citation or Ma
   assert.match(html, /<details class="qa-incomplete-draft">/);
   assert.doesNotMatch(html, /<details[^>]*\bopen|qa-prose|<strong>|<a /);
   assert.match(html, /&lt;a href=/);
-  assert.match(html, /可能缺少条件和例外/);
+  assert.match(html, /查看未完成内容/);
 });
 
 test('normal streaming prose retains Markdown rendering', () => {

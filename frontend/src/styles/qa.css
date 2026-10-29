@@ -50,9 +50,11 @@
 .qa-prose th, .qa-prose td { border: 1px solid var(--color-hairline); padding: 8px 12px; }
 .qa-progress { display: flex; align-items: center; gap: 9px; font-size: var(--text-xs); color: var(--color-foreground-muted); margin: 10px 0 18px; }
 .qa-progress-dot { width: 6px; height: 6px; background: var(--color-accent); border-radius: 50%; animation: qa-pulse 1.8s ease-in-out infinite; }
-.qa-conditions { border-left: 2px solid var(--color-accent); padding: 12px 18px; background: var(--color-warning-bg); border-radius: 0 8px 8px 0; font-size: var(--text-sm); margin: 20px 0; }
-.qa-conditions strong { color: var(--color-accent-strong); font-weight: var(--weight-semibold); }
-.qa-conditions ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.85; }
+.qa-conditions { display: flex; align-items: flex-start; gap: 10px; border-left: 2px solid var(--color-warning-border); padding: 12px 18px; background: var(--color-warning-bg); border-radius: 0 8px 8px 0; font-size: var(--text-sm); margin: 20px 0; }
+.qa-conditions > svg { flex: 0 0 auto; margin-top: 3px; color: var(--color-warning); }
+.qa-conditions p { margin: 0; }
+.qa-conditions ul { margin: 0; padding-left: 1.25em; line-height: 1.85; }
+.qa-conditions ul + ul { margin-top: 8px; }
 .qa-citation-group { display: inline-flex; gap: 6px; margin-inline: 4px; vertical-align: super; white-space: nowrap; }
 .qa-citation-chip { position: relative; display: inline-grid; place-items: center; min-width: 20px; height: 18px; border: 0; border-radius: 4px; padding: 1px 4px; font: var(--weight-medium) var(--text-xs)/1.4 var(--font-body); color: var(--color-foreground-muted); background: var(--color-muted); cursor: pointer; }
 .qa-citation-chip::after { content: ''; position: absolute; inset: -3px; }
@@ -93,7 +95,7 @@
 .qa-citation-more { margin-top: 18px; font-size: var(--text-xs); color: var(--color-foreground-muted); }
 .qa-citation-more summary { cursor: pointer; }
 .qa-citation-more blockquote { color: var(--color-foreground-secondary); }
-.qa-answer-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--color-hairline); }
+.qa-answer-footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--color-hairline); }
 .qa-answer-footer > span { display: inline-flex; align-items: center; gap: 5px; color: var(--color-foreground-faint); font-size: var(--text-xs); }
 .qa-handoff-button { display: inline-flex; align-items: center; gap: 7px; border: 0; background: transparent; color: var(--color-primary); font: var(--weight-medium) var(--text-xs) var(--font-body); padding: 7px 0 7px 7px; cursor: pointer; }
 .qa-handoff { padding: 20px; margin-top: 14px; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--tint-navy-bg); }

@@ -62,7 +62,9 @@ _CRITICAL_MISSING_FACTS: frozenset[str] = frozenset(
     {
         "legal_basis_or_consent",
         "overseas_recipient",
-        "data_volume_threshold",
+        "annual_non_sensitive_count",
+        "annual_sensitive_count",
+        "count_period",
     }
 )
 

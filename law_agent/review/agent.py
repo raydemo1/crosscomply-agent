@@ -672,7 +672,7 @@ def run_agent(
         legal_path=None,
         conclusion="本次审查证据不足，暂不能形成确定的法律路径或审批结论。\n\n未解决的审查反馈：" + gap,
         claims=[],
-        trigger_reasons=["调查或补证预算已用尽"],
+        trigger_reasons=["本次审查已达处理上限"],
         questions=[{"text": text} for text in missing_facts],
         legal_basis_gaps=legal_basis_gaps,
         recommended_actions=(["补充缺失事实或法源后重新提交审查"] if missing_facts or legal_basis_gaps else

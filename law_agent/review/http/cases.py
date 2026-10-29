@@ -107,8 +107,6 @@ _INTAKE_FOLLOWUP_TYPES: dict[str, str] = {
     "count_period": "choice",
     "destination_region": "text",
     "exemption_facts": "exemption",
-    "data_volume_threshold": "count",
-    "exemption_facts_confirmed": "exemption",
 }
 
 
@@ -421,7 +419,7 @@ def register_case_routes(
         if case is None or not can_view(user, case):
             raise HTTPException(status_code=404, detail="案件不存在或无权访问")
         if case["status"] not in {"draft", "needs_info"}:
-            raise HTTPException(status_code=409, detail="当前案件状态不允许重新冻结材料快照")
+            raise HTTPException(status_code=409, detail="当前案件状态不允许重新送审材料快照")
         snapshot = enterprise().create_material_snapshot(
             case_id=identifier,
             version_ids=payload.version_ids,
@@ -510,7 +508,7 @@ def register_case_routes(
         if case["status"] in {"approved", "conditionally_approved", "rejected"}:
             raise HTTPException(status_code=409, detail="已签署案件不允许继续修改")
         if user.role == "requester" and case["status"] not in {"draft", "needs_info"}:
-            raise HTTPException(status_code=403, detail="当前案件状态不允许申请人编辑")
+            raise HTTPException(status_code=403, detail="当前案件状态不允许申报人编辑")
         values = payload.model_dump(exclude_unset=True, mode="json")
         if "intake" in values and values["intake"] is not None:
             values["intake_json"] = values.pop("intake")
@@ -548,7 +546,7 @@ def register_case_routes(
         if payload.status in {"review_running", "pending_feishu_approval", "run_failed"}:
             raise HTTPException(status_code=403, detail="该状态只能由审查任务或 worker 写入")
         if user.role == "requester" and payload.status != "pending_review":
-            raise HTTPException(status_code=403, detail="申请人只能确认事实并提交待审")
+            raise HTTPException(status_code=403, detail="申报人只能确认事实并提交待审")
         if user.role != "requester":
             reviewer_only(user)
         if payload.status == "pending_review":
@@ -562,9 +560,9 @@ def register_case_routes(
                 else None
             )
             if snapshot is None or intake_snapshot is None:
-                raise HTTPException(status_code=409, detail="提交前必须冻结材料与申请人事实")
+                raise HTTPException(status_code=409, detail="提交前必须送审材料与申报人事实")
             if intake_snapshot.intake != IntakePayload.model_validate(case.get("intake") or {}).model_dump(mode="json"):
-                raise HTTPException(status_code=409, detail="申请人事实已变化，请重新冻结快照")
+                raise HTTPException(status_code=409, detail="申报人事实已变化，请重新送审版本")
         try:
             validate_case_transition(current=current, target=payload.status, authority="local")
         except ValueError as exc:
@@ -633,7 +631,7 @@ def register_case_routes(
             material_snapshot_id=material_snapshot.id,
         )
         if intake_snapshot is None:
-            raise HTTPException(status_code=409, detail="当前材料尚未冻结申请人事实")
+            raise HTTPException(status_code=409, detail="请先确认本次申报信息")
         latest_task = enterprise().get_latest_task(identifier)
         if (
             latest_task is not None
@@ -643,7 +641,7 @@ def register_case_routes(
         ):
             raise HTTPException(
                 status_code=409,
-                detail="当前冻结输入已完成调查；请补充材料或事实后重新运行",
+                detail="本次送审内容已完成审查；请补充材料或事实后重新运行",
             )
         queued = queue_review(identifier, user, case, material_snapshot, intake_snapshot)
         return JSONResponse(status_code=202, content=queued)
@@ -686,7 +684,7 @@ def register_case_routes(
                 latest_by_material[version.material_id] = version
         versions = list(latest_by_material.values())
         if not versions:
-            raise HTTPException(status_code=409, detail="案件没有可冻结的材料版本")
+            raise HTTPException(status_code=409, detail="案件没有可送审的材料版本")
         try:
             snapshot = enterprise().create_material_snapshot(
                 case_id=identifier,
@@ -754,7 +752,7 @@ def register_case_routes(
             if task.status != "waiting_input":
                 raise HTTPException(status_code=409, detail="当前审查没有等待回答的问题")
             if task.agent_state is None:
-                raise HTTPException(status_code=409, detail="任务没有可恢复的 Agent 状态")
+                raise HTTPException(status_code=409, detail="任务没有可恢复的审查状态")
             try:
                 state = answer_agent(
                     AgentState.model_validate(task.agent_state),

@@ -52,8 +52,8 @@ function factsToMarkdown(facts: ReviewFacts): string {
     ['敏感个人信息', renderBool(facts.sensitive_personal_info)],
     ['跨境传输', renderBool(facts.cross_border_transfer)],
     ['境外接收方', renderText(facts.overseas_recipient)],
-    ['处理目的', renderText(facts.processing_purpose)],
-    ['法律依据/同意', renderText(facts.legal_basis_or_consent)],
+    ['数据出境用途', renderText(facts.processing_purpose)],
+    ['告知、同意及其他处理依据', renderText(facts.legal_basis_or_consent)],
     ['行业', renderText(facts.industry)],
     ['地区', renderList(facts.regions)],
     ['缺失信息', renderList(facts.missing_information)],
@@ -98,7 +98,7 @@ function citationsToMarkdown(
           const lines: string[] = [
             `- **${mdEscape(citationDisplayLabel(c))}**`,
             `   - 支持关系：见结论逐句依据中的 ${mdEscape(labels.get(c.citation_ref) ?? citationDisplayLabel(c))}`,
-            `   - 法源类型：${mdEscape(DOC_TYPE_LABELS[c.doc_type] ?? c.doc_type)} · 权威等级：${mdEscape(AUTHORITY_LABELS[c.authority] ?? c.authority)}`,
+            `   - 依据类型：${mdEscape(DOC_TYPE_LABELS[c.doc_type] ?? c.doc_type)} · 效力层级：${mdEscape(AUTHORITY_LABELS[c.authority] ?? c.authority)}`,
             `   - 引用角色：${CITATION_ROLE_LABELS[c.citation_role] ?? '引用角色未提供'}`,
             `   - 法律状态：${mdEscape(LAW_STATUS_LABELS[c.law_status] ?? '状态未知')} · 发布机关：${mdEscape(c.issuing_body || '未提供')}`,
             `   - 发布日期：${mdEscape(c.publish_date || '未提供')} · 生效日期：${mdEscape(c.effective_date || '未提供')}`,
@@ -131,7 +131,7 @@ function claimsToMarkdown(
   claims.forEach((claim, index) => {
     lines.push(`${index + 1}. ${mdEscape(claim.text)}`);
     const refs = claim.supporting_citation_refs ?? [];
-    lines.push(`   - 支持法条：${refs.length > 0 ? refs.map((ref) => mdEscape(labels.get(ref) ?? '引用依据未找到')).join('、') : '—'}`);
+    lines.push(`   - 支持法条：${refs.length > 0 ? refs.map((ref) => mdEscape(labels.get(ref) ?? '未找到法规依据')).join('、') : '—'}`);
   });
   return lines.join('\n');
 }
@@ -168,16 +168,16 @@ function intakeToMarkdown(intake: CaseIntake): string {
     ['敏感个人信息', renderBool(intake.sensitive_personal_info)],
     ['跨境传输', renderBool(intake.cross_border_transfer)],
     ['重要数据识别', intakeEnumLabel(intake.important_data_status)],
-    ['关基运营者状态', intakeEnumLabel(intake.ciio_status)],
-    ['非敏感个人信息数量', intake.annual_non_sensitive_count || '待补充'],
-    ['敏感个人信息数量', intake.annual_sensitive_count || '待补充'],
+    ['关键信息基础设施运营者身份', intakeEnumLabel(intake.ciio_status)],
+    ['非敏感个人信息涉及人数', intake.annual_non_sensitive_count || '待补充'],
+    ['敏感个人信息涉及人数', intake.annual_sensitive_count || '待补充'],
     ['境外接收方', intake.overseas_recipient || '待补充'],
-    ['目的地', intake.destination_region || '待补充'],
-    ['处理目的', intake.processing_purpose || '待补充'],
+    ['境外接收地', intake.destination_region || '待补充'],
+    ['数据出境用途', intake.processing_purpose || '待补充'],
     ['出境路径', intake.transfer_mechanism || '待判断'],
     ['供应商', intake.vendor_name || '待补充'],
     ['合同状态', intake.contract_status || '待补充'],
-    ['法律依据/同意', intake.legal_basis_or_consent || '待补充'],
+    ['告知、同意及其他处理依据', intake.legal_basis_or_consent || '待补充'],
   ];
   const header = '| 字段 | 人工确认值 |\n| --- | --- |';
   const body = rows.map(([key, value]) => '| ' + mdEscape(key) + ' | ' + mdEscape(value) + ' |').join('\n');
@@ -187,7 +187,7 @@ function intakeToMarkdown(intake: CaseIntake): string {
 function actionsToMarkdown(saved: SavedCase): string {
   const plan = saved.remediationPlan;
   if (plan) {
-    if (plan.tasks.length === 0) return plan.no_remediation_reason ? `无需整改：${mdEscape(plan.no_remediation_reason)}` : '_暂无整改任务_';
+    if (plan.tasks.length === 0) return plan.no_remediation_reason ? `无需整改：${mdEscape(plan.no_remediation_reason)}` : '_暂无待办事项_';
     return plan.tasks.map((task, index) => {
       const due = task.due_date ? '，截止 ' + task.due_date : '';
       const state = task.status === 'completed' ? '已完成' : task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理';
@@ -196,7 +196,7 @@ function actionsToMarkdown(saved: SavedCase): string {
       return (index + 1) + '. **' + mdEscape(task.title) + '**（' + state + '，负责人：' + mdEscape(assignee) + due + '）' + description;
     }).join('\n');
   }
-  return '_暂无整改任务_';
+  return '_暂无待办事项_';
 }
 
 function knowledgeSnapshotToMarkdown(response: NonNullable<SavedCase['response']>): string {
@@ -325,7 +325,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
   }
 
   if (display.conditions.length > 0) {
-    lines.push('## 十、结论适用边界');
+    lines.push('## 十、结论适用前提与范围');
     lines.push('');
     display.conditions.forEach((b) => lines.push(`- ${mdEscape(b)}`));
     lines.push('');
@@ -340,7 +340,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
     lines.push('');
   }
 
-  lines.push('## 十二、整改计划');
+  lines.push('## 十二、待办事项清单');
   lines.push('');
   lines.push(actionsToMarkdown(saved));
   lines.push('');
@@ -373,7 +373,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
 
   lines.push('---');
   lines.push('');
-  lines.push('> 本报告由 CrossComply 自动生成，仅供研究参考，不构成正式法律意见。');
+  lines.push('> 本报告由 CrossComply 辅助生成，供企业内部合规审查与决策参考，不构成正式法律意见。');
 
   return lines.join('\n');
 }
@@ -445,8 +445,8 @@ function factsToHtml(facts: ReviewFacts): string {
     ['敏感个人信息', renderBool(facts.sensitive_personal_info)],
     ['跨境传输', renderBool(facts.cross_border_transfer)],
     ['境外接收方', renderText(facts.overseas_recipient)],
-    ['处理目的', renderText(facts.processing_purpose)],
-    ['法律依据/同意', renderText(facts.legal_basis_or_consent)],
+    ['数据出境用途', renderText(facts.processing_purpose)],
+    ['告知、同意及其他处理依据', renderText(facts.legal_basis_or_consent)],
     ['行业', renderText(facts.industry)],
     ['地区', renderList(facts.regions)],
     ['缺失信息', renderList(facts.missing_information)],
@@ -464,16 +464,16 @@ function intakeToHtml(intake: CaseIntake): string {
     ['敏感个人信息', renderBool(intake.sensitive_personal_info)],
     ['跨境传输', renderBool(intake.cross_border_transfer)],
     ['重要数据识别', intakeEnumLabel(intake.important_data_status)],
-    ['关基运营者状态', intakeEnumLabel(intake.ciio_status)],
-    ['非敏感个人信息数量', intake.annual_non_sensitive_count || '待补充'],
-    ['敏感个人信息数量', intake.annual_sensitive_count || '待补充'],
+    ['关键信息基础设施运营者身份', intakeEnumLabel(intake.ciio_status)],
+    ['非敏感个人信息涉及人数', intake.annual_non_sensitive_count || '待补充'],
+    ['敏感个人信息涉及人数', intake.annual_sensitive_count || '待补充'],
     ['境外接收方', intake.overseas_recipient || '待补充'],
-    ['目的地', intake.destination_region || '待补充'],
-    ['处理目的', intake.processing_purpose || '待补充'],
+    ['境外接收地', intake.destination_region || '待补充'],
+    ['数据出境用途', intake.processing_purpose || '待补充'],
     ['出境路径', intake.transfer_mechanism || '待判断'],
     ['供应商', intake.vendor_name || '待补充'],
     ['合同状态', intake.contract_status || '待补充'],
-    ['法律依据/同意', intake.legal_basis_or_consent || '待补充'],
+    ['告知、同意及其他处理依据', intake.legal_basis_or_consent || '待补充'],
   ];
   const body = rows.map(([key, value]) => '<tr><th>' + escHtml(key) + '</th><td>' + escHtml(value) + '</td></tr>').join('');
   return '<table><tbody>' + body + '</tbody></table>';
@@ -507,7 +507,7 @@ function citationsToHtml(
             : '<span class="muted">—</span>';
           return `<div class="cite">
             <div class="cite-title"><a id="${escHtml(c.citation_ref)}"></a>${escHtml(citationDisplayLabel(c))}</div>
-            <div class="cite-meta">法源类型：${escHtml(DOC_TYPE_LABELS[c.doc_type] ?? c.doc_type)} · 权威等级：${escHtml(AUTHORITY_LABELS[c.authority] ?? c.authority)} · 法律状态：${escHtml(LAW_STATUS_LABELS[c.law_status] ?? '状态未知')}</div>
+            <div class="cite-meta">依据类型：${escHtml(DOC_TYPE_LABELS[c.doc_type] ?? c.doc_type)} · 效力层级：${escHtml(AUTHORITY_LABELS[c.authority] ?? c.authority)} · 法律状态：${escHtml(LAW_STATUS_LABELS[c.law_status] ?? '状态未知')}</div>
             <div class="cite-meta">引用角色：${escHtml(CITATION_ROLE_LABELS[c.citation_role] ?? '引用角色未提供')} · 发布机关：${escHtml(c.issuing_body || '未提供')} · 官方原文：${link}</div>
             ${chunkHtml}
           </div>`;
@@ -533,7 +533,7 @@ function claimsToHtml(
     .map((claim, index) => {
       return `<div class="claim">
         <div class="claim-text">${index + 1}. ${escHtml(claim.text)}</div>
-        <div class="claim-refs">支持法条：${(claim.supporting_citation_refs ?? []).length > 0 ? escHtml((claim.supporting_citation_refs ?? []).map((ref) => labels.get(ref) ?? '引用依据未找到').join('、')) : '—'}</div>
+        <div class="claim-refs">支持法条：${(claim.supporting_citation_refs ?? []).length > 0 ? escHtml((claim.supporting_citation_refs ?? []).map((ref) => labels.get(ref) ?? '未找到法规依据').join('、')) : '—'}</div>
       </div>`;
     })
     .join('');
@@ -579,7 +579,7 @@ export function buildHtmlReport(saved: SavedCase): string {
     parts.push(`<div>详情：${escHtml(response.message)}</div>`);
     parts.push(`<div>重试次数：${response.attempts}</div>`);
     parts.push('</div>');
-    parts.push('<footer>本报告由 CrossComply 自动生成，仅供研究参考，不构成正式法律意见。</footer>');
+    parts.push('<footer>本报告由 CrossComply 辅助生成，供企业内部合规审查与决策参考，不构成正式法律意见。</footer>');
     parts.push('</body></html>');
     return parts.join('\n');
   }
@@ -634,7 +634,7 @@ export function buildHtmlReport(saved: SavedCase): string {
     parts.push('</ol>');
   }
   if (display.conditions.length) {
-    parts.push('<section class="review-boundaries"><h3>结论适用边界</h3><ul>');
+    parts.push('<section class="review-boundaries"><h3>结论适用前提与范围</h3><ul>');
     display.conditions.forEach((condition) => parts.push(`<li>${renderReportMarkdown(condition)}</li>`));
     parts.push('</ul></section>');
   }
@@ -649,11 +649,11 @@ export function buildHtmlReport(saved: SavedCase): string {
     parts.push('</ul>');
   }
 
-  parts.push('<h2>十二、整改计划</h2>');
+  parts.push('<h2>十二、待办事项清单</h2>');
   parts.push('<ol>');
   if (saved.remediationPlan) {
     if (saved.remediationPlan.tasks.length === 0) {
-      parts.push(`<li class="muted">${saved.remediationPlan.no_remediation_reason ? '无需整改：' + escHtml(saved.remediationPlan.no_remediation_reason) : '暂无整改任务'}</li>`);
+      parts.push(`<li class="muted">${saved.remediationPlan.no_remediation_reason ? '无需整改：' + escHtml(saved.remediationPlan.no_remediation_reason) : '暂无待办事项'}</li>`);
     } else {
       saved.remediationPlan.tasks.forEach((task) => {
         const due = task.due_date ? '，截止 ' + escHtml(task.due_date) : '';
@@ -664,7 +664,7 @@ export function buildHtmlReport(saved: SavedCase): string {
       });
     }
   } else {
-    parts.push('<li class="muted">暂无整改任务</li>');
+    parts.push('<li class="muted">暂无待办事项</li>');
   }
   parts.push('</ol>');
   parts.push('<h2>十三、法规知识库快照</h2>');
@@ -699,7 +699,7 @@ export function buildHtmlReport(saved: SavedCase): string {
     parts.push('</div>');
   }
 
-  parts.push('<footer>本报告由 CrossComply 自动生成，仅供研究参考，不构成正式法律意见。</footer>');
+  parts.push('<footer>本报告由 CrossComply 辅助生成，供企业内部合规审查与决策参考，不构成正式法律意见。</footer>');
   parts.push('</body></html>');
   return parts.join('\n');
 }

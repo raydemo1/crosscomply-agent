@@ -61,7 +61,7 @@ def register_matter_routes(app, *, current_user, store, enterprise, can_view):
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except (ReviewWorkflowFailed, RuntimeError) as exc:
-            raise HTTPException(status_code=503, detail="Agent 暂时无法回答，请稍后重试") from exc
+            raise HTTPException(status_code=503, detail="CrossComply 暂时无法回答，请稍后重试") from exc
 
     @router.post("/api/cases/{case_id}/conversation/stream")
     async def ask_stream(case_id: str, payload: MatterQuestionRequest, request: Request, user=Depends(current_user)):

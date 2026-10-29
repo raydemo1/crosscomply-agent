@@ -203,7 +203,7 @@ def test_intake_extraction_requires_material(app) -> None:
 
 def test_intake_extraction_returns_explicit_followup_controls(app, monkeypatch) -> None:
     def fake_extract(material_text: str, question: str | None = None, **_: object) -> ReviewFacts:
-        return ReviewFacts(missing_information=["data_volume_threshold", "exemption_facts_confirmed"])
+        return ReviewFacts(missing_information=["annual_non_sensitive_count", "exemption_facts"])
 
     monkeypatch.setattr("law_agent.review.http.cases.extract_facts_with_deepseek", fake_extract)
 
@@ -215,8 +215,8 @@ def test_intake_extraction_returns_explicit_followup_controls(app, monkeypatch) 
         )
         assert response.status_code == 200, response.text
         assert response.json()["missing"] == [
-            {"key": "data_volume_threshold", "reason": "data_volume_threshold", "input_type": "count"},
-            {"key": "exemption_facts_confirmed", "reason": "exemption_facts_confirmed", "input_type": "exemption"},
+            {"key": "annual_non_sensitive_count", "reason": "annual_non_sensitive_count", "input_type": "count"},
+            {"key": "exemption_facts", "reason": "exemption_facts", "input_type": "exemption"},
         ]
 
 

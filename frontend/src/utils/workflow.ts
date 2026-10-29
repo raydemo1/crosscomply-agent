@@ -3,7 +3,7 @@ import type { CaseStatus, ReviewTaskStatus } from '../types/api';
 export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
   draft: '草稿',
   needs_info: '待申报人补充',
-  pending_source_verification: '待法源核验',
+  pending_source_verification: '待法规核验',
   pending_review: '待审查',
   review_running: '审查运行中',
   pending_feishu_approval: '待飞书审批',

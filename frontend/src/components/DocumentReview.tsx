@@ -298,11 +298,11 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
   };
 
   return <section className="document-review" aria-label="原文审阅">
-    {pendingCount > 0 && canManageActions ? <p className="document-review__pending">{pendingCount} 项追审批注待确认</p> : null}
+    {pendingCount > 0 && canManageActions ? <p className="document-review__pending">{pendingCount} 条核查批注待确认</p> : null}
     {locateNotice ? <p className="document-review__notice" role="status">{locateNotice}</p> : null}
     {error ? <div className="document-review__error" role="alert">{error}</div> : null}
-    {materials.length === 0 ? <div className="card document-review__empty">{error ? '原文加载失败，请刷新重试。' : loaded ? '本次审查没有可展示的解析材料。' : '正在读取本次审查的冻结材料…'}</div> : <>
-      <div className="document-review__files" role="tablist" aria-label="冻结材料">
+    {materials.length === 0 ? <div className="card document-review__empty">{error ? '原文加载失败，请刷新重试。' : loaded ? '本次审查没有可展示的解析材料。' : '正在读取本次审查的送审材料…'}</div> : <>
+      <div className="document-review__files" role="tablist" aria-label="送审材料">
         {materials.map((item) => <button key={item.id} type="button" role="tab" aria-selected={item.id === materialId}
           className={item.id === materialId ? 'is-active' : ''}
           onClick={() => { if (clearSelection()) setMaterialId(item.id); }}>
@@ -311,8 +311,8 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
       </div>
       <div className={'document-review__layout' + (selectedRange || selected || revisionSelection ? ' document-review__layout--focused' : '')}>
         <div className="document-review__paper-shell">
-          <div className="document-review__paper-header"><strong>{material?.filename}</strong><span>冻结原文</span></div>
-          <div className="document-review__paper" ref={paperRef} tabIndex={-1} data-matter-source="material" data-material-id={material?.id} data-material-label={material?.filename} onClick={(event) => { if (!(event.target as HTMLElement).closest('mark') && window.getSelection()?.isCollapsed) clearSelection(); }} role="tabpanel" aria-label="冻结材料原文">
+          <div className="document-review__paper-header"><strong>{material?.filename}</strong><span>送审原文</span></div>
+          <div className="document-review__paper" ref={paperRef} tabIndex={-1} data-matter-source="material" data-material-id={material?.id} data-material-label={material?.filename} onClick={(event) => { if (!(event.target as HTMLElement).closest('mark') && window.getSelection()?.isCollapsed) clearSelection(); }} role="tabpanel" aria-label="送审材料原文">
             {segments.map((segment) => segment.items.length === 0 ? <span key={segment.start}>{segment.text}</span> : <mark key={segment.start}
               data-review-items={segment.items.map((item) => item.id).join('|')}
               tabIndex={0} role="button" aria-label={`${segment.items.length} 条批注，点击查看`}
@@ -334,11 +334,11 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
           /> : selectedRange && material ? <div className={'document-review__detail' + (locating ? ' is-locating' : '')} ref={detailRef} tabIndex={-1}>
             <div className="document-review__detail-head"><div><span className="document-review__source">已选中 {selectedRange.end - selectedRange.start} 字</span><h3>添加批注</h3></div><button type="button" className="document-review__close" aria-label="关闭批注" onClick={() => clearSelection()}>×</button></div>
             {canManageActions ? <>
-              <div className="document-review__mode"><button type="button" className={annotationMode === 'comment' ? 'is-active' : ''} onClick={() => switchAnnotationMode('comment')}>写批注</button><button type="button" className={annotationMode === 'followup' ? 'is-active' : ''} onClick={() => switchAnnotationMode('followup')}>请 Agent 追查</button></div>
-              {annotationMode === 'comment' ? <><label className="document-review__field">批注内容<textarea value={finding} onChange={(event) => setFinding(event.target.value)} rows={4} placeholder="写下判断或需要处理的问题" /></label><button type="button" disabled={busy || !finding.trim()} onClick={() => target && void mutate(() => saveReviewAnnotation(caseId, target, finding.trim()))}>保存批注</button></> : <><label className="document-review__field">追查问题<textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={3} placeholder="请 Agent 核查什么？" /></label><button type="button" disabled={busy || !question.trim()} onClick={() => target && void mutate(() => followupReviewAnnotation(caseId, target, question.trim()))}>{busy ? '正在处理…' : '发起追查'}</button></>}
+              <div className="document-review__mode"><button type="button" className={annotationMode === 'comment' ? 'is-active' : ''} onClick={() => switchAnnotationMode('comment')}>人工批注</button><button type="button" className={annotationMode === 'followup' ? 'is-active' : ''} onClick={() => switchAnnotationMode('followup')}>CrossComply 核查</button></div>
+              {annotationMode === 'comment' ? <><label className="document-review__field">批注内容<textarea value={finding} onChange={(event) => setFinding(event.target.value)} rows={4} placeholder="写下判断或需要处理的问题" /></label><button type="button" disabled={busy || !finding.trim()} onClick={() => target && void mutate(() => saveReviewAnnotation(caseId, target, finding.trim()))}>保存批注</button></> : <><label className="document-review__field">追查问题<textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={3} placeholder="输入需核查的条款或风险点…" /></label><button type="button" disabled={busy || !question.trim()} onClick={() => target && void mutate(() => followupReviewAnnotation(caseId, target, question.trim()))}>{busy ? '正在处理…' : '发起追查'}</button></>}
             </> : null}
           </div> : selected ? <div className={'document-review__detail' + (locating ? ' is-locating' : '')} ref={detailRef} tabIndex={-1}>
-            <div className="document-review__detail-head"><span className="document-review__source">{selected.kind === 'issue' ? 'Agent 批注' : selected.annotation?.source === 'human' ? '人工批注' : 'Agent 追审批注'}{selected.annotation?.status === 'pending' ? ' · 待确认' : ''}</span><button type="button" className="document-review__close" aria-label="关闭批注" onClick={() => clearSelection()}>×</button></div>
+            <div className="document-review__detail-head"><span className="document-review__source">{selected.kind === 'issue' ? 'CrossComply 批注' : selected.annotation?.source === 'human' ? '人工批注' : 'CrossComply 核查批注'}{selected.annotation?.status === 'pending' ? ' · 待确认' : ''}</span><button type="button" className="document-review__close" aria-label="关闭批注" onClick={() => clearSelection()}>×</button></div>
             {overlapping.length > 1 ? <div className="document-review__overlap" aria-label="同一位置的批注">
               {overlapping.map((item, index) => <button key={item.id} type="button" className={item.id === selected.id ? 'is-active' : ''} onClick={() => setSelectedId(item.id)}>批注 {index + 1}</button>)}
             </div> : null}
@@ -350,8 +350,8 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
               <button type="button" disabled={busy} onClick={() => void mutate(() => decideReviewAnnotation(selected.annotation!.id, 'rejected', selected.annotation!.version))}>驳回</button>
               <button type="button" disabled={busy} onClick={() => void mutate(() => decideReviewAnnotation(selected.annotation!.id, 'confirmed', selected.annotation!.version))}>确认批注</button>
             </div> : null}
-            {selected.issue && selected.target && canManageActions && selected.issue.kind !== 'missing_information' ? <button type="button" onClick={() => openRevision(selected.issue!, selected.target!)}>准备修改</button> : null}
-            {selected.annotation?.status === 'confirmed' && !selected.annotation.insufficient_evidence && canManageActions ? <button type="button" onClick={() => reviseAnnotation(selected.annotation!)}>根据批注准备修改</button> : null}
+            {selected.issue && selected.target && canManageActions && selected.issue.kind !== 'missing_information' ? <button type="button" onClick={() => openRevision(selected.issue!, selected.target!)}>生成修改建议</button> : null}
+            {selected.annotation?.status === 'confirmed' && !selected.annotation.insufficient_evidence && canManageActions ? <button type="button" onClick={() => reviseAnnotation(selected.annotation!)}>基于批注生成修改建议</button> : null}
           </div> : null}
         </aside> : null}
       </div>

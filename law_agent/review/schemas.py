@@ -42,6 +42,12 @@ IssueKind = Literal["material_conflict", "missing_information", "legal_gap"]
 ImportantDataStatus = Literal["unknown", "not_important", "important", "under_review"]
 CIIOStatus = Literal["unknown", "not_ciio", "ciio", "under_review"]
 CountPeriod = Literal["unknown", "current_year_cumulative", "annual_estimate", "other"]
+IntakeFactField = Literal[
+    "cross_border_transfer", "contains_personal_information", "sensitive_personal_info",
+    "important_data_status", "ciio_status", "annual_non_sensitive_count",
+    "annual_sensitive_count", "count_period", "overseas_recipient", "destination_region",
+    "processing_purpose", "legal_basis_or_consent", "exemption_facts",
+]
 ConfirmableFactField = Literal[
     "business_activity", "data_types", "contains_personal_information",
     "sensitive_personal_info", "cross_border_transfer", "overseas_recipient",

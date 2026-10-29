@@ -3,11 +3,11 @@ import type { CaseStatus, RemediationPlanApi, ReviewTaskStatus, UserRole } from 
 import './CaseProgress.css';
 
 const CASE_STAGES = [
-  ['提交申请', '提供材料'],
-  ['Agent 审查', '形成结论'],
-  ['补充核实', '确认缺口'],
-  ['人工审批', '人工审批'],
-  ['案件归档', '保存记录'],
+  ['提交申报', '上传材料'],
+  ['智能初审', '出具报告'],
+  ['补充与整改', '落实待办'],
+  ['人工审批', '复核签批'],
+  ['结案归档', '留存底稿'],
 ] as const;
 
 /**
@@ -61,7 +61,7 @@ function progressState(
   const totalOpen = openTasks.length + pendingReview.length;
 
   if (['approved', 'conditionally_approved', 'rejected'].includes(status)) {
-    return { current: 4, owner: '系统归档', status: '最终决定已留痕', guidance: '可查看正式报告、最终决定和完整审计记录。' };
+    return { current: 4, owner: 'CrossComply', status: '最终决定已留痕', guidance: '可查看正式报告、最终决定和完整审计记录。' };
   }
   if (status === 'pending_feishu_approval') {
     return {
@@ -69,7 +69,7 @@ function progressState(
       owner: '审核人 / 企业审批',
       status: approvalStarted ? '审批中' : '待发起审批',
       guidance: approvalStarted
-        ? '已发起飞书审批，等待审批结果；最终决定以飞书验签事件为准。'
+        ? '等待飞书审批结果同步。'
         : '送审前核实已完成，等待审核人发起飞书审批。',
     };
   }
@@ -80,9 +80,9 @@ function progressState(
       return {
         current: 2,
         owner: viewerRole === 'requester' ? '申报人' : '审核人',
-        status: '待回答 Agent 问题',
-        guidance: 'Agent 正在等待补充信息，回答后会自动继续本次审查，无需重新发起复核。',
-        actionLabel: '回答 Agent 问题',
+        status: '待回答 CrossComply 问题',
+        guidance: 'CrossComply 正在等待补充信息，回答后会自动继续本次审查，无需重新发起复核。',
+        actionLabel: '回答 CrossComply 问题',
         actionKind: 'answer',
       };
     }
@@ -95,12 +95,12 @@ function progressState(
     }
     if (blockingOpen.length > 0) {
       if (viewerRole !== 'requester') {
-        return { current: 2, owner: '申报人', status: `${blockingOpen.length} 项待处理`, actionLabel: '查看处理清单', actionKind: 'list' };
+        return { current: 2, owner: '申报人', status: `${blockingOpen.length} 项待处理`, actionLabel: '查看待办事项清单', actionKind: 'list' };
       }
-      return { current: 2, owner: '申报人', status: `${blockingOpen.length} 项待核实`, guidance: '确认业务事实，或说明措施是否适用、是否已完成。提交后由 Agent 核验，必要时交审核人确认。', actionLabel: '进入处理清单', actionKind: 'list' };
+      return { current: 2, owner: '申报人', status: `${blockingOpen.length} 项待核实`, guidance: '确认业务事实，或说明措施是否适用、是否已完成。提交后由 CrossComply 核验，必要时交审核人确认。', actionLabel: '进入待办事项清单', actionKind: 'list' };
     }
     if (blockingPending.length > 0) {
-      return { current: 2, owner: 'Agent / 审核人', status: `${blockingPending.length} 项待核验`, guidance: '申报人已提交，正在等待 Agent 或审核人核验。' };
+      return { current: 2, owner: 'CrossComply / 审核人', status: `${blockingPending.length} 项待核验`, guidance: '申报人已提交，正在等待 CrossComply 或审核人核验。' };
     }
     if (plan && preApprovalTasks.length > 0) {
       const unfinishedNote = totalOpen > 0 ? `，仍有 ${totalOpen} 项非阻塞事项未完成` : '';
@@ -110,19 +110,19 @@ function progressState(
       }
       return { current: 2, owner: '申报人', status: '等待申报人发起复核', guidance: `阻塞性事项已处理${unfinishedNote}，由申报人按最新材料发起整案复核。` };
     }
-    return { current: 2, owner: '申报人', status: '等待补充信息', guidance: '补充所缺事实后，Agent 会继续核验并更新结论。', actionLabel: plan ? '查看处理清单' : undefined, actionKind: 'list' };
+    return { current: 2, owner: '申报人', status: '等待补充信息', guidance: '补充所缺事实后，CrossComply 会继续核验并更新结论。', actionLabel: plan ? '查看待办事项清单' : undefined, actionKind: 'list' };
   }
   if (status === 'review_running') {
     const queued = reviewTaskStatus === 'queued';
     return {
       current: 1,
-      owner: 'Agent',
+      owner: 'CrossComply',
       status: queued ? '排队中' : '正在审查',
-      guidance: queued ? '审查任务已进入队列，等待执行，当前无需操作。' : 'Agent 正在调查、检索法源并核验证据，当前无需操作。',
+      guidance: queued ? '等待审查。' : '正在核查材料与法规依据。',
     };
   }
   if (status === 'pending_source_verification') {
-    return { current: 1, owner: 'Agent / 审核人', status: '法律依据待核验', guidance: '影响当前判断的法律依据尚待核实或补充，完成后再复核案件；期间不进入最终审批。' };
+    return { current: 1, owner: 'CrossComply / 审核人', status: '法规依据待核验', guidance: '影响当前判断的法规依据尚待核实或补充，完成后再复核案件；期间不进入最终审批。' };
   }
   if (status === 'run_failed') {
     return { current: 1, owner: '审核人', status: '审查未完成', guidance: '失败记录已保留；修复后可从本次任务继续重试。' };
@@ -130,11 +130,11 @@ function progressState(
   if (status === 'pending_review') {
     if (reviewTaskStatus === 'queued' || reviewTaskStatus === 'running') {
       const queued = reviewTaskStatus === 'queued';
-      return { current: 0, owner: 'Agent', status: queued ? '排队中' : '正在审查', guidance: queued ? '审查任务已进入队列，等待执行，当前无需操作。' : 'Agent 正在审查当前材料，当前无需操作。' };
+      return { current: 0, owner: 'CrossComply', status: queued ? '排队中' : '正在审查', guidance: queued ? '等待审查。' : '正在审查材料。' };
     }
-    return { current: 0, owner: '系统', status: '材料已提交', guidance: '申请材料和基本事实已保存，提交后会自动进入审查队列。' };
+    return { current: 0, owner: 'CrossComply', status: '材料已提交', guidance: '申报材料和基本事实已保存，提交后会自动进入审查队列。' };
   }
-  return { current: 0, owner: '申报人', status: '待提交', guidance: '补齐材料和基本事实后提交申请。' };
+  return { current: 0, owner: '申报人', status: '待提交', guidance: '补齐材料和申报信息后提交。' };
 }
 
 export default function CaseProgress({ status, viewerRole, remediationPlan, reviewTaskStatus, approvalStarted, onOpenAction, onAnswerAction, revealAnswer, onAnswerRevealed, actionSlot, children }: CaseProgressProps): JSX.Element {
@@ -179,7 +179,7 @@ export default function CaseProgress({ status, viewerRole, remediationPlan, revi
             const phase = index < state.current ? (skipped ? 'is-conditional' : 'is-done') : index === state.current ? 'is-current' : '';
             return <li className={phase} key={title} aria-current={index === state.current ? 'step' : undefined}>
               <span className="case-progress__index">{index < state.current && !skipped ? '✓' : index + 1}</span>
-              <div><strong>{title}</strong>{skipped || caption !== title ? <small>{skipped ? '按需进入' : caption}</small> : null}</div>
+              <div><strong>{title}</strong><small>{skipped ? '按需进入' : caption}</small></div>
             </li>;
           })}
         </ol>

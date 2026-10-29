@@ -64,7 +64,7 @@ def register_revision_routes(
     def current_text(material_version_id: str, case_id: str) -> tuple[str, int]:
         material = enterprise().get_material_version(material_version_id)
         if material is None or material.case_id != case_id or material.parsed_text is None:
-            raise HTTPException(status_code=404, detail="冻结材料不存在")
+            raise HTTPException(status_code=404, detail="送审材料不存在")
         accepted = revisions().current_draft(material_version_id)
         return (accepted["result_text"], accepted["result_version"]) if accepted else (material.parsed_text, 0)
 
@@ -113,13 +113,13 @@ def register_revision_routes(
             raise HTTPException(status_code=409, detail="案件正在重新审查，请等待最新结果后再生成修改提案")
         snapshot = enterprise().get_material_snapshot(task.material_snapshot_id) if task else None
         if snapshot is None or payload.material_version_id not in snapshot.version_ids:
-            raise HTTPException(status_code=409, detail="目标材料不属于本次审查冻结快照")
+            raise HTTPException(status_code=409, detail="目标材料不属于本次审查送审版本")
         material = enterprise().get_material_version(payload.material_version_id)
         if material is None or material.case_id != case_id or material.parsed_text is None:
-            raise HTTPException(status_code=404, detail="冻结材料不存在")
+            raise HTTPException(status_code=404, detail="送审材料不存在")
         quote = target["quote"]
         if material.parsed_text[payload.start_offset:payload.end_offset] != quote:
-            raise HTTPException(status_code=409, detail="材料依据与冻结原文不一致")
+            raise HTTPException(status_code=409, detail="材料引用与送审原文不一致")
         base_text, base_version = current_text(payload.material_version_id, case_id)
         citation_refs = set(issue.get("supporting_citation_refs") or [])
         citations = [

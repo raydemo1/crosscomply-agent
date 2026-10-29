@@ -462,6 +462,7 @@ def make_pgvector_search_fn(
                    1 - (embedding <=> %s::vector) AS score
             FROM {table_name}
             WHERE embedding IS NOT NULL AND retrieval_enabled = true
+            AND authority IS DISTINCT FROM 'simulated_internal_policy'
             {scope_filter}
             ORDER BY embedding <=> %s::vector
             LIMIT %s

@@ -28,8 +28,8 @@ export default function ReportConclusion({ result, chapterNo, onCitationClick }:
       <h3 className={/^#{1,6}\s/mu.test(body) ? 'sr-only' : 'report-conclusion__section-title'}>完整分析</h3>
       <MarkdownText variant="report" className="case-conclusion__body" onCitationClick={onCitationClick}>{body}</MarkdownText>
     </section> : null}
-    {conditions.length ? <section className="report-conclusion__boundaries" aria-label="结论适用边界">
-      <h3>结论适用边界</h3>
+    {conditions.length ? <section className="report-conclusion__boundaries" aria-label="结论适用前提与范围">
+      <h3>结论适用前提与范围</h3>
       <ul>{conditions.map((condition) => <li key={condition}><MarkdownText variant="note" allowRawHtml={false}>{condition}</MarkdownText></li>)}</ul>
     </section> : null}
     {usageNotes.length ? <aside className="report-conclusion__usage" aria-label="使用说明"><h3>使用说明</h3>{usageNotes.map((note) => <p key={note}>{note}</p>)}</aside> : null}

@@ -492,7 +492,7 @@ def _cover_page(data, styles, colors, page_width, body_font, bold_font):
     from reportlab.platypus import Spacer, Table, TableStyle
 
     status, status_color, status_bg = _status_label(data.decision)
-    source_names = "、".join(dict.fromkeys(source.title for source in data.legal_sources)) or "未记录法源"
+    source_names = "、".join(dict.fromkeys(source.title for source in data.legal_sources)) or "未记录法规依据"
     detail_count = len(data.remediation_details)
     action_count = max(len(data.remediation_items), detail_count)
     recommendation_count = len(data.ai_review.recommended_actions) if data.ai_review else 0
@@ -533,8 +533,8 @@ def _cover_page(data, styles, colors, page_width, body_font, bold_font):
     if data.selected_path:
         scope_rows.append([_p("判定路径", styles["table_head"]), _p(data.selected_path, styles["table_body"])])
     scope_rows.extend([
-        [_p("主要法源", styles["table_head"]), _p(source_names, styles["table_body"])],
-        [_p("材料状态", styles["table_head"]), _p(f"{len(data.material_hashes)} 份材料已冻结并纳入本次审查", styles["table_body"])],
+        [_p("主要法规依据", styles["table_head"]), _p(source_names, styles["table_body"])],
+        [_p("材料状态", styles["table_head"]), _p(f"{len(data.material_hashes)} 份材料已锁定送审版本", styles["table_body"])],
         [_p("整改状态", styles["table_head"]), _p(remediation, styles["table_body"])],
     ])
     scope = Table(scope_rows, colWidths=[34 * mm, 121 * mm])
@@ -630,7 +630,7 @@ def _rich_decision_packet(data, styles, colors, content_width):
             story.extend([Spacer(1, 6 * mm), _p("完整审查意见", styles["opinion_heading"])])
             story.extend(conclusion_flowables)
         if boundaries:
-            story.extend([Spacer(1, 6 * mm), _p("结论适用边界", styles["opinion_heading"])])
+            story.extend([Spacer(1, 6 * mm), _p("结论适用前提与范围", styles["opinion_heading"])])
             boundary_rows = [[_p(_review_inline_html(item), styles["body_muted"], escape=False)] for item in boundaries]
             boundary_table = Table(boundary_rows, colWidths=[content_width], splitInRow=1)
             boundary_table.setStyle(TableStyle([
@@ -717,12 +717,12 @@ def _rich_decision_packet(data, styles, colors, content_width):
                 grouped_sources[-1][1].append(source)
             else:
                 grouped_sources.append((source.title, [source]))
-        story.extend([Spacer(1, 3 * mm), _p("引用法源", styles["source_group"])])
-        source_index_rows = [[_p("法源", styles["table_head"]), _p("法律 / 规章", styles["table_head"]), _p("本次引用条文", styles["table_head"])]]
+        story.extend([Spacer(1, 3 * mm), _p("法规依据", styles["source_group"])])
+        source_index_rows = [[_p("依据", styles["table_head"]), _p("法律 / 规章", styles["table_head"]), _p("本次引用条文", styles["table_head"])]]
         for group_index, (title, sources) in enumerate(grouped_sources, 1):
             articles = "、".join(source.article for source in sources if source.article) or "具体条款定位"
             source_index_rows.append([
-                _p(f"法源 {group_index:02d}", styles["table_body"]),
+                _p(f"依据 {group_index:02d}", styles["table_body"]),
                 _p(title, styles["table_body"]),
                 _p(articles, styles["table_body_muted"]),
             ])
@@ -730,7 +730,7 @@ def _rich_decision_packet(data, styles, colors, content_width):
         source_index.setStyle(_table_style(colors, header=BLUE))
         story.append(source_index)
         for group_index, (title, sources) in enumerate(grouped_sources, 1):
-            story.append(_p(f'<font color="{GOLD}"><b>法源 {group_index:02d}</b></font>　《{html.escape(_clean_ai_text(title, limit=120))}》', styles["source_group"], escape=False))
+            story.append(_p(f'<font color="{GOLD}"><b>依据 {group_index:02d}</b></font>　《{html.escape(_clean_ai_text(title, limit=120))}》', styles["source_group"], escape=False))
             for article_index, source in enumerate(sources, 1):
                 article = source.article or (
                     source.locator
@@ -747,7 +747,7 @@ def _rich_decision_packet(data, styles, colors, content_width):
                 if source.application:
                     story.append(_p(f"本案适用：{_clean_ai_text(source.application, limit=460)}", styles["body"]))
     else:
-        story.append(_p("当前结果未保存可直接引用的具体条文，因此报告不把内部规则编号当作法律依据；请先补齐法源引用后再形成正式报告。", styles["body_muted"]))
+        story.append(_p("当前结果未保存可直接引用的具体条文，因此报告不把内部规则编号当作法规依据；请先补齐法规引用后再形成正式报告。", styles["body_muted"]))
     if data.manual_confirmation_items:
         story.extend([Spacer(1, 9 * mm), _p("人工确认点", styles["section"])])
         manual_text = "<br/>".join(f"{index}. {html.escape(_clean_ai_text(item, limit=220))}" for index, item in enumerate(data.manual_confirmation_items, 1))
@@ -788,7 +788,7 @@ def _rich_decision_packet(data, styles, colors, content_width):
     if not details and data.remediation_items:
         details = [RemediationDetail(title=item) for item in data.remediation_items]
     if details:
-        story.extend([Spacer(1, 11 * mm), _p("整改计划", styles["section"])])
+        story.extend([Spacer(1, 11 * mm), _p("待办事项清单", styles["section"])])
         has_evidence = any(item.evidence_expected.strip() for item in details)
         if has_evidence:
             action_rows = [[_p("整改事项", styles["table_head"]), _p("责任角色", styles["table_head"]), _p("完成节点", styles["table_head"]), _p("验收证据", styles["table_head"])]]
@@ -815,14 +815,14 @@ def _rich_decision_packet(data, styles, colors, content_width):
         action_table.setStyle(_table_style(colors, header=GOLD))
         story.append(action_table)
     elif data.remediation_items:
-        story.extend([Spacer(1, 11 * mm), _p("整改计划", styles["section"])])
+        story.extend([Spacer(1, 11 * mm), _p("待办事项清单", styles["section"])])
         story.append(_p("本次审查未形成带责任人的整改动作，请在审批前补充整改任务。", styles["body_muted"]))
     elif data.ai_review and data.ai_review.recommended_actions:
         # Recommendations are already visible above.  Do not add a standalone
         # one-line section that can be pushed onto an otherwise blank page.
         pass
     else:
-        story.extend([Spacer(1, 11 * mm), _p("整改计划", styles["section"])])
+        story.extend([Spacer(1, 11 * mm), _p("待办事项清单", styles["section"])])
         clear = Table([[_p("本次审查无待办整改事项", styles["card_value"])]], colWidths=[155 * mm])
         clear.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(SOFT_GREEN)),
@@ -873,7 +873,7 @@ def _draw_page_chrome(canvas, page_num, page_width, page_height, colors, body_fo
     canvas.setLineWidth(0.45)
     canvas.line(17 * mm, 11 * mm, page_width - 17 * mm, 11 * mm)
     canvas.setFillColor(colors.HexColor(MUTED))
-    canvas.setFont(body_font, 6.8)
-    canvas.drawString(17 * mm, 7 * mm, "CrossComply  ·  受控决策辅助")
+    canvas.setFont(body_font, 5.5)
+    canvas.drawString(17 * mm, 7 * mm, "本报告由 CrossComply 辅助生成，供企业内部合规审查与决策参考，不构成正式法律意见。")
     canvas.drawRightString(page_width - 17 * mm, 7 * mm, f"{page_num:02d}")
     canvas.restoreState()

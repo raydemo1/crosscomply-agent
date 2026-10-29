@@ -58,7 +58,8 @@ def test_elasticsearch_adapter_maps_hits() -> None:
 
     assert client.calls[0]["index"] == "lawagent_chunks"
     assert client.calls[0]["body"]["query"]["bool"]["must_not"] == [
-        {"term": {"retrieval_enabled": False}}
+        {"term": {"retrieval_enabled": False}},
+        {"term": {"authority": "simulated_internal_policy"}},
     ]
     assert hits[0].retriever == "elasticsearch"
     assert hits[0].score == 8.5

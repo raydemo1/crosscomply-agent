@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ArrowUp, Check, CircleHelp, FileText, Paperclip, Plus, X } from 'lucide-react';
+import { ArrowRight, ArrowUp, Check, TriangleAlert, CircleHelp, FileText, Paperclip, Plus, X } from 'lucide-react';
 import { createQAConversation, downloadQAMaterial, getQAConversation, retryQARun, sendQAMessage, subscribeQARun, uploadQAMaterial, validateUploadFile } from '../api/client';
 import type { QAConversation, QAHandoff, QAQuestion, QARun } from '../types/qa';
 import QAAnswer from './QAAnswer';
@@ -7,6 +7,7 @@ import { formatQAAnswers, qaQuestionOptions, toggleQAOption } from '../utils/qaQ
 import '../styles/qa.css';
 
 interface Props {
+  userRole: 'requester' | 'reviewer' | 'admin';
   conversationId: string | null;
   onConversationChange: (id: string) => void;
   onHistoryChange: () => void;
@@ -50,7 +51,7 @@ function QAQuestions({ questions, disabled, onSubmit }: {
 
 import QaOnboarding from './QaOnboarding';
 
-export default function ComplianceQAPage({ conversationId, onConversationChange, onHistoryChange, onNewConversation, onHandoff }: Props): JSX.Element {
+export default function ComplianceQAPage({ userRole, conversationId, onConversationChange, onHistoryChange, onNewConversation, onHandoff }: Props): JSX.Element {
   const [conversation, setConversation] = useState<QAConversation | null>(null);
   const [question, setQuestion] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -173,7 +174,7 @@ export default function ComplianceQAPage({ conversationId, onConversationChange,
     <section className={'qa-page' + (hasMessages ? ' qa-page--conversation' : '')}>
       {hasMessages ? <header className="qa-thread-heading"><div><h1>{conversation?.title}</h1></div><button className="qa-quiet-button" type="button" onClick={onNewConversation}><Plus size={16} />新问答</button></header> : (
         <header className="qa-welcome">
-          <h1>想核实哪项<br /><span>合规问题？</span></h1>
+          <h1>咨询数据出境<br /><span>合规问题</span></h1>
         </header>
       )}
 
@@ -187,15 +188,17 @@ export default function ComplianceQAPage({ conversationId, onConversationChange,
               {run.status === 'queued' || run.status === 'running' ? <div className="qa-progress" role="status"><span className="qa-progress-dot" />{run.progress}{disconnected ? ' · 连接恢复中' : ''}</div> : null}
               <QAAnswer answer={run.result?.questions?.length ? '' : run.answer} result={run.result} streaming={run.status === 'running'} incomplete={run.status === 'failed'}>
               {run.status === 'failed' ? <div className="qa-failure" role="alert"><p>{run.error}</p>{index === conversation.runs.length - 1 ? <button type="button" className="qa-quiet-button" onClick={() => void retry(run)} disabled={busy}>重新回答</button> : null}</div> : null}
-              {run.result?.budget_exhausted || run.result?.evidence_gaps?.length ? <aside className="qa-conditions"><strong>回答限制{run.result.budget_exhausted ? ' · 调查已达本轮上限' : ''}</strong>{run.result.evidence_gaps?.length ? <ul>{run.result.evidence_gaps.map((gap, i) => <li key={i}>{gap}</li>)}</ul> : null}</aside> : null}
-              {run.result?.conditions.length ? <aside className="qa-conditions"><strong>待确认条件</strong><ul>{run.result.conditions.map((condition, i) => <li key={i}>{condition}</li>)}</ul></aside> : null}
+              {run.result?.budget_exhausted || run.result?.evidence_gaps?.length || run.result?.conditions.length ? <aside className="qa-conditions" aria-label="适用限制"><TriangleAlert size={17} aria-hidden="true" /><div>
+                {run.result.evidence_gaps?.length ? <ul>{run.result.evidence_gaps.map((gap, i) => <li key={i}>{gap}</li>)}</ul> : run.result.budget_exhausted ? <p>本次分析已达处理上限</p> : null}
+                {run.result.conditions.length ? <ul>{run.result.conditions.map((condition, i) => <li key={i}>{condition}</li>)}</ul> : null}
+              </div></aside> : null}
               </QAAnswer>
               {run.result?.questions?.length ? index === conversation.runs.length - 1
                 ? <QAQuestions questions={run.result.questions} disabled={busy} onSubmit={send} />
                 : <div className="qa-question-history">{run.result.questions.map((item, i) => <p key={i}>{item.question}</p>)}</div>
                 : null}
-              {run.status === 'completed' && !run.result?.questions?.length ? <footer className="qa-answer-footer"><span><Check size={14} />{run.result?.budget_exhausted || run.result?.evidence_gaps?.length ? '已回答 · 存在限制' : '回答完成'}</span><button type="button" className="qa-handoff-button" onClick={() => { setHandoffRun(run); setHandoffMaterials(run.material_ids); }}>基于此发起正式审查<ArrowRight size={15} /></button></footer> : null}
-              {handoffRun?.id === run.id ? <div className="qa-handoff"><h3>带入正式审查</h3><p>问题和选定原始材料将带入工作台。问答内容仅作调查线索，正式审查会重新确认事实与依据。</p>{conversation.materials.filter((m) => run.material_ids.includes(m.id)).map((m) => <label key={m.id}><input type="checkbox" checked={handoffMaterials.includes(m.id)} onChange={(event) => setHandoffMaterials((ids) => event.target.checked ? [...ids, m.id] : ids.filter((id) => id !== m.id))} />{m.filename}</label>)}<div><button type="button" className="btn-primary" disabled={preparing} onClick={() => void prepareHandoff()}>{preparing ? '正在准备材料…' : '前往工作台'}</button><button type="button" className="qa-quiet-button" onClick={() => setHandoffRun(null)}>取消</button></div></div> : null}
+              {run.status === 'completed' && !run.result?.questions?.length ? <footer className="qa-answer-footer"><button type="button" className="qa-handoff-button" onClick={() => { setHandoffRun(run); setHandoffMaterials(run.material_ids); }}>发起合规审查<ArrowRight size={15} /></button></footer> : null}
+              {handoffRun?.id === run.id ? <div className="qa-handoff"><h3>带入正式审查</h3><p>正式审查将重新核实事实与法规依据。</p>{conversation.materials.filter((m) => run.material_ids.includes(m.id)).map((m) => <label key={m.id}><input type="checkbox" checked={handoffMaterials.includes(m.id)} onChange={(event) => setHandoffMaterials((ids) => event.target.checked ? [...ids, m.id] : ids.filter((id) => id !== m.id))} />{m.filename}</label>)}<div><button type="button" className="btn-primary" disabled={preparing} onClick={() => void prepareHandoff()}>{preparing ? '正在准备材料…' : '前往工作台'}</button><button type="button" className="qa-quiet-button" onClick={() => setHandoffRun(null)}>取消</button></div></div> : null}
             </div>
           </article>
         ))}
@@ -208,13 +211,13 @@ export default function ComplianceQAPage({ conversationId, onConversationChange,
         <form className={'qa-composer' + (draggingFiles ? ' is-dragging' : '')} onSubmit={(event) => { event.preventDefault(); void send(); }} onDragEnter={() => { dragDepthRef.current += 1; setDraggingFiles(true); }} onDragLeave={() => { dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (dragDepthRef.current === 0) setDraggingFiles(false); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); dragDepthRef.current = 0; setDraggingFiles(false); try { const incoming = Array.from(event.dataTransfer?.files ?? []); if (incoming.length) { incoming.forEach(validateUploadFile); setFiles((items) => [...items, ...incoming]); setError(null); } } catch (reason) { setError(reason instanceof Error ? reason.message : '文件无效'); } }}>
           {draggingFiles ? <div className="qa-drag-overlay" aria-hidden="true"><Paperclip size={22} strokeWidth={1.8} /><span>松开以添加材料</span></div> : null}
           <label htmlFor="qa-question" className="sr-only">合规问题</label>
-          <textarea ref={questionInput} id="qa-question" value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={20000} rows={hasMessages ? 1 : 3} placeholder={hasMessages ? '继续追问，或补充业务条件…' : '输入你的合规问题…'} disabled={loading || sending} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} />
+          <textarea ref={questionInput} id="qa-question" value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={20000} rows={hasMessages ? 1 : 3} placeholder={hasMessages ? '继续提问，或补充业务情况…' : '请描述业务场景或合规问题…'} disabled={loading || sending} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} />
           {files.length ? <div className="qa-file-chips">{files.map((file, i) => <span key={i}><FileText size={14} />{file.name}<button type="button" disabled={sending} aria-label={`移除 ${file.name}`} onClick={() => setFiles((items) => items.filter((_, index) => index !== i))}><X size={13} /></button></span>)}</div> : null}
           <div className="qa-composer-toolbar"><button type="button" className="qa-attach" title="添加材料" aria-label="添加材料" disabled={busy} onClick={() => input.current?.click()}><Paperclip size={16} /></button><input ref={input} type="file" hidden multiple accept=".txt,.md,.pdf,.docx,.xlsx,.csv,.html,.htm" onChange={(event) => { try { const incoming = Array.from(event.target.files ?? []); incoming.forEach(validateUploadFile); setFiles((items) => [...items, ...incoming]); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : '文件无效'); } event.target.value = ''; }} /><button className="qa-send" type="submit" aria-label="发送问题" title="发送问题（Ctrl / ⌘ + Enter）" disabled={!question.trim() || busy}><ArrowUp size={20} /></button></div>
         </form>
         {!hasMessages && !loading ? <div className="qa-examples" aria-label="示例问题">{EXAMPLES.map((example) => <button key={example} type="button" disabled={busy} onClick={() => { setQuestion(example); questionInput.current?.focus(); }}>{example}</button>)}</div> : null}
         {!hasMessages && !loading ? <div className="qa-guide-entry"><button type="button" className="qa-quiet-button" disabled={busy} aria-expanded={showGuide} onClick={() => setShowGuide((value) => !value)}><CircleHelp size={15} />使用指引</button></div> : null}
-        {!hasMessages && !loading && showGuide ? <QaOnboarding onDismiss={() => setShowGuide(false)} /> : null}
+        {!hasMessages && !loading && showGuide ? <QaOnboarding userRole={userRole} onDismiss={() => setShowGuide(false)} /> : null}
       </div>
     </section>
   );

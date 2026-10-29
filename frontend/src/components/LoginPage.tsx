@@ -27,7 +27,7 @@ export default function LoginPage({ onLogin, error }: LoginPageProps): JSX.Eleme
       <div className="login-brand-panel">
         <div className="login-brand"><img src="/crosscomply-logo.svg" alt="" className="login-brand__mark" /><strong>CrossComply</strong></div>
         <h1>让合规判断<br /><span>有据可依</span></h1>
-        <span className="login-brand-panel__caption">跨境数据合规系统</span>
+        <span className="login-brand-panel__caption">数据出境合规审查系统</span>
       </div>
       <section className="login-card" aria-labelledby="login-title">
         <h2 id="login-title">登录</h2>
@@ -37,7 +37,7 @@ export default function LoginPage({ onLogin, error }: LoginPageProps): JSX.Eleme
           {error ? <div className="form-error" role="alert" aria-live="assertive">{error}</div> : null}
           <button type="submit" className="btn-primary login-form__submit" disabled={loading}>{loading ? '正在验证…' : '进入系统 →'}</button>
         </form>
-        <div className="login-card__note">系统仅提供合规决策辅助，不替代专业法律意见。</div>
+        <div className="login-card__note">本系统提供合规审查辅助，不替代正式法律意见。</div>
       </section>
     </main>
   );

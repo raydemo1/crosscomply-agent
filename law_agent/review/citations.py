@@ -45,6 +45,9 @@ def validate_citation(hit: RetrievalHit, usage: CitationUsage) -> list[str]:
 
     violations: list[str] = []
 
+    if hit.authority == "simulated_internal_policy":
+        violations.append("模拟制度不能用于正式审查引用")
+
     if usage in ("legal_basis", "conditional_basis") and not hit.can_cite_clause:
         violations.append(
             f"citation_role={hit.citation_role} usage={usage} requires "
@@ -253,8 +256,12 @@ def group_citations(
 
     # First pass: determine usage and validate
     hits_with_usage: list[tuple[RetrievalHit, CitationUsage]] = []
+    excluded_violations: list[str] = []
 
     for hit in hits:
+        if hit.authority == "simulated_internal_policy":
+            excluded_violations.extend(validate_citation(hit, "implementation_reference"))
+            continue
         usage = _determine_usage(hit)
         violations = validate_citation(hit, usage)
         if violations:
@@ -263,7 +270,7 @@ def group_citations(
         else:
             hits_with_usage.append((hit, usage))
 
-    all_violations = validate_citations(hits_with_usage)
+    all_violations = excluded_violations + validate_citations(hits_with_usage)
 
     # Second pass: build citations and group
     groups: dict[CitationUsage, list[Citation]] = {

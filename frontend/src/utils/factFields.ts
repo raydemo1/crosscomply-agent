@@ -16,14 +16,14 @@ export const FACT_FIELDS: Record<FactField, { label: string; options?: Array<[st
   cross_border_transfer: { label: '存在数据出境', kind: 'boolean' },
   overseas_recipient: { label: '境外接收方' },
   processing_purpose: { label: '处理目的' },
-  legal_basis_or_consent: { label: '法律基础或同意情况' },
+  legal_basis_or_consent: { label: '告知、同意及其他处理依据' },
   important_data_status: { label: '重要数据情况', options: [['unknown', '尚不确定'], ['not_important', '已确认为非重要数据'], ['important', '已确认为重要数据'], ['under_review', '正在核实']] },
   ciio_status: { label: '关键信息基础设施运营者身份', options: [['unknown', '尚不确定'], ['not_ciio', '非关键信息基础设施运营者'], ['ciio', '关键信息基础设施运营者'], ['under_review', '正在核实']] },
   annual_non_sensitive_count: { label: '非敏感个人信息人数' },
   annual_sensitive_count: { label: '敏感个人信息人数' },
   count_period: { label: '人数统计期间', options: [['unknown', '尚未确认'], ['current_year_cumulative', '当年累计'], ['annual_estimate', '全年估算'], ['other', '其他统计口径']] },
   destination_region: { label: '数据接收地' },
-  exemption_facts: { label: '可能适用豁免的业务事实' },
+  exemption_facts: { label: '相关业务情况' },
 };
 
 export function factLabel(field: string): string {

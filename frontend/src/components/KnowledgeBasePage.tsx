@@ -406,7 +406,7 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
   }), [sources, selectedIds]);
 
   if (user.role !== 'admin') {
-    return <section className="knowledge-main"><div className="card state-block"><h2>仅管理员可管理知识库</h2><p>知识库的导入、删除和元数据更新会触发受控后台任务。</p></div></section>;
+    return <section className="knowledge-main"><div className="card state-block"><h2>仅管理员可管理知识库</h2></div></section>;
   }
 
   return (

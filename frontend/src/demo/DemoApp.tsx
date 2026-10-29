@@ -16,7 +16,7 @@ export default function DemoApp() {
   }, [dark]);
   return <div className="demo-shell">
     <aside className={`demo-sidebar${menu ? ' is-open' : ''}`} aria-label="示例导航">
-      <Link className="demo-brand" to="/" onClick={() => setMenu(false)}><img src="/crosscomply-logo.svg" alt="" /><span><strong>CrossComply</strong><small>跨境数据合规工作台</small></span></Link>
+      <Link className="demo-brand" to="/" onClick={() => setMenu(false)}><img src="/crosscomply-logo.svg" alt="" /><span><strong>CrossComply</strong><small>数据出境合规审查系统</small></span></Link>
       <Link className="demo-overview-link" to="/" onClick={() => setMenu(false)}><BookOpen size={17} />示例工作台</Link>
       <div className="demo-nav-label">探索示例案件</div>
       <nav>{scenarios.map((item, index) => <Link key={item.id} to={`/cases/${item.id}`} onClick={() => setMenu(false)}><span className="demo-nav-index">0{index + 1}</span><span>{item.title}<small>{item.category}</small></span><ChevronRight size={14} /></Link>)}</nav>

@@ -9,7 +9,7 @@ from law_agent.config import require_llm_config
 from law_agent.data.schemas import StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.llm import StructuredLLMNode
-from law_agent.review.schemas import CIIOStatus, CountPeriod, ImportantDataStatus, ReviewFacts
+from law_agent.review.schemas import CIIOStatus, CountPeriod, ImportantDataStatus, IntakeFactField, ReviewFacts
 
 FactsExtractor = Callable[[str, str | None], ReviewFacts]
 _LLM_PROMPT_VERSION = "0.2.0"
@@ -28,7 +28,7 @@ class LLMReviewFacts(StrictModel):
     legal_basis_or_consent: str | None
     industry: str | None
     regions: list[str]
-    missing_information: list[str]
+    missing_information: list[IntakeFactField]
     important_data_status: ImportantDataStatus = "unknown"
     ciio_status: CIIOStatus = "unknown"
     annual_non_sensitive_count: str | None = None
@@ -55,7 +55,7 @@ def build_fact_extraction_messages(
         "legal_basis_or_consent": None,
         "industry": None,
         "regions": ["上海"],
-        "missing_information": ["legal_basis_or_consent", "data_volume_threshold"],
+        "missing_information": ["legal_basis_or_consent", "annual_non_sensitive_count", "annual_sensitive_count", "count_period"],
     }
     json_example.update({
         "important_data_status": "unknown", "ciio_status": "unknown",

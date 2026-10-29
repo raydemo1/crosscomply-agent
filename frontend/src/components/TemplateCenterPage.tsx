@@ -202,9 +202,9 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
     if (!file) return;
     try {
       const raw: unknown = JSON.parse(await file.text());
-      if (!raw || typeof raw !== 'object') throw new Error('JSON 内容不是对象。');
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('文件格式有误，请使用 JSON 模板。');
       const value = raw as Partial<TemplateDraft> & { format?: unknown; version?: unknown };
-      if (value.format !== TEMPLATE_FORMAT || value.version !== 1) throw new Error('不是有效的 CrossComply 使用模板文件。');
+      if (value.format !== TEMPLATE_FORMAT || value.version !== 1) throw new Error('不是有效的 CrossComply 场景模板文件。');
       if (typeof value.name !== 'string' || !value.name.trim() || typeof value.question !== 'string' || !value.question.trim()) {
         throw new Error('导入文件缺少模板名称或审查问题。');
       }
@@ -217,7 +217,7 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
       await load();
       setMessage('模板已导入，并创建为副本。');
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : '导入模板失败');
+      setMessage(reason instanceof SyntaxError ? '文件格式有误，请使用 JSON 模板。' : reason instanceof Error ? reason.message : '导入模板失败');
     } finally {
       setBusy(false);
     }
@@ -227,7 +227,7 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
     <section className="template-page" aria-labelledby="template-page-title">
       <header className="template-page__header">
         <div>
-          <h1 id="template-page-title" className="page-title">使用模板</h1>
+          <h1 id="template-page-title" className="page-title">场景模板</h1>
         </div>
         {canManageTemplates ? (
           <div className="template-page__actions">
@@ -270,7 +270,7 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
           <label className="template-field"><span>模板名称</span><input value={draft.name} maxLength={120} onChange={(event) => updateDraft('name', event.target.value)} placeholder="例如：个人信息出境审查" /></label>
           <label className="template-field"><span>适用场景说明</span><input value={draft.description} maxLength={500} onChange={(event) => updateDraft('description', event.target.value)} placeholder="说明什么时候适合使用" /></label>
           <label className="template-field"><span>审查问题</span><textarea value={draft.question} maxLength={4000} onChange={(event) => updateDraft('question', event.target.value)} rows={4} placeholder="例如：这个业务是否需要数据出境安全评估？" /></label>
-          <p className="template-editor__note">模板仅保存字段设置，不包含案件材料或审查记录。</p>
+
           <div className="template-editor__footer"><button className="btn-secondary" type="button" onClick={closeEditor} disabled={busy}>取消</button><button className="btn-primary" type="button" onClick={() => void save()} disabled={busy}>{busy ? '保存中…' : '保存模板'}</button></div>
         </dialog>
       ) : null}

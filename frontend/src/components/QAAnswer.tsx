@@ -15,12 +15,11 @@ interface Props {
   children?: ReactNode;
 }
 
-const KINDS = { legal: '法律依据', context: '参考资料', web: '网页线索' };
+const KINDS = { legal: '法律法规', context: '政策指南与参考', web: '外部公开信息' };
 
 function CitationPassage({ citation, selected }: { citation: QACitation; selected: boolean }): JSX.Element {
   return <article className="qa-citation-passage" data-selected={selected}>
     <h4>{citationLocation(citation)}</h4>
-    {citation.available_at_answer_date === false ? <p>非回答时点（{citation.answer_as_of_date}）有效依据，仅供历史或版本比较。</p> : null}
     <blockquote>{citation.excerpt || '当前来源未提供正文摘录。'}</blockquote>
   </article>;
 }
@@ -67,7 +66,7 @@ export default function QAAnswer({ answer, result, streaming, incomplete = false
 
   if (incomplete) return <>
     {children}
-    {answer ? <details className="qa-incomplete-draft"><summary>查看未完成草稿（可能缺少条件和例外）</summary><pre>{answer}</pre></details> : null}
+    {answer ? <details className="qa-incomplete-draft"><summary>查看未完成内容</summary><pre>{answer}</pre></details> : null}
   </>;
 
   return <>
@@ -80,7 +79,7 @@ export default function QAAnswer({ answer, result, streaming, incomplete = false
     {children}
 
     {citedGroups.length || materials.size ? <details className="qa-sources">
-      <summary>参考来源 <span>{citedGroups.length + materials.size}</span></summary>
+      <summary>来源与依据 <span>{citedGroups.length + materials.size}</span></summary>
       <div className="qa-source-list">
         {citedGroups.map((group) => <button key={group.key} type="button" className="qa-source-row"
           aria-haspopup="dialog" onClick={() => setSelectedRefs(group.citations.map((citation) => citation.ref))}>
@@ -103,8 +102,8 @@ export default function QAAnswer({ answer, result, streaming, incomplete = false
           if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.current?.close();
         }
       }}>
-      <header className="qa-citation-dialog-header"><div><BookOpen size={15} aria-hidden="true" /><h2 id={headingId}>引用依据</h2></div>
-        <button type="button" className="qa-citation-close" aria-label="关闭引用依据" onClick={() => dialog.current?.close()}><X size={19} /></button>
+      <header className="qa-citation-dialog-header"><div><BookOpen size={15} aria-hidden="true" /><h2 id={headingId}>法规依据</h2></div>
+        <button type="button" className="qa-citation-close" aria-label="关闭法规依据" onClick={() => dialog.current?.close()}><X size={19} /></button>
       </header>
       <div className="qa-citation-dialog-body">
         {activeGroups.map((group) => <section className="qa-citation-document" key={group.key}>

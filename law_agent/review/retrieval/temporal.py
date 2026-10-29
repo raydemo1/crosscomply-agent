@@ -24,6 +24,8 @@ def filter_hits_as_of(
 ) -> list[RetrievalHit]:
     latest: dict[str, date] = {}
     for chunk in chunks_by_id.values():
+        if chunk.authority == "simulated_internal_policy":
+            continue
         published = _parsed(chunk.publish_date)
         if published and published > as_of:
             continue
@@ -39,7 +41,7 @@ def filter_hits_as_of(
     filtered: list[RetrievalHit] = []
     for hit in hits:
         chunk = chunks_by_id.get(hit.chunk_id)
-        if chunk is None:
+        if chunk is None or chunk.authority == "simulated_internal_policy":
             continue
         published = _parsed(chunk.publish_date)
         effective = _parsed(chunk.effective_date)

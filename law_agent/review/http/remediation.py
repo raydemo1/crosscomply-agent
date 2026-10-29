@@ -369,7 +369,7 @@ def register_remediation_routes(
             items = await run_in_threadpool(task_drafter, review_result, model_id=model_id)
         except ReviewWorkflowFailed as exc:
             raise HTTPException(
-                status_code=502, detail=f"Agent 起草整改任务失败：{exc.message}"
+                status_code=502, detail=f"CrossComply 起草待办失败：{exc.message}"
             ) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

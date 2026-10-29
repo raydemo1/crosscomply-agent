@@ -17,6 +17,7 @@ import {
 } from '../api/client';
 import { EMPTY_INTAKE } from '../store/caseStore';
 import { allocateUploadNames, PASTED_MATERIAL_LOGICAL_NAME } from '../utils/materialNames';
+import { intakeQuestion, intakeQuestionFields, visibleIntakeQuestions, type MissingFact } from '../utils/intakeQuestions';
 import '../styles/workbench.css';
 
 interface WorkbenchPageProps {
@@ -44,55 +45,6 @@ interface WorkbenchPageProps {
   } | null;
 }
 
-type MissingFact = { key: string; reason: string; input_type: 'choice' | 'text' | 'count' | 'exemption' | 'free_text' };
-
-const FACT_QUESTIONS: Record<string, string> = {
-  important_data_status: '这批数据是否已被确认为重要数据？',
-  ciio_status: '公司是否已被认定为关键信息基础设施运营者？',
-  annual_non_sensitive_count: '统计期间内，非敏感个人信息出境涉及多少人？',
-  annual_sensitive_count: '统计期间内，敏感个人信息出境涉及多少人？',
-  count_period: '人数按哪个期间和口径统计？',
-  destination_region: '数据将传输至哪个国家或地区？',
-  exemption_facts: '可能适用豁免的具体业务事实是什么？',
-  sensitive_personal_info: '是否涉及敏感个人信息？',
-  cross_border_transfer: '这项活动是否涉及向境外提供数据？',
-  important_data: '这批数据里是否包含重要数据？',
-  is_ciio: '公司是否属于关键信息基础设施运营者？',
-  contains_personal_information: '出境的数据是否包含个人信息？',
-  contains_sensitive_personal_information: '是否涉及敏感个人信息？',
-  cumulative_personal_information_subjects: '当年累计出境的个人信息主体大约有多少人？',
-  cumulative_sensitive_personal_information_subjects: '当年累计出境的敏感个人信息主体大约有多少人？',
-  exemption_facts_confirmed: '主张的法定豁免情形，构成事实是否已经逐项确认？',
-  overseas_recipient: '境外接收方是谁？',
-  processing_purpose: '数据出境具体用于什么业务目的？',
-  legal_basis_or_consent: '处理个人信息的法律依据或同意安排是什么？',
-  data_volume_threshold: '请确认当年累计出境人数及统计口径。',
-};
-
-const FACT_FIELDS: Record<string, string[]> = {
-  important_data_status: ['important_data_status'],
-  ciio_status: ['ciio_status'],
-  annual_non_sensitive_count: ['annual_non_sensitive_count', 'count_period'],
-  annual_sensitive_count: ['annual_sensitive_count', 'count_period'],
-  count_period: ['count_period'],
-  destination_region: ['destination_region'],
-  exemption_facts: ['exemption_facts'],
-  cross_border_transfer: ['cross_border_transfer'],
-  important_data: ['important_data_status'],
-  is_ciio: ['ciio_status'],
-  contains_personal_information: ['contains_personal_information'],
-  sensitive_personal_info: ['sensitive_personal_info'],
-  contains_sensitive_personal_information: ['sensitive_personal_info'],
-  cumulative_personal_information_subjects: ['annual_non_sensitive_count', 'count_period'],
-  cumulative_sensitive_personal_information_subjects: ['annual_sensitive_count', 'count_period'],
-  data_volume_threshold: ['annual_non_sensitive_count', 'annual_sensitive_count', 'count_period'],
-  overseas_recipient: ['overseas_recipient'],
-  processing_purpose: ['processing_purpose'],
-  legal_basis_or_consent: ['legal_basis_or_consent'],
-  exemption_facts_confirmed: ['exemption_facts'],
-};
-
-const MAX_QUESTIONS = 4;
 const MATERIAL_FALLBACK_PREFIX = '材料以附件形式提供：';
 
 function materialOriginal(material: string): File {
@@ -282,7 +234,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
       setMissingFacts(result.missing);
       return true;
     } catch (reason) {
-      setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'Agent 无法读取材料，请检查文件后重试。');
+      setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'CrossComply 无法读取材料，请检查文件后重试。');
       return false;
     } finally {
       setAnalyzing(false);
@@ -359,38 +311,32 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
     }
   };
 
-  // 多个事实可能指向同一问题（如敏感/非敏感人数共享统计口径），按问题文本去重
-  const seenQuestions = new Set<string>();
-  // 人数口径已随两处人数问题内联出现，不再单独提问
-  const countPeriodShared = missingFacts.some(
-    (item) => item.key !== 'count_period' && (FACT_FIELDS[item.key] ?? []).includes('count_period'),
-  );
-  const uniqueFacts = missingFacts.filter((fact) => {
-    const questionText = FACT_QUESTIONS[fact.key] ?? fact.reason;
-    if (seenQuestions.has(questionText)) return false;
-    seenQuestions.add(questionText);
-    if (fact.key === 'count_period' && countPeriodShared) return false;
-    return true;
-  });
+  const uniqueFacts = visibleIntakeQuestions(missingFacts, Infinity);
+  const MAX_QUESTIONS = 4;
   const askedFacts = uniqueFacts.slice(0, MAX_QUESTIONS);
-  const requestedFields = [...new Set(missingFacts.flatMap((item) => FACT_FIELDS[item.key] ?? []))];
-  const askedKeys = new Set(requestedFields);
+  const requestedFields = [...new Set(missingFacts.flatMap((item) => intakeQuestionFields(item.key)))];
+  const renderedFields = new Set<string>();
+  const askedKeys = new Set<string>(requestedFields);
 
   const renderFact = (fact: MissingFact): JSX.Element => {
-    const fieldsForFact = FACT_FIELDS[fact.key] ?? [];
+    const fieldsForFact = intakeQuestionFields(fact.key).filter((field) => {
+      if (renderedFields.has(field)) return false;
+      renderedFields.add(field);
+      return true;
+    });
     const value = intake.followup_answers?.[fact.key] ?? '';
     const updateAnswer = (answer: string): void => setIntake({
       ...intake,
       followup_answers: { ...intake.followup_answers, [fact.key]: answer },
     });
     return <div className="intake-question" key={fact.key}>
-      <p className="intake-question__title">{FACT_QUESTIONS[fact.key] ?? fact.reason}</p>
+      <p className="intake-question__title">{intakeQuestion(fact.key, intake.count_period, fact.reason)}</p>
       <div className="intake-group__grid">
         {fieldsForFact.length ? fieldsForFact.map((field) => <Fragment key={field}>{fields[field]}</Fragment>) : (
           <label className="form-field form-field--wide"><span>你的回答</span>
-            {fact.input_type === 'choice' ? <select aria-label={fact.reason} value={value} onChange={(event) => updateAnswer(event.target.value)}><option value="">尚不确定</option><option value="yes">是</option><option value="no">否</option><option value="unknown">无法确认</option></select>
-              : fact.input_type === 'count' ? <input aria-label={fact.reason} type="number" min="0" value={value} onChange={(event) => updateAnswer(event.target.value)} placeholder="例如：500" />
-                : <textarea aria-label={fact.reason} value={value} onChange={(event) => updateAnswer(event.target.value)} rows={3} placeholder="请针对这项问题单独说明" />}
+            {fact.input_type === 'choice' ? <select aria-label={intakeQuestion(fact.key, intake.count_period, fact.reason)} value={value} onChange={(event) => updateAnswer(event.target.value)}><option value="">尚不确定</option><option value="yes">是</option><option value="no">否</option><option value="unknown">无法确认</option></select>
+              : fact.input_type === 'count' ? <input aria-label={intakeQuestion(fact.key, intake.count_period, fact.reason)} type="number" min="0" value={value} onChange={(event) => updateAnswer(event.target.value)} placeholder="例如：500" />
+                : <textarea aria-label={intakeQuestion(fact.key, intake.count_period, fact.reason)} value={value} onChange={(event) => updateAnswer(event.target.value)} rows={3} placeholder="请针对这项问题单独说明" />}
           </label>
         )}
       </div>
@@ -404,18 +350,18 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
     contains_personal_information: <label className="form-field"><span>出境数据是否包含个人信息</span><select value={triStateValue(intake.contains_personal_information)} onChange={(event) => updateIntake(intake, setIntake, 'contains_personal_information', triStateUpdate(event.target.value))}><option value="">尚不确定</option><option value="yes">是，包含个人信息</option><option value="no">否，不含个人信息</option></select></label>,
     sensitive_personal_info: <label className="form-field"><span>是否涉及敏感个人信息</span><select value={triStateValue(intake.sensitive_personal_info)} onChange={(event) => updateIntake(intake, setIntake, 'sensitive_personal_info', triStateUpdate(event.target.value))}><option value="">尚不确定</option><option value="yes">涉及</option><option value="no">不涉及</option></select></label>,
     overseas_recipient: <label className="form-field"><span>境外接收方</span><input value={intake.overseas_recipient} onChange={(event) => updateIntake(intake, setIntake, 'overseas_recipient', event.target.value)} placeholder="例如：境外供应商、集团关联公司" /></label>,
-    destination_region: <label className="form-field"><span>目的地</span><input value={intake.destination_region} onChange={(event) => updateIntake(intake, setIntake, 'destination_region', event.target.value)} placeholder="例如：新加坡" /></label>,
-    legal_basis_or_consent: <label className="form-field form-field--wide"><span>法律依据或同意安排</span><textarea value={intake.legal_basis_or_consent} onChange={(event) => updateIntake(intake, setIntake, 'legal_basis_or_consent', event.target.value)} placeholder="例如：已取得单独同意，或说明处理所依据的具体业务和法律基础" rows={3} /></label>,
+    destination_region: <label className="form-field"><span>境外接收地</span><input value={intake.destination_region} onChange={(event) => updateIntake(intake, setIntake, 'destination_region', event.target.value)} placeholder="例如：新加坡" /></label>,
+    legal_basis_or_consent: <label className="form-field form-field--wide"><span>告知、同意及其他处理依据</span><textarea value={intake.legal_basis_or_consent} onChange={(event) => updateIntake(intake, setIntake, 'legal_basis_or_consent', event.target.value)} placeholder="请说明已履行的手续或所依据的其他事由" rows={3} /></label>,
     important_data_status: <label className="form-field"><span>重要数据识别状态</span><select value={intake.important_data_status} onChange={(event) => updateIntake(intake, setIntake, 'important_data_status', event.target.value as CaseIntake['important_data_status'])}><option value="unknown">尚不确定</option><option value="not_important">已确认不涉及</option><option value="important">已确认涉及</option><option value="under_review">正在核实</option></select></label>,
-    ciio_status: <label className="form-field"><span>关基运营者状态</span><select value={intake.ciio_status} onChange={(event) => updateIntake(intake, setIntake, 'ciio_status', event.target.value as CaseIntake['ciio_status'])}><option value="unknown">尚不确定</option><option value="not_ciio">已确认不是</option><option value="ciio">已确认是</option><option value="under_review">正在核实</option></select></label>,
-    annual_non_sensitive_count: <label className="form-field"><span>非敏感个人信息数量</span><input value={intake.annual_non_sensitive_count} onChange={(event) => updateIntake(intake, setIntake, 'annual_non_sensitive_count', event.target.value)} placeholder="例如：1 万–5 万人" /></label>,
-    annual_sensitive_count: <label className="form-field"><span>敏感个人信息数量</span><input value={intake.annual_sensitive_count} onChange={(event) => updateIntake(intake, setIntake, 'annual_sensitive_count', event.target.value)} placeholder="例如：1000–5000 人" /></label>,
+    ciio_status: <label className="form-field"><span>关键信息基础设施运营者身份</span><select value={intake.ciio_status} onChange={(event) => updateIntake(intake, setIntake, 'ciio_status', event.target.value as CaseIntake['ciio_status'])}><option value="unknown">尚不确定</option><option value="not_ciio">已确认不是</option><option value="ciio">已确认是</option><option value="under_review">正在核实</option></select></label>,
+    annual_non_sensitive_count: <label className="form-field"><span>非敏感个人信息涉及人数</span><input value={intake.annual_non_sensitive_count} onChange={(event) => updateIntake(intake, setIntake, 'annual_non_sensitive_count', event.target.value)} placeholder="例如：1 万–5 万人" /></label>,
+    annual_sensitive_count: <label className="form-field"><span>敏感个人信息涉及人数</span><input value={intake.annual_sensitive_count} onChange={(event) => updateIntake(intake, setIntake, 'annual_sensitive_count', event.target.value)} placeholder="例如：1000–5000 人" /></label>,
     count_period: <label className="form-field"><span>人数统计口径</span><select value={intake.count_period} onChange={(event) => updateIntake(intake, setIntake, 'count_period', event.target.value as CaseIntake['count_period'])}><option value="unknown">尚不确定</option><option value="current_year_cumulative">本年度 1 月 1 日起累计</option><option value="annual_estimate">全年估算</option><option value="other">其他口径</option></select></label>,
     contract_status: <label className="form-field"><span>合同/标准合同状态</span><input value={intake.contract_status} onChange={(event) => updateIntake(intake, setIntake, 'contract_status', event.target.value)} placeholder="例如：已签署、待法务确认" /></label>,
     transfer_mechanism: <label className="form-field"><span>拟采用的出境路径</span><input value={intake.transfer_mechanism} onChange={(event) => updateIntake(intake, setIntake, 'transfer_mechanism', event.target.value)} placeholder="例如：标准合同、安全评估、认证" /></label>,
-    processing_purpose: <label className="form-field form-field--wide"><span>处理目的</span><textarea value={intake.processing_purpose} onChange={(event) => updateIntake(intake, setIntake, 'processing_purpose', event.target.value)} placeholder="例如：客服响应、订单履约或安全运维" rows={3} /></label>,
-    exemption_facts: <label className="form-field form-field--wide"><span>主张豁免的事实依据</span><textarea value={intake.exemption_facts} onChange={(event) => updateIntake(intake, setIntake, 'exemption_facts', event.target.value)} placeholder="例如：与个人履行合同的具体关系，或其他主张豁免的业务事实" rows={3} /></label>,
-    notes: <label className="form-field form-field--wide"><span>补充说明</span><textarea value={intake.notes} onChange={(event) => updateIntake(intake, setIntake, 'notes', event.target.value)} placeholder="补充当前已知限制或 Agent 无法从材料确认的事实" rows={3} /></label>,
+    processing_purpose: <label className="form-field form-field--wide"><span>数据出境用途</span><textarea value={intake.processing_purpose} onChange={(event) => updateIntake(intake, setIntake, 'processing_purpose', event.target.value)} placeholder="例如：客服响应、订单履约或安全运维" rows={3} /></label>,
+    exemption_facts: <label className="form-field form-field--wide"><span>相关业务情况</span><textarea value={intake.exemption_facts} onChange={(event) => updateIntake(intake, setIntake, 'exemption_facts', event.target.value)} placeholder="请说明具体业务安排" rows={3} /></label>,
+    notes: <label className="form-field form-field--wide"><span>补充说明</span><textarea value={intake.notes} onChange={(event) => updateIntake(intake, setIntake, 'notes', event.target.value)} placeholder="补充材料中未体现的业务情况" rows={3} /></label>,
   };
   const otherFields = Object.keys(fields).filter((key) => !askedKeys.has(key));
 
@@ -433,7 +379,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
         </div>
       </header>
 
-      {investigationLeads ? <details className="qa-workbench-leads"><summary>来自合规问答的调查线索</summary><p>以下内容仅供参考，不作为已确认事实或正式审查结论。</p><div>{investigationLeads}</div></details> : null}
+      {investigationLeads ? <details className="qa-workbench-leads"><summary>前期问答记录</summary><div>{investigationLeads}</div></details> : null}
 
       {error ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
 
@@ -461,16 +407,11 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
           </div>
           {fileError ? <div className="form-error">{fileError}</div> : null}
           {existingMaterialNames.length ? <p className="intake-hint">本案已有 {existingMaterialNames.length} 份材料，将原样保留在下次审查中；此处新增的文件只会追加，不会替换它们。</p> : null}
-          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={() => void goToStepTwo()}>{analyzing ? '正在读取材料…' : hasNewMaterialToRead ? '读取材料并继续' : '继续确认信息'}</button></div>
+          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={() => void goToStepTwo()}>{analyzing ? '正在解析材料…' : hasNewMaterialToRead ? '解析材料并继续' : '继续确认信息'}</button></div>
         </section>
       ) : (
         <section className="card intake-card">
           <div className="section-heading-row"><h2>确认关键信息</h2><button type="button" className="btn-link" onClick={() => setStep(1)}>← 返回材料</button></div>
-          <p className="intake-hint">
-            {missingFacts.length
-              ? `请核对以下 ${uniqueFacts.length} 项，未确认的信息可留空。`
-              : '请核对案件要素，未确认的信息可留空。'}
-          </p>
           {askedFacts.map(renderFact)}
           {uniqueFacts.length > MAX_QUESTIONS ? <details className="intake-group--optional"><summary>还有 {uniqueFacts.length - MAX_QUESTIONS} 项待确认</summary>{uniqueFacts.slice(MAX_QUESTIONS).map((fact) => {
             return renderFact(fact);

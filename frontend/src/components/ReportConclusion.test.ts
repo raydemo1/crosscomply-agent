@@ -28,8 +28,8 @@ test('report hierarchy preserves conditions, highlights and accessible citations
   const html = renderToStaticMarkup(createElement(ReportConclusion, { result, chapterNo: '01', onCitationClick: () => {} }));
   assert.ok(html.indexOf('审查摘要') < html.indexOf('判断要点'));
   assert.ok(html.indexOf('判断要点') < html.indexOf('完整分析'));
-  assert.ok(html.indexOf('完整分析') < html.indexOf('结论适用边界'));
-  assert.ok(html.indexOf('结论适用边界') < html.indexOf('使用说明'));
+  assert.ok(html.indexOf('完整分析') < html.indexOf('结论适用前提与范围'));
+  assert.ok(html.indexOf('结论适用前提与范围') < html.indexOf('使用说明'));
   assert.match(html, /<strong>人数尚未确认，暂不能确定出境路径。<\/strong>/);
   assert.match(html, /class="cite-marker"/);
   assert.match(html, /role="region" aria-label="报告表格，可横向滚动" tabindex="0"/);
@@ -39,7 +39,7 @@ test('report hierarchy preserves conditions, highlights and accessible citations
 test('empty optional sections stay absent and legacy prose remains readable', () => {
   const html = renderToStaticMarkup(createElement(ReportConclusion, { result: { ...result, conclusion: '历史报告原文。', trigger_reasons: [], risk_boundaries: [] }, chapterNo: '01', onCitationClick: () => {} }));
   assert.match(html, /历史报告原文。/);
-  assert.doesNotMatch(html, /判断要点|结论适用边界|使用说明/);
+  assert.doesNotMatch(html, /判断要点|结论适用前提与范围|使用说明/);
 });
 
 test('all exporters keep the same full summary, body and substantive boundaries', () => {

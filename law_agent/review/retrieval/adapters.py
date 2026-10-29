@@ -79,7 +79,10 @@ class ElasticsearchKeywordAdapter:
                     ],
                     # Legacy records without this field remain searchable;
                     # staged generations explicitly set it to false.
-                    "must_not": [{"term": {"retrieval_enabled": False}}],
+                    "must_not": [
+                        {"term": {"retrieval_enabled": False}},
+                        {"term": {"authority": "simulated_internal_policy"}},
+                    ],
                 }
             },
         }

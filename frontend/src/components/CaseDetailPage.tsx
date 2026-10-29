@@ -12,7 +12,7 @@ import CaseFactsPanel from './CaseFactsPanel';
 import CaseAssistant, { CaseAssistantTrigger } from './CaseAssistant';
 import { useCaseAssistant } from '../hooks/useCaseAssistant';
 import ReviewWorklog from './ReviewWorklog';
-import { caseFactLedger } from '../utils/factFields';
+import { caseFactLedger, factValue } from '../utils/factFields';
 import { cssId } from '../utils/display';
 import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
@@ -92,10 +92,10 @@ const FACT_FIELDS: Array<{ key: string; label: string; render: (f: ReviewFacts) 
   { key: 'data_types', label: '数据类型', render: (f) => renderList(f.data_types) },
   { key: 'sensitive_personal_info', label: '敏感个人信息', render: (f) => renderBool(f.sensitive_personal_info) },
   { key: 'processing_purpose', label: '处理目的', render: (f) => renderText(f.processing_purpose) },
-  { key: 'legal_basis', label: '法律依据/同意', render: (f) => renderText(f.legal_basis_or_consent) },
+  { key: 'legal_basis', label: '告知、同意及其他处理依据', render: (f) => renderText(f.legal_basis_or_consent) },
   { key: 'regions', label: '地区', render: (f) => renderList(f.regions) },
   { key: 'industry', label: '行业', render: (f) => renderText(f.industry) },
-  { key: 'as_of_date', label: '法源适用日期', render: (f) => f.as_of_date || '审查当天' },
+  { key: 'as_of_date', label: '法规适用日期', render: (f) => f.as_of_date || '审查当天' },
   { key: 'missing_information', label: '缺失信息', render: (f) => renderList(f.missing_information) },
 ];
 
@@ -181,10 +181,10 @@ function CaseDetailContent({
 
           {webFindings.some((item) => !item.known_source_id || item.refresh_needed) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>公开资料线索</strong><ul>{webFindings.filter((item) => !item.known_source_id || item.refresh_needed).map((item) => {
             const recheck = knowledgeRechecks.find((entry) => entry.url === item.url);
-            const status = !item.is_official ? '第三方资料，仅作调查参考' : recheck?.recheck_status === 'pending'
+            const status = !item.is_official ? '第三方资料，仅供参考' : recheck?.recheck_status === 'pending'
               ? (recheck.source_status === 'unchanged' ? '官方正文未变化，案件待复核' : '新版已入库，案件待复核')
               : item.known_source_id ? '发现更新线索，尚待核对原件'
-                : item.excerpt ? '已有搜索摘录，尚待治理核验' : '已发现来源，尚待治理核验';
+                : item.excerpt ? '网页摘录待核验' : '已发现来源，待核验';
             return <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {status}</span></li>;
           })}</ul></div> : null}
 
@@ -315,13 +315,13 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
     <section className={'enterprise-chain' + (embedded ? ' enterprise-chain--embedded' : '')} aria-label="企业决策证据链">
       {includeMaterial && materialSnapshot ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record'}>
-          <div className="enterprise-record__heading"><div><span>01</span><h2>材料快照</h2></div></div>
-          <p>本次审查绑定不可变材料快照，共 {materialSnapshot.version_ids.length} 个原件版本。</p>
+          <div className="enterprise-record__heading"><div><span>01</span><h2>本次送审材料</h2></div></div>
+          <p>已锁定送审版本，共 {materialSnapshot.version_ids.length} 份原件。</p>
           <div className="enterprise-materials">
             {materialSnapshot.version_ids.map((versionId, index) => (
               <div key={versionId}>
-                <span><strong>材料版本 {index + 1}</strong><small>已冻结到本次审查</small></span>
-                
+                <span><strong>材料版本 {index + 1}</strong><small>已锁定送审版本</small></span>
+
               </div>
             ))}
           </div>
@@ -330,15 +330,15 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
 
       {intakeSnapshot ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record enterprise-record--rules'}>
-          <div className="enterprise-record__heading"><div><span>02</span><h2>申报人确认事实</h2></div></div>
-          <p>本次审查绑定不可变事实快照，法律路径由 Agent 结合材料和正式法源独立判断。</p>
-          <div className="enterprise-record__facts"><div><span>业务活动</span><strong>{intakeSnapshot.intake.business_activity || '未确认'}</strong></div><div><span>人数统计口径</span><strong>{intakeSnapshot.intake.count_period || '未提供'}</strong></div></div>
+          <div className="enterprise-record__heading"><div><span>02</span><h2>申报人已确认事实</h2></div></div>
+
+          <div className="enterprise-record__facts"><div><span>业务活动</span><strong>{intakeSnapshot.intake.business_activity || '未确认'}</strong></div><div><span>人数统计口径</span><strong>{factValue('count_period', intakeSnapshot.intake.count_period)}</strong></div></div>
         </article>
       ) : null}
 
       {reviewTask ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record'}>
-          <div className="enterprise-record__heading"><div><span>03</span><h2>Agent 证据审查</h2></div><span className={`task-state task-state--${reviewTask.status}`}>{REVIEW_TASK_STATUS_LABELS[reviewTask.status]}</span></div>
+          <div className="enterprise-record__heading"><div><span>03</span><h2>CrossComply 证据审查</h2></div><span className={`task-state task-state--${reviewTask.status}`}>{REVIEW_TASK_STATUS_LABELS[reviewTask.status]}</span></div>
           {reviewTask.current_node ? <div className="enterprise-record__facts"><div><span>当前节点</span><strong>{reviewTask.current_node}</strong></div></div> : null}
           {reviewTask.steps?.length ? <div className="enterprise-materials">{reviewTask.steps.map((step) => <div key={step.number}><span><strong>{step.summary}</strong><small>{step.action}</small></span></div>)}</div> : null}
           {reviewTask.status === 'failed' ? <div className="enterprise-callout enterprise-callout--danger"><strong>{reviewTask.error_category || '审查任务失败'}</strong><span>{reviewTask.error_message || '可由审核人发起重试，失败节点和记录已保留。'}</span></div> : null}
@@ -457,12 +457,12 @@ function eventLabel(event: string): string {
     review_started: '开始证据化审查',
     review_completed: '生成审查结果',
     review_failed: '审查运行失败',
-    knowledge_recheck_pending: '官方法源已核验，案件待复核',
+    knowledge_recheck_pending: '法规来源已核验，案件待复核',
     action_created: '创建整改任务',
     action_updated: '更新整改任务',
-    remediation_plan_created: '建立整改计划',
-    remediation_plan_activated: '激活整改计划',
-    remediation_plan_cancelled: '取消整改计划',
+    remediation_plan_created: '建立待办事项清单',
+    remediation_plan_activated: '激活待办事项清单',
+    remediation_plan_cancelled: '取消待办事项清单',
     remediation_task_updated: '调整整改任务',
     remediation_task_started: '开始处理整改任务',
     remediation_submitted: '提交整改结果',
@@ -570,7 +570,7 @@ function FailedChain({ response }: { response: Extract<ReviewApiResponse, { stat
       <div>
         <div className="failed-chain__title">本次审查未完成</div>
         <div className="failed-chain__detail">
-          系统在审查过程中遇到问题，未产出审查结论。可补充或更正材料后重新发起审查。
+          本次审查未完成，请重试。
         </div>
         <div className="failed-chain__meta">
           已自动重试 {response.attempts} 次 · 失败环节：{response.reason}
@@ -705,10 +705,10 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           </section> : null}
 
           <details className="report-disclosure report-basis" id="report-basis">
-            <summary><span className="report-chapter-no">{nextChapterNo()}</span><span className="report-section-title">法律依据</span><span className="report-heading__count">{citationCount} 条</span></summary>
+            <summary><span className="report-chapter-no">{nextChapterNo()}</span><span className="report-section-title">法规依据</span><span className="report-heading__count">{citationCount} 条</span></summary>
             <div className="report-disclosure__body">
               {result.legal_basis_gaps?.length ? <div className="report-record-subsection">
-                <div className="section-title">待核法律依据</div>
+                <div className="section-title">待核实的法规依据</div>
                 <ul>{result.legal_basis_gaps.map((gap, index) => <li key={index}>{gap}</li>)}</ul>
               </div> : null}
               <ul className="basis-clause-list">
@@ -779,7 +779,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
                 {saved.materialSnapshot ? (
                   <div className="enterprise-materials">
                     {saved.materialSnapshot.version_ids.map((versionId, index) => (
-                      <div key={versionId}><span><strong>材料版本 {index + 1}</strong><small>已冻结到本次审查</small></span><span><code title={versionId}>{versionId}</code></span></div>
+                      <div key={versionId}><span><strong>材料版本 {index + 1}</strong><small>已锁定送审版本</small></span><span><code title={versionId}>{versionId}</code></span></div>
                     ))}
                   </div>
                 ) : null}
@@ -787,7 +787,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
 
               {viewerRole === 'admin' ? <details className="report-record-group">
                 <summary><Terminal size={15} strokeWidth={1.8} aria-hidden="true" />技术执行记录</summary>
-                <p className="report-record-note">语义证据校验：{response.semantic_grounding?.status === 'supported' ? '有支持依据' : EVIDENCE_STATUS_LABELS[selfCheck.status]}{response.second_retrieval_triggered ? ' · 已触发二次检索' : ''}。这是 Agent 内部证据状态，不代表审核人确认或企业批准。</p>
+                <p className="report-record-note">结论依据核验：{response.semantic_grounding?.status === 'supported' ? '有支持依据' : EVIDENCE_STATUS_LABELS[selfCheck.status]}{response.second_retrieval_triggered ? ' · 已触发二次检索' : ''}。</p>
                 {result.trigger_reasons.length > 0 ? (
                   <div className="report-record-subsection">
                     <div className="section-title">触发原因</div>
@@ -995,7 +995,7 @@ function EvidenceSidebar({
   return (
     <>
       {drawerOpen ? (
-        <button type="button" className="evidence-sidebar__scrim" onClick={onCloseDrawer} aria-label="关闭法源核查" />
+        <button type="button" className="evidence-sidebar__scrim" onClick={onCloseDrawer} aria-label="关闭依据核查" />
       ) : null}
       <aside
         id="evidence-sidebar"
@@ -1006,13 +1006,13 @@ function EvidenceSidebar({
       >
         <div className="evidence-sidebar__head">
           <div>
-            <div className="evidence-sidebar__title">法律依据</div>
+            <div className="evidence-sidebar__title">法规依据</div>
           </div>
           <div className="evidence-sidebar__head-actions">
             <div className="evidence-sidebar__count">
-              {displayGroups.reduce((total, group) => total + group.citations.length, 0)} 条法源
+              {displayGroups.reduce((total, group) => total + group.citations.length, 0)} 条依据
             </div>
-            <button type="button" className="evidence-sidebar__close" onClick={onCloseDrawer} aria-label="关闭法律依据">
+            <button type="button" className="evidence-sidebar__close" onClick={onCloseDrawer} aria-label="关闭法规依据">
               关闭
             </button>
           </div>
@@ -1106,8 +1106,8 @@ function EvidenceCard({
           <div className="evidence-card__meta-grid">
             <div><span>效力状态</span><strong>{LAW_STATUS_LABELS[item.law_status] ?? LAW_STATUS_LABELS.unknown}</strong></div>
             <div><span>适用说明</span><strong>{CITATION_ROLE_LABELS[item.citation_role] ?? '需结合具体事实核对'}</strong></div>
-            <div><span>法源类型</span><strong>{DOC_TYPE_LABELS[item.doc_type] ?? item.doc_type}</strong></div>
-            <div><span>权威等级</span><strong>{AUTHORITY_LABELS[item.authority] ?? item.authority}</strong></div>
+            <div><span>依据类型</span><strong>{DOC_TYPE_LABELS[item.doc_type] ?? item.doc_type}</strong></div>
+            <div><span>效力层级</span><strong>{AUTHORITY_LABELS[item.authority] ?? item.authority}</strong></div>
             <div className="evidence-card__meta-wide"><span>发布机关</span><strong>{item.issuing_body || '未提供'}</strong></div>
             <div><span>发布日期</span><strong>{item.publish_date || '未提供'}</strong></div>
             <div><span>生效日期</span><strong>{item.effective_date || '未提供'}</strong></div>
@@ -1121,7 +1121,7 @@ function EvidenceCard({
             ) : <span>未提供官方原文链接</span>}
           </div>
           {viewerRole === 'admin' && item.chunk ? (
-            <div className="evidence-card__tech">管理员视图 · chunk {shortId(item.chunk.chunk_id)} · {item.chunk.retriever} · {item.chunk.score.toFixed(4)}</div>
+            <div className="evidence-card__tech">管理员视图 · 文本片段 {shortId(item.chunk.chunk_id)} · 检索方式：{item.chunk.retriever} · 检索得分：{item.chunk.score.toFixed(4)}</div>
           ) : null}
         </div>
       ) : null}
@@ -1151,7 +1151,7 @@ function AgentExecutionSummary({
     { label: '自主执行', detail: `${turns} 次决策`, tone: turns > 0 ? 'done' : 'neutral' },
     { label: '动态检索', detail: `${searches} 轮`, tone: searches > 0 ? 'done' : 'neutral' },
     { label: '证据归集', detail: `${evidenceCount} 条`, tone: evidenceCount > 0 ? 'done' : 'warn' },
-    { label: '受控交付', detail: '已完成', tone: 'done' },
+    { label: '合规输出', detail: '已完成', tone: 'done' },
   ];
 
   return (

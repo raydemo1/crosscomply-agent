@@ -17,21 +17,21 @@ import type { ReviewTaskApi } from '../types/api';
 import { getReviewTask } from '../api/client';
 
 const ACTION_META: Record<string, { label: string; live: string; Icon: typeof Search }> = {
-  propose_plan: { label: '制定计划', live: '正在制定调查计划', Icon: ListChecks },
-  read_material: { label: '复核材料', live: '正在复核冻结材料', Icon: FileText },
-  search_evidence: { label: '检索法源', live: '正在检索法源', Icon: Search },
+  propose_plan: { label: '制定计划', live: '正在梳理审查要点', Icon: ListChecks },
+  read_material: { label: '复核材料', live: '正在核查送审材料', Icon: FileText },
+  search_evidence: { label: '检索法规', live: '正在检索法规', Icon: Search },
   read_evidence: { label: '研读条文', live: '正在研读条文', Icon: BookOpen },
   search_web: { label: '联网核查', live: '正在联网核查最新口径', Icon: Globe },
-  queue_enrichment: { label: '补充知识库', live: '正在提交官方来源供后台补库', Icon: Library },
-  finish: { label: '核验成文', live: '正在核验成稿的法律引用与事实一致性，并生成审查报告', Icon: ClipboardCheck },
-  tool_error: { label: '参数修正', live: '正在修正工具参数后重试', Icon: RotateCcw },
-  request_input: { label: '等待补充', live: '正在等待申请人补充关键事实', Icon: CircleHelp },
+  queue_enrichment: { label: '补充知识库', live: '正在提交来源核验', Icon: Library },
+  finish: { label: '生成报告', live: '正在核验依据并生成报告', Icon: ClipboardCheck },
+  tool_error: { label: '重试', live: '正在重试', Icon: RotateCcw },
+  request_input: { label: '等待补充', live: '正在等待申报人补充关键事实', Icon: CircleHelp },
 };
 
-const ACTION_META_FALLBACK = (action: string) => ({ label: action, live: `正在执行 ${action}`, Icon: Search });
+const ACTION_META_FALLBACK = { label: '处理审查事项', live: '正在处理审查事项', Icon: Search };
 
 function meta(action: string) {
-  return ACTION_META[action] ?? ACTION_META_FALLBACK(action);
+  return ACTION_META[action] ?? ACTION_META_FALLBACK;
 }
 
 /** 底部统计行的动作 → 图标与文案。 */
@@ -41,7 +41,7 @@ const FOOTER_STATS: Array<{ action: string; label: string; unit: string; Icon: t
   { action: 'read_material', label: '复核材料', unit: '次', Icon: FileText },
   { action: 'search_web', label: '联网核查', unit: '次', Icon: Globe },
   { action: 'queue_enrichment', label: '补充知识库', unit: '项', Icon: Library },
-  { action: 'tool_error', label: '参数修正', unit: '次', Icon: RotateCcw },
+  { action: 'tool_error', label: '重试', unit: '次', Icon: RotateCcw },
 ];
 
 function formatElapsed(startedAt: string, now: number): string {

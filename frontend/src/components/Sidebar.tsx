@@ -136,11 +136,11 @@ export default function Sidebar({
           </button>
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'case-templates' ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate('/templates'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><LayoutTemplate size={18} strokeWidth={1.8} /></span>
-            <span>使用模板</span>
+            <span>场景模板</span>
           </button>
           <button type="button" className={'sidebar-nav-item' + (currentPage === 'my-remediations' ? ' is-active' : '')} onClick={() => { onCloseMobile(); navigate('/reviews'); }}>
             <span className="sidebar-nav-item-icon" aria-hidden="true"><ClipboardCheck size={18} strokeWidth={1.8} /></span>
-            <span>我的复核</span>
+            <span>{user.role === 'requester' ? '我的待办' : '待办与复核'}</span>
           </button>
           {user.role === 'admin' ? (
             <>

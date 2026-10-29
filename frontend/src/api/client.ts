@@ -228,11 +228,16 @@ function detailToString(detail: unknown): string {
   if (typeof detail === 'object' && 'message' in detail && typeof detail.message === 'string') {
     return detail.message;
   }
-  try {
-    return JSON.stringify(detail);
-  } catch {
-    return String(detail);
+  if (Array.isArray(detail)) return '提交内容有误，请检查必填项和填写格式。';
+  if (typeof detail === 'object' && 'code' in detail) {
+    const messages: Record<string, string> = {
+      unsupported_file_type: '不支持该文件格式，请更换文件后上传。',
+      empty_file: '文件为空，请检查文件内容后重新上传。',
+      file_too_large: '文件超过大小限制，请缩小文件后重新上传。',
+    };
+    return messages[String(detail.code)] ?? '本次操作未完成，请检查提交内容后重试。';
   }
+  return '本次操作未完成，请检查提交内容后重试。';
 }
 
 async function request<T>(

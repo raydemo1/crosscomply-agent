@@ -173,6 +173,7 @@ function QaRoute({ user }: { user: WorkbenchUser }): JSX.Element {
   const navigate = useNavigate();
   const { refreshQaHistory, closeMobileNav } = useShellContext();
   return <ComplianceQAPage
+    userRole={user.role}
     conversationId={conversationId ?? null}
     onConversationChange={(id) => navigate(id ? `/qa/${id}` : '/qa', { replace: true })}
     onNewConversation={() => { closeMobileNav(); navigate('/qa'); }}
@@ -282,8 +283,8 @@ function CaseDetailRoute({ user }: { user: WorkbenchUser }): JSX.Element {
     document.title = status === 'review_running' ? '审查运行中… · CrossComply'
       : status === 'pending_review' ? '等待审查 · CrossComply'
         : status === 'needs_info' ? '待补充信息 · CrossComply'
-          : 'CrossComply - 数据出境合规智能体';
-    return () => { document.title = 'CrossComply - 数据出境合规智能体'; };
+          : 'CrossComply - 数据出境合规审查系统';
+    return () => { document.title = 'CrossComply - 数据出境合规审查系统'; };
   }, [status]);
 
   if (loading) return <div className="card state-block"><div className="state-block__title">正在读取案件详情…</div></div>;

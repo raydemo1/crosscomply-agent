@@ -15,16 +15,16 @@ export default function CaseFactsPanel({ saved, viewerRole }: { saved: SavedCase
   const latestStatements = [...new Map(statements.map((entry) => [entry.field, entry])).values()];
   const statementHistory = statements.filter((entry) => !latestStatements.includes(entry));
   const sections = [
-    { title: '存在不同说法', note: '材料与已确认事实不一致，需要核对。', kind: 'conflict', icon: TriangleAlert, entries: ledger.filter((e) => e.status === 'conflicted') },
-    { title: '补充说明待确认', note: '最近的补充内容，尚未成为已确认事实。', kind: 'statement', icon: MessageCircle, entries: latestStatements },
-    { title: '已确认的案件事实', note: '本次审查采用的冻结填报内容。', kind: 'confirmed', icon: CheckCircle2, entries: confirmedDisplay },
-    { title: '材料中的其他信息', note: '由 Agent 从材料中发现，仍需核对。', kind: 'material', icon: Files, entries: ledger.filter((e) => e.source_type === 'material' && e.status !== 'conflicted' && (viewerRole !== 'requester' || !confirmedDisplay.some((c) => c.field === e.field && JSON.stringify(c.value) === JSON.stringify(e.value)))) },
+    { title: '信息冲突', kind: 'conflict', icon: TriangleAlert, entries: ledger.filter((e) => e.status === 'conflicted') },
+    { title: '补充说明待确认', kind: 'statement', icon: MessageCircle, entries: latestStatements },
+    { title: '已确认的案件事实', kind: 'confirmed', icon: CheckCircle2, entries: confirmedDisplay },
+    { title: '材料中的其他信息', kind: 'material', icon: Files, entries: ledger.filter((e) => e.source_type === 'material' && e.status !== 'conflicted' && (viewerRole !== 'requester' || !confirmedDisplay.some((c) => c.field === e.field && JSON.stringify(c.value) === JSON.stringify(e.value)))) },
   ];
   if (!sections.some((s) => s.entries.length)) return null;
   return <section className="card case-facts" aria-label="案件事实与来源">
-    <div className="case-facts__heading"><h2>案件事实与核对</h2><p>区分已确认内容、材料发现和补充说明，避免把尚未核实的信息当作事实。</p></div>
+    <div className="case-facts__heading"><h2>案件事实与核对</h2></div>
     {sections.filter((s) => s.entries.length).map((section) => <details className={`case-facts__group case-facts__group--${section.kind}`} key={`${task?.id}-${section.kind}`} open={section.kind === 'conflict' || section.kind === 'statement' && task?.status !== 'waiting_input'}>
-      <summary><section.icon size={19} aria-hidden="true" /><span><strong>{section.title}</strong><small>{section.note}</small></span><span className="case-facts__count">{section.entries.length} 条</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
+      <summary><section.icon size={19} aria-hidden="true" /><span><strong>{section.title}</strong></span><span className="case-facts__count">{section.entries.length} 条</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
       <FactValues entries={section.entries} viewerRole={viewerRole} />
       {section.kind === 'statement' && statementHistory.length > 0 ? <details className="case-facts__history"><summary>此前的补充说明 · {statementHistory.length} 条</summary><FactValues entries={statementHistory} viewerRole={viewerRole} /></details> : null}
     </details>)}
