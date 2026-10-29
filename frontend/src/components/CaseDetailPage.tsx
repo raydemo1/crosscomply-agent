@@ -262,16 +262,15 @@ function DraftCaseView({
   return (
     <>
     <div className="case-detail">
-      <header className="case-header card">
+      <header className="case-header">
         <div className="case-header__top">
           <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回工作台</button>
           <div className="case-header__actions"><CaseAssistantTrigger />
             <button type="button" className="case-header__action-btn" onClick={() => setShareOpen(true)}>分享案件</button>
           </div>
         </div>
-        <div className="case-header__eyebrow">合规审查案件</div>
         <h1 className="case-header__title">{saved.question}</h1>
-        <div className="case-header__meta"><span className={'status-chip status-chip--' + saved.status}>{statusLabel(saved.status)}</span><span>{saved.savedAt.replace('T', ' ').slice(0, 16)}</span></div>
+        <div className="case-header__meta"><span className={'status-chip status-chip--' + saved.status}>{statusLabel(saved.status)}</span><time dateTime={saved.savedAt} title={new Date(saved.savedAt).toLocaleString('zh-CN')}>{relativeTime(saved.savedAt)}</time></div>
       </header>
       <CaseProgress
         status={saved.status}
@@ -417,9 +416,9 @@ function ReviewIssues({
   return (
     <div className="report-main-issues__list">
       {issues.map((issue) => <article className="report-main-issue" id={`report-issue-${issue.id}`} tabIndex={-1} key={issue.id}>
-        <div><span className={'issue-kind issue-kind--' + issue.kind}>{ISSUE_KIND_LABELS[issue.kind] ?? issue.kind}</span><strong>{issue.title}</strong></div>
+        <div className="report-main-issue__heading"><strong>{issue.title}</strong><span className={'issue-kind issue-kind--' + issue.kind}>{ISSUE_KIND_LABELS[issue.kind] ?? issue.kind}</span></div>
+        <details className="report-main-issue__analysis"><summary><ChevronDown size={14} aria-hidden="true" />查看分析</summary><MarkdownText variant="note" allowRawHtml={false}>{issue.finding}</MarkdownText>{issue.unknowns.length ? <ul>{issue.unknowns.map((item, index) => <li key={index}>{item}</li>)}</ul> : null}</details>
         {issue.material_evidence.length ? <button type="button" className="btn-link" onClick={() => onOpenDocument({ issue, target: issue.material_evidence[0] })}>定位原文</button> : null}
-        <details className="report-main-issue__analysis"><summary>查看分析</summary><MarkdownText variant="note" allowRawHtml={false}>{issue.finding}</MarkdownText>{issue.unknowns.length ? <ul>{issue.unknowns.map((item, index) => <li key={index}>{item}</li>)}</ul> : null}</details>
       </article>)}
     </div>
   );
@@ -517,7 +516,7 @@ function CaseHeader({ saved, onBack, onRerun, viewerRole }: CaseHeaderProps): JS
   );
   return (
     <>
-    <header className="case-header card">
+    <header className="case-header">
       <div className="case-header__top">
         <button type="button" className="btn-link case-header__back" onClick={onBack}>
           ← 返回工作台

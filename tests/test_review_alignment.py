@@ -30,12 +30,15 @@ def test_review_and_qa_share_investigation_tools_with_independent_delivery():
     for name, shared in INVESTIGATION_TOOLS.items():
         assert review_tools[name]["description"] == shared.description
         assert qa_tools[name]["description"].startswith(shared.description)
+        assert "date_context" in qa_tools[name]["parameters"]["properties"]
         if name != "search_evidence":
-            assert qa_tools[name]["description"] == shared.description
             for field in shared.fields:
                 assert (qa_tools[name]["parameters"]["properties"][field]
                         == review_tools[name]["parameters"]["properties"][field])
-            assert qa_tools[name]["parameters"].get("$defs") == review_tools[name]["parameters"].get("$defs")
+            qa_defs = qa_tools[name]["parameters"].get("$defs", {})
+            review_defs = review_tools[name]["parameters"].get("$defs", {})
+            assert all(qa_defs[key] == value for key, value in review_defs.items())
+            assert set(qa_defs) - set(review_defs) <= {"QADateContext"}
     assert "research_context" in qa_tools["search_evidence"]["parameters"]["properties"]
     assert "research_context" not in review_tools["search_evidence"]["parameters"]["properties"]
     assert "draft" in review_tools["finish"]["parameters"]["properties"]
@@ -54,7 +57,7 @@ def test_review_first_decision_gets_original_material_window_without_freezing_in
         return AgentDecision(action="finish", summary="提交", draft=_draft())
 
     state = run_agent(AgentState(goal="审查"), material=material, intake={}, decide=decide,
-                      search=lambda *_: [], web_search=lambda *_: [],
+                      search=lambda *_, **_kwargs: [], web_search=lambda *_: [],
                       finalize=lambda *_: {"ok": True}, checkpoint=lambda _: None)
     assert state.turns == 1 and state.reads == 0
 
@@ -167,7 +170,7 @@ def test_review_navigation_deduplicates_model_input_but_keeps_raw_audit_and_nati
     client = FakeClient(outputs=outputs)
     model = AgentModel(model_id="test", client=client)
     state = run_agent(AgentState(goal="审查"), material="原始材料", intake={}, decide=model,
-                      search=lambda *_: [], search_navigation=lambda: [source],
+                      search=lambda *_, **_kwargs: [], search_navigation=lambda: [source],
                       web_search=lambda *_: [], finalize=lambda *_: {"ok": True}, checkpoint=lambda _: None)
     observations = [json.loads(next(m.content for m in reversed(call) if m.role == "tool"))["observation"] for call in client.calls[1:]]
     assert observations[0]["keyword_candidates"] == [source]

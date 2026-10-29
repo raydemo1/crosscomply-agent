@@ -20,7 +20,7 @@ def qa_state_context(state):
     payload.pop("material_preview", None)
     exclusions = payload.pop("source_scope_exclusions", [])
     payload["research_context"] = {
-        key: facts[key] for key in ("regions", "industry", "as_of_date")
+        key: facts[key] for key in ("regions", "industry")
         if facts[key] not in (None, [])
     }
     if exclusions:
@@ -80,6 +80,9 @@ def conversation_context(conversation, run):
     for item in previous:
         entry = {"turn_id": item["id"], "user_statement": item["question"]}
         if item["status"] == "completed" and set(item["material_ids"]) <= selected:
+            previous_state = item.get("state") or {}
+            if previous_state.get("date_context") is not None:
+                entry["previous_date_context"] = deepcopy(previous_state["date_context"])
             entry["previous_model_answer"] = item["answer"]
             if (item["result"] or {}).get("questions"):
                 entry["previous_model_questions"] = deepcopy(item["result"]["questions"])

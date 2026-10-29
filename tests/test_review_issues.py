@@ -309,7 +309,7 @@ def test_agent_can_retry_after_finalizer_rejects_an_issue() -> None:
         material=PLAN_TEXT,
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: [],
+        search=lambda _queries, _facts, **_kwargs: [],
         web_search=lambda _queries, _facts: [],
         finalize=finalize,
         checkpoint=lambda _state: None,
@@ -354,7 +354,7 @@ def test_intake_material_conflict_can_be_reported_as_unresolved_information() ->
     state = run_agent(
         AgentState(goal="判断出境机制", max_turns=3),
         material=text, intake={"ciio_status": "not_ciio"}, decide=decide,
-        search=lambda _queries, _facts: [], web_search=lambda _queries, _facts: [],
+        search=lambda _queries, _facts, **_kwargs: [], web_search=lambda _queries, _facts: [],
         finalize=finalize, checkpoint=lambda _state: None,
     )
 

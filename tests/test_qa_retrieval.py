@@ -10,7 +10,13 @@ from law_agent.review.agent import (
     _read_evidence_request,
 )
 from law_agent.review.agent_context import search_observation_context
-from law_agent.review.qa_agent import QADecision, QAState, execute_qa, prepare_citations
+from law_agent.review.qa_agent import (
+    QADateContext,
+    QADecision,
+    QAState,
+    execute_qa,
+    prepare_citations,
+)
 from law_agent.review.qa_context import qa_state_context
 from law_agent.review.qa_store import InMemoryQAStore
 from law_agent.review.retrieval.boosts import outside_explicit_scope
@@ -25,24 +31,91 @@ def query(text="规则", query_id="q"):
     return RetrievalQuery(query_id=query_id, text=text, query_type="legal_issue")
 
 
-def test_complete_article_already_sent_as_a_preview_gets_citable_identity_without_another_read():
+@pytest.mark.parametrize("linked", [False, True])
+def test_search_keeps_query_specific_hit_without_requiring_neighbors(linked):
+    main = _chunk("main", "第一条", "一般规则" * 50, index=1,
+                  prev="before" if linked else None, next_id="after" if linked else None)
+    before = _chunk("before", "第二条", "相邻背景", index=0)
+    after = _chunk("after", "第三条", "相邻定义", index=2)
+    common = _chunk("common", "第四条", "共同说明" * 50, index=3)
+    repeated = _chunk("repeated", "第五条", "重复说明" * 50, index=4)
+    specific = _chunk("specific", "第六条", "定向条件" * 50, index=8)
+    chunks = [main, before, after, common, repeated, specific]
+
+    def hits(values):
+        return [hit_from_chunk(c, i).model_copy(update={"score": 100 - i}) for i, c in enumerate(values)]
+
+    batches = [hits([main, specific, common, repeated]), hits([main, common, repeated])]
+    tools = _search_tools(chunks, lambda *_a, **_kw: batches, top_k=10)
+    result = tools.search([query("条件", "q1"), query("一般规则", "q2")], ReviewFacts())
+
+    assert "specific" in {h.chunk_id for h in result}
+    assert not {"before", "after"} & {h.chunk_id for h in result}
+    assert len(result) == 4
+    target = next(h for h in result if h.chunk_id == "specific")
+    assert target.text == specific.text
+    assert target.can_cite_clause == specific.can_cite_clause
+    assert target.matched_query_ids == ["q1"]
+
+
+def test_search_assembles_the_matched_article_without_adding_adjacent_clauses():
+    before = _chunk("before", "第二条", "无关相邻条文", index=0)
+    main = _chunk("main", "第一条", "第一条 一般条件。", index=1, prev="before", next_id="rest")
+    rest = _chunk("rest", "第一条", "但符合例外的除外。", index=2, prev="main")
+    tools = _search_tools([before, main, rest], lambda *_a, **_kw: [[hit_from_chunk(main, 0)]], top_k=10)
+
+    result = tools.search([query()], ReviewFacts())
+
+    assert [h.chunk_id for h in result] == ["main"]
+    assert result[0].full_article_text == "第一条 一般条件。\n但符合例外的除外。"
+    explicit = tools.read_evidence("s1", "第二条", None, ReviewFacts())
+    assert [h.chunk_id for h in explicit.hits] == ["before"]
+
+
+def test_unselected_short_clause_remains_navigation_without_an_untracked_full_quote():
+    main = _chunk("main", "第一条", "一般规则" * 50, index=0)
+    common = _chunk("common", "第二条", "共同说明" * 50, index=1)
+    repeated = _chunk("repeated", "第三条", "重复说明" * 50, index=2)
+    specific = _chunk("aux0", "第四条", "说明", index=3).model_copy(update={
+        "can_cite_clause": False, "citation_role": "implementation_reference",
+    })
+    target = _chunk("target", "第五条", "短条文", index=0).model_copy(update={"source_id": "other"})
+
+    def hits(chunks):
+        return [hit_from_chunk(c, i).model_copy(update={"score": 100 - i}) for i, c in enumerate(chunks)]
+
+    batches = [hits([main, specific, common, repeated, target]), hits([main, common, repeated, target])]
+    tools = _search_tools([main, common, repeated, specific, target], lambda *_a, **_kw: batches, top_k=1)
+    result = tools.search([query("定向问题", "q1"), query("一般问题", "q2")], ReviewFacts())
+
+    assert "target" not in {h.chunk_id for h in result}
+    location = next(loc for source in tools.search_navigation() for loc in source["locations"]
+                    if loc["chunk_id"] == "target")
+    assert location["article_no"] == "第五条"
+    assert "preview" not in location
+    assert tools.read_evidence("other", "第五条", None, ReviewFacts()).hits[0].text == "短条文"
+
+
+def test_search_limit_requires_explicit_read_for_an_unselected_complete_article():
     main = _chunk("main", "第一条", "主要命中", index=0)
     target = _chunk("target", "第五十六条", "第五十六条 完整的条件、要求及例外。", index=0).model_copy(update={"source_id": "other"})
     hits = [hit_from_chunk(c, i) for i, c in enumerate([main, target])]
     tools = _search_tools([main, target], lambda *_a, **_k: [hits], top_k=1)
     qa = tools.search([query()], ReviewFacts(), coarse_scope=True)
-    assert [h.chunk_id for h in qa] == ["main", "target"]
-    assert tools.search_navigation() == []
-    assert qa[-1].text == target.text and qa[-1].can_cite_clause == target.can_cite_clause
-    citations, _ = prepare_citations(QAState(goal="q", evidence=qa),
+    assert [h.chunk_id for h in qa] == ["main"]
+    location = tools.search_navigation()[0]["locations"][0]
+    assert location["chunk_id"] == "target" and "preview" not in location
+    read = tools.read_evidence("other", "第五十六条", None, ReviewFacts())
+    assert read.hits[0].text == target.text and read.hits[0].can_cite_clause == target.can_cite_clause
+    citations, _ = prepare_citations(QAState(goal="q", evidence=qa + read.hits),
                                     QADecision(action="finish", summary="交付", chunk_ids=["target"]), [])
     assert citations[0]["excerpt"] == target.text
-    assert [h.chunk_id for h in tools.search([query()], ReviewFacts())] == ["main", "target"]
+    assert [h.chunk_id for h in tools.search([query()], ReviewFacts())] == ["main"]
 
 
 @pytest.mark.parametrize("coarse_scope", [False, True])
 @pytest.mark.parametrize("mode", ["split_article", "truncated", "reference_only", "no_article"])
-def test_preview_promotion_does_not_admit_incomplete_articles_or_upgrade_source_qualification(mode, coarse_scope):
+def test_navigation_does_not_automatically_admit_other_passages_or_upgrade_source_qualification(mode, coarse_scope):
     main = _chunk("main", "第一条", "主要命中", index=0)
     target = _chunk("target", "第五十六条", "短原文", index=0).model_copy(update={"source_id": "other"})
     chunks = [main, target]
@@ -78,7 +151,9 @@ def test_coarse_search_delivers_supporting_rules_without_requiring_extra_reads()
     tools = _search_tools(chunks, search_many, top_k=10)
     delivered = tools.search([query()], ReviewFacts(), coarse_scope=True)
     assert len(calls) == 2
-    assert {h.chunk_id for h in delivered} == {"main", "exception", "related", "other"}
+    assert {h.chunk_id for h in delivered} & {"main", "exception"}
+    assert {"related", "other"} <= {h.chunk_id for h in delivered}
+    assert len(delivered) == 3
     assert any("一般规则" in (h.full_article_text or "") and "但满足条件时除外" in h.full_article_text for h in delivered)
     assert {"main", "related", "other"} <= set(tools._candidate_hits)
     assert tools.search_navigation() == []
@@ -87,7 +162,8 @@ def test_coarse_search_delivers_supporting_rules_without_requiring_extra_reads()
     assert citations[0]["kind"] == "context" and citations[0]["can_cite_clause"] is False
     assert "其他来源的条件与例外" in citations[0]["excerpt"]
     expanded = tools.search([query()], ReviewFacts())
-    assert {"main", "exception", "related", "other"} <= {h.chunk_id for h in expanded}
+    assert {"related", "other"} <= {h.chunk_id for h in expanded}
+    assert any("一般规则" in (h.full_article_text or "") and "但满足条件时除外" in h.full_article_text for h in expanded)
 
 
 def test_coarse_search_keeps_multi_query_sources_and_excludes_future_navigation():
@@ -183,13 +259,13 @@ def test_scope_exclusions_are_grounded_in_selected_input_and_fail_as_tool_feedba
         def __init__(self):
             self.seen = []
 
-        def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=()):
+        def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=(), max_chunks=None):
             self.seen.append(list(excluded_scope_terms))
             return super().search(queries, facts, coarse_scope=coarse_scope, excluded_scope_terms=excluded_scope_terms)
 
     def decision(call_id, quote):
         return tool_message((call_id, "search_evidence", {"summary": "检索", "queries": [query().model_dump()],
-            "research_context": {"excluded_source_scopes": [{"terms": ["自由贸易试验区"], "quote": quote}]}}))
+            "date_context": {"as_of_date": None}, "research_context": {"excluded_source_scopes": [{"terms": ["自由贸易试验区"], "quote": quote}]}}))
 
     client = StreamingClient(outputs=[decision("invalid", "模型推断不在自贸区"), decision("valid", "企业不在自贸区"),
         tool_message(("next", "search_evidence", {"summary": "补充", "queries": [query().model_dump()],
@@ -275,7 +351,8 @@ def test_repeated_navigation_is_saved_but_not_resent_in_native_tool_results():
             ]}]
 
     client = StreamingClient(outputs=[
-        tool_message((f"search{index}", "search_evidence", {"summary": "检索", "queries": [query().model_dump()]}))
+        tool_message((f"search{index}", "search_evidence", {"summary": "检索", "queries": [query().model_dump()],
+            **({"date_context": {"as_of_date": None}} if index == 0 else {})}))
         for index in range(2)
     ] + [tool_message(("finish", "finish", {"summary": "回答", "chunk_ids": ["c1"]}))])
     store = InMemoryQAStore()
@@ -293,10 +370,12 @@ def test_repeated_navigation_is_saved_but_not_resent_in_native_tool_results():
 
 
 def test_qa_projection_only_exposes_explicit_search_hints_without_changing_review_context():
-    state = QAState(goal="用户原问题", facts=ReviewFacts(regions=["北京"], as_of_date="2026-10-08"))
+    state = QAState(goal="用户原问题", facts=ReviewFacts(regions=["北京"], as_of_date="2026-10-08"),
+                    date_context=QADateContext(as_of_date="2026-10-08", quote="按2026-10-08回答"))
     original = state.model_dump(mode="json")
     context = qa_state_context(original)
-    assert context["research_context"] == {"regions": ["北京"], "as_of_date": "2026-10-08"}
+    assert context["research_context"] == {"regions": ["北京"]}
+    assert context["date_context"] == {"as_of_date": "2026-10-08", "quote": "按2026-10-08回答"}
     assert "facts" not in context and "ciio_status" not in json.dumps(context)
     assert original == state.model_dump(mode="json")
     assert "facts" in AgentState(goal="审查").model_dump()
@@ -307,14 +386,14 @@ def test_search_only_schema_and_historical_hints_reach_shared_tools():
         def __init__(self):
             self.seen = []
 
-        def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=()):
+        def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=(), max_chunks=None):
             assert coarse_scope is True
             self.seen.append(facts.model_copy(deep=True))
             return super().search(queries, facts, coarse_scope=coarse_scope)
 
     client = StreamingClient(outputs=[
         tool_message(("search1", "search_evidence", {"summary": "按用户时点检索",
-            "queries": [query().model_dump()], "research_context": {"as_of_date": "2026-10-08", "regions": ["北京"]}})),
+            "queries": [query().model_dump()], "date_context": {"as_of_date": "2026-10-08", "quote": "按2026-10-08回答"}, "research_context": {"regions": ["北京"]}})),
         tool_message(("search2", "search_evidence", {"summary": "追加调查", "queries": [query().model_dump()],
             "research_context": {"industry": "金融"}})),
         tool_message(("finish", "finish", {"summary": "作答", "chunk_ids": ["c1"]})),
@@ -330,8 +409,10 @@ def test_search_only_schema_and_historical_hints_reach_shared_tools():
     assert tools.seen[1].regions == ["北京"] and tools.seen[1].industry == "金融"
     schemas = {t["function"]["name"]: t["function"]["parameters"] for t in client.kwargs[0]["tools"]}
     assert "ReviewFacts" not in json.dumps(schemas)
-    assert [name for name, s in schemas.items() if "research_context" in s["properties"]] == ["search_evidence"]
-    assert set(schemas["search_evidence"]["$defs"]["QASearchContext"]["properties"]) == {"as_of_date", "regions", "industry", "excluded_source_scopes"}
+    assert {name for name, s in schemas.items() if "research_context" in s["properties"]} == {"search_evidence"}
+    assert {name for name, s in schemas.items() if "date_context" in s["properties"]} == {"search_evidence", "read_evidence", "search_web"}
+    assert set(schemas["search_evidence"]["$defs"]["QASearchContext"]["properties"]) == {"regions", "industry", "excluded_source_scopes"}
+    assert set(schemas["search_web"]["$defs"]["QADateContext"]["properties"]) == {"as_of_date", "quote"}
     assert "facts" not in json.loads(client.calls[0][1].content)["state"]
     assert client.answer_messages[:len(client.calls[-1])] == client.calls[-1]
     assert updates[-1]["status"] == "completed"
@@ -345,9 +426,9 @@ def test_changed_timepoint_retains_comparison_source_without_claiming_current_va
     tools = _search_tools([future], lambda *a, **k: [[hit]], top_k=1)
     client = StreamingClient(outputs=[
         tool_message(("later", "search_evidence", {"summary": "检索后期版本",
-            "queries": [query().model_dump()], "research_context": {"as_of_date": "2026-10-20"}})),
+            "queries": [query().model_dump()], "date_context": {"as_of_date": "2026-10-20", "quote": "20日"}})),
         tool_message(("earlier", "search_evidence", {"summary": "对照早期时点",
-            "queries": [query().model_dump()], "research_context": {"as_of_date": "2026-10-08"}})),
+            "queries": [query().model_dump()], "date_context": {"as_of_date": "2026-10-08", "quote": "10月8日"}})),
         tool_message(("finish", "finish", {"summary": "比较版本", "chunk_ids": ["future"]})),
     ])
     store = InMemoryQAStore()
@@ -394,16 +475,16 @@ def test_default_date_stays_fixed_across_midnight_and_explicit_reset(monkeypatch
             return super().search(queries, facts, **kwargs)
 
     client = StreamingClient(outputs=[
-        tool_message(("first", "search_evidence", {"summary": "调查当前规则", "queries": [query().model_dump()]})),
+        tool_message(("first", "search_evidence", {"summary": "调查当前规则", "queries": [query().model_dump()], "date_context": {"as_of_date": None}})),
         tool_message(("old", "search_evidence", {"summary": "历史对照", "queries": [query().model_dump()],
-            "research_context": {"as_of_date": "2026-10-08"}})),
+            "date_context": {"as_of_date": "2026-10-08", "quote": "2026-10-08的历史规则"}})),
         tool_message(("reset", "search_evidence", {"summary": "回到当前时点", "queries": [query().model_dump()],
-            "research_context": {"as_of_date": None}})),
+            "date_context": {"as_of_date": None}})),
         tool_message(("finish", "finish", {"summary": "回答", "chunk_ids": ["c1"]})),
     ])
     store = InMemoryQAStore()
     cid = store.create("owner")["id"]
-    run = store.enqueue(cid, question="比较当前和历史规则", material_ids=[], request_id="1")
+    run = store.enqueue(cid, question="比较当前和2026-10-08的历史规则", material_ids=[], request_id="1")
     tools = RecordingTools()
     execute_qa(store.get(cid), run, checkpoint=lambda **kw: None, chunks_path="unused", client=client, tools=tools)
     assert tools.seen == [date(2026, 10, 20), date(2026, 10, 8), date(2026, 10, 20)]

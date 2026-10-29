@@ -90,7 +90,7 @@ def test_review_routes_actual_fact_source_and_unfinished_work_separately(payload
 def test_budget_abstention_keeps_business_questions_from_the_last_draft():
     report = draft(questions=[ReviewQuestionDraft(text='实际累计人数')])
     state = run_agent(AgentState(goal='审查', max_turns=0, report_draft=report), material='', intake={},
-        decide=lambda *_: pytest.fail('budget was already exhausted'), search=lambda *_: [], web_search=lambda *_: [],
+        decide=lambda *_: pytest.fail('budget was already exhausted'), search=lambda *_, **_kwargs: [], web_search=lambda *_: [],
         finalize=lambda saved, _: {'review_result': saved.model_dump(mode='json')}, checkpoint=lambda _: None)
     assert [q['text'] for q in state.result['review_result']['questions']] == ['实际累计人数']
     assert state.result['review_result']['risk_level'] == 'insufficient_evidence'

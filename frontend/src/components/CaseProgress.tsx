@@ -20,7 +20,7 @@ interface ProgressState {
   current: number;
   owner: string;
   status: string;
-  guidance: string;
+  guidance?: string;
   actionLabel?: string;
   actionKind?: ProgressActionKind;
 }
@@ -95,7 +95,7 @@ function progressState(
     }
     if (blockingOpen.length > 0) {
       if (viewerRole !== 'requester') {
-        return { current: 2, owner: '申报人', status: `${blockingOpen.length} 项待申报人处理`, guidance: '等待申报人确认业务事实或说明措施情况，提交后再进行核验。', actionLabel: '查看处理清单', actionKind: 'list' };
+        return { current: 2, owner: '申报人', status: `${blockingOpen.length} 项待处理`, actionLabel: '查看处理清单', actionKind: 'list' };
       }
       return { current: 2, owner: '申报人', status: `${blockingOpen.length} 项待核实`, guidance: '确认业务事实，或说明措施是否适用、是否已完成。提交后由 Agent 核验，必要时交审核人确认。', actionLabel: '进入处理清单', actionKind: 'list' };
     }
@@ -170,11 +170,7 @@ export default function CaseProgress({ status, viewerRole, remediationPlan, revi
     <details className="card case-progress" aria-label="案件进度" ref={detailsRef}>
       <summary className="case-progress__summary">
         <span className="case-progress__summary-copy"><small>案件进度</small><strong>{CASE_STAGES[state.current][0]}</strong></span>
-        <span className="case-progress__status"><b>{state.owner}</b><span>{state.status}</span></span>
-        <span className="case-progress__head">
-          {state.actionLabel && (onOpenAction || onAnswerAction || state.actionKind === 'answer') ? <button type="button" className="btn-primary case-progress__primary" onClick={(event) => { event.preventDefault(); event.stopPropagation(); handleAction(state.actionKind ?? 'list'); }}>{state.actionLabel}</button> : null}
-          <span className="case-progress__toggle" aria-hidden="true" />
-        </span>
+        <span className="case-progress__toggle" aria-hidden="true" />
       </summary>
       <div className="case-progress__body">
         <ol className="case-progress__steps">
@@ -183,12 +179,16 @@ export default function CaseProgress({ status, viewerRole, remediationPlan, revi
             const phase = index < state.current ? (skipped ? 'is-conditional' : 'is-done') : index === state.current ? 'is-current' : '';
             return <li className={phase} key={title} aria-current={index === state.current ? 'step' : undefined}>
               <span className="case-progress__index">{index < state.current && !skipped ? '✓' : index + 1}</span>
-              <div><strong>{title}</strong><small>{skipped ? '按需进入' : caption}</small></div>
+              <div><strong>{title}</strong>{skipped || caption !== title ? <small>{skipped ? '按需进入' : caption}</small> : null}</div>
             </li>;
           })}
         </ol>
+        <div className="case-progress__task">
+          <span className="case-progress__status"><b>{state.owner}</b><span>{state.status}</span></span>
+          {state.actionLabel && (onOpenAction || onAnswerAction || state.actionKind === 'answer') ? <button type="button" className="case-header__action-btn case-progress__primary" onClick={() => handleAction(state.actionKind ?? 'list')}>{state.actionLabel}</button> : null}
+        </div>
         <div className="case-progress__current">
-          <p className="case-progress__guidance">{state.guidance}</p>
+          {state.guidance ? <p className="case-progress__guidance">{state.guidance}</p> : null}
           {actionSlot ? <div className="case-progress__actions" ref={actionsRef}>{actionSlot}</div> : null}
         </div>
         {children ? <div className="case-progress__supplement">{children}</div> : null}

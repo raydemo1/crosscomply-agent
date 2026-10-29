@@ -54,7 +54,7 @@ def test_official_content_is_visible_but_never_joins_evidence() -> None:
 
     state = run_agent(
         AgentState(goal="审查"), material="", intake={},
-        decide=decide, search=lambda *_: [],
+        decide=decide, search=lambda *_, **_kwargs: [],
         web_search=lambda *_: WebSearchBatch(findings=[finding]), on_web_findings=enqueued.extend,
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
@@ -77,7 +77,7 @@ def test_web_search_alone_does_not_enqueue_irrelevant_official_result() -> None:
     enqueued: list[WebFinding] = []
     run_agent(
         AgentState(goal="审查"), material="", intake={},
-        decide=lambda *_: next(decisions), search=lambda *_: [],
+        decide=lambda *_: next(decisions), search=lambda *_, **_kwargs: [],
         web_search=lambda *_: WebSearchBatch(findings=[finding]), on_web_findings=enqueued.extend,
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
@@ -118,7 +118,7 @@ def test_known_official_url_returns_governed_source_id() -> None:
     ])
     state = run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [hit], web_search=lambda *_: WebSearchBatch(findings=findings),
+        search=lambda *_, **_kwargs: [hit], web_search=lambda *_: WebSearchBatch(findings=findings),
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert state.evidence == [hit]
@@ -193,7 +193,7 @@ def test_known_url_with_refresh_signal_can_queue_official_check() -> None:
     queued = []
     run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [], web_search=lambda *_: WebSearchBatch(findings=[finding]),
+        search=lambda *_, **_kwargs: [], web_search=lambda *_: WebSearchBatch(findings=[finding]),
         on_web_findings=queued.extend, finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert queued == [finding]
@@ -223,7 +223,7 @@ def test_web_action_limit_is_two_and_query_limit_is_four() -> None:
     calls = []
     state = run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [], web_search=lambda *_: calls.append(True) or WebSearchBatch(),
+        search=lambda *_, **_kwargs: [], web_search=lambda *_: calls.append(True) or WebSearchBatch(),
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert len(calls) == 5
@@ -253,7 +253,7 @@ def test_missing_key_does_not_prevent_bounded_finish(monkeypatch) -> None:
     ])
     state = run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [], web_search=lambda *_: build_web_search_client(),
+        search=lambda *_, **_kwargs: [], web_search=lambda *_: build_web_search_client(),
         finalize=lambda *_: {"risk_level": "insufficient_evidence"}, checkpoint=lambda *_: None,
     )
     assert state.steps[0].observation["type"] == "WebSearchUnavailable"
@@ -337,7 +337,7 @@ def test_third_party_finding_cannot_be_enqueued_as_official_source() -> None:
     queued = []
     state = run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [], web_search=lambda *_: WebSearchBatch(findings=[finding]), on_web_findings=queued.extend,
+        search=lambda *_, **_kwargs: [], web_search=lambda *_: WebSearchBatch(findings=[finding]), on_web_findings=queued.extend,
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert not queued
@@ -457,7 +457,7 @@ def test_review_selected_count_reaches_provider_and_observation() -> None:
     ])
     state = run_agent(
         AgentState(goal="审查"), material="", intake={}, decide=lambda *_: next(decisions),
-        search=lambda *_: [], web_search=tools.search_web, finalize=lambda *_: {}, checkpoint=lambda *_: None,
+        search=lambda *_, **_kwargs: [], web_search=tools.search_web, finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     observation = state.steps[0].observation
     assert calls == [8]

@@ -91,7 +91,7 @@ def test_one_strict_patch_preserves_original_answer_history_and_metadata(mode):
     bad, good = "[[cite:wrong]]", citation_marker("chunk:c1")
     text = "第一段原文。" + bad + "\n\n第二段原文。" + good
     search = tool_message(("search", "search_evidence", {"summary": "查依据", "queries": [
-        {"query_id": "q", "text": "规则", "query_type": "legal_issue"}]}), reasoning="调查原始思考")
+        {"query_id": "q", "text": "规则", "query_type": "legal_issue"}], "date_context": {"as_of_date": None}}), reasoning="调查原始思考")
     finish = tool_message(("finish", "finish", {"summary": "交付", "chunk_ids": ["c1"]}))
     if mode == "direct":
         answer = {"content": text, "reasoning_content": "原始回答思考"}
@@ -134,7 +134,7 @@ def test_failed_or_unavailable_patch_still_blocks_and_never_loops(monkeypatch, m
     if mode == "budget_exhausted":
         monkeypatch.setattr("law_agent.review.qa_agent.QAState", lambda **kw: QAState(**kw, max_turns=2))
     llm = FakeClient(outputs=[tool_message(("search", "search_evidence", {"summary": "查依据", "queries": [
-        {"query_id": "q", "text": "规则", "query_type": "legal_issue"}]})),
+        {"query_id": "q", "text": "规则", "query_type": "legal_issue"}], "date_context": {"as_of_date": None}})),
         {"content": "原始正文[[cite:wrong]]"},
         tool_message(("patch", "repair_citations", {"replacements": [] if mode == "no_patch" else [
             {"old": "[[cite:wrong]]", "new": "[[cite:unacquired]]"}]})),

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
-import { Archive, Download, FileJson, Pencil, Plus, Search, Upload, X } from 'lucide-react';
+import { Archive, ArrowRight, Download, FileJson, Pencil, Plus, Search, Upload, X } from 'lucide-react';
 import {
   archiveCaseTemplate,
   createCaseTemplate,
@@ -242,7 +242,7 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
 
       <div className="template-toolbar" aria-label="搜索模板">
         <div className="template-search"><Search size={17} strokeWidth={1.8} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、适用场景或审查问题" aria-label="搜索模板" /></div>
-        <span>{visibleTemplates.length} 个可用模板</span>
+        <span>{visibleTemplates.length} 个模板</span>
       </div>
 
       <section className="template-grid" aria-label="模板列表">
@@ -250,10 +250,10 @@ export default function TemplateCenterPage({ onUseTemplate, user }: TemplateCent
           <div className="template-empty card"><FileJson size={30} /><h2>{serviceUnavailable ? '模板服务未连接' : canManageTemplates ? '还没有模板' : '还没有可用的模板'}</h2><p>{serviceUnavailable ? (canManageTemplates ? '模板服务暂不可用，请联系管理员检查服务状态，恢复后即可在这里管理可复用的案件字段。' : '模板服务暂不可用，请联系管理员检查服务状态。') : canManageTemplates ? '把高频审查场景保存下来，下一次新建案件可以直接套用。' : '模板由管理员维护。你可以先直接新建案件，或请管理员把常用场景加进来。'}</p>{canManageTemplates ? <button className="btn-primary" type="button" onClick={openCreate} disabled={serviceUnavailable}><Plus size={16} />新建第一个模板</button> : null}</div>
         ) : visibleTemplates.map((template) => (
           <article className="template-card card" key={template.id}>
-            <div className="template-card__top"><div><h2>{template.name}</h2><p>{template.description || '未填写适用场景说明'}</p></div><span className="template-card__date">更新于 {formatDate(template.updated_at)}</span></div>
-            <div className="template-card__question"><span>审查问题</span><strong>{template.question}</strong></div>
-            <div className="template-card__meta"><span>字段预设：已保存</span></div>
-            <div className="template-card__actions"><button className="btn-primary" type="button" onClick={() => onUseTemplate?.(template)} disabled={!onUseTemplate || serviceUnavailable}>使用此模板</button>{canManageTemplates ? <><button className="btn-ghost template-icon-btn" type="button" title="编辑模板" aria-label="编辑模板" onClick={() => openEdit(template)} disabled={serviceUnavailable}><Pencil size={17} /></button><button className="btn-ghost template-icon-btn" type="button" title="导出 JSON" aria-label="导出 JSON" onClick={() => exportTemplate(template)} disabled={serviceUnavailable}><Download size={17} /></button><button className="btn-ghost template-icon-btn template-icon-btn--accent" type="button" title="归档模板" aria-label="归档模板" onClick={() => setArchiveTarget(template)} disabled={busy || serviceUnavailable}><Archive size={17} /></button></> : null}</div>
+            <div className="template-card__top"><h2>{template.name}</h2>{template.description ? <p>{template.description}</p> : null}</div>
+            <div className="template-card__question"><p>{template.question}</p></div>
+            <time className="template-card__date" dateTime={template.updated_at}>更新于 {formatDate(template.updated_at)}</time>
+            <div className="template-card__actions"><button className="template-use" type="button" onClick={() => onUseTemplate?.(template)} disabled={!onUseTemplate || serviceUnavailable}>使用模板<ArrowRight size={17} aria-hidden="true" /></button>{canManageTemplates ? <><button className="btn-ghost template-icon-btn" type="button" title="编辑模板" aria-label="编辑模板" onClick={() => openEdit(template)} disabled={serviceUnavailable}><Pencil size={16} /></button><button className="btn-ghost template-icon-btn" type="button" title="导出 JSON" aria-label="导出 JSON" onClick={() => exportTemplate(template)} disabled={serviceUnavailable}><Download size={16} /></button><button className="btn-ghost template-icon-btn template-icon-btn--accent" type="button" title="归档模板" aria-label="归档模板" onClick={() => setArchiveTarget(template)} disabled={busy || serviceUnavailable}><Archive size={16} /></button></> : null}</div>
           </article>
         ))}
       </section>

@@ -48,7 +48,7 @@ function QAQuestions({ questions, disabled, onSubmit }: {
   </form>;
 }
 
-import QaOnboarding, { dismissOnboarding, onboardingDismissed } from './QaOnboarding';
+import QaOnboarding from './QaOnboarding';
 
 export default function ComplianceQAPage({ conversationId, onConversationChange, onHistoryChange, onNewConversation, onHandoff }: Props): JSX.Element {
   const [conversation, setConversation] = useState<QAConversation | null>(null);
@@ -61,7 +61,7 @@ export default function ComplianceQAPage({ conversationId, onConversationChange,
   const [disconnected, setDisconnected] = useState(false);
   const [handoffRun, setHandoffRun] = useState<QARun | null>(null);
   const [draggingFiles, setDraggingFiles] = useState(false);
-  const [showGuide, setShowGuide] = useState(() => !onboardingDismissed());
+  const [showGuide, setShowGuide] = useState(false);
   const dragDepthRef = useRef(0);
   const [handoffMaterials, setHandoffMaterials] = useState<string[]>([]);
   const [preparing, setPreparing] = useState(false);
@@ -171,13 +171,11 @@ export default function ComplianceQAPage({ conversationId, onConversationChange,
 
   return (
     <section className={'qa-page' + (hasMessages ? ' qa-page--conversation' : '')}>
-      {hasMessages ? <header className="qa-thread-heading"><div><span className="qa-eyebrow">合规问答</span><h1>{conversation?.title}</h1></div><button className="qa-quiet-button" type="button" onClick={onNewConversation}><Plus size={16} />新问答</button></header> : (
+      {hasMessages ? <header className="qa-thread-heading"><div><h1>{conversation?.title}</h1></div><button className="qa-quiet-button" type="button" onClick={onNewConversation}><Plus size={16} />新问答</button></header> : (
         <header className="qa-welcome">
-          <h1>今天想了解什么合规问题？</h1>
+          <h1>想核实哪项<br /><span>合规问题？</span></h1>
         </header>
       )}
-
-      {!hasMessages && !loading && showGuide ? <QaOnboarding onDismiss={() => { dismissOnboarding(); setShowGuide(false); }} /> : null}
 
       {loading ? <p className="qa-loading" role="status">正在恢复对话…</p> : null}
       <div className="qa-messages" aria-label="问答记录">
@@ -214,7 +212,9 @@ export default function ComplianceQAPage({ conversationId, onConversationChange,
           {files.length ? <div className="qa-file-chips">{files.map((file, i) => <span key={i}><FileText size={14} />{file.name}<button type="button" disabled={sending} aria-label={`移除 ${file.name}`} onClick={() => setFiles((items) => items.filter((_, index) => index !== i))}><X size={13} /></button></span>)}</div> : null}
           <div className="qa-composer-toolbar"><button type="button" className="qa-attach" title="添加材料" aria-label="添加材料" disabled={busy} onClick={() => input.current?.click()}><Paperclip size={16} /></button><input ref={input} type="file" hidden multiple accept=".txt,.md,.pdf,.docx,.xlsx,.csv,.html,.htm" onChange={(event) => { try { const incoming = Array.from(event.target.files ?? []); incoming.forEach(validateUploadFile); setFiles((items) => [...items, ...incoming]); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : '文件无效'); } event.target.value = ''; }} /><button className="qa-send" type="submit" aria-label="发送问题" title="发送问题（Ctrl / ⌘ + Enter）" disabled={!question.trim() || busy}><ArrowUp size={20} /></button></div>
         </form>
-        {!hasMessages && !loading ? <div className="qa-examples" aria-label="示例问题">{EXAMPLES.map((example) => <button key={example} type="button" disabled={busy} onClick={() => { setQuestion(example); questionInput.current?.focus(); }}>{example}</button>)}</div> : null}{!hasMessages && !loading && !showGuide ? <div className="qa-examples"><button type="button" disabled={busy} onClick={() => setShowGuide(true)}><CircleHelp size={14} />使用指引</button></div> : null}
+        {!hasMessages && !loading ? <div className="qa-examples" aria-label="示例问题">{EXAMPLES.map((example) => <button key={example} type="button" disabled={busy} onClick={() => { setQuestion(example); questionInput.current?.focus(); }}>{example}</button>)}</div> : null}
+        {!hasMessages && !loading ? <div className="qa-guide-entry"><button type="button" className="qa-quiet-button" disabled={busy} aria-expanded={showGuide} onClick={() => setShowGuide((value) => !value)}><CircleHelp size={15} />使用指引</button></div> : null}
+        {!hasMessages && !loading && showGuide ? <QaOnboarding onDismiss={() => setShowGuide(false)} /> : null}
       </div>
     </section>
   );

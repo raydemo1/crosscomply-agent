@@ -62,7 +62,7 @@ def test_native_stream_answers_once_with_stable_refs_and_original_history(monkey
         assert payload["stream"] and payload["tool_choice"] == "auto"
         if len(requests) == 1:
             call = tool_message(("search", "search_evidence", {"summary": "查找依据", "queries": [
-                {"query_id": "q", "text": "适用条件", "query_type": "legal_issue"}]}))["tool_calls"][0]
+                {"query_id": "q", "text": "适用条件", "query_type": "legal_issue"}], "date_context": {"as_of_date": None}}))["tool_calls"][0]
             return sse({"delta": {"reasoning_content": "保留调查思考", "tool_calls": [{"index": 0, **call}]},
                         "finish_reason": "tool_calls"})
         assert len(requests) == 2, "直接答复后不得追加finish或再次生成"
@@ -160,7 +160,7 @@ def test_tool_preamble_is_cleared_before_final_answer(monkeypatch):
         requests.append(json.loads(request.data))
         if len(requests) == 1:
             call = tool_message(("search", "search_evidence", {"summary": "检索", "queries": [
-                {"query_id": "q", "text": "规则", "query_type": "legal_issue"}]}))["tool_calls"][0]
+                {"query_id": "q", "text": "规则", "query_type": "legal_issue"}], "date_context": {"as_of_date": None}}))["tool_calls"][0]
             return sse({"delta": {"content": "先查询原文。", "tool_calls": [{"index": 0, **call}]},
                         "finish_reason": "tool_calls"})
         return sse({"delta": {"content": "这是最终回答。" + citation_marker("chunk:c1")}, "finish_reason": "stop"})
@@ -182,7 +182,7 @@ def test_body_with_finish_keeps_material_metadata_without_second_generation(monk
         assert payload["tool_choice"] == "auto", "已有正文时不得再次请求生成"
         if len(requests) == 1:
             message = tool_message(("search", "search_evidence", {"summary": "检索", "queries": [
-                {"query_id": "q", "text": "规则", "query_type": "legal_issue"}]}))
+                {"query_id": "q", "text": "规则", "query_type": "legal_issue"}], "date_context": {"as_of_date": None}}))
             return sse({"delta": {"tool_calls": [{"index": 0, **message["tool_calls"][0]}]},
                         "finish_reason": "tool_calls"})
         assert len(requests) == 2
@@ -220,7 +220,7 @@ def test_finish_preselection_does_not_renumber_or_hide_other_acquired_refs():
 
     llm = Answer(outputs=[
         tool_message(("search", "search_evidence", {"summary": "调查", "queries": [
-            {"query_id": "q", "text": "规则", "query_type": "legal_issue"}]})),
+            {"query_id": "q", "text": "规则", "query_type": "legal_issue"}], "date_context": {"as_of_date": None}})),
         tool_message(("finish", "finish", {"summary": "登记", "chunk_ids": ["c1"]})),
     ])
     updates = run_qa(llm, TwoSources())

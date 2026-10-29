@@ -359,7 +359,7 @@ def test_semantic_rejection_returns_to_agent_then_budget_abstains() -> None:
 
     state = run_agent(
         AgentState(goal="审查数据出境", max_turns=2), material="材料", intake={},
-        decide=decide, search=lambda *_: [], web_search=lambda *_: [], finalize=finalize,
+        decide=decide, search=lambda *_, **_kwargs: [], web_search=lambda *_: [], finalize=finalize,
         abstain=lambda draft, _state: {"review_result": draft.model_dump(mode="json")},
         checkpoint=lambda _state: None,
     )
@@ -387,7 +387,7 @@ def test_budget_limit_preserves_typed_gaps_without_turning_feedback_into_fact_ta
         AgentState(goal="当前路径", max_turns=1), material="材料", intake={},
         decide=lambda *_: (AgentDecision(action="finish", summary="提交", draft=_draft()) if has_verdict
                            else AgentDecision(action="propose_plan", summary="调查", plan=["核对依据"])),
-        search=lambda *_: [], web_search=lambda *_: [], finalize=finalize,
+        search=lambda *_, **_kwargs: [], web_search=lambda *_: [], finalize=finalize,
         abstain=lambda draft, _: {"review_result": draft.model_dump(mode="json")}, checkpoint=lambda _: None,
     )
     result = state.result["review_result"]

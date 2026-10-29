@@ -98,19 +98,6 @@ function LegacyRedirect(): JSX.Element {
   return <Navigate to="/qa" replace />;
 }
 
-function pageLabel(pathname: string): string {
-  if (pathname.startsWith('/qa')) return '合规问答';
-  if (pathname.startsWith('/workbench')) return '新建案件';
-  if (pathname.startsWith('/templates')) return '使用模板';
-  if (pathname.startsWith('/reviews/plan')) return '处理清单';
-  if (pathname.startsWith('/reviews')) return '我的复核';
-  if (pathname.startsWith('/cases')) return '案件详情';
-  if (pathname.startsWith('/knowledge/legal')) return '知识库 · 法律法规';
-  if (pathname.startsWith('/knowledge')) return '知识库 · 规章制度';
-  if (pathname.startsWith('/governance')) return '用户管理';
-  return '合规问答';
-}
-
 /** 已登录外壳：侧栏 + 主内容。问答历史等跨页状态在这里持有。 */
 function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogout: typeof logout; onUserChanged: () => void }): JSX.Element {
   const navigate = useNavigate();
@@ -162,9 +149,6 @@ function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogou
           <div className="app-mobile-brand">
             <img src="/crosscomply-logo.svg" alt="" className="app-mobile-brand__mark" />
             <span>CrossComply</span>
-          </div>
-          <div className="app-mobile-actions">
-            <span className="app-mobile-surface">{pageLabel(location.pathname)}</span>
           </div>
         </div>
         {error ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
@@ -295,9 +279,10 @@ function CaseDetailRoute({ user }: { user: WorkbenchUser }): JSX.Element {
   }, [caseId, status]);
 
   useEffect(() => {
-    document.title = status !== null && TRANSITIONAL_STATUSES.includes(status)
-      ? '审查运行中… · CrossComply'
-      : 'CrossComply - 数据出境合规智能体';
+    document.title = status === 'review_running' ? '审查运行中… · CrossComply'
+      : status === 'pending_review' ? '等待审查 · CrossComply'
+        : status === 'needs_info' ? '待补充信息 · CrossComply'
+          : 'CrossComply - 数据出境合规智能体';
     return () => { document.title = 'CrossComply - 数据出境合规智能体'; };
   }, [status]);
 

@@ -274,7 +274,7 @@ def test_rejected_review_resumes_original_dialogue_with_uncited_evidence_feedbac
         return {"review_result": draft.model_dump(mode="json")}
 
     run_agent(state, material="冻结材料", intake={"id": "frozen", "facts": {"condition_b": True}},
-              decide=AgentModel(model_id="test", client=client), search=lambda *_: [],
+              decide=AgentModel(model_id="test", client=client), search=lambda *_, **_kwargs: [],
               web_search=lambda *_: [], finalize=finalize, checkpoint=lambda _: None)
     messages = client.calls[1]
     assert messages[:len(client.calls[0])] == client.calls[0]
@@ -347,7 +347,7 @@ def test_review_without_record_facts_keeps_original_material_law_and_native_dial
     facts = ReviewFacts(cross_border_transfer=False, annual_sensitive_count="0", as_of_date="2024-04-01")
     state = AgentState(goal="审查路径", facts=facts.model_copy(deep=True))
     result = run_agent(state, material=material, intake={"id": "frozen", "facts": facts.model_dump(mode="json")},
-                       decide=model, search=lambda *_: [law], web_search=lambda *_: [],
+                       decide=model, search=lambda *_, **_kwargs: [law], web_search=lambda *_: [],
                        finalize=lambda draft, state: {"ok": True}, checkpoint=lambda _: None)
     assert result.status == "completed" and result.facts == facts
     assert [step.action for step in result.steps] == ["search_evidence", "read_material", "finish"]

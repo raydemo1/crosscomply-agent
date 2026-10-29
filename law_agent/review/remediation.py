@@ -239,6 +239,8 @@ class RemediationDecision(StrictModel):
     plan: list[str] = Field(default_factory=list, max_length=8)
     offset: int = Field(default=0, ge=0, description="材料包的字符起点；续页使用返回的next_read_request")
     queries: list[RetrievalQuery] = Field(default_factory=list, max_length=4)
+    max_chunks: int = Field(default=10, ge=1, le=10, strict=True,
+                           description="本次搜索跨所有查询融合、去重后返回的正文总数上限，最多10段。")
     question: str | None = Field(default=None, max_length=2000)
     draft: RemediationAssessmentDraft | None = None
 
@@ -764,7 +766,7 @@ def execute_rereview(
     chunks_path: Path | str,
     rerank_mode: RerankMode = "off",
     decide: Callable[[AgentState, dict[str, Any]], RemediationDecision] | None = None,
-    search: Callable[[list[RetrievalQuery], Any], list[Any]] | None = None,
+    search: Callable[..., list[Any]] | None = None,
 ) -> AgentState:
     """Run the same Agent loop with the remediation goal and packet.
 

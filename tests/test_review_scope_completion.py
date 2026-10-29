@@ -30,7 +30,7 @@ def test_scope_gap_feedback_is_revised_in_the_existing_finish_loop():
     decisions = iter([draft, revised])
     state = run_agent(AgentState(goal="自贸区业务", facts=ReviewFacts(regions=["自贸区"])), material="", intake={},
         decide=lambda *_: AgentDecision(action="finish", summary="提交", draft=next(decisions)),
-        search=lambda *_: [], web_search=lambda *_: [],
+        search=lambda *_, **_kwargs: [], web_search=lambda *_: [],
         finalize=lambda report, current: finalizer.finalize(report, current, case_id="case", intake_snapshot={"facts": {}}),
         checkpoint=lambda _: None)
     assert len(verifier_calls) == 2

@@ -87,11 +87,26 @@ class QAScopeExclusion(StrictModel):
         return self
 
 
+class QADateContext(StrictModel):
+    as_of_date: date | None = Field(description="根据用户问题与选中材料确定的判断日期YYYY-MM-DD（包括假设、历史时点）；两者均未指定时才填null，使用本轮当前日期")
+    quote: str | None = Field(default=None, min_length=1, max_length=300,
+        description="支持指定时点的用户原话或选中材料原句，保留日期的含义；不引用系统日期、法源或模型答复")
+
+    @model_validator(mode="after")
+    def date_source(self):
+        if self.as_of_date is not None and (not self.quote or not self.quote.strip()):
+            raise ValueError("指定as_of_date时须附quote原句")
+        if self.quote is not None and self.as_of_date is None:
+            raise ValueError("quote须与指定的as_of_date一起提供")
+        return self
+
+
 class QAState(StrictModel):
     goal: str
     current_date: date = Field(default_factory=business_today)
     tool_session: ToolSession = Field(default_factory=ToolSession)
     facts: ReviewFacts = Field(default_factory=ReviewFacts)
+    date_context: QADateContext | None = None
     evidence: list[RetrievalHit] = Field(default_factory=list)
     evidence_as_of_dates: dict[str, list[date]] = Field(default_factory=dict)
     citation_markers: dict[str, str] = Field(default_factory=dict)
@@ -115,7 +130,6 @@ class QAState(StrictModel):
 class QASearchContext(StrictModel):
     regions: list[str] = Field(default_factory=list, description="用户明确的业务地区，用于检索相关性；境外接收地不等于适用法域")
     industry: str | None = Field(default=None, description="用户明确的业务行业，不推断未提供的信息")
-    as_of_date: date | None = Field(default=None, description="用户指定的判断时点，格式YYYY-MM-DD；未指定时按当前日期检索，不从法源年份猜测")
     excluded_source_scopes: list[QAScopeExclusion] | None = Field(default=None, max_length=4,
         description="仅排除用户明确说不适用的业务范围，附原句；未提及或未知不作排除。缺省保留已有范围，空列表清除。不是事实确认或法律适用结论")
 
@@ -138,11 +152,15 @@ class QAQuestion(StrictModel):
 
 class QADecision(StrictModel):
     action: Literal["read_material", "search_evidence", "read_evidence", "search_web", "ask_user", "finish"]
-    summary: str = Field(min_length=1, max_length=300, description="供用户查看的简短操作目的，不输出私有推理过程")
+    summary: str = Field(min_length=1, max_length=300, description="供用户查看的简短操作目的；补查时说明当前问题还缺哪项依据，不输出私有推理过程")
     questions: list[QAQuestion] = Field(default_factory=list, max_length=3)
     offset: int = Field(default=0, ge=0, description="当前材料包的字符起点；续页使用返回的next_read_request")
-    research_context: QASearchContext | None = Field(default=None, description="仅供检索使用的地区、行业、时点及明确排除范围，不是事实台账；未提供的字段保留既有线索")
+    research_context: QASearchContext | None = Field(default=None, description="仅供本地检索使用的地区、行业及明确排除范围，不是事实台账；未提供的字段保留既有线索")
+    date_context: QADateContext | None = Field(default=None,
+        description='首次调查明确判断时点及原句，未指定日期填{"as_of_date":null}；后续省略沿用，调整时重新提供')
     queries: list[RetrievalQuery] = Field(default_factory=list, max_length=4)
+    max_chunks: int = Field(default=10, ge=1, le=10, strict=True,
+                           description="本次本地搜索跨所有queries融合、去重后返回的正文段数上限，不是每个查询的条数。按当前缺口选择所需数量，最多10段；不是必须填满的配额。")
     max_results: int = Field(default=DEFAULT_WEB_RESULTS, ge=1, le=MAX_WEB_RESULTS, strict=True,
                             description="本次联网搜索最终返回的资料总数上限，跨所有queries去重后合计，不是每个查询的数量。按当前争点所需选择；可用资料不足时允许少于请求数。")
     read_requests: list[EvidenceReadRequest] = Field(default_factory=list, max_length=4)
@@ -181,7 +199,7 @@ current_date 是当前日期；用户指定历史或假设时点时按其范围�
 
 PROMPT = ROLE_PROMPT + """
 ## 调查
-按争点选择调查工具；资料足以回答时直接作答，finish 为可选收口工具。关键业务事实阻塞判断时使用 ask_user；用户回答“不清楚”后保留未知，给出能确定的条件分支，不重复索取同一事实。法源缺口由工具调查，工具失败不等于没有相关规则。
+围绕用户当前要判断的事项调查，已有原文足以支持结论及关键条件、例外时直接作答，finish 为可选收口工具。只为会改变当前答复的法源缺口补查，已知法名和条号时可直接精读；不为可省略的延伸内容扩大调查。业务事实未知时保留条件分支，确实阻塞答复时使用 ask_user，不反复检索代替事实确认；工具失败不等于没有相关规则。
 
 ## 对话与来源
 结合 history 理解追问，沿用未被改变的用户陈述，更正以本轮为准。旧模型回答仅作对话背景，法律依据以本轮取得的来源为准。
@@ -190,8 +208,8 @@ history 中 previous_model_questions 的题干及备选项由模型提出，不�
 引用逐字使用本轮工具提供的完整 citation_marker，放在其支持的判断附近；标记不提升来源资格。
 
 ## 回答
-先用一两句回答核心问题；关键前提不足时先说明限制，再给适用分支。随后只补充决定性依据、必要条件及实际影响，一般以200—400字为宜，复杂比较或用户要求详细说明时再展开。
-直接输出 Markdown，按需使用短段落、要点或简短比较；不逐栏复述分析过程，不附带未问的手续清单、假设场景或重复总结。这是普通问答，不生成正式报告、风险评级或审批结果。
+先用一两句回答核心问题，再说明决定该判断的依据、必要条件和例外。确定性结论及义务要求应有已取得原文和用户事实支持；前提未知时给条件分支，无依据的非必要延伸直接省略。实践建议说明其建议性质，不写成法定要求。
+直接输出 Markdown，按需使用短段落、要点或简短比较，一般以200—400字为宜，复杂比较或用户要求详细说明时再展开。这是普通问答，不生成正式报告、风险评级或审批结果。
 """
 
 
@@ -276,10 +294,12 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
     tools = tools or ComplianceAgentTools(chunks_path=chunks_path, question=run["question"], material_text=material_text)
     protocol = ToolCallingAgent(client=client, model_id=None, decision_model=QADecision, phase="qa_investigation",
         shared=("summary",), specs={
-            **INVESTIGATION_TOOLS,
-            "search_evidence": ToolSpec(("queries", "research_context"),
+            **{name: ToolSpec((*spec.fields, "date_context"), spec.description +
+                "首次调查确认date_context，后续省略沿用。", spec.required)
+               for name, spec in INVESTIGATION_TOOLS.items()},
+            "search_evidence": ToolSpec(("queries", "max_chunks", "research_context", "date_context"),
                 INVESTIGATION_TOOLS["search_evidence"].description +
-                "research_context仅调整检索范围，保留全国一般规则、未知范围及用户点名比较的来源，不代替法律适用判断。", ("queries",)),
+                "首次调查确认date_context，后续省略沿用。research_context仅提供范围线索，不代替事实确认和法律适用判断。", ("queries",)),
             "read_material": ToolSpec(MATERIAL_READ_TOOL.fields,
                 "阅读当前会话选中附件的原文，根据返回的next_read_request取得后续内容。"
                 "truncated=false且next_read_request=null表示材料包已读完；材料陈述不代表独立核实或法源。"),
@@ -307,10 +327,11 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
     def query_facts(facts):
         return facts.model_copy(update={"as_of_date": facts.as_of_date or state.current_date})
 
-    def search(queries, facts):
+    def search(queries, facts, *, max_chunks):
         return tools.search(
             queries, query_facts(facts), coarse_scope=True,
             excluded_scope_terms=[term for item in state.source_scope_exclusions for term in item.terms],
+            max_chunks=max_chunks,
         )
 
     def read_evidence(source_id, article_no, chunk_id, facts, offset, **selectors):
@@ -414,10 +435,16 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
                     raise InvalidToolCall("ask_user须单独调用，不能与其他工具同时提交")
                 if turn_text and decision.action != "finish":
                     checkpoint(answer="", result=None)
+                if decision.date_context is not None:
+                    date_quote = decision.date_context.quote
+                    if date_quote is not None and not any(date_quote in text for text in scope_inputs):
+                        raise InvalidToolCall("date_context.quote必须逐字来自用户原话或本轮选中材料，不能引用系统当前日期、法源或模型答复")
                 if decision.research_context is not None:
                     exclusions = decision.research_context.excluded_source_scopes
                     if exclusions is not None and any(not any(item.quote in text for text in scope_inputs) for item in exclusions):
                         raise InvalidToolCall("排除范围的quote必须逐字来自用户原话或本轮选中材料，不能以法源、旧回答或推断替代；未知范围请保留。")
+                if decision.action in INVESTIGATION_TOOLS and state.date_context is None and decision.date_context is None:
+                    raise InvalidToolCall("首次调查须提供date_context：用户指定则填写as_of_date和quote原句；未指定则填{as_of_date:null}")
             except InvalidToolCall as exc:
                 if turn_text:
                     checkpoint(answer="", result=None)
@@ -427,9 +454,13 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
                 save(state)
                 continue
             if decision.research_context is not None:
-                state.facts = state.facts.model_copy(update=decision.research_context.model_dump(exclude_unset=True, exclude={"excluded_source_scopes"}))
+                state.facts = state.facts.model_copy(update=decision.research_context.model_dump(
+                    exclude_unset=True, exclude={"excluded_source_scopes"}))
                 if decision.research_context.excluded_source_scopes is not None:
                     state.source_scope_exclusions = decision.research_context.excluded_source_scopes
+            if decision.date_context is not None:
+                state.date_context = decision.date_context
+                state.facts = state.facts.model_copy(update={"as_of_date": decision.date_context.as_of_date})
             if decision.action == "ask_user":
                 questions = [item.model_dump() for item in decision.questions]
                 answer = "为继续判断，请补充以下业务事实：\n\n" + "\n\n".join(
@@ -460,7 +491,7 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
                     state.tool_session.complete({"completed": True}, context(), stop=True)
                 finished = True
                 break
-            checkpoint(progress={"read_material": "正在阅读材料", "search_evidence": "正在查找法律依据",
+            checkpoint(state=state.model_dump(mode="json"), progress={"read_material": "正在阅读材料", "search_evidence": "正在查找法律依据",
                                  "read_evidence": "正在阅读来源原文", "search_web": "正在查找公开资料"}[decision.action])
             try:
                 if decision.action == "read_material":

@@ -61,6 +61,7 @@ export default function Sidebar({
     : location.pathname.startsWith('/knowledge/legal') ? 'knowledge-legal'
     : location.pathname.startsWith('/knowledge') ? 'knowledge-policy'
     : location.pathname.startsWith('/governance') ? 'governance'
+    : location.pathname.startsWith('/cases/') ? 'case-detail'
     : 'home';
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -118,7 +119,6 @@ export default function Sidebar({
           <img src="/crosscomply-logo.svg" alt="" className="sidebar-brand-mark" />
           <div className="sidebar-brand-copy">
             <div className="sidebar-brand-title">CrossComply</div>
-            <div className="sidebar-brand-subtitle">跨境数据合规系统</div>
           </div>
         </div>
         <button type="button" className="sidebar-mobile-close" onClick={onCloseMobile} aria-label="关闭案件导航"><X size={18} strokeWidth={1.8} /></button>
@@ -252,7 +252,7 @@ export default function Sidebar({
               onClick={() => { onCloseMobile(); navigate('/governance'); }}
             >
               <strong>{user.display_name}</strong>
-              <span>管理员 · 用户管理</span>
+              <span>管理员</span>
             </button>
           ) : (
             <div>

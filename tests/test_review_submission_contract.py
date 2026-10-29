@@ -69,7 +69,7 @@ def test_single_question_list_drives_native_finish_report_and_unique_tasks():
 
     finalizer._semantic_verifier = verify
     state = run_agent(AgentState(goal="审查"), material="", intake={},
-        decide=AgentModel(model_id="test", client=client), search=lambda *_: [], web_search=lambda *_: [],
+        decide=AgentModel(model_id="test", client=client), search=lambda *_, **_kwargs: [], web_search=lambda *_: [],
         finalize=lambda report, current: finalizer.finalize(report, current, case_id="case", intake_snapshot={"facts": {}}),
         checkpoint=lambda _: None)
     report = state.result["review_result"]

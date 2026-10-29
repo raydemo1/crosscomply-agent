@@ -67,12 +67,10 @@ interface MetadataForm {
   internal_status: KnowledgeInternalStatus;
 }
 
-const LIBRARY_LABELS: Record<KnowledgeLibraryKind, { label: string; short: string; description: string }> = {
-  legal: { label: '法律法规', short: '法源', description: '国家法律、行政法规、部门规章与权威公开解释。' },
-  internal_policy: { label: '规章制度', short: '制度', description: '企业内部制度、流程规范与已经批准的政策文件。' },
+const LIBRARY_LABELS: Record<KnowledgeLibraryKind, { label: string; short: string }> = {
+  legal: { label: '法律法规', short: '法源' },
+  internal_policy: { label: '规章制度', short: '制度' },
 };
-
-
 
 const INTERNAL_STATUS_LABELS: Record<KnowledgeInternalStatus, string> = {
   draft: '草稿',
@@ -179,6 +177,15 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [job, setJob] = useState<KnowledgeJobApi | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const detailRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedId && window.matchMedia('(max-width: 900px)').matches) {
+      detailRef.current?.focus({ preventScroll: true });
+      detailRef.current?.scrollIntoView({ block: 'start' });
+    }
+  }, [selectedId, detail?.source.source_id]);
 
   // 搜索实时匹配：输入停顿 300ms 后自动应用，无需提交按钮
   useEffect(() => {
@@ -395,7 +402,6 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
 
   const summary = useMemo(() => ({
     sourceCount: sources.length,
-    chunkCount: sources.reduce((total, item) => total + item.chunk_count, 0),
     selectedCount: selectedIds.size,
   }), [sources, selectedIds]);
 
@@ -408,6 +414,7 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
       <header className="knowledge-intro">
         <div className="knowledge-intro__copy">
           <h1 id="knowledge-title" className="page-title">知识库</h1>
+          <span className="knowledge-intro__count">{summary.sourceCount} 份来源</span>
         </div>
       </header>
 
@@ -418,11 +425,6 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
           </button>
         ))}
       </div>
-
-      <section className="knowledge-overview" aria-label="知识库概览">
-        <div className="knowledge-overview__copy"><span>当前库</span><strong>{LIBRARY_LABELS[libraryKind].label}</strong><p>{LIBRARY_LABELS[libraryKind].description}</p></div>
-        <div className="knowledge-metrics"><div><strong>{summary.sourceCount}</strong><span>当前来源</span></div><div><strong>{summary.chunkCount}</strong><span>知识片段</span></div><div><strong>{trash.length}</strong><span>待处理回收</span></div></div>
-      </section>
 
       {libraryKind === 'legal' && user.role === 'admin' ? <KnowledgeEnrichmentReview /> : null}
 
@@ -440,14 +442,13 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
       {message ? <div className="knowledge-alert knowledge-alert--success" role="status"><CheckCircle2 size={16} />{message}{job ? <span className="knowledge-alert__job">{job.status === 'succeeded' ? '任务已完成' : job.status === 'failed' ? '任务失败' : '任务进行中'}</span> : null}</div> : null}
 
       <section className="knowledge-layout">
-        <div className="knowledge-list card">
-          <div className="knowledge-list__header"><h2>来源清单</h2></div>
-          <div className="knowledge-bulkbar"><label><input type="checkbox" checked={sources.length > 0 && selectedIds.size === sources.length} onChange={toggleAll} />全选当前结果</label><span>{summary.selectedCount ? `已选 ${summary.selectedCount} 项` : ''}</span><button type="button" className="knowledge-danger-btn" disabled={selectedIds.size === 0 || busy} onClick={() => void startDeletePreview()}><Trash2 size={15} />移入回收站</button></div>
+        <div className="knowledge-list card" ref={listRef} tabIndex={-1}>
+          <div className="knowledge-bulkbar"><label><input type="checkbox" checked={sources.length > 0 && selectedIds.size === sources.length} onChange={toggleAll} />全选当前结果</label>{summary.selectedCount ? <><span>已选 {summary.selectedCount} 项</span><button type="button" className="knowledge-danger-btn" disabled={busy} onClick={() => void startDeletePreview()}><Trash2 size={15} />移入回收站</button></> : null}</div>
           {loading ? <div className="knowledge-state"><LoaderCircle className="spin" size={22} /><span>正在读取来源清单…</span></div> : sources.length === 0 ? <div className="knowledge-state"><FileArchive size={27} /><strong>暂无来源</strong><button type="button" className="btn-primary" onClick={() => setShowImport(true)}><FilePlus2 size={15} />开始导入</button></div> : <div className="knowledge-source-list">{sources.map((item) => <div key={item.source.source_id} className={'knowledge-source-row' + (selectedId === item.source.source_id ? ' is-open' : '')} role="button" aria-pressed={selectedId === item.source.source_id} tabIndex={0} onClick={() => void openSource(item.source.source_id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void openSource(item.source.source_id); } }}><input type="checkbox" checked={selectedIds.has(item.source.source_id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.source.source_id)} aria-label={`选择${item.source.title}`} /><div className="knowledge-source-row__body"><div className="knowledge-source-row__title"><strong>{highlightText(item.source.title, query)}</strong><span className={`knowledge-status knowledge-status--${item.source.library_kind}`}>{statusText(item)}</span></div><p>{highlightText(sourceMeta(item), query)}</p></div><ChevronRight size={17} className="knowledge-source-row__arrow" /></div>)}</div>}
         </div>
 
-        <aside className="knowledge-detail card" aria-label="来源详情">
-          {detailLoading ? <div className="knowledge-state"><LoaderCircle className="spin" size={22} /><span>正在读取来源详情…</span></div> : detail && editForm ? <><div className="knowledge-detail__header"><div><h2>{detail.source.title}</h2><code>{detail.source.source_id}</code></div><button type="button" className="icon-btn" aria-label="关闭来源详情" onClick={() => { setSelectedId(null); setDetail(null); setEditForm(null); }}><X size={17} /></button></div><div className="knowledge-detail__facts"><div><span>知识片段</span><strong>{detail.chunk_count}</strong></div><div><span>文件格式</span><strong>{detail.raw_format || detail.source.file_format}</strong></div><div><span>原文件</span><strong>{formatBytes(detail.raw_size)}</strong></div></div><div className="knowledge-detail__source-link"><span>具体来源</span>{detail.source.source_url ? <a href={detail.source.source_url} target="_blank" rel="noreferrer">{detail.source.source_url}</a> : <span className="knowledge-detail__source-empty">未提供 URL</span>}<small>{detail.source.source_site || '未填写来源站点'}</small></div><div className="knowledge-detail__actions"><a className="btn-secondary" href={knowledgeSourceDownloadUrl(detail.source.source_id)}><ArrowDownToLine size={15} />下载原文件</a></div><div className="knowledge-form"><div className="knowledge-form__heading"><strong>元数据维护</strong><Pencil size={15} /></div><label className="form-field"><span>标题</span><input value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} /></label><label className="form-field"><span>来源站点</span><input value={editForm.source_site} onChange={(event) => setEditForm({ ...editForm, source_site: event.target.value })} /></label><label className="form-field"><span>来源 URL</span><input value={editForm.source_url} onChange={(event) => setEditForm({ ...editForm, source_url: event.target.value })} /></label><div className="knowledge-form__grid"><label className="form-field"><span>{libraryKind === 'legal' ? '发布机关' : '归属部门'}</span><input value={libraryKind === 'legal' ? editForm.issuing_body : editForm.owning_department} onChange={(event) => setEditForm({ ...editForm, [libraryKind === 'legal' ? 'issuing_body' : 'owning_department']: event.target.value })} /></label><label className="form-field"><span>{libraryKind === 'legal' ? '生效日期' : '制度生效日'}</span><input type="date" value={editForm.effective_date} onChange={(event) => setEditForm({ ...editForm, effective_date: event.target.value })} /></label></div>{libraryKind === 'legal' ? <label className="form-field"><span>法源状态</span><select value={editForm.law_status} onChange={(event) => setEditForm({ ...editForm, law_status: event.target.value as KnowledgeLawStatus })}>{Object.entries(LAW_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label> : <label className="form-field"><span>制度状态</span><select value={editForm.internal_status} onChange={(event) => setEditForm({ ...editForm, internal_status: event.target.value as KnowledgeInternalStatus })}>{Object.entries(INTERNAL_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}{libraryKind === 'legal' ? <label className="form-field"><span>引用角色</span><select value={editForm.citation_role} onChange={(event) => setEditForm({ ...editForm, citation_role: event.target.value as ClauseCitationRole })}>{Object.entries(CITATION_ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}{libraryKind === 'legal' ? <label className="form-field"><span>失效日期（历史版本）</span><input type="date" value={editForm.valid_to} onChange={(event) => setEditForm({ ...editForm, valid_to: event.target.value })} /></label> : null}<button type="button" className="btn-primary knowledge-form__save" disabled={busy || !editForm.title.trim()} onClick={() => void saveMetadata()}><Check size={15} />保存元数据</button></div><div className="knowledge-detail__technical"><span>内容指纹</span><code>{detail.content_hash || '尚未生成'}</code><span>生成批次</span><code>{detail.generation_id || '尚未生成'}</code></div></> : <div className="knowledge-state knowledge-state--detail"><FileText size={27} /><strong>选择一个来源</strong></div>}
+        <aside className="knowledge-detail card" aria-label="来源详情" ref={detailRef} tabIndex={-1} data-open={Boolean(selectedId)}>
+          {detailLoading ? <div className="knowledge-state"><LoaderCircle className="spin" size={22} /><span>正在读取来源详情…</span></div> : detail && editForm ? <><div className="knowledge-detail__header"><div><h2>{detail.source.title}</h2><span className={`knowledge-status knowledge-status--${libraryKind}`}>{statusText(detail)}</span></div><button type="button" className="icon-btn" aria-label="关闭来源详情" onClick={() => { setSelectedId(null); setDetail(null); setEditForm(null); if (window.matchMedia('(max-width: 900px)').matches) listRef.current?.focus(); }}><X size={17} /></button></div><div className="knowledge-detail__facts"><div><span>知识片段</span><strong>{detail.chunk_count}</strong></div><div><span>文件格式</span><strong>{detail.raw_format || detail.source.file_format}</strong></div><div><span>原文件</span><strong>{formatBytes(detail.raw_size)}</strong></div></div><div className="knowledge-detail__source-link"><span>来源</span>{detail.source.source_url ? <a href={detail.source.source_url} title={detail.source.source_url} target="_blank" rel="noreferrer">{detail.source.source_site || '查看来源'} <span aria-hidden="true">↗</span></a> : <span className="knowledge-detail__source-empty">未提供来源链接</span>}</div><div className="knowledge-detail__actions"><a className="btn-secondary" href={knowledgeSourceDownloadUrl(detail.source.source_id)}><ArrowDownToLine size={15} />下载原文件</a></div><details className="knowledge-form"><summary className="knowledge-form__heading"><Pencil size={15} /><span>编辑来源资料</span></summary><label className="form-field"><span>标题</span><input value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} /></label><label className="form-field"><span>来源站点</span><input value={editForm.source_site} onChange={(event) => setEditForm({ ...editForm, source_site: event.target.value })} /></label><label className="form-field"><span>来源 URL</span><input value={editForm.source_url} onChange={(event) => setEditForm({ ...editForm, source_url: event.target.value })} /></label><div className="knowledge-form__grid"><label className="form-field"><span>{libraryKind === 'legal' ? '发布机关' : '归属部门'}</span><input value={libraryKind === 'legal' ? editForm.issuing_body : editForm.owning_department} onChange={(event) => setEditForm({ ...editForm, [libraryKind === 'legal' ? 'issuing_body' : 'owning_department']: event.target.value })} /></label><label className="form-field"><span>{libraryKind === 'legal' ? '生效日期' : '制度生效日'}</span><input type="date" value={editForm.effective_date} onChange={(event) => setEditForm({ ...editForm, effective_date: event.target.value })} /></label></div>{libraryKind === 'legal' ? <label className="form-field"><span>法源状态</span><select value={editForm.law_status} onChange={(event) => setEditForm({ ...editForm, law_status: event.target.value as KnowledgeLawStatus })}>{Object.entries(LAW_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label> : <label className="form-field"><span>制度状态</span><select value={editForm.internal_status} onChange={(event) => setEditForm({ ...editForm, internal_status: event.target.value as KnowledgeInternalStatus })}>{Object.entries(INTERNAL_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}{libraryKind === 'legal' ? <label className="form-field"><span>引用角色</span><select value={editForm.citation_role} onChange={(event) => setEditForm({ ...editForm, citation_role: event.target.value as ClauseCitationRole })}>{Object.entries(CITATION_ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}{libraryKind === 'legal' ? <label className="form-field"><span>失效日期（历史版本）</span><input type="date" value={editForm.valid_to} onChange={(event) => setEditForm({ ...editForm, valid_to: event.target.value })} /></label> : null}<button type="button" className="btn-primary knowledge-form__save" disabled={busy || !editForm.title.trim()} onClick={() => void saveMetadata()}><Check size={15} />保存元数据</button></details><details className="knowledge-detail__technical"><summary>技术记录</summary><dl><dt>来源 ID</dt><dd><code>{detail.source.source_id}</code></dd><dt>内容指纹</dt><dd><code>{detail.content_hash || '尚未生成'}</code></dd><dt>生成批次</dt><dd><code>{detail.generation_id || '尚未生成'}</code></dd></dl></details></> : <div className="knowledge-state knowledge-state--detail"><FileText size={27} /><strong>选择一个来源</strong></div>}
         </aside>
       </section>
 

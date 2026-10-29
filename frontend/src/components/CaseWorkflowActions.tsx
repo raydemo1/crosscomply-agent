@@ -95,7 +95,7 @@ export default function CaseWorkflowActions({
     && saved.reviewTask.material_snapshot_id === saved.materialSnapshot.id
     && saved.reviewTask.intake_snapshot_id === saved.intakeSnapshot?.id;
   const hasAction = canAnswerAgent || (canManage && (saved.status === 'pending_review'
-    || (saved.status === 'needs_info' && !activeTask)
+    || (saved.status === 'needs_info' && !activeTask && !frozenInputAlreadyReviewed)
     || saved.status === 'run_failed'
     || saved.status === 'pending_source_verification'
     || saved.status === 'pending_feishu_approval'
@@ -114,9 +114,7 @@ export default function CaseWorkflowActions({
       {canManage && saved.status === 'pending_review' ? (activeTask
         ? <span>{saved.reviewTask?.status === 'queued' ? '审查任务已进入队列，等待系统执行，无需手动启动。' : 'Agent 正在审查当前材料，完成后会自动更新结论。'}</span>
         : <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '正在入队…' : '重新进入审查队列'}</button>) : null}
-      {canManage && saved.status === 'needs_info' && !activeTask ? (frozenInputAlreadyReviewed
-        ? <span>当前冻结材料与事实已完成调查，请申报人补充材料或事实后重新提交，或由申报人发起整案复核。</span>
-        : <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '调查启动中…' : '按最新材料重新调查'}</button>) : null}
+      {canManage && saved.status === 'needs_info' && !activeTask && !frozenInputAlreadyReviewed ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '调查启动中…' : '按最新材料重新调查'}</button> : null}
       {canManage && saved.status === 'pending_source_verification' ? <span>{saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '法源已完成核验，案件待人工复核；原结论未自动改写' : '法律依据尚待核实或补充，案件暂缓送审；原结论不会自动改写'}</span> : null}
       {canManage && saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? (guidedActionSyncFailed ? '正在恢复整改清单…' : '重新运行中…') : (guidedActionSyncFailed ? '重试整改清单保存' : '重试失败任务')}</button> : null}
       {canManage && saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}

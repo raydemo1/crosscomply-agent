@@ -14,6 +14,7 @@ export default function GovernanceConsolePage({ user }: GovernanceConsolePagePro
   const [resetPassword, setResetPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const refresh = async (): Promise<void> => {
     const result = await listManagedUsers();
@@ -30,6 +31,7 @@ export default function GovernanceConsolePage({ user }: GovernanceConsolePagePro
     try {
       await createManagedUser(form);
       setForm({ username: '', display_name: '', password: '', role: 'requester' });
+      setCreating(false);
       await refresh();
       setMessage('用户已创建。');
     } catch (reason) {
@@ -56,20 +58,21 @@ export default function GovernanceConsolePage({ user }: GovernanceConsolePagePro
   return (
     <section className="governance-main">
       <section className="governance-intro" aria-labelledby="governance-title">
-        <div>
+        <div className="governance-intro__title">
           <h1 id="governance-title" className="page-title">用户管理</h1>
+          <span>{users.length} 个账户</span>
         </div>
+        <button type="button" className="btn-primary" aria-expanded={creating} aria-controls="user-create-form" onClick={() => setCreating((value) => !value)}>{creating ? '收起新建' : '新建用户'}</button>
       </section>
 
       <section className="card user-admin" aria-label={`企业用户管理 · ${users.length} 个账户`}>
-        <div className="user-admin__heading"><div><span className="user-admin__kicker">企业管理</span></div><strong>{users.length} 个账户</strong></div>
-        <div className="user-admin__create">
+        {creating ? <div className="user-admin__create" id="user-create-form">
           <label className="form-field"><span>登录名</span><input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="buyer@example.com" /></label>
           <label className="form-field"><span>显示名称</span><input value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} placeholder="例如：王申请" /></label>
           <label className="form-field"><span>初始密码</span><input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="至少 12 位" /></label>
           <label className="form-field"><span>角色</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as UserRole })}><option value="requester">申报人</option><option value="reviewer">审核人</option><option value="admin">管理员</option></select></label>
           <button type="button" className="btn-primary" disabled={busy || !form.username.trim() || !form.display_name.trim() || form.password.length < 12} onClick={() => void createUser()}>创建用户</button>
-        </div>
+        </div> : null}
         {message ? <div className="user-admin__message" role="status">{message}</div> : null}
         <div className="user-admin__list">
           {users.length === 0 ? <div className="state-block__hint">尚未创建企业用户。</div> : users.map((item) => (

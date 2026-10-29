@@ -5,13 +5,14 @@
 }
 .review-report.review-report--document {
   --report-body-size: var(--text-lg);
-  --report-body-leading: 1.75;
+  --report-body-leading: 1.8;
   --report-heading-size: var(--text-xl);
   --report-caption-size: var(--text-md);
-  padding: 32px 40px;
+  padding: 36px 40px;
   border: 1px solid var(--color-hairline);
-  border-radius: 12px;
+  border-radius: 2px;
   background: var(--color-surface);
+  box-shadow: var(--shadow-paper);
   font-family: var(--font-body);
 }
 .case-workspace .review-report.review-report--document h2,
@@ -52,21 +53,15 @@
 .report-conclusion { min-width: 0; }
 .report-conclusion > .report-heading { margin-bottom: 20px; }
 .report-conclusion__summary {
-  padding: 20px 24px;
-  border: 1px solid var(--color-hairline);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
-}
-.report-conclusion__summary-label {
-  color: var(--color-foreground-secondary);
-  font-size: var(--text-md);
-  font-weight: var(--weight-medium);
+  padding: 0 0 24px;
+  border-bottom: 1px solid var(--color-hairline);
 }
 .report-conclusion__lead {
-  margin: 12px 0 0;
+  margin: 0;
+  font-family: var(--font-legal);
   font-size: var(--text-xl);
   font-weight: var(--weight-medium);
-  line-height: 1.65;
+  line-height: 1.85;
   color: var(--color-foreground);
   text-wrap: pretty;
 }
@@ -170,8 +165,8 @@
   .review-report.review-report--document { padding: 28px; }
 }
 @media (max-width: 600px) {
-  .review-report.review-report--document { padding: 20px 16px; border-radius: 8px; }
-  .report-conclusion__summary { padding: 16px; }
+  .review-report.review-report--document { padding: 20px 16px; border-radius: 2px; }
+  .report-conclusion__summary { padding-bottom: 20px; }
   .report-conclusion__lead { font-size: var(--text-xl); }
   .report-conclusion__boundaries { padding: 16px; }
   .report-table__hint { display: block; margin-bottom: 8px; font-size: var(--text-sm); color: var(--color-foreground-muted); }
@@ -211,16 +206,21 @@
 .review-item-state--pending_review, .review-item-state--in_progress { color: var(--color-primary); }
 .review-report--document .review-followup-summary__more { margin-top: 8px; min-height: 44px; justify-content: flex-start; }
 .review-report--document .review-recommendations__list { margin: 0; }
-.review-report--document .review-recommendations__list > li { padding: 12px 0; gap: 12px; border: 0; }
-.review-report--document .review-recommendations__index { line-height: 28px; font-size: var(--text-md); text-align: left; min-width: 20px; }
-.review-report--document .review-recommendations__list .markdown-body { flex: 1; min-width: 0; }
+.review-report--document .review-recommendations__list > li { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: baseline; padding: 6px 0; gap: 12px; border: 0; }
+.review-report--document .review-recommendations__index { line-height: 1.75; font-size: var(--text-md); text-align: left; min-width: 0; font-variant-numeric: tabular-nums; }
+.review-report--document .review-recommendations__list .markdown-body { min-width: 0; font: 400 var(--text-base)/1.75 var(--font-body); }
 .review-report--document .review-recommendations__list .markdown-body p { margin: 0; }
-.review-report--document .report-main-issue { padding: 16px 0; border-color: var(--color-hairline); font-size: var(--report-body-size); line-height: 1.75; }
+.review-report--document .report-main-issue { padding: 14px 0; border-color: var(--color-hairline); font: 400 var(--text-base)/1.75 var(--font-body); }
 .review-report--document .report-main-issue:first-child { padding-top: 0; border-top: 0; }
-.review-report--document .issue-kind { color: var(--color-foreground-muted); background: var(--color-background); border-color: var(--color-hairline); font-size: var(--text-sm); font-weight: 400; }
-.review-report--document .report-main-issue__analysis { margin-top: 8px; }
-.review-report--document .report-main-issue__analysis > summary { min-height: 36px; font-size: var(--text-md); }
-.review-report--document .report-main-issue__analysis .markdown-body { margin-top: 8px; }
+.review-report--document .report-main-issue__heading { grid-column: 1 / -1; gap: 6px 12px; }
+.review-report--document .report-main-issue strong { font-size: var(--text-base); font-weight: var(--weight-medium); line-height: 1.65; }
+.review-report--document .issue-kind { padding: 0; border: 0; color: var(--color-foreground-muted); background: transparent; font: 400 var(--text-sm)/1.65 var(--font-body); }
+.review-report--document .report-main-issue > .btn-link { grid-row: 2; align-self: start; position: relative; z-index: 1; min-height: 32px; font: 400 var(--text-md)/1.65 var(--font-body); }
+.review-report--document .report-main-issue__analysis { grid-row: 2; margin-top: 0; }
+.review-report--document .report-main-issue__analysis > summary { display: flex; align-items: center; gap: 6px; min-height: 32px; padding-right: 88px; list-style: none; font: 400 var(--text-md)/1.65 var(--font-body); }
+.review-report--document .report-main-issue__analysis > summary::-webkit-details-marker { display: none; }
+.report-main-issue__analysis[open] > summary > svg { transform: rotate(180deg); }
+.review-report--document .report-main-issue__analysis .markdown-body { margin-top: 8px; font: 400 var(--text-base)/1.75 var(--font-body); }
 .review-report.review-report--document > .report-disclosure > summary { min-height: 44px; align-items: center; gap: 12px; }
 .review-report.review-report--document > .report-disclosure[open] > summary { padding-bottom: 0; border-bottom: 0; }
 .review-report--document > .report-disclosure > .report-disclosure__body { padding: 16px 0 0; }
@@ -245,8 +245,8 @@
 @media (max-width: 600px) {
   .review-report--document .report-heading { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
   .review-report--document .report-heading__meta { gap: 8px 12px; }
-  .review-report--document .report-main-issue { grid-template-columns: minmax(0, 1fr); }
-  .review-report--document .report-main-issue > .btn-link { grid-column: 1; grid-row: auto; justify-self: start; }
+  .review-report--document .report-main-issue > .btn-link,
+  .review-report--document .report-main-issue__analysis > summary { min-height: 44px; }
   .review-report--document .review-followup-summary__items li { flex-wrap: wrap; }
   .review-report--document .review-followup-summary__item-title { flex-basis: calc(100% - 60px); }
   .review-report--document .basis-clause > summary { gap: 8px; }

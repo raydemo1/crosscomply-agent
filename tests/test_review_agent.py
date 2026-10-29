@@ -30,6 +30,14 @@ def _draft() -> LLMReviewResultDraft:
     )
 
 
+def test_review_streams_tool_responses_without_delivering_partial_report_text():
+    client = FakeClient(outputs=[tool_message(("done", "finish", {"summary": "交付", "draft": _draft().model_dump()}))])
+    decision = AgentModel(model_id="test", client=client)(AgentState(goal="审查"), {})
+    assert decision.action == "finish" and decision.draft == _draft()
+    assert callable(client.kwargs[0]["on_text"])
+    assert client.kwargs[0]["on_text"]("未完成的文本") is None
+
+
 def test_rejected_report_is_available_to_next_decision_and_checkpoint():
     from law_agent.review.semantic_grounding import (
         SemanticGroundingRejected,
@@ -56,7 +64,7 @@ def test_rejected_report_is_available_to_next_decision_and_checkpoint():
 
     state = run_agent(
         AgentState(goal="审查案件"), material="材料", intake={}, decide=decide,
-        search=lambda *_: [], web_search=lambda *_: [], finalize=reject,
+        search=lambda *_, **_kwargs: [], web_search=lambda *_: [], finalize=reject,
         checkpoint=lambda value: checkpoints.append(value.model_dump(mode="json")),
     )
     restored = AgentState.model_validate(checkpoints[-1])
@@ -87,7 +95,7 @@ def test_report_draft_tracks_latest_submission_and_clears_after_acceptance():
     state = run_agent(
         AgentState(goal="审查案件"), material="材料", intake={},
         decide=lambda *_: AgentDecision(action="finish", summary="提交报告", draft=next(decisions)),
-        search=lambda *_: [], web_search=lambda *_: [], finalize=finalize,
+        search=lambda *_, **_kwargs: [], web_search=lambda *_: [], finalize=finalize,
         checkpoint=lambda _: None,
     )
     assert state.result["accepted"] == drafts[1].model_dump(mode="json")
@@ -105,7 +113,7 @@ def test_agent_can_finish_without_fixed_intermediate_steps() -> None:
         material="已冻结材料",
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: [],
+        search=lambda _queries, _facts, **_kwargs: [],
         web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"review_result": {"risk_level": "insufficient_evidence"}},
         checkpoint=lambda current: checkpoints.append(current.model_copy(deep=True)),
@@ -128,7 +136,7 @@ def test_agent_exposes_frozen_material_version_ids_to_decider() -> None:
         material="【材料 业务说明 v1 | mv_case_001】\n字段清单：姓名。",
         intake={"id": "snap_case_001", "facts": {}},
         decide=decide,
-        search=lambda _queries, _facts: [],
+        search=lambda _queries, _facts, **_kwargs: [],
         web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"ok": True},
         checkpoint=lambda _state: None,
@@ -157,7 +165,7 @@ def test_agent_can_choose_multiple_retrieval_batches() -> None:
         material="已冻结材料",
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda queries, _facts: searched.extend(item.text for item in queries) or [],
+        search=lambda queries, _facts, **_kwargs: searched.extend(item.text for item in queries) or [],
         web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"ok": True},
         checkpoint=lambda _state: None,
@@ -179,7 +187,7 @@ def test_agent_pauses_and_resumes_from_human_input() -> None:
             summary="需要确认接收方地区",
             question="境外接收方位于哪个国家或地区？",
         ),
-        search=lambda _queries, _facts: [],
+        search=lambda _queries, _facts, **_kwargs: [],
         web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {},
         checkpoint=lambda _state: None,
@@ -210,7 +218,7 @@ def test_agent_plan_is_visible_without_blocking_the_run() -> None:
         material="已冻结材料",
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: [],
+        search=lambda _queries, _facts, **_kwargs: [],
         web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"ok": True},
         checkpoint=lambda _state: None,
@@ -309,7 +317,7 @@ def test_agent_reads_more_of_a_source_it_has_already_found() -> None:
         material="已冻结材料",
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: [found],
+        search=lambda _queries, _facts, **_kwargs: [found],
         read_evidence=lambda source_id, article_no, chunk_id, _facts, _offset: (
             reads.append((source_id, article_no, chunk_id)) or EvidenceRead(hits=[read])
         ),
@@ -340,7 +348,7 @@ def test_agent_only_reads_inside_a_source_the_search_already_found() -> None:
         material="已冻结材料",
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: [],
+        search=lambda _queries, _facts, **_kwargs: [],
         read_evidence=lambda *_args: EvidenceRead(hits=[_hit("c9", "not_found_source")]),
         web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"ok": True},
@@ -374,7 +382,7 @@ def test_agent_read_budget_is_enforced() -> None:
         material="",
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: [_hit("c1", "s1")],
+        search=lambda _queries, _facts, **_kwargs: [_hit("c1", "s1")],
         read_evidence=lambda *_args: EvidenceRead(hits=[_hit("c2", "s1")]),
         web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"ok": True},
@@ -407,7 +415,7 @@ def test_agent_does_not_spend_read_budget_on_the_same_chunk_twice() -> None:
         material="",
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: [_hit("c1", "s1")],
+        search=lambda _queries, _facts, **_kwargs: [_hit("c1", "s1")],
         read_evidence=lambda *_args: (
             calls.append("read") or EvidenceRead(hits=[_hit("c1", "s1")])
         ),
@@ -444,7 +452,7 @@ def test_agent_rejects_a_chunk_already_returned_by_a_previous_window() -> None:
         material="",
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: [_hit("c1", "s1")],
+        search=lambda _queries, _facts, **_kwargs: [_hit("c1", "s1")],
         read_evidence=lambda *_args: (
             calls.append("read")
             or EvidenceRead(
@@ -481,7 +489,7 @@ def test_agent_rejects_chunk_offset_before_spending_read_budget() -> None:
         material="",
         intake={},
         decide=lambda _state, _rule: next(decisions),
-        search=lambda _queries, _facts: [_hit("c1", "s1")],
+        search=lambda _queries, _facts, **_kwargs: [_hit("c1", "s1")],
         read_evidence=lambda *_args: (_ for _ in ()).throw(AssertionError("不应调用读取工具")),
         web_search=lambda _queries, _facts: [],
         finalize=lambda _draft_value, _state: {"ok": True},
@@ -513,7 +521,7 @@ def test_batch_reads_preserve_successes_and_account_for_each_request(max_reads: 
     state = run_agent(
         AgentState(goal="审查", evidence=[_hit("found", "s1")], max_reads=max_reads),
         material="", intake={}, decide=lambda *_args: next(decisions),
-        search=lambda *_args: [], read_evidence=read, web_search=lambda *_args: [],
+        search=lambda *_args, **_kwargs: [], read_evidence=read, web_search=lambda *_args: [],
         finalize=lambda *_args: {"ok": True}, checkpoint=lambda _state: None,
     )
     results = state.steps[0].observation["read_results"]
@@ -566,7 +574,7 @@ def test_browsing_a_source_does_not_add_preview_to_claim_evidence() -> None:
     state = run_agent(
         AgentState(goal="审查", evidence=[_hit("found", "s1")]),
         material="", intake={}, decide=lambda *_args: next(decisions),
-        search=lambda *_args: [], read_evidence=tools.read_evidence, web_search=lambda *_args: [],
+        search=lambda *_args, **_kwargs: [], read_evidence=tools.read_evidence, web_search=lambda *_args: [],
         finalize=lambda *_args: {"ok": True}, checkpoint=lambda _state: None,
     )
     observation = state.steps[0].observation["read_results"][0]
@@ -679,7 +687,6 @@ def test_evidence_returned_to_the_agent_stays_citable_in_the_report() -> None:
         _chunk("c3", "第三条", "（二）未达到门槛。", index=2, prev="c2"),
     ]
     tools = _tools_with(chunks)
-    tools._neighbor_hits = {}
     tools._top_k = 10
     tools._material_text = ""
     tools._material_versions_by_id = {}
@@ -698,7 +705,7 @@ def test_evidence_returned_to_the_agent_stays_citable_in_the_report() -> None:
     assert {"c1", "c2", "c3"} <= {hit["chunk_id"] for hit in result["evidence_chunks"]}
 
 
-def test_search_excludes_future_references_in_candidates_and_neighbors() -> None:
+def test_search_excludes_future_references_in_candidates() -> None:
     from types import SimpleNamespace
 
     from law_agent.review.retrieval.neighbors import hit_from_chunk
@@ -720,7 +727,6 @@ def test_search_excludes_future_references_in_candidates_and_neighbors() -> None
     tools._top_k = 10
     tools._question = "历史判断"
     tools._material_text = ""
-    tools._neighbor_hits = {}
 
     hits = tools.search(
         [RetrievalQuery(query_id="q", text="示例规则", query_type="legal_issue")],
@@ -728,7 +734,6 @@ def test_search_excludes_future_references_in_candidates_and_neighbors() -> None
     )
     assert {hit.chunk_id for hit in hits} == {"c1"}
     assert "c2" not in tools._candidate_hits
-    assert "c2" not in tools._neighbor_hits
 
 
 def test_search_preserves_small_query_sources_without_extra_adapter_calls() -> None:
@@ -745,7 +750,8 @@ def test_search_preserves_small_query_sources_without_extra_adapter_calls() -> N
     })
     calls = []
 
-    def search_many(queries, *, top_k):
+    def search_many(queries, *, top_k, allowed_chunk_ids):
+        assert len(allowed_chunk_ids) == len(queries)
         calls.append((queries, top_k))
         return [
             [hit_from_chunk(c, i).model_copy(update={"score": 1000 - i}) for i, c in enumerate(broad)],
@@ -785,7 +791,7 @@ def test_search_does_not_reward_source_length_over_a_specific_match() -> None:
     assert result[0].can_cite_clause is False
 
 
-def test_search_reranks_queries_separately_with_one_shared_source_budget(monkeypatch) -> None:
+def test_optional_rerank_queries_share_one_chunk_budget(monkeypatch) -> None:
     from types import SimpleNamespace
 
     from law_agent.review.retrieval.neighbors import hit_from_chunk
@@ -801,7 +807,8 @@ def test_search_reranks_queries_separately_with_one_shared_source_budget(monkeyp
 
     def rerank(results, *, queries, top_k, **kwargs):
         calls.append(queries)
-        return SimpleNamespace(hits=list(reversed(results))[:top_k])
+        return SimpleNamespace(hits=[hit.model_copy(update={"score": 1 - index * 0.1})
+                                     for index, hit in enumerate(reversed(results))][:top_k])
 
     monkeypatch.setattr("law_agent.review.agent_tools.rerank_hits", rerank)
     queries = [RetrievalQuery(query_id=str(i), text=f"查询{i}", query_type="legal_issue") for i in range(2)]
@@ -823,7 +830,6 @@ def _search_tools(chunks, search_many, *, top_k):
     tools._top_k = top_k
     tools._question = "审查具体适用关系"
     tools._material_text = ""
-    tools._neighbor_hits = {}
     return tools
 
 
@@ -842,7 +848,7 @@ def test_omitted_keyword_source_is_discoverable_but_requires_reading_before_cita
     tools._adapters.vector.search_many = lambda *_args, **_kwargs: [[keyword[0]]]
     claim = GroundedClaim(text="应核对该条件", supporting_chunk_ids=["target"])
     decisions = iter([
-        AgentDecision(action="search_evidence", summary="寻找依据", queries=[
+        AgentDecision(action="search_evidence", summary="寻找依据", max_chunks=1, queries=[
             RetrievalQuery(query_id="q", text="条件", query_type="legal_issue"),
         ]),
         AgentDecision(action="read_evidence", summary="精读关键词候选", read_requests=[
@@ -893,12 +899,12 @@ def test_keyword_navigation_keeps_omitted_articles_in_an_already_returned_source
 
     assert {h.source_id for h in hits} == {"s1"}
     assert "target" not in {h.chunk_id for h in hits}
-    assert [loc["chunk_id"] for source in tools.search_navigation() for loc in source["locations"]] == ["target"]
+    assert {loc["chunk_id"] for source in tools.search_navigation() for loc in source["locations"]} == {"primary", "target", "generic2"}
     read = tools.read_evidence("s1", "第二条", None, ReviewFacts())
     assert [h.chunk_id for h in read.hits] == ["target"]
 
 
-def test_search_preserves_query_anchors_within_the_same_source():
+def test_best_query_matches_share_one_chunk_budget_even_within_one_source():
     from law_agent.review.retrieval.neighbors import hit_from_chunk
 
     targets = [_chunk(f"target{i}", f"第{i + 1}条", f"目标条款{i}", index=i) for i in range(4)]
@@ -908,7 +914,7 @@ def test_search_preserves_query_anchors_within_the_same_source():
          for rank, chunk in enumerate([target, *generic])]
         for target in targets
     ]
-    tools = _search_tools([*targets, *generic], lambda *_args, **_kwargs: batches, top_k=1)
+    tools = _search_tools([*targets, *generic], lambda *_args, **_kwargs: batches, top_k=4)
     queries = [RetrievalQuery(query_id=f"q{i}", text=f"查找条款{i}", query_type="legal_issue") for i in range(4)]
 
     hits = tools.search(queries, ReviewFacts())
@@ -927,7 +933,7 @@ def test_search_observation_keeps_query_matches_distinct_between_batches():
         ]) for text in ("第一个问题", "第二个问题")
     ] + [AgentDecision(action="finish", summary="交付", draft=_draft())])
 
-    def search(queries, _facts):
+    def search(queries, _facts, *, max_chunks):
         return [_hit("c1", "s1").model_copy(update={"matched_query_ids": [queries[0].query_id]})]
 
     state = run_agent(
@@ -940,6 +946,31 @@ def test_search_observation_keeps_query_matches_distinct_between_batches():
     assert groups[0]["query_id"] != groups[1]["query_id"]
     assert [group["text"] for group in groups] == ["第一个问题", "第二个问题"]
     assert all(group["chunk_ids"] == ["c1"] for group in groups)
+
+
+def test_review_search_budgets_do_not_evict_originals_from_previous_rounds():
+    decisions = iter([
+        AgentDecision(action="search_evidence", summary="查一般条件", max_chunks=2, queries=[
+            RetrievalQuery(query_id="q1", query_type="legal_issue", text="条件"),
+        ]),
+        AgentDecision(action="search_evidence", summary="补查例外", max_chunks=1, queries=[
+            RetrievalQuery(query_id="q2", query_type="legal_issue", text="例外"),
+        ]),
+        AgentDecision(action="finish", summary="交付", draft=_draft()),
+    ])
+    budgets = []
+
+    def search(queries, facts, *, max_chunks):
+        budgets.append(max_chunks)
+        return [_hit(f"{len(budgets)}-{i}", "s1") for i in range(max_chunks)]
+
+    state = run_agent(
+        AgentState(goal="条件与例外"), material="材料", intake={},
+        decide=lambda *_: next(decisions), search=search, web_search=lambda *_: [],
+        finalize=lambda *_: {}, checkpoint=lambda *_: None,
+    )
+    assert budgets == [2, 1]
+    assert {h.chunk_id for h in state.evidence} == {"1-0", "1-1", "2-0"}
 
 
 def test_final_report_rechecks_date_and_never_adds_unseen_cached_evidence() -> None:
@@ -955,7 +986,6 @@ def test_final_report_rechecks_date_and_never_adds_unseen_cached_evidence() -> N
     ]
     tools = _tools_with(chunks)
     tools._candidate_hits = {chunk.chunk_id: hit_from_chunk(chunk, 0) for chunk in chunks}
-    tools._neighbor_hits = dict(tools._candidate_hits)
     tools._top_k = 10
     tools._material_text = ""
     tools._material_versions_by_id = {}
@@ -1028,7 +1058,6 @@ def test_evidence_sufficiency_is_not_inferred_from_medium_risk(missing):
 
     chunks = [_chunk("c1", "第一条", "第一条 适用规则。", index=0)]
     tools = _tools_with(chunks)
-    tools._neighbor_hits = {}
     tools._top_k = 10
     tools._material_text = "申请材料"
     tools._material_versions_by_id = {}

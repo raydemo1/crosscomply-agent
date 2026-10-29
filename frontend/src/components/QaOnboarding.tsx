@@ -1,16 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ClipboardCheck, FilePlus2, MessageSquare, X } from 'lucide-react';
 
-const DISMISSED_KEY = 'crosscomply.onboarding.dismissed';
-
-export function onboardingDismissed(): boolean {
-  return window.localStorage.getItem(DISMISSED_KEY) === '1';
-}
-
-export function dismissOnboarding(): void {
-  window.localStorage.setItem(DISMISSED_KEY, '1');
-}
-
 const STEPS = [
   {
     icon: MessageSquare,
@@ -35,7 +25,6 @@ const STEPS = [
   },
 ];
 
-/** 首次使用的三步引导：可在问答页随时从「使用指引」重新打开。 */
 export default function QaOnboarding({ onDismiss }: { onDismiss: () => void }): JSX.Element {
   const navigate = useNavigate();
   return (
@@ -58,7 +47,7 @@ export default function QaOnboarding({ onDismiss }: { onDismiss: () => void }): 
           </li>
         ))}
       </ol>
-      <p className="qa-onboarding__foot">系统仅提供合规决策辅助，不替代专业法律意见。完成后此卡片不再自动出现，可随时从下方「使用指引」重新打开。</p>
+      <p className="qa-onboarding__foot">系统提供合规决策辅助，不替代专业法律意见。</p>
     </section>
   );
 }

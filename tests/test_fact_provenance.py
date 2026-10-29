@@ -47,7 +47,7 @@ def _run(state, *decisions):
     pending = iter([*decisions, AgentDecision(action="finish", summary="交付", draft=_draft())])
     return run_agent(
         state, material="冻结材料", intake={},
-        decide=lambda *_: next(pending), search=lambda *_: [], web_search=lambda *_: [],
+        decide=lambda *_: next(pending), search=lambda *_, **_kwargs: [], web_search=lambda *_: [],
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
 

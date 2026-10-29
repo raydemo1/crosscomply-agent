@@ -20,6 +20,7 @@ class KeywordSearchAdapter(Protocol):
         *,
         top_k: int = 10,
         query_type: RetrievalQueryType | None = None,
+        allowed_chunk_ids: Sequence[str] | None = None,
     ) -> list[RetrievalHit]: ...
 
     def search_many(
@@ -27,6 +28,7 @@ class KeywordSearchAdapter(Protocol):
         queries: Sequence[tuple[str, RetrievalQueryType | None]],
         *,
         top_k: int = 10,
+        allowed_chunk_ids: Sequence[Sequence[str]] | None = None,
     ) -> list[list[RetrievalHit]]: ...
 
 
@@ -36,6 +38,7 @@ class VectorSearchAdapter(Protocol):
         queries: Sequence[tuple[str, RetrievalQueryType | None]],
         *,
         top_k: int = 10,
+        allowed_chunk_ids: Sequence[Sequence[str]] | None = None,
     ) -> list[list[RetrievalHit]]: ...
 
 
@@ -52,7 +55,10 @@ class ElasticsearchKeywordAdapter:
         *,
         top_k: int = 10,
         query_type: RetrievalQueryType | None = None,
+        allowed_chunk_ids: Sequence[str] | None = None,
     ) -> list[RetrievalHit]:
+        if allowed_chunk_ids is not None and not allowed_chunk_ids:
+            return []
         body = {
             "size": top_k,
             "query": {
@@ -77,6 +83,8 @@ class ElasticsearchKeywordAdapter:
                 }
             },
         }
+        if allowed_chunk_ids is not None:
+            body["query"]["bool"]["filter"] = [{"terms": {"chunk_id": list(allowed_chunk_ids)}}]
         response = self.client.search(index=self.index_name, body=body)
         raw_hits = response.get("hits", {}).get("hits", [])
         return [
@@ -95,9 +103,14 @@ class ElasticsearchKeywordAdapter:
         queries: Sequence[tuple[str, RetrievalQueryType | None]],
         *,
         top_k: int = 10,
+        allowed_chunk_ids: Sequence[Sequence[str]] | None = None,
     ) -> list[list[RetrievalHit]]:
+        if allowed_chunk_ids is not None and len(allowed_chunk_ids) != len(queries):
+            raise ValueError("每条查询必须有对应的候选范围")
         return [
-            self.search(query, top_k=top_k, query_type=query_type) for query, query_type in queries
+            self.search(query, top_k=top_k, query_type=query_type,
+                        allowed_chunk_ids=allowed_chunk_ids[index] if allowed_chunk_ids is not None else None)
+            for index, (query, query_type) in enumerate(queries)
         ]
 
 
@@ -107,7 +120,7 @@ class PgVectorAdapter:
     def __init__(
         self,
         *,
-        search_fn: Callable[[list[float], int], list[dict[str, Any]]],
+        search_fn: Callable[..., list[dict[str, Any]]],
         embed_texts: Callable[[Sequence[str]], list[list[float]]],
     ) -> None:
         self.search_fn = search_fn
@@ -142,11 +155,20 @@ class PgVectorAdapter:
         queries: Sequence[tuple[str, RetrievalQueryType | None]],
         *,
         top_k: int = 10,
+        allowed_chunk_ids: Sequence[Sequence[str]] | None = None,
     ) -> list[list[RetrievalHit]]:
-        self.prewarm_queries([query for query, _query_type in queries])
+        if allowed_chunk_ids is not None and len(allowed_chunk_ids) != len(queries):
+            raise ValueError("每条查询必须有对应的候选范围")
+        self.prewarm_queries([query for index, (query, _) in enumerate(queries)
+                              if allowed_chunk_ids is None or allowed_chunk_ids[index]])
         results: list[list[RetrievalHit]] = []
-        for query, query_type in queries:
-            rows = self.search_fn(self._query_cache[query], top_k)
+        for index, (query, query_type) in enumerate(queries):
+            allowed = allowed_chunk_ids[index] if allowed_chunk_ids is not None else None
+            if allowed is not None and not allowed:
+                results.append([])
+                continue
+            rows = self.search_fn(self._query_cache[query], top_k,
+                                  **({"allowed_chunk_ids": allowed} if allowed is not None else {}))
             results.append(
                 [
                     _hit_from_source(row, row.get("score", 0.0), rank, "pgvector", query_type)

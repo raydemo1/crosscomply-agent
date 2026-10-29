@@ -60,7 +60,7 @@ def test_run_agent_repairs_claim_citation_rejection_without_full_redraft():
     )])
     state = _agent_state(evidence=[_hit()])
     run_agent(state, material="冻结材料", intake={"id": "frozen", "facts": {"condition_b": True}},
-              decide=AgentModel(model_id="test", client=client), search=lambda *_: [],
+              decide=AgentModel(model_id="test", client=client), search=lambda *_, **_kwargs: [],
               web_search=lambda *_: [], finalize=finalize, checkpoint=lambda _: None,
               repair_claims=repair_claims)
 
@@ -96,7 +96,7 @@ def test_run_agent_falls_back_to_full_revision_when_repair_fails():
     ])
     state = _agent_state(evidence=[_hit()])
     run_agent(state, material="冻结材料", intake={"id": "frozen", "facts": {"condition_b": True}},
-              decide=AgentModel(model_id="test", client=client), search=lambda *_: [],
+              decide=AgentModel(model_id="test", client=client), search=lambda *_, **_kwargs: [],
               web_search=lambda *_: [], finalize=finalize, checkpoint=lambda _: None,
               repair_claims=failing_repair)
 
@@ -127,7 +127,7 @@ def test_semantic_grounding_rejection_never_reaches_claim_repair():
     ])
     state = _agent_state(evidence=[_hit()])
     run_agent(state, material="冻结材料", intake={"id": "frozen", "facts": {"condition_b": True}},
-              decide=AgentModel(model_id="test", client=client), search=lambda *_: [],
+              decide=AgentModel(model_id="test", client=client), search=lambda *_, **_kwargs: [],
               web_search=lambda *_: [], finalize=finalize, checkpoint=lambda _: None,
               repair_claims=repair_claims)
 

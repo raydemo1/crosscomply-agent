@@ -173,7 +173,7 @@ class Tools:
     def evidence_as_of(self, evidence, as_of):
         return evidence
 
-    def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=()):
+    def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=(), max_chunks=None):
         return [_hit()]
 
     def search_navigation(self):
@@ -191,7 +191,7 @@ def test_autonomous_search_and_read_direct_stream_without_review(monkeypatch):
     monkeypatch.setattr("law_agent.review.semantic_grounding.SemanticGroundingVerifier.__call__",
                         lambda *_a, **_k: pytest.fail("问答不得调用独立核验"))
     client = StreamingClient(outputs=[
-        tool_message(("call_1", 'search_evidence', {'summary': '检索', 'queries': [{'query_id': 'q1', 'text': '数据出境', 'query_type': 'legal_issue'}]})),
+        tool_message(("call_1", 'search_evidence', {'summary': '检索', 'queries': [{'query_id': 'q1', 'text': '数据出境', 'query_type': 'legal_issue'}], 'date_context': {'as_of_date': None}})),
         tool_message(("call_2", 'read_evidence', {'summary': '精读', 'read_requests': [{'source_id': 's1', 'chunk_id': 'c1'}]})),
         tool_message(("call_3", 'finish', {'summary': '完成', 'chunk_ids': ['c1']})),
     ])
@@ -227,7 +227,7 @@ def test_qa_selected_web_count_reaches_provider_without_semantic_review(monkeypa
     client = StreamingClient(outputs=[
         tool_message(("web", "search_web", {"summary": "比较不同来源", "queries": [
             {"query_id": "q1", "query_type": "legal_issue", "text": "适用关系"},
-        ], "max_results": 6})),
+        ], "max_results": 6, "date_context": {"as_of_date": None}})),
         tool_message(("finish", "finish", {"summary": "完成", "web_urls": ["https://example.org/source"]})),
     ])
     store = InMemoryQAStore()
@@ -316,12 +316,12 @@ def test_answer_keeps_original_context_and_registers_only_selected_citations():
                                          "text": "旧版不同范围", "title": "旧版规则"})
 
     class MixedTools(Tools):
-        def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=()):
+        def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=(), max_chunks=None):
             return [selected, unselected]
 
     client = StreamingClient(outputs=[
         tool_message(("call_1", 'read_material', {'summary': '读取用户陈述'})),
-        tool_message(("call_2", 'search_evidence', {'summary': '查找', 'queries': [{'query_id': 'q1', 'text': '适用范围', 'query_type': 'legal_issue'}]})),
+        tool_message(("call_2", 'search_evidence', {'summary': '查找', 'queries': [{'query_id': 'q1', 'text': '适用范围', 'query_type': 'legal_issue'}], 'date_context': {'as_of_date': None}})),
         tool_message(("call_3", 'finish', {'summary': '回答', 'chunk_ids': ['c1']})),
     ])
     store = InMemoryQAStore()
@@ -374,7 +374,7 @@ def test_unread_directory_reference_is_returned_to_agent_before_streaming():
             return EvidenceRead(hits=[_hit().model_copy(update={"chunk_id": "c2"})])
 
     client = DirectoryClient(outputs=[
-        tool_message(("call_1", 'search_evidence', {'summary': '发现来源', 'queries': [{'query_id': 'q1', 'text': '条件', 'query_type': 'legal_issue'}]})),
+        tool_message(("call_1", 'search_evidence', {'summary': '发现来源', 'queries': [{'query_id': 'q1', 'text': '条件', 'query_type': 'legal_issue'}], 'date_context': {'as_of_date': None}})),
         tool_message(("call_2", 'finish', {'summary': '完成', 'chunk_ids': ['c2']})),
         tool_message(("call_3", 'read_evidence', {'summary': '取得正文', 'read_requests': [{'source_id': 's1', 'chunk_id': 'c2'}]})),
         tool_message(("call_4", 'finish', {'summary': '完成', 'chunk_ids': ['c2']})),
@@ -535,7 +535,7 @@ def test_completed_product_question_cannot_create_review_actions_or_approval(api
 
     def execute(conversation, run, **kwargs):
         execute_qa(conversation, run, client=StreamingClient(outputs=[
-            tool_message(("call_1", 'search_evidence', {'summary': '查找', 'queries': [{'query_id': 'q1', 'query_type': 'legal_issue', 'text': '条件'}]})),
+            tool_message(("call_1", 'search_evidence', {'summary': '查找', 'queries': [{'query_id': 'q1', 'query_type': 'legal_issue', 'text': '条件'}], 'date_context': {'as_of_date': None}})),
             tool_message(("call_2", 'finish', {'summary': '回答', 'chunk_ids': ['c1']})),
         ]), tools=Tools(), **kwargs)
 

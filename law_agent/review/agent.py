@@ -45,7 +45,10 @@ from law_agent.review.web_research import (
 
 
 class EvidenceReadRequest(StrictModel):
-    source_id: str = Field(min_length=1, max_length=200)
+    source_id: str | None = Field(default=None, min_length=1, max_length=200,
+                                  description="已发现来源的内部ID；与source_title二选一")
+    source_title: str | None = Field(default=None, min_length=1, max_length=200,
+                                     description="明确要核对的法规正式名称，可不经搜索直接按article_no读取；不使用简称或主题词")
     article_no: str | None = Field(default=None, max_length=40, description="读取条文；与其他选择器互斥")
     chunk_id: str | None = Field(default=None, max_length=200, description="读取片段及相邻正文；不使用offset")
     node_id: str | None = Field(default=None, min_length=1, max_length=200, description="精读已发现的目录节点")
@@ -54,8 +57,12 @@ class EvidenceReadRequest(StrictModel):
 
     @model_validator(mode="after")
     def validate_source(self) -> EvidenceReadRequest:
-        if not self.source_id.strip():
-            raise ValueError("read_evidence requires source_id")
+        if (self.source_id is None) == (self.source_title is None):
+            raise ValueError("source_id、source_title 必须指定且只能指定一个")
+        if not (self.source_id or self.source_title or "").strip():
+            raise ValueError("证据来源不能为空")
+        if self.source_title is not None and self.article_no is None:
+            raise ValueError("按source_title定位时须同时指定article_no")
         if any(value is not None and not value.strip() for value in (
             self.article_no, self.chunk_id, self.node_id, self.parent_node_id,
         )):
@@ -72,11 +79,13 @@ class AgentDecision(StrictModel):
         "propose_plan", "read_material", "search_evidence",
         "read_evidence", "search_web", "queue_enrichment", "request_input", "finish",
     ]
-    summary: str = Field(min_length=1, max_length=600, description="供用户查看的简短操作目的，不输出私有推理过程")
+    summary: str = Field(min_length=1, max_length=600, description="供用户查看的简短操作目的；补查时说明当前审查还缺哪项依据，不输出私有推理过程")
     plan: list[str] = Field(default_factory=list, max_length=8, description="供用户查看的调查步骤，不输出私有推理过程")
     offset: int = Field(default=0, ge=0, description="材料包的字符起点；续页使用返回的next_read_request")
     fact_questions: list[FactQuestion] = Field(default_factory=list, max_length=15)
     queries: list[RetrievalQuery] = Field(default_factory=list, max_length=4)
+    max_chunks: int = Field(default=10, ge=1, le=10, strict=True,
+                           description="本次本地搜索跨所有queries融合、去重后返回的正文段数上限，不是每个查询或来源的条数。按当前缺口选择所需数量，最多10段；不是必须填满的配额。")
     max_results: int = Field(default=DEFAULT_WEB_RESULTS, ge=1, le=MAX_WEB_RESULTS, strict=True,
                             description="本次联网搜索最终返回的资料总数上限，跨所有queries去重后合计，不是每个查询的数量。按当前争点所需选择；可用资料不足时允许少于请求数。")
     enrichment_urls: list[str] = Field(default_factory=list, max_length=2)
@@ -136,6 +145,7 @@ class ReadEvidenceRecord(StrictModel):
     """A successful read and the chunks it already exposed to the agent."""
 
     source_id: str
+    source_title: str | None = None
     article_no: str | None = None
     chunk_id: str | None = None
     node_id: str | None = None
@@ -200,20 +210,21 @@ SYSTEM_PROMPT = f"""你是 CrossComply 企业数据合规审查 Agent。围绕 s
 {LEGAL_ANALYSIS_GUIDANCE}
 
 ## 自主调查
-法律问题由 Agent 调查，关键业务事实确需申请人补充时再追问。当前目标仍缺关键依据且有可行途径时定向补查；已尝试仍无法解决时，提交明确限定的证据不足报告。
+围绕当前审查目标确定必要争点，已有原文足以支持报告结论及关键条件、例外时收口。只为会改变本案结论、风险判断或必要措施的法源缺口补查，已知法名和条号时可直接精读。业务事实未知时保留条件分支，确实阻塞审查时再追问，不用泛搜代替事实确认；必要缺口已调查仍无法解决时，提交明确限定的证据不足报告。
 
 ## 报告交付
-结论、风险等级、法律路径、问题项、行动建议和风险边界采用一致的事实前提与法律适用关系。尚缺的业务事实登记在 questions，法律依据缺口登记在 legal_basis_gaps；legal_gap 用于证据已支持的不合规问题。通过 finish 提交结构化报告接受核验，未通过时根据反馈修订或补充调查。报告提交不代表审批通过。
+报告各栏目采用一致的事实前提、规则分支和证据支持强度。确定性判断及义务要求须有已取得原文和来源清楚的事实支持；区分法定义务与实践建议，只展开当前审查目标所需的风险和措施，不为无依据的延伸增加问题项或行动项。尚缺的业务事实登记在 questions，法律依据缺口登记在 legal_basis_gaps；legal_gap 用于证据已支持的不合规问题。通过 finish 提交结构化报告接受核验，未通过时根据反馈修订或补充调查。报告提交不代表审批通过。
 
 """
 
 
 INVESTIGATION_TOOLS = {
-    "search_evidence": ToolSpec(("queries",),
+    "search_evidence": ToolSpec(("queries", "max_chunks"),
         "检索受控法律知识库中的法规、官方解释及相关资料。用于发现适用规则、条件、例外和规范衔接依据。"
         "返回实际取得的原文及来源资格；来源的outline_read_request可直接用于read_evidence浏览同一文件目录，keyword_candidates仅为未读正文的导航线索。", ("queries",)),
     "read_evidence": ToolSpec(("read_requests",),
-        "精确读取已发现法律来源的条文、章节或相邻原文。用于核对完整适用条件、例外和引述内容。"
+        "精确读取法律原文：已知正式法名和条号时可直接传source_title与article_no，无需先搜索；"
+        "也可用已发现的source_id读取条文、章节或相邻原文。用于核对完整适用条件、例外和引述内容。"
         "仅传source_id返回根目录；返回字段read_mode标识outline导航预览或text正文及引用资格，不是请求参数。"
         "按next_read_request续页，null只表示当前所选范围结束；chunk_id模式按following_chunk_id继续。", ("read_requests",)),
     "search_web": ToolSpec(("queries", "max_results"),
@@ -266,7 +277,8 @@ class AgentModel:
                                          model_id=model_id, decision_model=AgentDecision, specs=specs)
 
     def __call__(self, state: AgentState, intake: dict[str, Any]) -> AgentDecision:
-        return self.protocol.decide(state.tool_session, prompt=SYSTEM_PROMPT, context=review_context(state, intake))
+        return self.protocol.decide(state.tool_session, prompt=SYSTEM_PROMPT, context=review_context(state, intake),
+                                    on_text=lambda _text: None)
 
 
 
@@ -344,7 +356,8 @@ def _read_evidence_request(
     read_request = request.model_dump(mode="json")
     prior_records = [
         record for record in state.read_history
-        if record.source_id == request.source_id
+        if (request.source_id is not None and record.source_id == request.source_id)
+        or (request.source_title is not None and record.source_title == request.source_title)
     ]
     exact_read = any(
         record.article_no == request.article_no
@@ -392,7 +405,7 @@ def _read_evidence_request(
         for step in state.steps if step.action == "search_evidence"
         for candidate in step.observation.get("keyword_candidates", [])
     )
-    if request.source_id not in known_sources:
+    if request.source_id is not None and request.source_id not in known_sources:
         raise ValueError(
             "只能读取本次已检索到的来源；请先用 search_evidence 找到该来源"
         )
@@ -401,6 +414,7 @@ def _read_evidence_request(
     node_selectors = {
         key: value for key, value in {
             "node_id": request.node_id, "parent_node_id": request.parent_node_id,
+            "source_title": request.source_title,
         }.items() if value is not None
     }
     read = read_evidence(
@@ -408,11 +422,14 @@ def _read_evidence_request(
         state.facts, request.offset, **node_selectors,
     )
     hits = read.hits
+    source_id = request.source_id or hits[0].source_id
+    resolved_request = {**read_request, "source_id": source_id, "source_title": None}
     merged = {hit.chunk_id: hit for hit in state.evidence}
     merged.update({hit.chunk_id: hit for hit in hits})
     state.evidence = list(merged.values())
     observation = {
         "read_request": read_request,
+        "resolved_source_id": source_id,
         "chunk_ids": [hit.chunk_id for hit in hits],
         "read_index": state.reads,
         "read_mode": read.mode,
@@ -421,10 +438,11 @@ def _read_evidence_request(
         "following_chunk_id": read.following_chunk_id,
         "truncated": read.next_offset is not None,
         "next_offset": read.next_offset,
-        "next_read_request": {**read_request, "offset": read.next_offset} if read.next_offset is not None else None,
+        "next_read_request": {**resolved_request, "offset": read.next_offset} if read.next_offset is not None else None,
     }
     state.read_history.append(ReadEvidenceRecord(
-        source_id=request.source_id,
+        source_id=source_id,
+        source_title=request.source_title,
         article_no=request.article_no,
         chunk_id=request.chunk_id,
         node_id=request.node_id,
@@ -461,7 +479,7 @@ def investigate(state, decision, *, search, search_navigation, read_evidence, we
             query.model_copy(update={"query_id": f"{state.turns}:{index}"})
             for index, query in enumerate(decision.queries)
         ]
-        hits = search(queries, state.facts)
+        hits = search(queries, state.facts, max_chunks=decision.max_chunks)
         merged = {hit.chunk_id: hit for hit in state.evidence}
         merged.update({hit.chunk_id: hit for hit in hits})
         state.evidence = list(merged.values())
@@ -514,7 +532,7 @@ def investigate(state, decision, *, search, search_navigation, read_evidence, we
 def run_agent(
     state: AgentState, *, material: str, intake: dict[str, Any],
     decide: Callable[[AgentState, dict[str, Any]], AgentDecision],
-    search: Callable[[list[RetrievalQuery], ReviewFacts], list[RetrievalHit]],
+    search: Callable[..., list[RetrievalHit]],
     search_navigation: Callable[[], list[dict[str, Any]]] | None = None,
     read_evidence: Callable[..., EvidenceRead] | None = None,
     web_search: Callable[[list[RetrievalQuery], ReviewFacts, int], WebSearchBatch],

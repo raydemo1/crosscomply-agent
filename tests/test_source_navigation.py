@@ -200,7 +200,7 @@ def test_ten_actual_reads_and_partial_batch_exhaustion_are_checkpointed():
     checkpoints = []
     state = run_agent(
         AgentState(goal="审查", facts=facts, evidence=[_hit("found", "s1")]),
-        material="", intake={}, decide=lambda *_: next(decisions), search=lambda *_: [],
+        material="", intake={}, decide=lambda *_: next(decisions), search=lambda *_, **_kwargs: [],
         read_evidence=tools.read_evidence, web_search=lambda *_: [],
         finalize=lambda *_: {"ok": True},
         checkpoint=lambda s: checkpoints.append(s.model_dump(mode="json")),

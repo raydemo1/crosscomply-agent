@@ -93,7 +93,7 @@ def test_partial_query_failure_reaches_agent_with_query_identity():
     observation = investigate(
         AgentState(goal="test"),
         AgentDecision(action="search_web", summary="调查", queries=[query("失败"), query("成功", "q2")]),
-        search=lambda *_: [], search_navigation=None, read_evidence=None, web_search=lambda qs, facts, count: research.search(qs, facts, max_results=count),
+        search=lambda *_, **_kwargs: [], search_navigation=None, read_evidence=None, web_search=lambda qs, facts, count: research.search(qs, facts, max_results=count),
         checkpoint=lambda _: None,
     )
     assert observation["status"] == "partial"

@@ -294,10 +294,6 @@
   letter-spacing: 0.01em;
 }
 
-.form-label--material {
-  margin-top: clamp(20px, 2.5vw, 30px);
-}
-
 .form-field {
   display: block;
 }

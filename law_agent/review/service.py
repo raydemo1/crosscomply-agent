@@ -314,14 +314,15 @@ def build_source_evidence_packets(
             for hit in candidates_by_source.get(representative.source_id, [])
             if hit.chunk_id != representative.chunk_id
         ]
-        supporting = _dedupe_hits([*anchors, *other_supporting])[
-            :max(supporting_per_source, len(anchors))
-        ]
-        neighbors = [
+        neighbors = _dedupe_hits([
             hit
             for hit in neighbors_by_source.get(representative.source_id, [])
             if hit.chunk_id != representative.chunk_id
-        ]
+        ])
+        supporting_budget = max(supporting_per_source, len(anchors))
+        supporting = _dedupe_hits([*anchors, *other_supporting])[:supporting_budget]
+        supporting_ids = {hit.chunk_id for hit in supporting}
+        neighbors = [hit for hit in neighbors if hit.chunk_id not in supporting_ids]
         packets.append(
             SourceEvidencePacket(
                 source_id=representative.source_id,

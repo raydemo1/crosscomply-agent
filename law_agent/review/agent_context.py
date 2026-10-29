@@ -32,6 +32,12 @@ def compact_evidence_context(state_payload: dict[str, Any]) -> dict[str, Any]:
                 del hit[key]
             if hit["full_article_text"] in (None, hit["text"]):
                 del hit["full_article_text"]
+            for key in list(hit):
+                if hit[key] is None or hit[key] == []:
+                    del hit[key]
+        for key in list(sources[source_id]):
+            if sources[source_id][key] is None or sources[source_id][key] == []:
+                del sources[source_id][key]
     payload["evidence_sources"] = sources
     return payload
 

@@ -127,6 +127,7 @@ def rerank_hits(
     mode: RerankMode = "off",
     config: RerankConfig | None = None,
     reranker: Reranker | None = None,
+    query_text: str | None = None,
 ) -> RerankOutcome:
     """Optionally rerank fused hits and return a traceable outcome."""
 
@@ -147,7 +148,7 @@ def rerank_hits(
     if reranker is None:
         reranker = build_reranker(rerank_config)
 
-    query = _build_rerank_query(
+    query = query_text if query_text is not None else _build_rerank_query(
         question=question,
         material_text=material_text,
         facts=facts,

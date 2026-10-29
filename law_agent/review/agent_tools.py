@@ -36,14 +36,11 @@ from law_agent.review.result_builder import (
 )
 from law_agent.review.retrieval.boosts import apply_boosts_to_hits, outside_explicit_scope
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
-from law_agent.review.retrieval.fusion import (
-    interleave_sources,
-    rrf_fuse,
-    rrf_fuse_many,
-    source_aware_fuse,
-)
-from law_agent.review.retrieval.neighbors import expand_neighbors, hit_from_chunk
+from law_agent.review.retrieval.fusion import rrf_fuse, source_aware_fuse
+from law_agent.review.retrieval.locator import resolve_source_title
+from law_agent.review.retrieval.neighbors import hit_from_chunk
 from law_agent.review.retrieval.rerank import rerank_hits
+from law_agent.review.retrieval.selection import select_evidence
 from law_agent.review.retrieval.service_backends import build_service_adapters
 from law_agent.review.retrieval.temporal import filter_hits_as_of
 from law_agent.review.schemas import (
@@ -65,8 +62,8 @@ from law_agent.review.semantic_grounding import (
     SemanticVerdict,
 )
 from law_agent.review.service import (
+    _enrich_hit_for_citation,
     build_source_evidence_packets,
-    flatten_source_evidence_packets,
 )
 from law_agent.review.source_navigation import SourceNavigation
 from law_agent.review.web_research import (
@@ -274,7 +271,6 @@ class ComplianceAgentTools:
         self._rerank_config = load_rerank_config(mode=rerank_mode)
         self._candidate_hits: dict[str, RetrievalHit] = {}
         self._keyword_navigation: list[dict[str, Any]] = []
-        self._neighbor_hits: dict[str, RetrievalHit] = {}
         self._adapters = build_service_adapters(require_service_config())
         self._web_research: WebResearch | None = None
         self._semantic_verifier = SemanticGroundingVerifier(model_id=model_id) if model_id else None
@@ -303,11 +299,11 @@ class ComplianceAgentTools:
         )
 
     @staticmethod
-    def _search_with_fallback(adapter, query_pairs, top_k):
+    def _search_with_fallback(adapter, query_pairs, top_k, allowed_chunk_ids):
         import logging
 
         try:
-            return adapter.search_many(query_pairs, top_k=top_k)
+            return adapter.search_many(query_pairs, top_k=top_k, allowed_chunk_ids=allowed_chunk_ids)
         except Exception as exc:  # noqa: BLE001 - retrieval outage degrades to a tool error
             logging.getLogger(__name__).warning("retrieval adapter %s failed: %s", type(adapter).__name__, exc)
             raise RuntimeError(f"检索后端暂时不可用（{type(adapter).__name__}），请稍后重试或改用其他工具") from exc
@@ -315,16 +311,28 @@ class ComplianceAgentTools:
     def search(
         self, queries: list[RetrievalQuery], facts: ReviewFacts, *, coarse_scope: bool = False,
         excluded_scope_terms: Sequence[str] = (),
+        max_chunks: int | None = None,
     ) -> list[RetrievalHit]:
+        if max_chunks is not None and (type(max_chunks) is not int or max_chunks < 1):
+            raise ValueError("max_chunks须为正整数，表示本批查询返回的正文总数上限")
         query_pairs = [(query.text, query.query_type) for query in queries]
-        candidate_top_k = max(30, self._top_k, self._rerank_config.window)
-        # 检索后端一次瞬时故障不应毁掉整次审查：降级为工具错误，让 Agent 改道或重试
-        keyword = self._search_with_fallback(self._adapters.keyword, query_pairs, candidate_top_k)
-        vector = self._search_with_fallback(self._adapters.vector, query_pairs, candidate_top_k)
+        candidate_top_k = 50
         as_of = facts.as_of_date or self._default_as_of_date
+        available = filter_hits_as_of(
+            [hit_from_chunk(chunk, 0) for chunk in self._chunks], self._chunks_by_id, as_of=as_of,
+        )
+        allowed_chunk_ids = [
+            [hit.chunk_id for hit in available if not (coarse_scope and outside_explicit_scope(
+                self._chunks_by_id[hit.chunk_id], facts, f"{self._question}\n{query.text}",
+                excluded_scope_terms, requested_text=self._question,
+            ))]
+            for query in queries
+        ]
+        # 检索后端一次瞬时故障不应毁掉整次审查：降级为工具错误，让 Agent 改道或重试
+        keyword = self._search_with_fallback(self._adapters.keyword, query_pairs, candidate_top_k, allowed_chunk_ids)
+        vector = self._search_with_fallback(self._adapters.vector, query_pairs, candidate_top_k, allowed_chunk_ids)
         candidates: list[list[RetrievalHit]] = []
         lexical_candidates: list[list[RetrievalHit]] = []
-        sources: list[list[RetrievalHit]] = []
         for query, keyword_hits, vector_hits in zip(queries, keyword, vector, strict=True):
             keyword_hits = filter_hits_as_of(keyword_hits, self._chunks_by_id, as_of=as_of)
             if coarse_scope:
@@ -349,58 +357,39 @@ class ComplianceAgentTools:
                 self._chunks_by_id, facts,
             )
             fused_query = rrf_fuse(keyword_hits, vector_hits, top_k=candidate_top_k)
+            if self._rerank_mode != "off":
+                fused_query = rerank_hits(
+                    fused_query,
+                    question=self._question,
+                    material_text=self._material_text,
+                    facts=facts,
+                    queries=[query],
+                    top_k=candidate_top_k,
+                    mode=self._rerank_mode,
+                    config=self._rerank_config,
+                    query_text=query.text,
+                ).hits
             candidates.append(fused_query)
-            representatives = source_aware_fuse(
-                fused_query, top_k=candidate_top_k, chunks_by_id=self._chunks_by_id,
-                support_decay=0, context_support_decay=0,
-            )
-            sources.append(rerank_hits(
-                representatives,
-                question=self._question,
-                material_text=self._material_text,
-                facts=facts,
-                queries=[query],
-                top_k=self._top_k,
-                mode=self._rerank_mode,
-                config=self._rerank_config,
-            ).hits)
-        reranked = interleave_sources(sources, top_k=self._top_k)
-        fused = rrf_fuse_many(candidates, top_k=sum(map(len, candidates)))
-        neighbors = filter_hits_as_of(
-            expand_neighbors(reranked[:5], self._chunks_by_id),
-            self._chunks_by_id, as_of=as_of,
-        )
-        if coarse_scope:
-            neighbors = [hit for hit in neighbors if not all(
-                outside_explicit_scope(self._chunks_by_id[hit.chunk_id], facts, f"{self._question}\n{query.text}", excluded_scope_terms,
-                                       requested_text=self._question)
-                for query in queries
-            )]
-        self._candidate_hits.update({hit.chunk_id: hit for hit in fused})
-        self._neighbor_hits.update({hit.chunk_id: hit for hit in neighbors})
-        packets = build_source_evidence_packets(
-            representative_hits=reranked,
-            candidate_hits=fused,
-            neighbor_hits=neighbors,
-            query_hits=[hit for query_sources in sources for hit in query_sources],
-            chunks_by_id=self._chunks_by_id,
-        )
-        query_ids_by_chunk: dict[str, list[str]] = {}
-        for query, hits in zip(queries, candidates, strict=True):
-            for hit in hits:
-                query_ids_by_chunk.setdefault(hit.chunk_id, []).append(query.query_id)
-        results = [
-            hit.model_copy(update={
+        query_candidates = [
+            _enrich_hit_for_citation(hit, self._chunks_by_id).model_copy(update={
                 "source_has_articles": hit.source_id in self._sources_with_articles,
-                "matched_query_ids": list(dict.fromkeys(query_ids_by_chunk.get(hit.chunk_id, []))),
+                "matched_query_ids": [query.query_id],
             })
-            for hit in flatten_source_evidence_packets(packets)
+            for query, hits in zip(queries, candidates, strict=True) for hit in hits
         ]
+        self._candidate_hits.update({hit.chunk_id: hit for hit in query_candidates})
+        results = select_evidence(query_candidates, max_chunks=max_chunks if max_chunks is not None else self._top_k)
+        navigation = self._search_navigation_entries(queries, lexical_candidates, results)
+        for entry in navigation:
+            chunk = self._chunks_by_id[entry["chunk_id"]]
+            if chunk.article_no and chunk.can_cite_clause and entry["preview"] == chunk.text:
+                del entry["preview"]
+        self._keyword_navigation = self._group_search_navigation(navigation)
+        return results
 
-        returned_locations = {
-            (hit.source_id, hit.article_no or hit.chunk_id) for hit in results
-        }
-        self._keyword_navigation = []
+    def _search_navigation_entries(self, queries, lexical_candidates, results):
+        returned_locations = {(hit.source_id, hit.article_no or hit.chunk_id) for hit in results}
+        entries = []
         for query, hits in zip(queries, lexical_candidates, strict=True):
             seen = set(returned_locations)
             added = 0
@@ -409,7 +398,7 @@ class ComplianceAgentTools:
                 if location in seen:
                     continue
                 seen.add(location)
-                self._keyword_navigation.append({
+                entries.append({
                     "query_id": query.query_id, "source_id": hit.source_id, "title": hit.title,
                     "article_no": hit.article_no, "chunk_id": hit.chunk_id,
                     "source_has_articles": hit.source_id in self._sources_with_articles,
@@ -418,24 +407,7 @@ class ComplianceAgentTools:
                 added += 1
                 if added == 4:
                     break
-        delivered = {hit.chunk_id for hit in results}
-        for entry in self._keyword_navigation:
-            chunk = self._chunks_by_id.get(entry["chunk_id"])
-            if (chunk is None or not chunk.article_no or not chunk.can_cite_clause
-                    or entry["preview"] != chunk.text or chunk.chunk_id in delivered):
-                continue
-            article = [c for c in self._chunks_by_id.values()
-                       if c.source_id == chunk.source_id and c.article_no == chunk.article_no]
-            if len(article) != 1:
-                continue
-            results.append(hit_from_chunk(chunk, 0).model_copy(update={
-                "source_has_articles": chunk.source_id in self._sources_with_articles,
-                "matched_query_ids": list(dict.fromkeys(query_ids_by_chunk.get(chunk.chunk_id, []))),
-            }))
-            delivered.add(chunk.chunk_id)
-        self._keyword_navigation = [entry for entry in self._keyword_navigation if entry["chunk_id"] not in delivered]
-        self._keyword_navigation = self._group_search_navigation(self._keyword_navigation)
-        return results
+        return entries
 
     @staticmethod
     def _group_search_navigation(entries: list[dict]) -> list[dict]:
@@ -462,7 +434,7 @@ class ComplianceAgentTools:
 
     def read_evidence(
         self,
-        source_id: str,
+        source_id: str | None,
         article_no: str | None,
         chunk_id: str | None,
         facts: ReviewFacts,
@@ -470,21 +442,15 @@ class ComplianceAgentTools:
         *,
         node_id: str | None = None,
         parent_node_id: str | None = None,
+        source_title: str | None = None,
     ) -> EvidenceRead:
-        """Browse a known source, read a clause, or read paragraphs around a chunk.
+        """Read controlled passages by discovered ID or explicit title and article."""
 
-        The first search returns a few fused chunks per source, which is not
-        enough to check every parallel condition, exception and exemption in a
-        clause. This lets the Agent continue inside a source it has already
-        found — and only there: the read is answered from the same controlled
-        corpus, so no path, URL or file handle reaches it, and the returned
-        chunks are ordinary hits that go through the same citation validation
-        and semantic verification as a search result.
-
-        A clause longer than one read is returned as a slice with the offset the
-        next read resumes at, never as the whole clause: a silently cut list of
-        parallel conditions reads exactly like a complete one.
-        """
+        as_of = facts.as_of_date or self._default_as_of_date
+        if source_title is not None:
+            if source_id is not None or article_no is None:
+                raise ValueError("source_title须与article_no一起使用，不能同时指定source_id")
+            source_id = resolve_source_title(source_title, self._chunks_by_id, as_of=as_of)
 
         if offset < 0:
             raise ValueError("offset 必须大于或等于 0")
@@ -503,7 +469,6 @@ class ComplianceAgentTools:
         if not source_chunks:
             raise ValueError(f"受控法律库中没有来源 {source_id}")
 
-        as_of = facts.as_of_date or self._default_as_of_date
         available = filter_hits_as_of(
             [hit_from_chunk(chunk, rank) for rank, chunk in enumerate(source_chunks)],
             self._chunks_by_id, as_of=as_of,
@@ -659,7 +624,7 @@ class ComplianceAgentTools:
         source_packets: list[SourceEvidencePacket] = build_source_evidence_packets(
             representative_hits=representatives,
             candidate_hits=result_evidence,
-            neighbor_hits=[hit for hit in self._neighbor_hits.values() if hit.chunk_id in evidence_ids],
+            neighbor_hits=[],
             chunks_by_id=self._chunks_by_id,
         )
         claims = validate_grounded_claims(draft.claims, result_evidence)

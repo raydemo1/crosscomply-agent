@@ -101,7 +101,7 @@ def test_located_feedback_preserves_draft_and_unaffected_passage_for_next_decisi
         if not state.steps:
             raise SemanticGroundingRejected(verdict)
         return {"review_result": draft.model_dump(mode="json")}
-    result = run_agent(AgentState(goal="限定问题"), material="", intake={}, decide=decide, search=lambda *_: [],
+    result = run_agent(AgentState(goal="限定问题"), material="", intake={}, decide=decide, search=lambda *_, **_kwargs: [],
                        web_search=lambda *_: [], finalize=finalize, checkpoint=lambda _: None)
     assert seen[0].report_draft == original
     target = seen[0].steps[-1].observation["revision_targets"][0]
@@ -134,7 +134,7 @@ def test_coarse_rejection_keeps_original_draft_and_full_feedback_for_agent(feedb
 
     result = run_agent(
         AgentState(goal="限定问题"), material="", intake={}, decide=decide,
-        search=lambda *_: pytest.fail("定位不完整不应自动补证"),
+        search=lambda *_, **_kwargs: pytest.fail("定位不完整不应自动补证"),
         web_search=lambda *_: pytest.fail("定位不完整不应自动补证"), finalize=finalize, checkpoint=lambda _: None,
     )
     assert result.status == "completed"

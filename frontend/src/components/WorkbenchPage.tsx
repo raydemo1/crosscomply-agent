@@ -421,29 +421,30 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
 
   return (
     <div className="workbench" aria-busy={busy}>
-      <header className="page-header">
+      <header className="workbench__heading">
         <div className="page-header__copy">
-          <h1 className="page-title">{editingCaseId ? '补充案件信息' : '发起合规审查'}</h1>
-          <p className="page-header__lede">{editingCaseId ? '补充或更正案件信息后，将重新提交审查。' : '填写审查问题并上传材料，系统将依据适用法律出具审查报告。'}</p>
+          <h1 className="page-title">{editingCaseId ? '补充案件信息' : '新建案件'}</h1>
+          {editingCaseId ? <p className="page-header__lede">补充或更正后，将重新提交审查。</p> : null}
+        </div>
+        <div className="intake-progress" aria-label="审查进度">
+          <div className={'intake-progress__step' + (step === 1 ? ' is-active' : ' is-done')} aria-current={step === 1 ? 'step' : undefined}><span>{step === 1 ? '1' : '✓'}</span><strong>提供材料</strong></div>
+          <div className="intake-progress__line" />
+          <div className={'intake-progress__step' + (step === 2 ? ' is-active' : '')} aria-current={step === 2 ? 'step' : undefined}><span>2</span><strong>确认信息</strong></div>
         </div>
       </header>
 
       {investigationLeads ? <details className="qa-workbench-leads"><summary>来自合规问答的调查线索</summary><p>以下内容仅供参考，不作为已确认事实或正式审查结论。</p><div>{investigationLeads}</div></details> : null}
 
-      <section className="intake-progress card" aria-label="审查进度">
-        <div className={'intake-progress__step' + (step === 1 ? ' is-active' : ' is-done')}><span>{step === 1 ? '01' : '✓'}</span><div><strong>提供材料</strong><small>描述问题，上传或粘贴材料</small></div></div>
-        <div className="intake-progress__line" />
-        <div className={'intake-progress__step' + (step === 2 ? ' is-active' : '')}><span>02</span><div><strong>补充关键要素</strong><small>只核对影响结论的信息</small></div></div>
-      </section>
-
       {error ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
 
       {step === 1 ? (
         <section className="card intake-card">
-          <div className="section-heading-row"><h2>案件信息</h2></div>
           <label className="form-label" htmlFor="wb-question">审查问题</label>
           <input id="wb-question" className="workbench__input" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：这个业务是否需要数据出境安全评估？" disabled={busy} />
-          <label className="form-label form-label--material" htmlFor="wb-material">审查材料</label>
+          <div className="material-heading">
+            <label className="form-label" htmlFor="wb-material">审查材料</label>
+            <button type="button" className="material-attach" aria-label="添加材料文件" disabled={busy} onClick={() => fileInputRef.current?.click()}><Paperclip size={16} strokeWidth={1.8} />添加文件</button>
+          </div>
           <div
             className={'material-dropzone' + (dragging ? ' is-dragging' : '')}
             onDragEnter={handleDragEnter}
@@ -451,25 +452,24 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleDrop}
           >
-            <textarea id="wb-material" className="workbench__textarea" value={material} onChange={(event) => setMaterial(event.target.value)} placeholder="也可以直接粘贴材料正文，多份材料可一起拖入" disabled={busy} rows={10} />
+            <textarea id="wb-material" className="workbench__textarea" value={material} onChange={(event) => setMaterial(event.target.value)} placeholder="粘贴材料，或拖入文件" disabled={busy} rows={10} />
             {dragging ? <div className="material-dropzone__overlay" aria-hidden="true"><Upload size={22} strokeWidth={1.8} /><span>松开以添加材料文件</span></div> : null}
             <div className="material-row">
               <input ref={fileInputRef} type="file" accept=".txt,.md,.markdown,.pdf,.docx,.html,.htm,.json,.csv" multiple onChange={handleFileChange} hidden />
-              <button type="button" className="material-attach" title="添加材料文件" aria-label="添加材料文件" disabled={busy} onClick={() => fileInputRef.current?.click()}><Paperclip size={16} strokeWidth={1.8} /></button>
               {files.length ? <ul className="material-chips">{files.map((file, index) => <li key={`${file.name}-${index}`}><span>{uploadNames[index]}</span><button type="button" aria-label={`移除 ${file.name}`} onClick={() => removeFile(index)} disabled={busy}><X size={13} /></button></li>)}</ul> : null}
             </div>
           </div>
           {fileError ? <div className="form-error">{fileError}</div> : null}
           {existingMaterialNames.length ? <p className="intake-hint">本案已有 {existingMaterialNames.length} 份材料，将原样保留在下次审查中；此处新增的文件只会追加，不会替换它们。</p> : null}
-          <div className="intake-card__footer"><span className="intake-card__hint">{!canSubmit && !busy ? '请先填写审查问题并提供材料' : ''}</span><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={() => void goToStepTwo()}>{analyzing ? 'Agent 正在读取材料…' : hasNewMaterialToRead ? '读取材料并继续' : '继续补充关键信息'}</button></div>
+          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={() => void goToStepTwo()}>{analyzing ? '正在读取材料…' : hasNewMaterialToRead ? '读取材料并继续' : '继续确认信息'}</button></div>
         </section>
       ) : (
         <section className="card intake-card">
           <div className="section-heading-row"><h2>确认关键信息</h2><button type="button" className="btn-link" onClick={() => setStep(1)}>← 返回材料</button></div>
           <p className="intake-hint">
             {missingFacts.length
-              ? `Agent 已读完材料，还有 ${uniqueFacts.length} 项会影响结论，需要你确认；未确认的内容可以留空。`
-              : '未从材料中识别到会影响结论的缺口；可核对下方案件要素，未确认的内容可以留空。'}
+              ? `请核对以下 ${uniqueFacts.length} 项，未确认的信息可留空。`
+              : '请核对案件要素，未确认的信息可留空。'}
           </p>
           {askedFacts.map(renderFact)}
           {uniqueFacts.length > MAX_QUESTIONS ? <details className="intake-group--optional"><summary>还有 {uniqueFacts.length - MAX_QUESTIONS} 项待确认</summary>{uniqueFacts.slice(MAX_QUESTIONS).map((fact) => {
@@ -479,7 +479,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
             <summary>{askedFacts.length ? '查看并核对其他案件要素' : '核对案件要素'}</summary>
             <div className="intake-group__grid">{otherFields.map((key) => <Fragment key={key}>{fields[key]}</Fragment>)}</div>
           </details>
-          <div className="intake-card__footer"><span className="intake-card__hint">{!canSubmit && !busy ? '请先填写审查问题并提供材料' : ''}</span><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={handleSubmit}>{loading ? '正在提交案件…' : editingCaseId ? '保存补充并重新提交' : '提交审查'}</button></div>
+          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={handleSubmit}>{loading ? '正在提交案件…' : editingCaseId ? '保存补充并重新提交' : '提交审查'}</button></div>
         </section>
       )}
 

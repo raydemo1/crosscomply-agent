@@ -9,7 +9,7 @@ import '../styles/case-assistant.css';
 
 export function CaseAssistantTrigger() {
   const assistant = useCaseAssistant();
-  return assistant.available ? <button type="button" data-assistant-trigger className="case-header__action-btn case-assistant-trigger" aria-controls="case-conversation-panel" aria-expanded={assistant.active === 'conversation'} onClick={() => assistant.askAbout()}><MessageCircle size={16} aria-hidden="true" />向 CrossComply 提问</button> : null;
+  return assistant.available ? <button type="button" data-assistant-trigger className="case-header__action-btn case-assistant-trigger" aria-label="向 CrossComply 提问" aria-controls="case-conversation-panel" aria-expanded={assistant.active === 'conversation'} onClick={() => assistant.askAbout()}><MessageCircle size={16} aria-hidden="true" />追问案件</button> : null;
 }
 
 export default function CaseAssistant({ saved, viewerRole, canManageActions, children }: {

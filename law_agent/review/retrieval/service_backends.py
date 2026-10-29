@@ -442,7 +442,7 @@ def upsert_pgvector_rows(
 def make_pgvector_search_fn(
     conn: Any,
     table_name: str,
-) -> Callable[[list[float], int], list[dict[str, Any]]]:
+) -> Callable[..., list[dict[str, Any]]]:
     """Return a ``search_fn(vector, top_k)`` for ``PgVectorAdapter``.
 
     Uses cosine distance (``<=>``) and converts it to a similarity score in
@@ -452,19 +452,24 @@ def make_pgvector_search_fn(
 
     table_name = _validate_pg_identifier(table_name, field_name="PG_TABLE")
 
-    def search_fn(vector: list[float], top_k: int) -> list[dict[str, Any]]:
+    def search_fn(vector: list[float], top_k: int, *,
+                  allowed_chunk_ids: Sequence[str] | None = None) -> list[dict[str, Any]]:
         literal = _vector_literal(vector)
+        scope_filter = "AND chunk_id = ANY(%s)" if allowed_chunk_ids is not None else ""
         sql = f"""
             SELECT chunk_id, doc_id, source_id, title, text, citation_role,
                    can_cite_clause, source_url,
                    1 - (embedding <=> %s::vector) AS score
             FROM {table_name}
             WHERE embedding IS NOT NULL AND retrieval_enabled = true
+            {scope_filter}
             ORDER BY embedding <=> %s::vector
             LIMIT %s
         """
         with conn.transaction(), conn.cursor() as cur:
-            cur.execute(sql, (literal, literal, top_k))
+            parameters = ((literal, list(allowed_chunk_ids), literal, top_k)
+                          if allowed_chunk_ids is not None else (literal, literal, top_k))
+            cur.execute(sql, parameters)
             colnames = [desc[0] for desc in cur.description]
             rows = [dict(zip(colnames, row)) for row in cur.fetchall()]
         # psycopg returns arrays as Python lists; JSON-serializable already.

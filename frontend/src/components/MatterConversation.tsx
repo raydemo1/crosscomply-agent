@@ -68,7 +68,7 @@ export default function MatterConversation({ saved, viewerRole }: { saved: Saved
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }}>
-    <header className="matter-panel__header"><div className="matter-panel__identity"><span><MessageCircle size={19} strokeWidth={1.8} aria-hidden="true" /></span><div><h2>CrossComply</h2><p>围绕本案，进一步了解</p></div></div><button type="button" className="matter-icon-button" aria-label="收起案件问答" onClick={() => close('conversation')}><X size={20} /></button></header>
+    <header className="matter-panel__header"><div className="matter-panel__identity"><span><MessageCircle size={19} strokeWidth={1.8} aria-hidden="true" /></span><h2>案件追问</h2></div><button type="button" className="matter-icon-button" aria-label="收起案件问答" onClick={() => close('conversation')}><X size={20} /></button></header>
     <div className="matter-panel__history" ref={historyRef} role="region" aria-label="当前案件的问答记录" onScroll={() => {
       const history = historyRef.current;
       if (!history) return;
@@ -76,7 +76,7 @@ export default function MatterConversation({ saved, viewerRole }: { saved: Saved
       if (nearBottom.current) setLatest(false);
     }}>
       {loading ? <p className="matter-panel__status" role="status">正在读取本案对话…</p> : null}
-      {!loading && !turns.length && !streaming ? <div className="matter-panel__empty"><MessageCircle size={27} strokeWidth={1.4} aria-hidden="true" /><h3>{selection ? '从这段内容继续' : '把本案的问题聊清楚'}</h3><p>{selection ? '解释含义、核对依据，或讨论它对本案的影响。' : '选中报告或材料中的文字，带着上下文追问；也可以直接提出问题。'}</p></div> : null}
+      {!loading && !turns.length && !streaming && !selection ? <div className="matter-panel__empty"><p>可选中报告或原文，针对具体内容追问。</p></div> : null}
       {turns.map((turn) => <section className="matter-panel__turn" key={turn.id}>
         <div className="matter-panel__question">{turn.selection ? <PassageQuote selection={turn.selection} /> : null}<p>{turn.question}</p></div>
         <span className="matter-panel__answer-label">CrossComply</span>
@@ -99,10 +99,10 @@ export default function MatterConversation({ saved, viewerRole }: { saved: Saved
       {selection ? <PassageQuote selection={selection} onRemove={() => setSelection(undefined)} /> : null}
       {(selection || PUBLIC_DEMO) && !busy ? <div className="matter-panel__suggestions" aria-label="快捷问题">{['解释这段内容', '与本案结论有什么关系', '还需补充哪些信息'].map((text) => <button type="button" key={text} onClick={() => { setQuestion(text); document.getElementById('matter-question')?.focus(); }}>{text}</button>)}</div> : null}
       <form className="matter-panel__composer" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-        <label className="sr-only" htmlFor="matter-question">向 CrossComply 提问</label><textarea id="matter-question" value={question} readOnly={PUBLIC_DEMO} maxLength={2000} rows={3} onChange={(event) => setQuestion(event.target.value)} placeholder={PUBLIC_DEMO ? '选择上方快捷问题，体验预编写的示例回答' : busy ? '可以先写下一个问题…' : '继续问问本案的结论、依据或材料…'} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
-        <div><span>Enter 发送 · Shift + Enter 换行</span><button type="submit" disabled={busy || loading || !question.trim()} aria-label="发送问题"><ArrowUp size={18} aria-hidden="true" /></button></div>
+        <label className="sr-only" htmlFor="matter-question">向 CrossComply 提问</label><textarea id="matter-question" value={question} readOnly={PUBLIC_DEMO} maxLength={2000} rows={3} onChange={(event) => setQuestion(event.target.value)} placeholder={PUBLIC_DEMO ? '选择上方快捷问题' : busy ? '输入下一个问题…' : '输入本案问题…'} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
+        <div><button type="submit" disabled={busy || loading || !question.trim()} aria-label="发送问题" title="Enter 发送，Shift + Enter 换行"><ArrowUp size={18} aria-hidden="true" /></button></div>
       </form>
-      <p className="matter-panel__scope" id="matter-scope">{PUBLIC_DEMO ? '预编写回答的流式展示，未调用模型。不接收真实业务问题或材料。' : '基于本案材料与事实回答，不改变正式审查结果。'}</p>
+      <p className="matter-panel__scope" id="matter-scope">{PUBLIC_DEMO ? '预编写回答，未调用模型，不接收真实问题或材料。' : '追问不更改正式报告。'}</p>
     </div>
   </aside>;
 }

@@ -608,7 +608,7 @@ def test_rereview_loop_can_search_then_finish() -> None:
         model_id="stub",
         chunks_path=Path("unused.jsonl"),
         decide=decide,
-        search=lambda queries, facts: [],
+        search=lambda queries, facts, **_kwargs: [],
     )
     assert state.status == "completed"
     assert state.searches == 1
@@ -647,7 +647,7 @@ def test_rereview_loop_can_request_input_and_resume_the_same_run() -> None:
         model_id="stub",
         chunks_path=Path("unused.jsonl"),
         decide=decide,
-        search=lambda queries, facts: [],
+        search=lambda queries, facts, **_kwargs: [],
     )
     assert waiting.status == "waiting_input"
     assert waiting.gate_id == "input_1"
@@ -662,7 +662,7 @@ def test_rereview_loop_can_request_input_and_resume_the_same_run() -> None:
         model_id="stub",
         chunks_path=Path("unused.jsonl"),
         decide=decide,
-        search=lambda queries, facts: [],
+        search=lambda queries, facts, **_kwargs: [],
     )
     assert final.status == "completed"
     assert prompts == ["对全部用户生效。"]

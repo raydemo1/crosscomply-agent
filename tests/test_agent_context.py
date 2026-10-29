@@ -2,6 +2,7 @@ import json
 
 from law_agent.review.agent import AgentModel, AgentState
 from law_agent.review.agent_context import RETRIEVAL_FIELDS, compact_evidence_context
+from law_agent.review.schemas import RetrievalHit
 from law_agent.review.tool_calling import ToolSession
 from tests.test_review_agent import _draft, _hit
 from tests.test_review_llm import FakeClient, tool_message
@@ -27,9 +28,11 @@ def test_context_can_reconstruct_evidence_with_full_text_and_metadata_variations
         assert restored.get("full_article_text", restored["text"]) == (
             original_hit["full_article_text"] or original_hit["text"]
         )
-        assert {k: v for k, v in restored.items() if k not in {"full_article_text", "outline_read_request"}} == {
-            k: v for k, v in original_hit.items() if k not in {*RETRIEVAL_FIELDS, "full_article_text"}
-        }
+        restored.pop("outline_read_request")
+        restored.update({key: original_hit[key] for key in RETRIEVAL_FIELDS})
+        restored["full_article_text"] = original_hit["full_article_text"]
+        assert RetrievalHit.model_validate(restored) == RetrievalHit.model_validate(original_hit)
+        assert all(value is not None and value != [] for value in compact_hit.values())
     assert "effective_date" not in compact["evidence_sources"]["s1"]
     assert compact["evidence"][1]["can_cite_clause"] is False
 
