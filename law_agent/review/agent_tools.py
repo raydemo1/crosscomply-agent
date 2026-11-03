@@ -270,7 +270,7 @@ class ComplianceAgentTools:
         self._rerank_mode = rerank_mode
         self._rerank_config = load_rerank_config(mode=rerank_mode)
         self._candidate_hits: dict[str, RetrievalHit] = {}
-        self._keyword_navigation: list[dict[str, Any]] = []
+        self._search_navigation: list[dict[str, Any]] = []
         self._adapters = build_service_adapters(require_service_config())
         self._web_research: WebResearch | None = None
         self._semantic_verifier = SemanticGroundingVerifier(model_id=model_id) if model_id else None
@@ -332,7 +332,6 @@ class ComplianceAgentTools:
         keyword = self._search_with_fallback(self._adapters.keyword, query_pairs, candidate_top_k, allowed_chunk_ids)
         vector = self._search_with_fallback(self._adapters.vector, query_pairs, candidate_top_k, allowed_chunk_ids)
         candidates: list[list[RetrievalHit]] = []
-        lexical_candidates: list[list[RetrievalHit]] = []
         for query, keyword_hits, vector_hits in zip(queries, keyword, vector, strict=True):
             keyword_hits = filter_hits_as_of(keyword_hits, self._chunks_by_id, as_of=as_of)
             if coarse_scope:
@@ -347,7 +346,6 @@ class ComplianceAgentTools:
                     and outside_explicit_scope(self._chunks_by_id[hit.chunk_id], facts, scope_text, excluded_scope_terms,
                                                requested_text=self._question)
                 )]
-            lexical_candidates.append(keyword_hits[:10])
             keyword_hits = apply_boosts_to_hits(
                 keyword_hits,
                 self._chunks_by_id, facts,
@@ -379,58 +377,43 @@ class ComplianceAgentTools:
         ]
         self._candidate_hits.update({hit.chunk_id: hit for hit in query_candidates})
         results = select_evidence(query_candidates, max_chunks=max_chunks if max_chunks is not None else self._top_k)
-        navigation = self._search_navigation_entries(queries, lexical_candidates, results)
-        for entry in navigation:
-            chunk = self._chunks_by_id[entry["chunk_id"]]
-            if chunk.article_no and chunk.can_cite_clause and entry["preview"] == chunk.text:
-                del entry["preview"]
-        self._keyword_navigation = self._group_search_navigation(navigation)
+        navigation = self._search_navigation_entries(queries, candidates, results)
+        self._search_navigation = self._group_search_navigation(navigation)
         return results
 
-    def _search_navigation_entries(self, queries, lexical_candidates, results):
+    def _search_navigation_entries(self, queries, candidates, results):
         returned_locations = {(hit.source_id, hit.article_no or hit.chunk_id) for hit in results}
-        entries = []
-        for query, hits in zip(queries, lexical_candidates, strict=True):
-            seen = set(returned_locations)
-            added = 0
-            for hit in hits:
+        entries = {}
+        for query, hits in zip(queries, candidates, strict=True):
+            for rank, hit in enumerate(hits[:8], start=1):
                 location = (hit.source_id, hit.article_no or hit.chunk_id)
-                if location in seen:
+                if location in returned_locations:
                     continue
-                seen.add(location)
-                entries.append({
-                    "query_id": query.query_id, "source_id": hit.source_id, "title": hit.title,
+                entry = entries.setdefault(location, {
+                    "source_id": hit.source_id, "title": hit.title,
                     "article_no": hit.article_no, "chunk_id": hit.chunk_id,
                     "source_has_articles": hit.source_id in self._sources_with_articles,
-                    "preview": hit.text[:180],
+                    "preview": hit.text[:100], "query_matches": [],
                 })
-                added += 1
-                if added == 4:
-                    break
-        return entries
+                entry["query_matches"].append({"query_id": query.query_id, "rank": rank})
+        return list(entries.values())
 
     @staticmethod
     def _group_search_navigation(entries: list[dict]) -> list[dict]:
         groups = {}
-        locations = set()
         for entry in entries:
-            source_id = entry["source_id"]
-            location = (source_id, entry.get("article_no") or entry["chunk_id"])
-            if location in locations:
-                continue
-            locations.add(location)
-            group = groups.setdefault(source_id, {
-                "source_id": source_id, "title": entry["title"],
+            group = groups.setdefault(entry["source_id"], {
+                "source_id": entry["source_id"], "title": entry["title"],
                 "source_has_articles": entry["source_has_articles"],
-                "outline_read_request": {"source_id": source_id}, "locations": [],
+                "outline_read_request": {"source_id": entry["source_id"]}, "locations": [],
             })
             group["locations"].append({key: entry[key] for key in (
-                "chunk_id", "article_no", "heading_path", "preview",
-            ) if key in entry})
+                "chunk_id", "article_no", "preview", "query_matches",
+            )})
         return list(groups.values())
 
     def search_navigation(self) -> list[dict[str, Any]]:
-        return [dict(entry) for entry in self._keyword_navigation]
+        return [dict(entry) for entry in self._search_navigation]
 
     def read_evidence(
         self,
@@ -510,8 +493,8 @@ class ComplianceAgentTools:
                 raise ValueError(f"chunk {chunk_id} 在 {as_of.isoformat()} 不是现行有效版本")
             document_chunks = [chunk for chunk in available_chunks if chunk.doc_id == anchor.doc_id]
             anchor_index = document_chunks.index(anchor)
-            start = max(0, anchor_index - 1)
-            selected = document_chunks[start : start + MAX_READ_CHUNKS]
+            start = anchor_index
+            selected = [anchor]
             previous_chunk_id = document_chunks[start - 1].chunk_id if start else None
             end = start + len(selected)
             following_chunk_id = document_chunks[end].chunk_id if end < len(document_chunks) else None

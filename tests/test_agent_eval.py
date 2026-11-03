@@ -839,8 +839,9 @@ def test_controlled_source_is_unavailable_to_reads_and_service_hits(tmp_path) ->
     from datetime import date
 
     assert not filter_hits_as_of([hit_from_chunk(held, 1)], by_id, as_of=date(2026, 10, 8))
-    tools = object.__new__(ComplianceAgentTools)
-    tools._chunks = chunks
+    from tests.test_review_agent import _tools_with
+
+    tools = _tools_with(chunks)
     with pytest.raises(ValueError, match="受控法律库中没有来源"):
         tools.read_evidence(held.source_id, "第一条", None, ReviewFacts())
     from law_agent.review.schemas import RetrievalQuery

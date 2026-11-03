@@ -75,9 +75,11 @@ docker compose exec -T api python -m law_agent.review service-doctor
 
 ## 本地开发（不起全量 compose）
 
+首次初始化和多机语料迁移按 [多台电脑开发](DEVELOPMENT.md) 执行；其中提供 MinIO 宿主机端口覆盖配置和不调用模型的向量恢复命令。
+
 ```powershell
 pip install -e ".[service]"
 python -m law_agent.review serve --host 127.0.0.1 --port 8000
 ```
 
-本地仍需可连通的 ES 与 Postgres（可用 compose 只起 `postgres`、`elasticsearch`）。前端在 `frontend/` 下 `npm install && npm run dev`，Vite 把 `/api` 代理到 `127.0.0.1:8000`（Node `^20.19.0` 或 `>=22.12.0`）。
+本地仍需可连通的 ES、Postgres 与 MinIO。前端在 `frontend/` 下 `npm ci` 后执行 `npm run dev`，Vite 把 `/api` 代理到 `127.0.0.1:8000`（Node `>=22.12.0`）。真实审查与问答还需单独运行 `python -m law_agent.review.worker`。

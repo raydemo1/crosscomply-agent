@@ -1,6 +1,8 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { CaseStatus, RemediationPlanApi, ReviewTaskStatus, UserRole } from '../types/api';
 import './CaseProgress.css';
+import { runGuidedRereview, waitForReviewTask } from '../api/client';
+import { openCase } from '../store/caseStore';
 
 const CASE_STAGES = [
   ['提交申报', '上传材料'],
@@ -26,6 +28,11 @@ interface ProgressState {
 }
 
 export interface CaseProgressProps {
+  caseId?: string;
+  hideListAction?: boolean;
+  beforeRereview?: () => boolean;
+  canRereview?: boolean;
+  onRereviewSettled?: () => void;
   status: CaseStatus;
   viewerRole: UserRole;
   remediationPlan?: RemediationPlanApi | null;
@@ -91,7 +98,7 @@ function progressState(
     const blockingOpen = openTasks.filter((task) => task.blocking);
     const blockingPending = pendingReview.filter((task) => task.blocking);
     if (viewerRole !== 'requester' && blockingPending.length > 0) {
-      return { current: 2, owner: '审核人', status: `${blockingPending.length} 项等待验收`, guidance: '核验申报人补充内容；确认后即可继续整案复核。', actionLabel: '打开待复核项', actionKind: 'list' };
+      return { current: 2, owner: '审核人', status: `${blockingPending.length} 项等待验收`, guidance: '核验负责人补充内容；确认后即可继续整案复核。', actionLabel: '打开待复核项', actionKind: 'list' };
     }
     if (blockingOpen.length > 0) {
       if (viewerRole !== 'requester') {
@@ -106,9 +113,9 @@ function progressState(
       const unfinishedNote = totalOpen > 0 ? `，仍有 ${totalOpen} 项非阻塞事项未完成` : '';
       // Only the case's own applicant may call guided-rereview; reviewers would get a 404 from the API.
       if (viewerRole === 'requester') {
-        return { current: 2, owner: '申报人', status: '可发起整案复核', guidance: `阻塞性事项已处理${unfinishedNote}，可按最新材料重新审查。`, actionLabel: '发起整案复核', actionKind: 'rereview' };
+        return { current: 2, owner: '申报人', status: '送审前必办事项已完成', guidance: `阻塞性事项已处理${unfinishedNote}，可按最新材料重新审查。`, actionLabel: '重新审查', actionKind: 'rereview' };
       }
-      return { current: 2, owner: '申报人', status: '等待申报人发起复核', guidance: `阻塞性事项已处理${unfinishedNote}，由申报人按最新材料发起整案复核。` };
+      return { current: 2, owner: '申报人', status: '等待申报人重新提交', guidance: `阻塞性事项已处理${unfinishedNote}，由申报人按最新材料发起整案复核。` };
     }
     return { current: 2, owner: '申报人', status: '等待补充信息', guidance: '补充所缺事实后，CrossComply 会继续核验并更新结论。', actionLabel: plan ? '查看待办事项清单' : undefined, actionKind: 'list' };
   }
@@ -137,8 +144,27 @@ function progressState(
   return { current: 0, owner: '申报人', status: '待提交', guidance: '补齐材料和申报信息后提交。' };
 }
 
-export default function CaseProgress({ status, viewerRole, remediationPlan, reviewTaskStatus, approvalStarted, onOpenAction, onAnswerAction, revealAnswer, onAnswerRevealed, actionSlot, children }: CaseProgressProps): JSX.Element {
-  const state = progressState(status, viewerRole, remediationPlan, reviewTaskStatus, approvalStarted);
+export default function CaseProgress({ caseId, hideListAction = false, beforeRereview, canRereview = false, onRereviewSettled, status, viewerRole, remediationPlan, reviewTaskStatus, approvalStarted, onOpenAction, onAnswerAction, revealAnswer, onAnswerRevealed, actionSlot, children }: CaseProgressProps): JSX.Element {
+  const state = progressState(status, viewerRole === 'requester' && !canRereview ? 'reviewer' : viewerRole, remediationPlan, reviewTaskStatus, approvalStarted);
+  const [rereviewing, setRereviewing] = useState(false);
+  const [rereviewError, setRereviewError] = useState<string | null>(null);
+  const mandatory = activeTasks(remediationPlan).filter((task) => task.blocking && task.phase === 'pre_approval');
+  const completed = mandatory.filter((task) => task.status === 'completed').length;
+  const startRereview = async (): Promise<void> => {
+    if (!caseId || rereviewing || !canRereview || (beforeRereview && !beforeRereview())) return;
+    setRereviewing(true); setRereviewError(null);
+    try {
+      const queued = await runGuidedRereview(caseId);
+      await openCase(caseId);
+      const result = await waitForReviewTask(queued.task_id);
+      if (result.status === 'failed') setRereviewError('重新审查未完成，请重试。');
+    } catch (reason) { setRereviewError(reason instanceof Error ? reason.message : '无法发起重新审查'); }
+    finally {
+      try { await openCase(caseId!); onRereviewSettled?.(); }
+      catch { setRereviewError('案件状态暂未刷新，请重新打开案件查看。'); }
+      setRereviewing(false); window.dispatchEvent(new Event('remediation-changed'));
+    }
+  };
   const remediationRequired = status === 'needs_info' || activeTasks(remediationPlan).some((task) => task.phase === 'pre_approval');
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -151,6 +177,7 @@ export default function CaseProgress({ status, viewerRole, remediationPlan, revi
 
   const handleAction = (kind: ProgressActionKind): void => {
     // There is no answer form on this host, so the only useful thing is to route the user to one.
+    if (kind === 'rereview' && caseId) { void startRereview(); return; }
     if (kind === 'answer' && onAnswerAction) { onAnswerAction(); return; }
     if (kind === 'answer') { revealAnswerForm(); return; }
     onOpenAction?.(kind);
@@ -167,7 +194,13 @@ export default function CaseProgress({ status, viewerRole, remediationPlan, revi
   }, [revealAnswer, onAnswerRevealed]);
 
   return (
-    <details className="card case-progress" aria-label="案件进度" ref={detailsRef}>
+    <section className="card case-progress" aria-label="案件进度">
+      <div className="case-progress__next">
+        <div><strong>{rereviewing ? '重新审查中' : state.status}</strong>{status === 'needs_info' && mandatory.length ? <span>送审前必办事项　{completed}/{mandatory.length} 完成</span> : null}</div>
+        {state.actionLabel && !(hideListAction && state.actionKind === 'list') && (onOpenAction || onAnswerAction || state.actionKind === 'answer' || caseId) ? <button type="button" disabled={rereviewing} className="case-header__action-btn case-progress__primary" onClick={() => handleAction(state.actionKind ?? 'list')}>{rereviewing ? '审查中…' : state.actionLabel}</button> : null}
+      </div>
+      {rereviewError ? <p className="case-progress__error" role="alert">{rereviewError}</p> : null}
+      <details ref={detailsRef}>
       <summary className="case-progress__summary">
         <span className="case-progress__summary-copy"><small>案件进度</small><strong>{CASE_STAGES[state.current][0]}</strong></span>
         <span className="case-progress__toggle" aria-hidden="true" />
@@ -183,16 +216,13 @@ export default function CaseProgress({ status, viewerRole, remediationPlan, revi
             </li>;
           })}
         </ol>
-        <div className="case-progress__task">
-          <span className="case-progress__status"><b>{state.owner}</b><span>{state.status}</span></span>
-          {state.actionLabel && (onOpenAction || onAnswerAction || state.actionKind === 'answer') ? <button type="button" className="case-header__action-btn case-progress__primary" onClick={() => handleAction(state.actionKind ?? 'list')}>{state.actionLabel}</button> : null}
-        </div>
         <div className="case-progress__current">
-          {state.guidance ? <p className="case-progress__guidance">{state.guidance}</p> : null}
+          {state.actionKind === 'answer' && state.guidance ? <p className="case-progress__guidance">{state.guidance}</p> : null}
           {actionSlot ? <div className="case-progress__actions" ref={actionsRef}>{actionSlot}</div> : null}
         </div>
         {children ? <div className="case-progress__supplement">{children}</div> : null}
       </div>
-    </details>
+      </details>
+    </section>
   );
 }

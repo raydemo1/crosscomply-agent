@@ -173,9 +173,9 @@ def test_review_navigation_deduplicates_model_input_but_keeps_raw_audit_and_nati
                       search=lambda *_, **_kwargs: [], search_navigation=lambda: [source],
                       web_search=lambda *_: [], finalize=lambda *_: {"ok": True}, checkpoint=lambda _: None)
     observations = [json.loads(next(m.content for m in reversed(call) if m.role == "tool"))["observation"] for call in client.calls[1:]]
-    assert observations[0]["keyword_candidates"] == [source]
-    assert observations[1]["keyword_candidates"] == []
-    assert all(step.observation["keyword_candidates"] == [source] for step in state.steps[:2])
+    assert observations[0]["candidate_navigation"] == [source]
+    assert observations[1]["candidate_navigation"] == []
+    assert all(step.observation["candidate_navigation"] == [source] for step in state.steps[:2])
     assert [m.reasoning_content for m in client.calls[-1] if m.role == "assistant"] == [
         "provider-thought-0", "provider-thought-1",
     ]

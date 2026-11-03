@@ -53,6 +53,7 @@ function toFeedback(detail: CaseDetailApi): CaseFeedback | null {
 function fromSummary(item: CaseSummaryApi): SavedCase {
   return {
     id: item.id,
+    ownerId: item.owner_id,
     traceId: '',
     savedAt: item.updated_at,
     question: item.question,
@@ -80,6 +81,7 @@ export function fromDetail(detail: CaseDetailApi): SavedCase {
   const item = detail.case;
   return {
     id: item.id,
+    ownerId: item.owner_id,
     traceId: item.trace_id ?? '',
     savedAt: item.updated_at,
     question: item.question,
@@ -115,6 +117,11 @@ function mergeCase(next: SavedCase): void {
     copy[index] = next;
     snapshot = copy;
   }
+  notify();
+}
+
+export function clearCaseStore(): void {
+  snapshot = [];
   notify();
 }
 

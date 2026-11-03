@@ -43,23 +43,28 @@ def compact_evidence_context(state_payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def search_observation_context(observation, previous_steps, evidence):
-    if "keyword_candidates" not in observation:
+    if "candidate_navigation" not in observation:
         return observation
-
-    def locations(candidates):
-        return {(source["source_id"], location["chunk_id"]): (source["title"], location)
-                for source in candidates for location in source.get("locations", [])}
-
     seen = {}
     for step in previous_steps:
         if step.action == "search_evidence":
-            seen.update(locations(step.observation.get("keyword_candidates", [])))
+            for source in step.observation.get("candidate_navigation", []):
+                for location in source.get("locations", []):
+                    seen[(source["source_id"], location["chunk_id"])] = (source["title"], location)
     read = {hit.chunk_id for hit in evidence}
+    read_articles = {(hit.source_id, hit.article_no) for hit in evidence if hit.full_article_text}
     candidates = []
-    for source in observation.get("keyword_candidates", []):
-        remaining = [location for location in source["locations"]
-                     if location["chunk_id"] not in read
-                     and seen.get((source["source_id"], location["chunk_id"])) != (source["title"], location)]
+    for source in observation.get("candidate_navigation", []):
+        remaining = []
+        for location in source["locations"]:
+            if location["chunk_id"] in read or (source["source_id"], location.get("article_no")) in read_articles:
+                continue
+            previous = seen.get((source["source_id"], location["chunk_id"]))
+            if previous == (source["title"], location):
+                continue
+            if previous and previous[0] == source["title"] and previous[1].get("preview") == location.get("preview"):
+                location = {k: v for k, v in location.items() if k != "preview"}
+            remaining.append(location)
         if remaining:
             candidates.append({**source, "locations": remaining})
-    return {**observation, "keyword_candidates": candidates}
+    return {**observation, "candidate_navigation": candidates}

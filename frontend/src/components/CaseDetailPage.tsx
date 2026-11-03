@@ -165,6 +165,10 @@ function CaseDetailContent({
       />
 
       <CaseProgress
+        caseId={saved.id}
+        canRereview={canEdit}
+        beforeRereview={leaveDocumentView}
+        onRereviewSettled={onReviewSettled}
         status={saved.status}
         viewerRole={viewerRole}
         remediationPlan={saved.remediationPlan}
@@ -264,7 +268,7 @@ function DraftCaseView({
     <div className="case-detail">
       <header className="case-header">
         <div className="case-header__top">
-          <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回工作台</button>
+          <button type="button" className="btn-link case-header__back" onClick={onBack}>← 返回案件列表</button>
           <div className="case-header__actions"><CaseAssistantTrigger />
             <button type="button" className="case-header__action-btn" onClick={() => setShareOpen(true)}>分享案件</button>
           </div>
@@ -372,7 +376,7 @@ function pendingFollowupCount(saved: SavedCase): number {
     .filter((task) => task.is_current !== false && task.status !== 'completed').length;
 }
 
-function ReviewFollowupSummary({ saved, onOpen, chapterNo }: { saved: SavedCase; onOpen?: () => void; chapterNo?: string }): JSX.Element | null {
+function ReviewFollowupSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: () => void }): JSX.Element | null {
   const currentTasks = (saved.remediationPlan?.tasks ?? []).filter((task) => task.is_current !== false);
   const pending = pendingFollowupCount(saved);
   const pendingReview = currentTasks.filter((task) => task.status === 'pending_review').length;
@@ -385,7 +389,7 @@ function ReviewFollowupSummary({ saved, onOpen, chapterNo }: { saved: SavedCase;
   const rest = openTasks.slice(PREVIEW);
   return (
     <div className="review-followup-summary" aria-label="待补充与核实">
-      <ReportHeading chapterNo={chapterNo} title="待核实事项" count={`${pending} 项${pendingReview ? ` · ${pendingReview} 项待复核` : ''}`} action={onOpen ? <button type="button" className="btn-link" onClick={onOpen}>查看完整清单 →</button> : <a className="btn-link" href={href}>查看完整清单 →</a>} />
+      <ReportHeading title="待核实事项" count={`${pending} 项${pendingReview ? ` · ${pendingReview} 项待复核` : ''}`} action={onOpen ? <button type="button" className="btn-link" onClick={onOpen}>查看完整清单 →</button> : <a className="btn-link" href={href}>查看完整清单 →</a>} />
       <ul className="review-followup-summary__items">
         {(showAll ? openTasks : preview).map((task) => <li key={task.id}><span className={`review-item-state review-item-state--${task.status}`}>{task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理'}</span><span className="review-followup-summary__item-title">{task.title}</span>{task.due_date ? <small>截止 {task.due_date}</small> : null}</li>)}
       </ul>
@@ -394,10 +398,10 @@ function ReviewFollowupSummary({ saved, onOpen, chapterNo }: { saved: SavedCase;
   );
 }
 
-function ReviewRecommendations({ items, chapterNo }: { items: string[]; chapterNo?: string }): JSX.Element | null {
+function ReviewRecommendations({ items }: { items: string[] }): JSX.Element | null {
   if (items.length === 0) return null;
   return <section className="review-recommendations" aria-label="下一步行动">
-    <ReportHeading chapterNo={chapterNo} title="下一步行动" count={`${items.length} 项`} />
+    <ReportHeading title="下一步行动" count={`${items.length} 项`} />
     <ol className="review-recommendations__list">{items.map((item, index) => <li key={index}>
       <span className="review-recommendations__index" aria-hidden="true">{index + 1}</span>
       <MarkdownText variant="note" allowRawHtml={false}>{item}</MarkdownText>
@@ -519,7 +523,7 @@ function CaseHeader({ saved, onBack, onRerun, viewerRole }: CaseHeaderProps): JS
     <header className="case-header">
       <div className="case-header__top">
         <button type="button" className="btn-link case-header__back" onClick={onBack}>
-          ← 返回工作台
+          ← 返回案件列表
         </button>
         <div className="case-header__actions">
           <CaseAssistantTrigger />
@@ -674,10 +678,6 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
     onIssueFocused();
   }, [focusIssueId, onIssueFocused, view]);
 
-  // 报告章节号按下方 JSX 的呈现顺序消耗，区块缺席时自动顺延。
-  let chapterNo = 0;
-  const nextChapterNo = () => String(++chapterNo).padStart(2, '0');
-
   return (
     <>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
@@ -686,18 +686,18 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
       <div className="review-report-layout">
         <main className="review-report review-report--document" data-matter-source={view === 'report' ? 'report' : undefined} data-report-id={result.review_result_id}>
           {view === 'report' ? <>
-          <ReportConclusion result={result} chapterNo={nextChapterNo()} onCitationClick={(citationRef) => {
+          <ReportConclusion result={result} onCitationClick={(citationRef) => {
             const citation = citations.find((item) => item.citation_ref === citationRef);
             handleEvidenceSelect(citationRef, citation?.citation_label ?? citationRef);
           }} />
 
           {(pendingFollowupCount(saved) > 0 || outstandingRecommendations.length > 0) ? <section className="report-section review-next-steps" id="report-next">
-            {pendingFollowupCount(saved) > 0 ? <ReviewFollowupSummary saved={saved} onOpen={onOpenRemediationPlan} chapterNo={nextChapterNo()} /> : null}
-            {outstandingRecommendations.length ? <ReviewRecommendations items={outstandingRecommendations} chapterNo={nextChapterNo()} /> : null}
+            {pendingFollowupCount(saved) > 0 ? <ReviewFollowupSummary saved={saved} onOpen={onOpenRemediationPlan} /> : null}
+            {outstandingRecommendations.length ? <ReviewRecommendations items={outstandingRecommendations} /> : null}
           </section> : null}
 
           {issues.length ? <section className="report-main-issues" id="report-issues" aria-label="主要问题">
-            <ReportHeading chapterNo={nextChapterNo()} title="主要问题" count={`${issues.length} 项`} />
+            <ReportHeading title="主要问题" count={`${issues.length} 项`} />
             <ReviewIssues
               issues={issues}
               onOpenDocument={onOpenDocument}
@@ -705,7 +705,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           </section> : null}
 
           <details className="report-disclosure report-basis" id="report-basis">
-            <summary><span className="report-chapter-no">{nextChapterNo()}</span><span className="report-section-title">法规依据</span><span className="report-heading__count">{citationCount} 条</span></summary>
+            <summary><span className="report-section-title">法规依据</span><span className="report-heading__count">{citationCount} 条</span></summary>
             <div className="report-disclosure__body">
               {result.legal_basis_gaps?.length ? <div className="report-record-subsection">
                 <div className="section-title">待核实的法规依据</div>
@@ -746,7 +746,6 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
 
           {!PUBLIC_DEMO ? <details className={'report-disclosure report-review-disclosure' + (viewerRole === 'requester' ? ' report-review-disclosure--applicant' : '')} id="report-review">
             <summary>
-              {viewerRole !== 'requester' && <span className="report-chapter-no">{nextChapterNo()}</span>}
               <span className="report-section-title">{viewerRole === 'requester' ? '对审查结果有疑问？反馈审查问题' : '引用核查与复核意见'}</span>
             </summary>
             <div className="report-disclosure__body">
@@ -821,6 +820,12 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           </section> : null}
         </main>
 
+        {view === 'report' ? <nav className="report-toc" aria-label="报告章节">{[
+          ['report-conclusion', '审查结论'],
+          ...((pendingFollowupCount(saved) > 0 || outstandingRecommendations.length > 0) ? [['report-next', '下一步行动']] : []),
+          ...(issues.length ? [['report-issues', '主要问题']] : []),
+          ['report-basis', '法规依据'],
+        ].map(([id, title]) => <a href={`#${id}`} key={id} onClick={(event) => { event.preventDefault(); const target = document.getElementById(id); if (target instanceof HTMLDetailsElement) target.open = true; target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }}>{title}</a>)}</nav> : null}
         {view === 'report' ? <EvidenceSidebar
           groups={response.citation_groups}
           evidenceChunks={evidenceChunks}
@@ -1092,7 +1097,7 @@ function EvidenceCard({
       </button>
       {selected ? (
         <div className="evidence-card__detail" id={`evidence-detail-${cssId(item.citation_ref)}`}>
-          <div className="evidence-card__article-label">{item.title}{item.article_no ? ` · ${item.article_no}` : ''}</div>
+          {!label.includes(item.title) || (item.article_no && !label.includes(item.article_no)) ? <div className="evidence-card__article-label">{item.title}{item.article_no ? ` · ${item.article_no}` : ''}</div> : null}
           {articleText ? (
             <pre className="evidence-card__full-article">{articleText}</pre>
           ) : (
@@ -1121,7 +1126,7 @@ function EvidenceCard({
             ) : <span>未提供官方原文链接</span>}
           </div>
           {viewerRole === 'admin' && item.chunk ? (
-            <div className="evidence-card__tech">管理员视图 · 文本片段 {shortId(item.chunk.chunk_id)} · 检索方式：{item.chunk.retriever} · 检索得分：{item.chunk.score.toFixed(4)}</div>
+            <details className="evidence-card__tech"><summary>检索记录</summary><p>文本片段 {shortId(item.chunk.chunk_id)} · 检索方式：{item.chunk.retriever} · 检索得分：{item.chunk.score.toFixed(4)}</p></details>
           ) : null}
         </div>
       ) : null}

@@ -767,6 +767,10 @@ def register_remediation_routes(
         submission = store().get_remediation_submission(submission_id)
         if submission is None:
             raise HTTPException(status_code=404, detail="整改提交不存在")
+        if submission.get("submitted_by") == user.id:
+            raise HTTPException(status_code=403, detail="不能验收本人提交的事项，请由其他审核人处理")
+        if payload.decision == "rejected" and not (payload.review_note or "").strip():
+            raise HTTPException(status_code=422, detail="退回补充时请填写原因")
         task = store().get_remediation_task(submission["task_id"])
         if task is None:
             raise HTTPException(status_code=404, detail="整改任务不存在")

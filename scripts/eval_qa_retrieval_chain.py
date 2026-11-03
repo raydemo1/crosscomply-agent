@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 import time
 import traceback
+from threading import Lock
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -161,6 +162,7 @@ def main():
         case = {"question": item["case"]["question"], "material": material}
         write(dest / "case.json", case)
         calls, research, decisions, events, candidates, snapshots = [], [], [], [], [], []
+        read_log_lock = Lock()
         active_raw, received, ever_visible = [], {}, set()
         previous_ids = set()
         store = InMemoryQAStore()
@@ -204,11 +206,12 @@ def main():
 
         def read_evidence(self, *a, **kw):
             result = bases["read"](self, *a, **kw)
-            record_hits(result.hits)
-            research.append({"kind": "read_evidence", "arguments": list(a[:3]), "selectors": kw,
-                             "result": result.model_dump(mode="json")})
-            write(dest / "research.json", research)
-            print("TOOL", cid, "read", len(result.hits), result.mode, flush=True)
+            with read_log_lock:
+                record_hits(result.hits)
+                research.append({"kind": "read_evidence", "arguments": list(a[:3]), "selectors": kw,
+                                 "result": result.model_dump(mode="json")})
+                write(dest / "research.json", research)
+                print("TOOL", cid, "read", len(result.hits), result.mode, flush=True)
             return result
 
         def search_web(self, *a, **kw):

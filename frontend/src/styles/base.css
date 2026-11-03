@@ -22,7 +22,7 @@ body {
   font-family: var(--font-body);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -31,7 +31,7 @@ body {
   overflow-x: hidden;
 }
 
-/* 标题用衬线体：正式、非装饰性的法律文书气质 */
+/* 标题与界面正文共用字体，依字号和字重建立层级。 */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 600;
@@ -55,7 +55,7 @@ a {
 a:hover { color: var(--color-secondary); }
 
 ::selection {
-  background: rgba(30, 58, 138, 0.14);
+  background: rgba(37, 99, 235, 0.15);
 }
 
 code, kbd, samp {

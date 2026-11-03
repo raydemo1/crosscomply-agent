@@ -20,7 +20,7 @@
 }
 
 .workbench__heading .page-title {
-  font-size: clamp(1.85rem, 2.8vw, 2.5rem);
+  font-size: var(--text-3xl);
 }
 
 /* ---------- 步骤条 ---------- */
@@ -95,8 +95,8 @@
 .intake-card {
   padding: clamp(20px, 3vw, 36px);
   border-color: var(--color-border);
-  border-radius: 2px;
-  box-shadow: var(--shadow-paper);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   animation: intake-enter 220ms ease-out;
 }
 
@@ -325,7 +325,7 @@
 
 .intake-question .intake-group__grid {
   grid-template-columns: minmax(0, 1fr);
-  gap: 0;
+  gap: 16px;
 }
 
 .intake-group--optional {
@@ -425,3 +425,10 @@
 @media (prefers-reduced-motion: reduce) {
   .intake-card { animation: none; }
 }
+
+.intake-material-label { margin-top:24px; }.intake-file-drop { margin-top:16px; padding:16px; border:1px dashed var(--color-border); border-radius:8px; }.intake-file-drop.is-dragging { border-color:var(--color-primary); background:var(--tint-navy-bg); }.intake-file-drop__button { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:48px; color:var(--color-primary); border:0; background:transparent; cursor:pointer; }.intake-template-picker { margin-bottom:16px; padding:8px; border:1px solid var(--color-border); border-radius:8px; }.intake-template-picker button { display:block; width:100%; text-align:left; min-height:44px; padding:10px; border:0; background:transparent; color:var(--color-foreground); border-radius:6px; }.intake-template-picker button:hover { background:var(--tint-navy-bg-active); }
+.intake-field { position:relative; min-width:0; }.intake-field:has(.form-field--wide) { grid-column:1/-1; }.intake-field-restore { font-size:12px; min-height:32px; margin-top:4px; }
+
+.intake-card .intake-material-label { display:block; margin-top:24px; margin-bottom:10px; }.intake-card #wb-material { min-height:220px; }
+
+.intake-card .intake-question { border:0; padding:0; margin:0 0 24px; }.intake-field.is-unconfirmed :is(input,select,textarea) { border-color:var(--color-warning); }.intake-field.is-unconfirmed :is(input,select,textarea):focus { border-color:var(--color-primary); }

@@ -186,7 +186,7 @@ def test_case_cannot_be_submitted_without_frozen_rule_inputs(tmp_path: Path) -> 
         response = client.post(f"/api/cases/{case_id}/status", json={"status": "pending_review"})
 
         assert response.status_code == 409
-        assert "冻结材料" in response.json()["detail"]
+        assert "送审材料与申报人事实" in response.json()["detail"]
 
 
 def test_missing_critical_facts_can_enqueue_agent_investigation(tmp_path: Path) -> None:
@@ -439,7 +439,7 @@ def test_completed_frozen_inputs_cannot_be_run_again(tmp_path: Path) -> None:
         response = client.post(f"/api/cases/{case_id}/run")
 
         assert response.status_code == 409
-        assert "当前冻结输入已完成调查" in response.json()["detail"]
+        assert "本次送审内容已完成审查" in response.json()["detail"]
 
 
 def test_upload_freeze_and_download_preserve_original_hash(tmp_path: Path) -> None:

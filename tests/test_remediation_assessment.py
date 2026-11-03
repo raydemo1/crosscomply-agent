@@ -1046,12 +1046,14 @@ def test_previous_assessment_and_human_note_reach_the_next_review(workbench) -> 
     first = client.post(
         f"/api/remediation-tasks/{task_id}/submissions", json={"note": "已关闭训练。"}
     ).json()
+    client.post("/api/auth/login", json={"username": "admin@crosscomply.local", "password": "pw"})
     rejected = client.post(
         f"/api/remediation-submissions/{first['submission']['id']}/review",
         json={"decision": "rejected", "review_note": "请补充供应商确认邮件。"},
     )
     assert rejected.status_code == 200, rejected.text
 
+    client.post("/api/auth/login", json={"username": "reviewer@crosscomply.local", "password": "pw"})
     second = client.post(
         f"/api/remediation-tasks/{task_id}/submissions", json={"note": "已补充供应商确认邮件。"}
     )
@@ -1138,6 +1140,7 @@ def test_frozen_case_material_counts_as_verifiable_evidence_on_review(workbench)
             ],
         },
     ).json()
+    client.post("/api/auth/login", json={"username": "admin@crosscomply.local", "password": "pw"})
     accepted = client.post(
         f"/api/remediation-submissions/{submitted['submission']['id']}/review",
         json={"decision": "accepted"},
@@ -1152,12 +1155,14 @@ def test_declaration_only_acceptance_still_requires_a_recorded_basis(workbench) 
         f"/api/remediation-tasks/{task_id}/submissions",
         json={"note": "已处理。", "response_choice": "completed"},
     ).json()
+    client.post("/api/auth/login", json={"username": "admin@crosscomply.local", "password": "pw"})
     blocked = client.post(
         f"/api/remediation-submissions/{submitted['submission']['id']}/review",
         json={"decision": "accepted"},
     )
     assert blocked.status_code == 422
     assert "人工核验依据" in blocked.json()["detail"]
+    client.post("/api/auth/login", json={"username": "admin@crosscomply.local", "password": "pw"})
     accepted = client.post(
         f"/api/remediation-submissions/{submitted['submission']['id']}/review",
         json={"decision": "accepted", "review_note": "已人工核实供应商后台设置。"},
@@ -1203,3 +1208,24 @@ def test_source_review_routing_uses_the_same_hold_contract(web_impact, gaps, exp
         },
     )
     assert status == expected
+
+
+def test_submission_requires_a_different_reviewer_and_rejection_reason(workbench) -> None:
+    client, app, _runner, _case_id, task_id = workbench
+    submitted = client.post(
+        f"/api/remediation-tasks/{task_id}/submissions",
+        json={"note": "等待人工核实。"},
+    ).json()["submission"]
+    before_status = app.state.case_store.get_remediation_task(task_id)["submissions"][-1]["status"]
+    endpoint = f"/api/remediation-submissions/{submitted['id']}/review"
+    for decision in ("accepted", "rejected"):
+        response = client.post(endpoint, json={"decision": decision, "review_note": "本人核实"})
+        assert response.status_code == 403
+    client.post("/api/auth/login", json={"username": "admin@crosscomply.local", "password": "pw"})
+    response = client.post(endpoint, json={"decision": "rejected", "review_note": "  "})
+    assert response.status_code == 422
+    assert app.state.case_store.get_remediation_task(task_id)["submissions"][-1]["status"] == before_status
+    response = client.post(endpoint, json={"decision": "rejected", "review_note": "请提供实施材料。"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "rejected"
+    assert app.state.case_store.get_remediation_task(task_id)["status"] == "in_progress"

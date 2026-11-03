@@ -15,6 +15,8 @@ CrossComply 是面向企业数据出境合规执行的单 Agent 系统：一个�
 
 ## 开发启动
 
+新电脑初始化、离线语料/向量恢复和多机协作见 [多台电脑开发](docs/DEVELOPMENT.md)。
+
 ```powershell
 # 1. 依赖与环境（Python 3.11+）
 pip install -e ".[service]"
@@ -32,7 +34,7 @@ docker compose exec -T api python -m law_agent.review service-doctor
 
 完整部署（含飞书审批、统一入口 8080、迁移与数据卷）见 [docs/SERVICE_STACK.md](docs/SERVICE_STACK.md)。
 
-仅做前后端本地开发时，可只起 `postgres` 和 `elasticsearch`，然后：
+仅做前后端本地开发时，按开发文档启动 `postgres`、`elasticsearch` 和发布本机端口的 MinIO，再完成迁移和管理员初始化，然后：
 
 ```powershell
 python -m law_agent.review serve --host 127.0.0.1 --port 8000   # 后端，/docs 为 OpenAPI

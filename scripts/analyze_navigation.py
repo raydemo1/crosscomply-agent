@@ -53,7 +53,7 @@ def history_report(corpus_path: Path, roots: list[Path]) -> dict:
             for step in steps:
                 obs = step.get("observation", {})
                 returned.update(obs.get("chunk_ids", []))
-                discovered.update(c["source_id"] for c in obs.get("keyword_candidates", []))
+                discovered.update(c["source_id"] for c in obs.get("candidate_navigation", []))
                 step_ids = set(obs.get("chunk_ids", []))
                 for result in read_results(obs):
                     returned.update(result.get("chunk_ids", []))
@@ -69,7 +69,7 @@ def history_report(corpus_path: Path, roots: list[Path]) -> dict:
                 if target_ids & step_ids:
                     target_returned_steps.append(step["number"])
                 step_sources = {by_id[cid].source_id for cid in step_ids if cid in by_id}
-                step_sources.update(c["source_id"] for c in obs.get("keyword_candidates", []))
+                step_sources.update(c["source_id"] for c in obs.get("candidate_navigation", []))
                 if step_sources & {c.source_id for c in target}:
                     source_discovery_steps.append(step["number"])
             discovered.update(by_id[cid].source_id for cid in returned if cid in by_id)

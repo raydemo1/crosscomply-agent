@@ -8,8 +8,9 @@ import Sidebar from './components/Sidebar';
 import WorkbenchPage from './components/WorkbenchPage';
 import LoginPage from './components/LoginPage';
 import { ApiError, getCurrentUser, listQAConversations, login, logout } from './api/client';
-import { openCase, refreshCases, useCaseStore } from './store/caseStore';
+import { clearCaseStore, openCase, refreshCases, useCaseStore } from './store/caseStore';
 
+const CaseCenterPage = lazy(() => import('./components/CaseCenterPage'));
 const ComplianceQAPage = lazy(() => import('./components/ComplianceQAPage'));
 const GovernanceConsolePage = lazy(() => import('./components/GovernanceConsolePage'));
 const KnowledgeBasePage = lazy(() => import('./components/KnowledgeBasePage'));
@@ -26,6 +27,7 @@ const TRANSITIONAL_STATUSES = ['pending_review', 'review_running', 'needs_info']
 
 interface ShellContext {
   user: WorkbenchUser;
+  qaHistory: QASummary[];
   refreshQaHistory: () => Promise<void>;
   closeMobileNav: () => void;
 }
@@ -76,6 +78,7 @@ export default function App(): JSX.Element {
         <Route path="/templates" element={<TemplateRoute user={user} />} />
         <Route path="/reviews" element={<MyRemediationsRoute user={user} />} />
         <Route path="/reviews/plan/:caseId" element={<RemediationPlanRoute user={user} />} />
+        <Route path="/cases" element={<CaseCenterPage user={user} />} />
         <Route path="/cases/:caseId" element={<CaseDetailRoute user={user} />} />
         <Route path="/knowledge/:kind" element={<KnowledgeRoute user={user} />} />
         <Route path="/governance" element={<GovernanceRoute user={user} />} />
@@ -124,6 +127,7 @@ function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogou
     setError(null);
     try {
       await onLogout();
+      clearCaseStore();
       onUserChanged();
       navigate('/qa', { replace: true });
     } catch (reason) {
@@ -135,7 +139,6 @@ function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogou
     <div className="app-shell">
       <Sidebar
         user={user}
-        qaHistory={qaHistory}
         onLogout={handleLogout}
         isMobileOpen={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
@@ -153,7 +156,7 @@ function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogou
         </div>
         {error ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
         <Suspense fallback={<div className="card state-block"><div className="state-block__title">正在加载…</div></div>}>
-          <Outlet context={{ user, refreshQaHistory, closeMobileNav: () => setMobileSidebarOpen(false) } satisfies ShellContext} />
+          <Outlet context={{ user, qaHistory, refreshQaHistory, closeMobileNav: () => setMobileSidebarOpen(false) } satisfies ShellContext} />
         </Suspense>
       </main>
     </div>
@@ -171,8 +174,10 @@ function useShellContext(): ShellContext {
 function QaRoute({ user }: { user: WorkbenchUser }): JSX.Element {
   const { conversationId } = useParams();
   const navigate = useNavigate();
-  const { refreshQaHistory, closeMobileNav } = useShellContext();
+  const { qaHistory, refreshQaHistory, closeMobileNav } = useShellContext();
   return <ComplianceQAPage
+    history={qaHistory}
+    onOpenHistory={(id) => navigate(`/qa/${id}`)}
     userRole={user.role}
     conversationId={conversationId ?? null}
     onConversationChange={(id) => navigate(id ? `/qa/${id}` : '/qa', { replace: true })}
@@ -183,8 +188,8 @@ function QaRoute({ user }: { user: WorkbenchUser }): JSX.Element {
 }
 
 function WorkbenchRoute({ user }: { user: WorkbenchUser }): JSX.Element {
-  const { caseId } = useParams();
   const location = useLocation();
+  const caseId = new URLSearchParams(location.search).get('case');
   const cases = useCaseStore();
   const saved = caseId ? cases.find((item) => item.id === caseId) ?? null : null;
   const [loading, setLoading] = useState(Boolean(caseId));
@@ -299,7 +304,7 @@ function CaseDetailRoute({ user }: { user: WorkbenchUser }): JSX.Element {
   return <CaseDetailPage
     key={saved.id}
     saved={saved}
-    canEdit={user.role === 'requester'}
+    canEdit={user.role === 'requester' && saved.ownerId === user.id}
     canManageActions={user.role === 'reviewer' || user.role === 'admin'}
     viewerRole={user.role}
     focusAgentAnswer={Boolean((location.state as { focusAgentAnswer?: boolean } | null)?.focusAgentAnswer)}
@@ -307,7 +312,7 @@ function CaseDetailRoute({ user }: { user: WorkbenchUser }): JSX.Element {
     onDocumentDirtyChange={(dirty) => { dirtyRef.current = dirty; }}
     onEdit={() => { if (guard()) navigate(`/workbench?case=${saved.id}`); }}
     onRerun={(question, material) => navigate('/workbench', { state: { rerun: { question, material } } })}
-    onBack={() => { if (guard()) navigate('/workbench'); }}
+    onBack={() => { if (guard()) navigate('/cases'); }}
     onOpenRemediationPlan={() => navigate(`/reviews/plan/${saved.id}`)}
     onReviewSettled={() => { if (caseId) void openCase(caseId).catch(() => {}); }}
   />;

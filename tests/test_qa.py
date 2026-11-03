@@ -410,9 +410,9 @@ def test_invalid_citation_at_budget_limit_delivers_limited_answer(monkeypatch):
     assert updates[-1]["status"] == "completed"
     assert updates[-1]["result"]["citations"] == []
     assert updates[-1]["result"]["conditions"] == []
-    assert "达到执行上限" in json.loads(client.answer_messages[-1].content)["evidence_gaps"][0]
+    assert "已达处理上限" in json.loads(client.answer_messages[-1].content)["evidence_gaps"][0]
     assert updates[-1]["result"]["budget_exhausted"] is True
-    assert "达到执行上限" in updates[-1]["result"]["evidence_gaps"][0]
+    assert "已达处理上限" in updates[-1]["result"]["evidence_gaps"][0]
     assert updates[-1]["result"]["generation_status"] == "completed"
     assert len(client.calls) == 1
 
@@ -458,7 +458,7 @@ def test_budget_and_evidence_gaps_survive_answer_stream_failure(monkeypatch):
     result = store.get(cid)["runs"][0]["result"]
     assert result["generation_status"] == "failed"
     assert result["budget_exhausted"] is True
-    assert "达到执行上限" in result["evidence_gaps"][0]
+    assert "已达处理上限" in result["evidence_gaps"][0]
 
 
 def test_finish_evidence_gap_is_persisted_without_budget_exhaustion():

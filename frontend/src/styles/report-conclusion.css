@@ -5,14 +5,14 @@
 }
 .review-report.review-report--document {
   --report-body-size: var(--text-lg);
-  --report-body-leading: 1.8;
+  --report-body-leading: 1.75;
   --report-heading-size: var(--text-xl);
   --report-caption-size: var(--text-md);
   padding: 36px 40px;
   border: 1px solid var(--color-hairline);
-  border-radius: 2px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: var(--shadow-paper);
+  box-shadow: var(--shadow-sm);
   font-family: var(--font-body);
 }
 .case-workspace .review-report.review-report--document h2,
@@ -34,12 +34,6 @@
   font-weight: 400;
   color: var(--color-foreground-muted);
 }
-.review-report.review-report--document .report-chapter-no {
-  font-size: var(--report-caption-size);
-  color: var(--color-foreground-muted);
-  font-weight: 400;
-  letter-spacing: 0;
-}
 .review-report.review-report--document .markdown-body {
   font-size: var(--report-body-size);
   font-weight: 400;
@@ -53,15 +47,14 @@
 .report-conclusion { min-width: 0; }
 .report-conclusion > .report-heading { margin-bottom: 20px; }
 .report-conclusion__summary {
-  padding: 0 0 24px;
-  border-bottom: 1px solid var(--color-hairline);
+  padding: 0;
 }
 .report-conclusion__lead {
   margin: 0;
   font-family: var(--font-legal);
-  font-size: var(--text-xl);
+  font-size: 1.0625rem;
   font-weight: var(--weight-medium);
-  line-height: 1.85;
+  line-height: 1.75;
   color: var(--color-foreground);
   text-wrap: pretty;
 }
@@ -71,7 +64,6 @@
   gap: 4px 12px;
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid var(--color-hairline);
   font-size: var(--text-md);
   line-height: 1.6;
 }
@@ -165,7 +157,7 @@
   .review-report.review-report--document { padding: 28px; }
 }
 @media (max-width: 600px) {
-  .review-report.review-report--document { padding: 20px 16px; border-radius: 2px; }
+  .review-report.review-report--document { padding: 20px 16px; border-radius: var(--radius-lg); }
   .report-conclusion__summary { padding-bottom: 20px; }
   .report-conclusion__lead { font-size: var(--text-xl); }
   .report-conclusion__boundaries { padding: 16px; }
@@ -272,3 +264,10 @@
 .review-report--document .enterprise-materials code { overflow-wrap: anywhere; white-space: normal; text-align: left; }
 .review-report--document .case-timeline__item > div { min-width: 0; flex-wrap: wrap; gap: 4px 16px; }
 .review-report--document .case-timeline__item strong { overflow-wrap: anywhere; }
+
+.case-workspace .review-report-layout:has(.review-report--document) { margin-inline:0; }
+.report-toc { display:none; }
+@media(min-width:1360px) {
+  .case-workspace .review-report-layout:has(.report-toc) { width:100%; max-width:none; grid-template-columns:minmax(0,1fr) 124px; gap:24px; }
+  .report-toc { display:flex; flex-direction:column; position:sticky; top:28px; padding-top:20px; gap:6px; }.report-toc a { display:block; padding:10px 8px; color:var(--color-foreground-muted); text-decoration:none; font-size:13px; border-radius:6px; }.report-toc a:hover { color:var(--color-primary); background:var(--tint-navy-bg); }
+}

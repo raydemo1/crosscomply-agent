@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ArrowUp, Check, TriangleAlert, CircleHelp, FileText, Paperclip, Plus, X } from 'lucide-react';
 import { createQAConversation, downloadQAMaterial, getQAConversation, retryQARun, sendQAMessage, subscribeQARun, uploadQAMaterial, validateUploadFile } from '../api/client';
-import type { QAConversation, QAHandoff, QAQuestion, QARun } from '../types/qa';
+import type { QAConversation, QAHandoff, QAQuestion, QARun, QASummary } from '../types/qa';
 import QAAnswer from './QAAnswer';
 import { formatQAAnswers, qaQuestionOptions, toggleQAOption } from '../utils/qaQuestions';
 import '../styles/qa.css';
 
 interface Props {
+  history: QASummary[];
+  onOpenHistory: (id: string) => void;
   userRole: 'requester' | 'reviewer' | 'admin';
   conversationId: string | null;
   onConversationChange: (id: string) => void;
@@ -51,7 +53,7 @@ function QAQuestions({ questions, disabled, onSubmit }: {
 
 import QaOnboarding from './QaOnboarding';
 
-export default function ComplianceQAPage({ userRole, conversationId, onConversationChange, onHistoryChange, onNewConversation, onHandoff }: Props): JSX.Element {
+export default function ComplianceQAPage({ history, onOpenHistory, userRole, conversationId, onConversationChange, onHistoryChange, onNewConversation, onHandoff }: Props): JSX.Element {
   const [conversation, setConversation] = useState<QAConversation | null>(null);
   const [question, setQuestion] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -62,6 +64,10 @@ export default function ComplianceQAPage({ userRole, conversationId, onConversat
   const [disconnected, setDisconnected] = useState(false);
   const [handoffRun, setHandoffRun] = useState<QARun | null>(null);
   const [draggingFiles, setDraggingFiles] = useState(false);
+  const historyTrigger = useRef<HTMLButtonElement>(null);
+  const historyDialog = useRef<HTMLDialogElement>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  useEffect(() => { if (historyOpen) historyDialog.current?.showModal(); }, [historyOpen]);
   const [showGuide, setShowGuide] = useState(false);
   const dragDepthRef = useRef(0);
   const [handoffMaterials, setHandoffMaterials] = useState<string[]>([]);
@@ -172,9 +178,11 @@ export default function ComplianceQAPage({ userRole, conversationId, onConversat
 
   return (
     <section className={'qa-page' + (hasMessages ? ' qa-page--conversation' : '')}>
+      <div className="qa-history-entry"><button ref={historyTrigger} className="qa-quiet-button" type="button" aria-expanded={historyOpen} onClick={() => setHistoryOpen((value) => !value)}>历史记录</button></div>
+      {historyOpen ? <dialog ref={historyDialog} className="qa-history-drawer" onClose={() => { setHistoryOpen(false); historyTrigger.current?.focus(); }} aria-label="历史咨询记录" onKeyDown={(event) => { if (event.key === 'Escape') setHistoryOpen(false); }}><header><h2>历史咨询</h2><button autoFocus className="qa-quiet-button" type="button" aria-label="关闭历史记录" onClick={() => historyDialog.current?.close()}><X size={18} /></button></header>{history.length ? history.map((item) => <button className="qa-history-row" type="button" key={item.id} aria-current={item.id === conversationId ? 'page' : undefined} onClick={() => { if ((question.trim() || files.length) && !window.confirm('切换咨询会丢弃当前未发送的问题和附件，是否继续？')) return; setHistoryOpen(false); onOpenHistory(item.id); }}>{item.title}<small>{new Date(item.updated_at).toLocaleDateString('zh-CN')}</small></button>) : <p className="qa-history-empty">暂无咨询记录</p>}</dialog> : null}
       {hasMessages ? <header className="qa-thread-heading"><div><h1>{conversation?.title}</h1></div><button className="qa-quiet-button" type="button" onClick={onNewConversation}><Plus size={16} />新问答</button></header> : (
         <header className="qa-welcome">
-          <h1>咨询数据出境<br /><span>合规问题</span></h1>
+          <h1>咨询数据出境合规问题</h1>
         </header>
       )}
 
@@ -198,7 +206,7 @@ export default function ComplianceQAPage({ userRole, conversationId, onConversat
                 : <div className="qa-question-history">{run.result.questions.map((item, i) => <p key={i}>{item.question}</p>)}</div>
                 : null}
               {run.status === 'completed' && !run.result?.questions?.length ? <footer className="qa-answer-footer"><button type="button" className="qa-handoff-button" onClick={() => { setHandoffRun(run); setHandoffMaterials(run.material_ids); }}>发起合规审查<ArrowRight size={15} /></button></footer> : null}
-              {handoffRun?.id === run.id ? <div className="qa-handoff"><h3>带入正式审查</h3><p>正式审查将重新核实事实与法规依据。</p>{conversation.materials.filter((m) => run.material_ids.includes(m.id)).map((m) => <label key={m.id}><input type="checkbox" checked={handoffMaterials.includes(m.id)} onChange={(event) => setHandoffMaterials((ids) => event.target.checked ? [...ids, m.id] : ids.filter((id) => id !== m.id))} />{m.filename}</label>)}<div><button type="button" className="btn-primary" disabled={preparing} onClick={() => void prepareHandoff()}>{preparing ? '正在准备材料…' : '前往工作台'}</button><button type="button" className="qa-quiet-button" onClick={() => setHandoffRun(null)}>取消</button></div></div> : null}
+              {handoffRun?.id === run.id ? <div className="qa-handoff"><h3>带入正式审查</h3><p>带入问题与所选材料，正式审查将重新核实事实和依据。</p>{conversation.materials.filter((m) => run.material_ids.includes(m.id)).map((m) => <label key={m.id}><input type="checkbox" checked={handoffMaterials.includes(m.id)} onChange={(event) => setHandoffMaterials((ids) => event.target.checked ? [...ids, m.id] : ids.filter((id) => id !== m.id))} />{m.filename}</label>)}<div><button type="button" className="btn-primary" disabled={preparing} onClick={() => void prepareHandoff()}>{preparing ? '正在准备材料…' : '继续建案'}</button><button type="button" className="qa-quiet-button" onClick={() => setHandoffRun(null)}>取消</button></div></div> : null}
             </div>
           </article>
         ))}

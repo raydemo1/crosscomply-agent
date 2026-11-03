@@ -7,15 +7,14 @@ import '../styles/report-conclusion.css';
 
 interface ReportConclusionProps {
   result: ReviewResult;
-  chapterNo: string;
   onCitationClick: (citationRef: string) => void;
 }
 
-export default function ReportConclusion({ result, chapterNo, onCitationClick }: ReportConclusionProps) {
+export default function ReportConclusion({ result, onCitationClick }: ReportConclusionProps) {
   const { body, conditions, usageNotes } = partitionReportContent(result.conclusion, result.risk_boundaries);
   const reasons = Array.from(new Set(result.trigger_reasons.map((reason) => reason.trim()).filter(Boolean)));
   return <section className="case-conclusion report-section report-conclusion" id="report-conclusion">
-    <ReportHeading chapterNo={chapterNo} title="审查结论" action={<RiskBadge level={result.risk_level} />} />
+    <ReportHeading title="审查结论" action={<RiskBadge level={result.risk_level} />} />
     <div className="report-conclusion__summary" aria-label="审查摘要">
       <p className="report-conclusion__lead">{result.decision_summary}</p>
       {result.legal_path ? <div className="report-conclusion__path"><span>当前适用路径</span><strong>{result.legal_path}</strong></div> : null}

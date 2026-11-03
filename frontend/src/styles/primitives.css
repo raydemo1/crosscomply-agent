@@ -15,8 +15,7 @@
 }
 
 /* ---------- 按钮 ----------
- * 主行动只有一种视觉：藏青实心。次行动描边，
- * 弱行动为链接或幽灵按钮。金色仅作细节点缀，不作按钮。 */
+ * 主行动使用蓝色实心，次行动描边，弱行动为链接或幽灵按钮。 */
 .btn-primary,
 .btn-secondary,
 .btn-ghost {
@@ -25,7 +24,7 @@
   justify-content: center;
   gap: var(--space-sm);
   padding: 0.625rem 1.25rem;
-  min-height: 42px;
+  min-height: 44px;
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-weight: var(--weight-semibold);
@@ -244,10 +243,10 @@
   font-weight: var(--weight-medium);
 }
 
-/* ---------- 提示注记（金色左边条） ---------- */
+/* ---------- 提示注记 ---------- */
 .warning-note {
   background: var(--color-warning-bg);
-  border-left: 3px solid var(--color-accent);
+  border-left: 3px solid var(--color-warning);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
   padding: var(--space-sm) var(--space-md);
   font-size: var(--text-md);

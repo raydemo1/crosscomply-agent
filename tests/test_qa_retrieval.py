@@ -72,7 +72,7 @@ def test_search_assembles_the_matched_article_without_adding_adjacent_clauses():
     assert [h.chunk_id for h in explicit.hits] == ["before"]
 
 
-def test_unselected_short_clause_remains_navigation_without_an_untracked_full_quote():
+def test_short_clause_preview_does_not_admit_citation_evidence():
     main = _chunk("main", "第一条", "一般规则" * 50, index=0)
     common = _chunk("common", "第二条", "共同说明" * 50, index=1)
     repeated = _chunk("repeated", "第三条", "重复说明" * 50, index=2)
@@ -92,7 +92,7 @@ def test_unselected_short_clause_remains_navigation_without_an_untracked_full_qu
     location = next(loc for source in tools.search_navigation() for loc in source["locations"]
                     if loc["chunk_id"] == "target")
     assert location["article_no"] == "第五条"
-    assert "preview" not in location
+    assert location["preview"] == "短条文"
     assert tools.read_evidence("other", "第五条", None, ReviewFacts()).hits[0].text == "短条文"
 
 
@@ -104,7 +104,7 @@ def test_search_limit_requires_explicit_read_for_an_unselected_complete_article(
     qa = tools.search([query()], ReviewFacts(), coarse_scope=True)
     assert [h.chunk_id for h in qa] == ["main"]
     location = tools.search_navigation()[0]["locations"][0]
-    assert location["chunk_id"] == "target" and "preview" not in location
+    assert location["chunk_id"] == "target" and location["preview"] == target.text
     read = tools.read_evidence("other", "第五十六条", None, ReviewFacts())
     assert read.hits[0].text == target.text and read.hits[0].can_cite_clause == target.can_cite_clause
     citations, _ = prepare_citations(QAState(goal="q", evidence=qa + read.hits),
@@ -312,7 +312,7 @@ def test_navigation_only_candidates_still_require_reading():
     candidates = tools.search_navigation()
     assert candidates[0]["source_id"] == "other-source"
     state = QAState(goal="q", evidence=delivered, steps=[AgentStep(
-        number=1, action="search_evidence", summary="检索", observation={"keyword_candidates": candidates},
+        number=1, action="search_evidence", summary="检索", observation={"candidate_navigation": candidates},
     )])
     decision = QADecision(action="finish", summary="作答", chunk_ids=["other"])
     with pytest.raises(ValueError, match="本次调查已取得的正文"):
@@ -327,20 +327,20 @@ def test_navigation_projection_removes_repeats_and_read_locations_but_keeps_upda
     source = {"source_id": "s1", "title": "来源", "source_has_articles": True, "locations": [
         {"chunk_id": "unread", "article_no": "第一条", "preview": "待精读原文"},
     ]}
-    old = {"keyword_candidates": [source]}
+    old = {"candidate_navigation": [source]}
     previous = [AgentStep(number=1, action="search_evidence", summary="检索", observation=old)]
     observation = deepcopy(old)
-    observation["keyword_candidates"][0]["locations"].append({"chunk_id": "new", "preview": "新候选"})
+    observation["candidate_navigation"][0]["locations"].append({"chunk_id": "new", "preview": "新候选"})
     snapshot = deepcopy(observation)
     projected = search_observation_context(observation, previous, [])
-    assert [loc["chunk_id"] for loc in projected["keyword_candidates"][0]["locations"]] == ["new"]
+    assert [loc["chunk_id"] for loc in projected["candidate_navigation"][0]["locations"]] == ["new"]
     assert observation == snapshot and previous[0].observation == old
-    observation["keyword_candidates"][0]["locations"][0]["preview"] = "原文预览已更新"
+    observation["candidate_navigation"][0]["locations"][0]["preview"] = "原文预览已更新"
     projected = search_observation_context(observation, previous, [])
-    assert len(projected["keyword_candidates"][0]["locations"]) == 2
+    assert len(projected["candidate_navigation"][0]["locations"]) == 2
     read = [hit_from_chunk(_chunk("new", "第二条", "已取得的原文", index=0), 0)]
     projected = search_observation_context(observation, previous, read)
-    assert [loc["chunk_id"] for loc in projected["keyword_candidates"][0]["locations"]] == ["unread"]
+    assert [loc["chunk_id"] for loc in projected["candidate_navigation"][0]["locations"]] == ["unread"]
 
 
 def test_repeated_navigation_is_saved_but_not_resent_in_native_tool_results():
@@ -362,10 +362,10 @@ def test_repeated_navigation_is_saved_but_not_resent_in_native_tool_results():
     execute_qa(store.get(cid), run, checkpoint=lambda **kw: updates.append(kw), chunks_path="unused",
                client=client, tools=NavigationTools())
     results = [json.loads(m.content)["observation"] for m in client.answer_messages if m.role == "tool"]
-    assert results[0]["keyword_candidates"][0]["source_id"] == "other"
-    assert results[1]["keyword_candidates"] == []
+    assert results[0]["candidate_navigation"][0]["source_id"] == "other"
+    assert results[1]["candidate_navigation"] == []
     saved = [u["state"]["steps"] for u in updates if "state" in u][-1]
-    assert all(s["observation"]["keyword_candidates"] for s in saved)
+    assert all(s["observation"]["candidate_navigation"] for s in saved)
     assert client.answer_messages[:len(client.calls[-1])] == client.calls[-1]
 
 

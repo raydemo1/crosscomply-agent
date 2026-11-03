@@ -37,6 +37,7 @@ export interface CaseFeedback {
  * A case record loaded from the CrossComply API.
  */
 export interface SavedCase {
+  ownerId?: string | null;
   /** Stable case id from the backend. */
   id: string;
   /** Trace id from the latest backend response. */

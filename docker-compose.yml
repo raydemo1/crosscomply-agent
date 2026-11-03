@@ -64,7 +64,7 @@ services:
     networks: [backend]
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-crosscomply}
@@ -81,7 +81,7 @@ services:
     networks: [backend]
 
   minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-04-08T15-39-49Z
+    image: ${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-08T15-39-49Z}
     depends_on:
       minio:
         condition: service_healthy

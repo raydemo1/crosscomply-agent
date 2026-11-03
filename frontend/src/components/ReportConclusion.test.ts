@@ -7,7 +7,7 @@ import type { ReviewResult } from '../types/api.ts';
 import type { SavedCase } from '../types/case.ts';
 
 let server: ViteDevServer;
-let ReportConclusion: ComponentType<{ result: ReviewResult; chapterNo: string; onCitationClick: () => void }>;
+let ReportConclusion: ComponentType<{ result: ReviewResult; onCitationClick: () => void }>;
 let buildHtmlReport: (saved: SavedCase) => string;
 let buildMarkdownReport: (saved: SavedCase) => string;
 before(async () => {
@@ -25,7 +25,7 @@ const result = {
 } as unknown as ReviewResult;
 
 test('report hierarchy preserves conditions, highlights and accessible citations/tables', () => {
-  const html = renderToStaticMarkup(createElement(ReportConclusion, { result, chapterNo: '01', onCitationClick: () => {} }));
+  const html = renderToStaticMarkup(createElement(ReportConclusion, { result, onCitationClick: () => {} }));
   assert.ok(html.indexOf('审查摘要') < html.indexOf('判断要点'));
   assert.ok(html.indexOf('判断要点') < html.indexOf('完整分析'));
   assert.ok(html.indexOf('完整分析') < html.indexOf('结论适用前提与范围'));
@@ -37,7 +37,7 @@ test('report hierarchy preserves conditions, highlights and accessible citations
 });
 
 test('empty optional sections stay absent and legacy prose remains readable', () => {
-  const html = renderToStaticMarkup(createElement(ReportConclusion, { result: { ...result, conclusion: '历史报告原文。', trigger_reasons: [], risk_boundaries: [] }, chapterNo: '01', onCitationClick: () => {} }));
+  const html = renderToStaticMarkup(createElement(ReportConclusion, { result: { ...result, conclusion: '历史报告原文。', trigger_reasons: [], risk_boundaries: [] }, onCitationClick: () => {} }));
   assert.match(html, /历史报告原文。/);
   assert.doesNotMatch(html, /判断要点|结论适用前提与范围|使用说明/);
 });

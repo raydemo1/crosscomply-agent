@@ -29,7 +29,7 @@ def test_two_searches_keep_fifteen_unique_originals_in_native_messages():
 def test_web_excerpts_and_updated_readings_remain_distinct_from_navigation_previews():
     messages = [
         {"role": "tool", "content": json.dumps({"state": {"evidence": [{"chunk_id": "one", "text": "原文"}]},
-          "observation": {"keyword_candidates": [{"chunk_id": "preview", "preview": "目录预览"}]}})},
+          "observation": {"candidate_navigation": [{"chunk_id": "preview", "preview": "目录预览"}]}})},
         {"role": "tool", "content": json.dumps({"state": {"evidence": [{"chunk_id": "one", "text": "片段", "full_article_text": "完整条文"}]},
           "observation": {"findings": [{"url": "https://example.com/official", "excerpt": "网页原文"}]}})},
     ]

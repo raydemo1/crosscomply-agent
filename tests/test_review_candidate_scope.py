@@ -95,7 +95,7 @@ def test_vector_queries_use_their_own_scope_and_share_cached_embedding():
     assert embeddings == [["同一查询"]]
 
 
-def test_single_route_candidates_remain_available_after_fusion():
+def test_both_routes_contribute_to_bounded_candidates_before_body_selection():
     from law_agent.review.retrieval.neighbors import hit_from_chunk
     from tests.test_review_agent import _search_tools
 
@@ -104,8 +104,12 @@ def test_single_route_candidates_remain_available_after_fusion():
                         for i, c in enumerate(batch)] for batch in [chunks[:50], chunks[50:]]]
     tools = _search_tools(chunks, lambda *a, **k: [keyword], top_k=1)
     tools._adapters.vector = SimpleNamespace(search_many=lambda *a, **k: [vector])
-    tools.search([RetrievalQuery(query_id="q", query_type="legal_issue", text="规则")], ReviewFacts())
-    assert set(tools._candidate_hits) == {c.chunk_id for c in chunks}
+    hits = tools.search([RetrievalQuery(query_id="q", query_type="legal_issue", text="规则")], ReviewFacts())
+    assert len(tools._candidate_hits) == 50
+    assert {"0", "50"} <= set(tools._candidate_hits)
+    assert {"49", "99"}.isdisjoint(tools._candidate_hits)
+    assert len(hits) == 1
+    assert hits[0].chunk_id in tools._candidate_hits
 
 
 def test_rerank_reads_clause_candidates_before_source_collapse_and_uses_current_query(monkeypatch):

@@ -44,9 +44,10 @@ def test_unread_keyword_source_offers_the_same_directory_entry_without_citing_pr
     navigation = ComplianceAgentTools._group_search_navigation([{
         "source_id": "s1", "title": "文件", "source_has_articles": False,
         "chunk_id": "c0", "article_no": None, "preview": "仅导航预览",
+        "query_matches": [{"query_id": "q", "rank": 1}],
     }])
     state = AgentState(goal="查来源", steps=[AgentStep(number=1, action="search_evidence", summary="发现来源",
-        observation={"keyword_candidates": navigation})])
+        observation={"candidate_navigation": navigation})])
     tools = _tools_with([chunk(0, ["原文目录"], can_cite_clause=False)])
     request = EvidenceReadRequest.model_validate(navigation[0]["outline_read_request"])
     result = _read_evidence_request(state, request, read_evidence=tools.read_evidence, checkpoint=lambda _: None)

@@ -28,7 +28,9 @@ from pydantic import Field, model_validator
 from law_agent.config import RerankMode, require_llm_config
 from law_agent.data.schemas import StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
-from law_agent.review.agent import INVESTIGATION_TOOLS, MATERIAL_READ_TOOL, AgentState, run_agent
+from law_agent.review.agent import (
+    INVESTIGATION_TOOLS, MATERIAL_READ_TOOL, AgentState, EvidenceReadRequest, run_agent,
+)
 from law_agent.review.agent_context import compact_evidence_context
 from law_agent.review.agent_tools import ComplianceAgentTools
 from law_agent.review.llm import StructuredLLMNode
@@ -232,13 +234,14 @@ class RemediationDecision(StrictModel):
     """The remediation re-review reuses the review Agent's action vocabulary."""
 
     action: Literal[
-        "propose_plan", "read_material", "search_evidence",
+        "propose_plan", "read_material", "search_evidence", "read_evidence",
         "request_input", "finish",
     ]
     summary: str = Field(min_length=1, max_length=600)
     plan: list[str] = Field(default_factory=list, max_length=8)
     offset: int = Field(default=0, ge=0, description="材料包的字符起点；续页使用返回的next_read_request")
     queries: list[RetrievalQuery] = Field(default_factory=list, max_length=4)
+    read_requests: list[EvidenceReadRequest] = Field(default_factory=list, max_length=4)
     max_chunks: int = Field(default=10, ge=1, le=10, strict=True,
                            description="本次搜索跨所有查询融合、去重后返回的正文总数上限，最多10段。")
     question: str | None = Field(default=None, max_length=2000)
@@ -254,6 +257,10 @@ class RemediationDecision(StrictModel):
             raise ValueError("search_evidence requires 1-4 nonblank queries, at most 1000 characters each")
         if self.action == "request_input" and not (self.question or "").strip():
             raise ValueError("request_input requires a question")
+        if self.action == "read_evidence" and not self.read_requests:
+            raise ValueError("read_evidence requires 1-4 read_requests")
+        if self.read_requests and self.action != "read_evidence":
+            raise ValueError("read_requests requires read_evidence")
         if self.action == "finish" and self.draft is None:
             raise ValueError("finish requires a draft")
         return self
@@ -293,6 +300,7 @@ class RemediationAgentModel:
                 "propose_plan": ToolSpec(("plan",), "更新本次复核的简短计划。", ("plan",)),
                 "read_material": MATERIAL_READ_TOOL,
                 "search_evidence": INVESTIGATION_TOOLS["search_evidence"],
+                "read_evidence": INVESTIGATION_TOOLS["read_evidence"],
                 "request_input": ToolSpec(("question",), "阻塞性事实缺口需要用户补充时单独调用并暂停。", ("question",)),
                 "finish": ToolSpec(("draft",), "单独提交有材料依据的整改复核结果，不将法条或用户声明等同于整改已实施。", ("draft",)),
             },
@@ -796,6 +804,8 @@ def execute_rereview(
             intake={},
             decide=decide or RemediationAgentModel(model_id=model_id),
             search=search,
+            search_navigation=tools.search_navigation if tools is not None else None,
+            read_evidence=tools.read_evidence if tools is not None else None,
             web_search=no_web_search,
             finalize=lambda draft, current: finalize_assessment(draft, packet),
             checkpoint=lambda current: None,

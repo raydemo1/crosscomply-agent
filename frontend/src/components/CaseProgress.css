@@ -7,12 +7,12 @@
 .case-progress__task { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-hairline); }
 .case-progress__status { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 12px; color: var(--color-foreground-muted); font: 400 var(--text-md)/1.6 var(--font-body); }
 .case-progress__status b { color: var(--color-foreground-secondary); font-weight: 500; }
-.case-progress__primary { min-height: 36px; padding: 6px 12px; font-size: var(--text-md); white-space: nowrap; }
+.case-progress__primary { min-height: 44px; padding: 6px 12px; font-size: var(--text-md); white-space: nowrap; }
 .case-progress__toggle { color: var(--color-foreground-muted); font-size: inherit; font-weight: 400; white-space: nowrap; }
 .case-progress__summary:hover .case-progress__toggle { color: var(--color-primary); }
 .case-progress__toggle::after { content: '展开流程 ▾'; }
-.case-progress[open] .case-progress__summary { border-bottom: 1px solid var(--color-border); }
-.case-progress[open] .case-progress__toggle::after { content: '收起流程 ▴'; }
+.case-progress > details[open] .case-progress__summary { border-bottom: 1px solid var(--color-border); }
+.case-progress > details[open] .case-progress__toggle::after { content: '收起流程 ▴'; }
 .case-progress__body { padding: var(--space-lg); }
 .case-progress__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-sm); margin: 0; padding: 0; list-style: none; }
 .case-progress__steps li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; text-align: center; color: var(--color-foreground-muted); }
@@ -37,7 +37,7 @@
 .case-progress__current:empty,
 .case-progress__current:has(> .case-progress__actions:empty):not(:has(> .case-progress__guidance)) { display: none; }
 .case-progress__supplement { margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--color-border); }
-.case-progress__notice { padding: 10px 12px; border-left: 3px solid var(--color-accent); background: color-mix(in srgb, var(--color-warning) 8%, transparent); color: var(--color-warning); font-size: 0.84rem; line-height: 1.6; }
+.case-progress__notice { padding: 10px 12px; border-left: 3px solid var(--color-warning); background: color-mix(in srgb, var(--color-warning) 8%, transparent); color: var(--color-warning); font-size: 0.84rem; line-height: 1.6; }
 
 @media (max-width: 767px) {
   .case-progress__summary { gap: 12px; padding: 12px 0; }
@@ -50,3 +50,7 @@
   .case-progress__actions { justify-content: flex-start; width: 100%; }
   .case-progress__actions > .btn-primary { width: 100%; }
 }
+
+.case-progress__next { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:18px 20px 10px; }.case-progress__next > div { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 20px; }.case-progress__next strong { font-size:15px; font-weight:600; }.case-progress__next span { font-size:13px; color:var(--color-foreground-muted); }.case-progress__error { color:var(--color-danger); padding:0 20px; font-size:14px; }
+.case-progress > details > summary { padding-block:10px; min-height:44px; }.case-progress__summary-copy small { display:none; }.case-progress__summary-copy strong { font-size:12px; font-weight:400; color:var(--color-foreground-muted); }
+@media(max-width:600px) { .case-progress__next { align-items:flex-start; padding:16px 14px 6px; gap:12px; }.case-progress__next > div { flex-direction:column; gap:6px; }.case-progress__next .case-progress__primary { flex-shrink:0; min-height:44px; } }

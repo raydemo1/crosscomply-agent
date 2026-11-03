@@ -3,25 +3,24 @@
  * 全站 token 化后的问答页样式（字体/颜色/字号均引用 tokens）。
  * ============================================================ */
 
-.qa-page { width: min(100%, var(--content-qa)); margin: 0 auto; padding: clamp(56px, 12svh, 132px) 24px 40px; color: var(--color-foreground); }
+.qa-page { width: min(100%, var(--content-qa)); margin: 0 auto; padding: clamp(40px, 7svh, 72px) 0 40px; color: var(--color-foreground); }
 .qa-welcome { text-align: left; }
-.qa-welcome h1 { margin: 0; color: var(--color-foreground); font: 400 clamp(2rem, 3.5vw, 3rem)/1.5 var(--font-heading); letter-spacing: 0; text-wrap: balance; }
-.qa-welcome h1 > span { color: var(--color-primary); }
+.qa-welcome h1 { margin: 0; color: var(--color-foreground); font: 600 clamp(1.625rem, 2.3vw, 2rem)/1.4 var(--font-heading); letter-spacing: 0; text-wrap: balance; }
 .qa-composer-wrap { margin-top: 28px; }
 .qa-examples { display: grid; gap: 0; margin-top: 24px; }
-.qa-examples button { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; border: 0; border-bottom: 1px solid var(--color-hairline); border-radius: 0; padding: 14px 4px; text-align: left; background: transparent; color: var(--color-foreground-secondary); font: 400 var(--text-md)/1.6 var(--font-body); cursor: pointer; transition: color var(--transition-fast), padding var(--transition-fast); }
+.qa-examples button { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; border: 0; border-radius: var(--radius-md); padding: 14px 12px; text-align: left; background: transparent; color: var(--color-foreground-secondary); font: 400 var(--text-md)/1.6 var(--font-body); cursor: pointer; transition: color var(--transition-fast), padding var(--transition-fast); }
 .qa-examples button::after { content: '→'; color: var(--color-foreground-muted); }
-.qa-examples button:hover { color: var(--color-primary); padding-inline: 10px; }
+.qa-examples button:hover { color: var(--color-primary); background: var(--tint-navy-bg); }
 .qa-guide-entry { display: flex; justify-content: flex-end; padding-top: 12px; }
-.qa-composer { position: relative; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 2px; box-shadow: var(--shadow-paper); overflow: hidden; transition: box-shadow .2s, border-color .2s; }
+.qa-composer { position: relative; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; transition: box-shadow .2s, border-color .2s; }
 .qa-composer:focus-within { border-color: var(--color-primary); box-shadow: var(--focus-ring); }
-.qa-composer textarea { display: block; width: 100%; min-height: 128px; max-height: 300px; border: 0; border-radius: 2px; background: transparent; padding: 24px 24px 12px; font: 400 var(--text-lg)/1.8 var(--font-body); color: var(--color-foreground); box-shadow: none; outline: none; }
+.qa-composer textarea { display: block; width: 100%; min-height: 128px; max-height: 300px; border: 0; border-radius: var(--radius-lg); background: transparent; padding: 24px 24px 12px; font: 400 var(--text-lg)/1.8 var(--font-body); color: var(--color-foreground); box-shadow: none; outline: none; }
 .qa-composer textarea::placeholder { color: var(--color-foreground-muted); }
-.qa-attach { width: 32px; height: 32px; }
+.qa-attach { width: 40px; height: 40px; }
 .qa-composer-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; gap: 12px; }
 .qa-attach, .qa-quiet-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; background: transparent; font: var(--weight-medium) var(--text-sm) var(--font-body); color: var(--color-foreground-muted); padding: 8px; cursor: pointer; border-radius: var(--radius-sm); }
 .qa-attach:hover, .qa-quiet-button:hover { color: var(--color-primary); background: var(--color-muted); }
-.qa-send { display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 11px; background: var(--color-primary); color: var(--color-on-primary); cursor: pointer; transition: background .2s; }
+.qa-send { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 11px; background: var(--color-primary); color: var(--color-on-primary); cursor: pointer; transition: background .2s; }
 .qa-send:disabled { background: var(--color-muted); color: var(--color-foreground-faint); cursor: default; }
 .qa-send:not(:disabled):hover { background: var(--color-secondary); }
 .qa-composer.is-dragging { border-color: var(--color-primary); }
@@ -39,7 +38,7 @@
 .qa-answer-brand { display: flex; align-items: center; gap: 8px; color: var(--color-primary); font: var(--weight-semibold) var(--text-md) var(--font-body); margin-bottom: 12px; }
 .qa-answer-brand img { width: 24px; height: 24px; }
 .qa-answer-kind { color: var(--color-foreground-faint); font-size: var(--text-xs); font-weight: 400; border-left: 1px solid var(--color-hairline); padding-left: 10px; margin-left: 3px; }
-.qa-prose { font: var(--text-base)/1.7 var(--font-body); overflow-wrap: anywhere; }
+.qa-prose { font: 400 var(--text-lg)/1.75 var(--font-body); overflow-wrap: anywhere; }
 .qa-prose > :first-child { margin-top: 0; }
 .qa-prose h1, .qa-prose h2, .qa-prose h3 { font: var(--weight-semibold) 1.0625rem/1.6 var(--font-body); margin: 18px 0 8px; }
 .qa-prose p { margin: 0 0 10px; }
@@ -67,7 +66,7 @@
 .qa-source-row:hover { background: var(--color-muted); }
 .qa-source-number { flex: 0 0 22px; color: var(--color-foreground-faint); font-size: var(--text-xs); text-align: center; }
 .qa-source-row-content { flex: 1; min-width: 0; }
-.qa-source-row strong { font-size: var(--text-xs); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.qa-source-row strong { font-size: var(--text-md); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 .qa-source-row small { display: block; margin-top: 3px; font-size: var(--text-xs); color: var(--color-foreground-faint); }
 .qa-source-row > svg { flex: 0 0 auto; color: var(--color-foreground-faint); }
 .qa-material-source { padding: 10px 8px; font-size: var(--text-xs); }
@@ -91,7 +90,7 @@
 .qa-citation-passage { padding: 14px 0 14px 14px; border-left: 2px solid var(--color-hairline); margin-top: 22px; }
 .qa-citation-passage[data-selected="true"] { border-left-color: var(--color-primary); }
 .qa-citation-passage h4 { margin: 0 0 10px; font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-foreground-muted); }
-.qa-citation-passage blockquote { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); line-height: 1.95; }
+.qa-citation-passage blockquote { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-md); line-height: 1.8; }
 .qa-citation-more { margin-top: 18px; font-size: var(--text-xs); color: var(--color-foreground-muted); }
 .qa-citation-more summary { cursor: pointer; }
 .qa-citation-more blockquote { color: var(--color-foreground-secondary); }
@@ -133,12 +132,12 @@
 @media (max-width: 720px) {
   .app-center--qa .app-mobile-nav { flex-direction: row; align-items: center; gap: 12px; }
   .app-center--qa .app-mobile-brand { font-size: var(--text-lg); }
-  .qa-page { padding: 48px 4px 32px; }
+  .qa-page { padding: 32px 4px; }
   .qa-page--conversation { padding-top: 24px; }
   .qa-welcome h1 { font-size: var(--text-3xl); }
   .qa-composer textarea { padding: 16px; font-size: 1rem; }
   .qa-user-message { margin-left: 20px; }
-  .qa-prose { font-size: var(--text-md); }
+  .qa-prose { font-size: var(--text-lg); }
   .qa-answer-footer { flex-wrap: wrap; }
   .qa-thread-heading h1 { font-size: var(--text-lg); }
   }
@@ -169,7 +168,7 @@
 .qa-page--conversation .qa-composer-wrap { margin-top: 16px; }
 .qa-page--conversation .qa-composer textarea { min-height: 44px; padding: 12px 16px 2px; }
 .qa-page--conversation .qa-composer-toolbar { padding: 6px 10px; }
-.qa-page--conversation .qa-send { width: 32px; height: 32px; border-radius: var(--radius-md); }
+.qa-page--conversation .qa-send { width: 40px; height: 40px; border-radius: var(--radius-md); }
 .qa-incomplete-draft { margin-block: 10px; color: var(--color-foreground-muted); }
 .qa-incomplete-draft summary { cursor: pointer; font-size: var(--text-sm); }
 .qa-incomplete-draft pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; }
@@ -187,3 +186,13 @@
 .qa-onboarding__steps button { display: inline-flex; align-items: center; gap: 2px; align-self: center; padding: 6px 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-primary); font: var(--weight-medium) var(--text-sm) var(--font-body); cursor: pointer; white-space: nowrap; }
 .qa-onboarding__steps button:hover { background: var(--tint-navy-bg-active); }
 .qa-onboarding__foot { margin: 16px 0 0; color: var(--color-foreground-faint); font-size: var(--text-xs); line-height: 1.6; }
+
+.qa-history-entry { display:flex; justify-content:flex-end; margin-bottom:16px; }.qa-history-scrim { position:fixed; inset:0; z-index:69; border:0; background:rgba(15,23,42,.2); }
+.qa-history-drawer { position:fixed; z-index:70; inset:0 0 0 auto; width:min(400px,92vw); padding:24px; overflow-y:auto; background:var(--color-surface); box-shadow:var(--shadow-lg); }
+.qa-history-drawer header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }.qa-history-drawer h2 { font-size:20px; }
+.qa-history-row { display:block; width:100%; text-align:left; padding:16px 10px; min-height:44px; border:0; border-radius:8px; background:transparent; color:var(--color-foreground); line-height:1.6; }
+.qa-history-row:hover,.qa-history-row[aria-current] { background:var(--tint-navy-bg-active); }.qa-history-row small { display:block; margin-top:6px; color:var(--color-foreground-muted); }.qa-history-empty { color:var(--color-foreground-muted); }
+
+.qa-history-drawer { margin:0 0 0 auto; max-height:100dvh; height:100dvh; max-width:none; border:0; color:var(--color-foreground); }.qa-history-drawer::backdrop { background:rgba(15,23,42,.2); }
+
+.qa-history-drawer[open] { animation:qa-history-in 180ms cubic-bezier(.22,1,.36,1); }@keyframes qa-history-in { from { transform:translateX(24px); opacity:.6; } to { transform:translateX(0); opacity:1; } }@media(prefers-reduced-motion:reduce) { .qa-history-drawer[open] { animation:none; } }

@@ -516,7 +516,7 @@ def test_batch_reads_preserve_successes_and_account_for_each_request(max_reads: 
 
     def read(source_id, article_no, chunk_id, facts, offset):
         calls.append(article_no)
-        return EvidenceRead(hits=[_hit(f"read-{len(calls)}", source_id)], next_offset=5)
+        return EvidenceRead(hits=[_hit("read-1" if article_no == "第一条" else "read-2", source_id)], next_offset=5)
 
     state = run_agent(
         AgentState(goal="审查", evidence=[_hit("found", "s1")], max_reads=max_reads),
@@ -527,14 +527,14 @@ def test_batch_reads_preserve_successes_and_account_for_each_request(max_reads: 
     results = state.steps[0].observation["read_results"]
     assert results[0]["chunk_ids"] == ["read-1"]
     assert results[0]["next_offset"] == 5
-    assert "已经读过" in results[1]["error"]
+    assert "重复读取位置" in results[1]["error"]
     assert "error" in results[2]
     if max_reads == 2:
         assert "只能读取本次已检索到的来源" in results[2]["error"]
         assert results[3]["chunk_ids"] == ["read-2"]
     else:
         assert "预算已用尽" in results[3]["error"]
-    assert calls == ["第一条", "第二条"][:max_reads]
+    assert sorted(calls) == sorted(["第一条", "第二条"][:max_reads])
     assert state.reads == len(state.read_history) == max_reads
     assert {hit.chunk_id for hit in state.evidence} == {"found", *[f"read-{i + 1}" for i in range(max_reads)]}
     assert state.status == "completed"
@@ -588,7 +588,7 @@ def test_browsing_a_source_does_not_add_preview_to_claim_evidence() -> None:
     assert state.reads == 1
 
 
-def test_read_evidence_returns_the_whole_clause_or_the_paragraphs_around_a_chunk() -> None:
+def test_read_evidence_returns_a_whole_clause_or_one_exact_chunk() -> None:
     chunks = [
         _chunk("c1", "第一条", "第一条 为了规范个人信息出境活动。", index=0, prev=None, next_id="c2"),
         _chunk("c2", "第三条", "第三条 个人信息处理者向境外提供个人信息，应当具备下列条件之一。", index=1, prev="c1", next_id="c3"),
@@ -601,9 +601,9 @@ def test_read_evidence_returns_the_whole_clause_or_the_paragraphs_around_a_chunk
     by_chunk = tools.read_evidence("s1", None, "c1", ReviewFacts())
 
     assert [hit.chunk_id for hit in by_article.hits] == ["c2", "c3"]
-    assert [hit.chunk_id for hit in by_chunk.hits] == ["c1", "c2", "c3"]
+    assert [hit.chunk_id for hit in by_chunk.hits] == ["c1"]
     assert by_chunk.previous_chunk_id is None
-    assert by_chunk.following_chunk_id is None
+    assert by_chunk.following_chunk_id == "c2"
     assert all(hit.can_cite_clause for hit in by_article.hits)
     assert by_article.next_offset is None
 
@@ -620,10 +620,11 @@ def test_chunk_read_points_to_the_next_unread_neighbor() -> None:
     tools = _tools_with(chunks)
 
     first = tools.read_evidence("s1", None, "c2", ReviewFacts())
-    assert [hit.chunk_id for hit in first.hits] == [f"c{index}" for index in range(1, 6)]
-    assert first.following_chunk_id == "c6"
+    assert [hit.chunk_id for hit in first.hits] == ["c2"]
+    assert first.previous_chunk_id == "c1"
+    assert first.following_chunk_id == "c3"
     second = tools.read_evidence("s1", None, first.following_chunk_id, ReviewFacts())
-    assert [hit.chunk_id for hit in second.hits] == ["c5", "c6", "c7", "c8", "c9"]
+    assert [hit.chunk_id for hit in second.hits] == ["c3"]
 
 
 def test_read_evidence_reports_a_clause_longer_than_one_read_as_unfinished() -> None:
@@ -864,9 +865,9 @@ def test_omitted_keyword_source_is_discoverable_but_requires_reading_before_cita
         web_search=lambda *_args: [], finalize=lambda *_args: {"ok": True},
         checkpoint=lambda current: snapshots.append(current.model_copy(deep=True)),
     )
-    candidates = state.steps[0].observation["keyword_candidates"]
+    candidates = state.steps[0].observation["candidate_navigation"]
     assert len(candidates) == 1
-    assert candidates[0]["source_id"] == "other" and candidates[0]["locations"][0]["chunk_id"] == "target"
+    assert candidates[0]["source_id"] == "other" and candidates[0]["locations"][0]["article_no"] == "第二条"
     assert state.queries[0].query_id in state.evidence[0].matched_query_ids
     searched = next(s for s in snapshots if len(s.steps) == 1)
     assert {h.source_id for h in searched.evidence} == {"s1"}
@@ -877,7 +878,7 @@ def test_omitted_keyword_source_is_discoverable_but_requires_reading_before_cita
     assert "future" not in {h.chunk_id for h in state.evidence}
 
 
-def test_keyword_navigation_keeps_omitted_articles_in_an_already_returned_source():
+def test_search_navigation_keeps_omitted_articles_in_an_already_returned_source():
     from law_agent.review.retrieval.neighbors import hit_from_chunk
 
     primary, target, generic1, generic2 = [
@@ -1046,7 +1047,7 @@ def _tools_with(chunks: list[Chunk]) -> ComplianceAgentTools:
     tools._chunks_by_id = {chunk.chunk_id: chunk for chunk in chunks}
     tools._sources_with_articles = {chunk.source_id for chunk in chunks if chunk.article_no}
     tools._candidate_hits = {}
-    tools._keyword_navigation = []
+    tools._search_navigation = []
     return tools
 
 

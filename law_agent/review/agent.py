@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from dataclasses import replace
 from typing import Any, Literal
 
@@ -50,7 +52,7 @@ class EvidenceReadRequest(StrictModel):
     source_title: str | None = Field(default=None, min_length=1, max_length=200,
                                      description="明确要核对的法规正式名称，可不经搜索直接按article_no读取；不使用简称或主题词")
     article_no: str | None = Field(default=None, max_length=40, description="读取条文；与其他选择器互斥")
-    chunk_id: str | None = Field(default=None, max_length=200, description="读取片段及相邻正文；不使用offset")
+    chunk_id: str | None = Field(default=None, max_length=200, description="只读取指定片段；不使用offset")
     node_id: str | None = Field(default=None, min_length=1, max_length=200, description="精读已发现的目录节点")
     parent_node_id: str | None = Field(default=None, min_length=1, max_length=200, description="展开已发现节点的子目录")
     offset: int = Field(default=0, ge=0, description="目录用条目偏移，条文或章节用文本块偏移；续页使用返回的next_read_request")
@@ -221,12 +223,12 @@ SYSTEM_PROMPT = f"""你是 CrossComply 企业数据合规审查 Agent。围绕 s
 INVESTIGATION_TOOLS = {
     "search_evidence": ToolSpec(("queries", "max_chunks"),
         "检索受控法律知识库中的法规、官方解释及相关资料。用于发现适用规则、条件、例外和规范衔接依据。"
-        "返回实际取得的原文及来源资格；来源的outline_read_request可直接用于read_evidence浏览同一文件目录，keyword_candidates仅为未读正文的导航线索。", ("queries",)),
+        "返回实际取得的原文及来源资格；来源的outline_read_request可直接用于read_evidence浏览同一文件目录，candidate_navigation仅为未读候选，预览不可引用；需要时批量读取原文。", ("queries",)),
     "read_evidence": ToolSpec(("read_requests",),
         "精确读取法律原文：已知正式法名和条号时可直接传source_title与article_no，无需先搜索；"
-        "也可用已发现的source_id读取条文、章节或相邻原文。用于核对完整适用条件、例外和引述内容。"
+        "也可用已发现的source_id读取条文、章节或指定片段。用于核对完整适用条件、例外和引述内容。"
         "仅传source_id返回根目录；返回字段read_mode标识outline导航预览或text正文及引用资格，不是请求参数。"
-        "按next_read_request续页，null只表示当前所选范围结束；chunk_id模式按following_chunk_id继续。", ("read_requests",)),
+        "将已确定的独立位置合并为一批，最多4处；按next_read_request续页，null只表示当前所选范围结束；chunk_id模式按following_chunk_id继续。", ("read_requests",)),
     "search_web": ToolSpec(("queries", "max_results"),
         "检索公开网络中的法规更新、官方解释、监管政策、地方及行业规则和实施口径。"
         "用于调查现行版本、主管机关说明及影响本案的规则衔接，作为受控库调查的补充。"
@@ -346,7 +348,7 @@ def read_material_page(material: str, offset: int) -> dict[str, Any]:
             "next_read_request": {"offset": end} if truncated else None}
 
 
-def _read_evidence_request(
+def _check_evidence_read(
     state: AgentState, request: EvidenceReadRequest, *,
     read_evidence: Callable[..., EvidenceRead],
     checkpoint: Callable[[AgentState], None],
@@ -403,24 +405,30 @@ def _read_evidence_request(
     known_sources.update(
         candidate["source_id"]
         for step in state.steps if step.action == "search_evidence"
-        for candidate in step.observation.get("keyword_candidates", [])
+        for candidate in step.observation.get("candidate_navigation", [])
     )
     if request.source_id is not None and request.source_id not in known_sources:
         raise ValueError(
             "只能读取本次已检索到的来源；请先用 search_evidence 找到该来源"
         )
-    state.reads += 1
-    checkpoint(state)
+    return None
+
+
+def _fetch_evidence_read(request, read_evidence, facts):
     node_selectors = {
         key: value for key, value in {
             "node_id": request.node_id, "parent_node_id": request.parent_node_id,
             "source_title": request.source_title,
         }.items() if value is not None
     }
-    read = read_evidence(
+    return read_evidence(
         request.source_id, request.article_no, request.chunk_id,
-        state.facts, request.offset, **node_selectors,
+        facts, request.offset, **node_selectors,
     )
+
+
+def _merge_evidence_read(state, request, read, read_index):
+    read_request = request.model_dump(mode="json")
     hits = read.hits
     source_id = request.source_id or hits[0].source_id
     resolved_request = {**read_request, "source_id": source_id, "source_title": None}
@@ -431,7 +439,7 @@ def _read_evidence_request(
         "read_request": read_request,
         "resolved_source_id": source_id,
         "chunk_ids": [hit.chunk_id for hit in hits],
-        "read_index": state.reads,
+        "read_index": read_index,
         "read_mode": read.mode,
         "citable_count": sum(hit.can_cite_clause for hit in hits),
         "previous_chunk_id": read.previous_chunk_id,
@@ -468,6 +476,52 @@ def _read_evidence_request(
     return observation
 
 
+def _read_evidence_request(state, request, *, read_evidence, checkpoint):
+    error = _check_evidence_read(state, request, read_evidence=read_evidence, checkpoint=checkpoint)
+    if error is not None:
+        return error
+    state.reads += 1
+    read_index = state.reads
+    checkpoint(state)
+    read = _fetch_evidence_read(request, read_evidence, state.facts)
+    return _merge_evidence_read(state, request, read, read_index)
+
+
+def _read_evidence_batch(state, requests, *, read_evidence, checkpoint):
+    results = [None] * len(requests)
+    scheduled = []
+    seen = set()
+    for index, request in enumerate(requests):
+        try:
+            key = request.model_dump_json()
+            if key in seen:
+                raise ValueError("本批包含重复读取位置；已保留第一次请求")
+            seen.add(key)
+            error = _check_evidence_read(state, request, read_evidence=read_evidence, checkpoint=checkpoint)
+            if error is not None:
+                results[index] = error
+                continue
+            state.reads += 1
+            scheduled.append((index, request, state.reads))
+        except (ValueError, OSError, RuntimeError) as exc:
+            results[index] = {"read_request": request.model_dump(mode="json"),
+                              "error": str(exc)[:2000], "type": type(exc).__name__}
+    if scheduled:
+        checkpoint(state)
+        with ThreadPoolExecutor(max_workers=min(4, len(scheduled))) as executor:
+            pending = [(index, request, read_index,
+                        executor.submit(copy_context().run, _fetch_evidence_read, request, read_evidence, state.facts))
+                       for index, request, read_index in scheduled]
+            for index, request, read_index, future in pending:
+                try:
+                    results[index] = _merge_evidence_read(state, request, future.result(), read_index)
+                except (ValueError, OSError, RuntimeError) as exc:
+                    results[index] = {"read_request": request.model_dump(mode="json"),
+                                      "error": str(exc)[:2000], "type": type(exc).__name__}
+                checkpoint(state)
+    return results
+
+
 def investigate(state, decision, *, search, search_navigation, read_evidence, web_search, checkpoint):
     """Execute a bounded investigation action shared by review and Q&A."""
     if decision.action == "search_evidence":
@@ -490,7 +544,7 @@ def investigate(state, decision, *, search, search_navigation, read_evidence, we
                            hit.source_id: hit.source_has_articles for hit in hits
                        }}
         if search_navigation is not None:
-            observation["keyword_candidates"] = search_navigation()
+            observation["candidate_navigation"] = search_navigation()
         observation["query_results"] = [
             {"query_id": query.query_id, "text": query.text,
              "chunk_ids": [hit.chunk_id for hit in hits if query.query_id in hit.matched_query_ids]}
@@ -499,18 +553,9 @@ def investigate(state, decision, *, search, search_navigation, read_evidence, we
     elif decision.action == "read_evidence":
         if read_evidence is None:
             raise ValueError("本次运行未启用按来源读取证据")
-        results = []
-        for request in decision.read_requests:
-            try:
-                result = _read_evidence_request(
-                    state, request, read_evidence=read_evidence, checkpoint=checkpoint,
-                )
-            except (ValueError, OSError, RuntimeError) as exc:
-                result = {"read_request": request.model_dump(mode="json"),
-                          "error": str(exc)[:2000], "type": type(exc).__name__}
-            results.append(result)
-            checkpoint(state)
-        observation = {"read_results": results}
+        observation = {"read_results": _read_evidence_batch(
+            state, decision.read_requests, read_evidence=read_evidence, checkpoint=checkpoint,
+        )}
     elif decision.action == "search_web":
         if remaining_budget(state)["web_searches"] == 0:
             raise ValueError("Web 搜索预算已用尽；可使用其他尚有预算的工具，或基于现有资料交付并说明缺口")

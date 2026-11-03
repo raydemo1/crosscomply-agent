@@ -356,6 +356,13 @@ def test_remediation_feedback_and_dashboard_are_persisted(app) -> None:
         body = submission.json()
         assert body["submission"]["note"] == "已补充并归档供应商合同。"
         assert body["assessment"]["submission_id"] == body["submission"]["id"]
+        own_review = client.post(
+            f"/api/remediation-submissions/{body['submission']['id']}/review",
+            json={"decision": "accepted"},
+        )
+        assert own_review.status_code == 403
+        assert "本人提交" in own_review.json()["detail"]
+        _login(client, "admin@crosscomply.local")
         reviewed = client.post(
             f"/api/remediation-submissions/{body['submission']['id']}/review",
             json={"decision": "accepted"},

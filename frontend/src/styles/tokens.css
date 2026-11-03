@@ -4,39 +4,30 @@
  * 圆角、阴影、层级与内容宽度。组件样式只允许引用这里的变量。
  * ============================================================ */
 
-/* 自托管思源字体（unicode-range 分包，按需加载）：
-   宋体用于标题与法条正文，黑体用于界面正文，跨设备观感一致 */
-@import '@fontsource/noto-serif-sc/400.css';
-@import '@fontsource/noto-serif-sc/500.css';
-@import '@fontsource/noto-serif-sc/600.css';
+/* 自托管思源黑体，unicode-range 分包按需加载。 */
 @import '@fontsource/noto-sans-sc/400.css';
 @import '@fontsource/noto-sans-sc/500.css';
 @import '@fontsource/noto-sans-sc/600.css';
 
 :root {
-  /* ---- 品牌：权威藏青 + 信任金（金色仅用于主行动） ---- */
-  --color-primary: #1e3a8a;
-  --color-secondary: #1e40af;    /* 藏青 hover / 链接加深 */
+  /* ---- 品牌与操作 ---- */
+  --color-primary: #2563eb;
+  --color-secondary: #1d4ed8;
   --color-on-primary: #ffffff;
-  --color-accent: #b45309;       /* 金 — 唯一主 CTA 色 */
-  --color-accent-strong: #92400e;
+  --color-accent: #2563eb;
+  --color-accent-strong: #1d4ed8;
   --color-on-accent: #ffffff;
 
   /* ---- 表面与文字（slate 灰阶，语义命名） ---- */
-  --color-background: #f3f5f3;
+  --color-background: #f7f9fc;
   --color-surface: #ffffff;
-  --color-muted: #edf1ef;
-  --color-foreground: #172c3e;
-  --color-foreground-secondary: #435361;
-  --color-foreground-muted: #6b7983;
-  --color-foreground-faint: #8c99a1;
-  --color-border: #d3dcdd;
-  --color-hairline: #e2e8e6;
-  --color-sidebar: #172d47;
-  --color-sidebar-foreground: #edf1f5;
-  --color-sidebar-muted: #a7b5c5;
-  --color-sidebar-accent: #d5b882;
-  --shadow-paper: 0 1px 0 rgba(20, 40, 58, 0.04), 0 14px 40px rgba(20, 40, 58, 0.035);
+  --color-muted: #eef2f8;
+  --color-foreground: #182334;
+  --color-foreground-secondary: #4b5b70;
+  --color-foreground-muted: #6b778a;
+  --color-foreground-faint: #8693a5;
+  --color-border: #d9e0ea;
+  --color-hairline: #e5ebf3;
 
   /* ---- 语义色三元组（文字 / 底 / 边框同源） ---- */
   --color-success: #047857;
@@ -52,18 +43,18 @@
   --color-danger-bg: rgba(185, 28, 28, 0.06);
   --color-danger-border: rgba(185, 28, 28, 0.35);
 
-  --color-info: #1e3a8a;
-  --color-info-bg: rgba(30, 58, 138, 0.05);
-  --color-info-border: rgba(30, 58, 138, 0.22);
+  --color-info: #2563eb;
+  --color-info-bg: rgba(37, 99, 235, 0.05);
+  --color-info-border: rgba(37, 99, 235, 0.22);
 
   --color-neutral: #64748b;
   --color-neutral-bg: rgba(100, 116, 139, 0.08);
   --color-neutral-border: rgba(100, 116, 139, 0.35);
 
-  /* 藏青 tint：选中态与强调底，统一两档 */
-  --tint-navy-bg: rgba(30, 58, 138, 0.05);
-  --tint-navy-bg-active: rgba(30, 58, 138, 0.09);
-  --tint-navy-border: rgba(30, 58, 138, 0.22);
+  /* 选中态与强调底 */
+  --tint-navy-bg: rgba(37, 99, 235, 0.05);
+  --tint-navy-bg-active: rgba(37, 99, 235, 0.09);
+  --tint-navy-border: rgba(37, 99, 235, 0.22);
 
   /* 风险等级 */
   --color-risk-high: #b91c1c;
@@ -72,8 +63,8 @@
   --color-risk-insufficient: #64748b;
 
   /* ---- 字体：系统栈，无远程依赖 ---- */
-  --font-heading: 'Noto Serif SC', Georgia, 'Songti SC', 'Source Han Serif SC', SimSun, serif;
-  --font-legal: 'Noto Serif SC', 'Songti SC', 'Source Han Serif SC', SimSun, serif;
+  --font-heading: var(--font-body);
+  --font-legal: var(--font-body);
   --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'SFMono-Regular', 'Cascadia Code', Consolas, ui-monospace, monospace;
 
@@ -105,9 +96,9 @@
   --space-2xl: 3rem;
 
   /* ---- 圆角 ---- */
-  --radius-sm: 3px;
-  --radius-md: 5px;
-  --radius-lg: 8px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-pill: 9999px;
 
   /* ---- 阴影（calm, auditable — no glow） ---- */
@@ -116,8 +107,8 @@
   --shadow-lg: 0 6px 16px rgba(15, 23, 42, 0.09);
 
   /* ---- 焦点 ---- */
-  --color-ring: #1e3a8a;
-  --focus-ring: 0 0 0 3px rgba(30, 58, 138, 0.14);
+  --color-ring: #2563eb;
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.15);
 
   /* ---- 动效 ---- */
   --transition-fast: 150ms ease;
@@ -140,15 +131,15 @@
 /* ============================================================
  * 深色主题
  * 跟随系统（prefers-color-scheme）或手动 [data-theme='dark']。
- * 藏青/金品牌色在深色下提亮一档以保持对比度。
+ * 操作色在深色下提亮以保持对比度。
  * ============================================================ */
 
 [data-theme='dark'] {
-  --color-primary: #5f83e0;
-  --color-secondary: #7d9ded;
-  --color-on-primary: #0d1424;
-  --color-accent: #d9a45b;
-  --color-accent-strong: #e5b56e;
+  --color-primary: #82a8ff;
+  --color-secondary: #a7c1ff;
+  --color-on-primary: #10213f;
+  --color-accent: #82a8ff;
+  --color-accent-strong: #a7c1ff;
   --color-on-accent: #1a1408;
 
   --color-background: #0d1424;
@@ -197,11 +188,11 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-primary: #5f83e0;
-    --color-secondary: #7d9ded;
-    --color-on-primary: #0d1424;
-    --color-accent: #d9a45b;
-    --color-accent-strong: #e5b56e;
+    --color-primary: #82a8ff;
+    --color-secondary: #a7c1ff;
+    --color-on-primary: #10213f;
+    --color-accent: #82a8ff;
+    --color-accent-strong: #a7c1ff;
     --color-on-accent: #1a1408;
 
     --color-background: #0d1424;
