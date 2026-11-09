@@ -24,17 +24,10 @@ export default function CaseAssistant({ saved, viewerRole, canManageActions, chi
   const documentActions = useRef<{ guard: () => boolean; annotate: (selection: MatterSelection) => void } | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
-  const evidenceTrigger = useRef<HTMLElement | null>(null);
-  const evidenceCitation = useRef<string | null>(null);
-  const restoreEvidenceFocus = useRef(false);
   const task = saved.reviewTask;
   const available = Boolean(task && saved.materialSnapshot?.id === task.material_snapshot_id && saved.intakeSnapshot?.id === task.intake_snapshot_id);
-  const activate = useCallback((panel: AuxiliaryPanel, citationRef?: string) => {
+  const activate = useCallback((panel: AuxiliaryPanel) => {
     if (activeRef.current === 'document' && panel !== 'document' && documentActions.current?.guard() === false) return false;
-    if (panel === 'evidence' && activeRef.current !== panel && document.activeElement instanceof HTMLElement) {
-      evidenceTrigger.current = document.activeElement;
-      evidenceCitation.current = citationRef ?? document.activeElement.closest('[data-citation-ref]')?.getAttribute('data-citation-ref') ?? null;
-    }
     activeRef.current = panel;
     setActive(panel);
     setPassage(null);
@@ -42,20 +35,10 @@ export default function CaseAssistant({ saved, viewerRole, canManageActions, chi
   }, []);
   const close = useCallback((panel: AuxiliaryPanel) => {
     if (activeRef.current !== panel) return;
-    if (panel === 'evidence') restoreEvidenceFocus.current = true;
-    if (panel === 'evidence' && document.activeElement instanceof HTMLElement && document.activeElement.closest('#evidence-sidebar')) document.activeElement.blur();
     activeRef.current = null;
     setActive(null);
     if (panel === 'conversation') requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
   }, []);
-  useLayoutEffect(() => {
-    if (active !== null || !restoreEvidenceFocus.current) return;
-    restoreEvidenceFocus.current = false;
-    const trigger = evidenceCitation.current
-      ? hostRef.current?.querySelector<HTMLElement>(`.cite-marker[data-citation-ref="${CSS.escape(evidenceCitation.current)}"]`)
-      : evidenceTrigger.current;
-    if (trigger?.isConnected) trigger.focus({ preventScroll: true });
-  }, [active]);
   const askAbout = useCallback((next?: MatterSelection) => {
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (!available || !activate('conversation')) return;

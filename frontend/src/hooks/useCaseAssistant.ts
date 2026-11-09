@@ -1,12 +1,12 @@
 import { createContext, useContext } from 'react';
 import type { MatterSelection } from '../types/api';
 
-export type AuxiliaryPanel = 'conversation' | 'document' | 'evidence';
+export type AuxiliaryPanel = 'conversation' | 'document';
 export interface CaseAssistantState {
   active: AuxiliaryPanel | null;
   selection: MatterSelection | undefined;
   setSelection: (selection: MatterSelection | undefined) => void;
-  activate: (panel: AuxiliaryPanel, citationRef?: string) => boolean;
+  activate: (panel: AuxiliaryPanel) => boolean;
   close: (panel: AuxiliaryPanel) => void;
   askAbout: (selection?: MatterSelection) => void;
   registerDocument: (guard: () => boolean, annotate: (selection: MatterSelection) => void) => () => void;

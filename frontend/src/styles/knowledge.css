@@ -2,10 +2,10 @@
  * 用户管理（治理台）
  * ============================================================ */
 .governance-main { width: min(var(--content-wide), 100%); margin-inline: auto; }
-.governance-intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.governance-intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--color-border); }
 .governance-intro__title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px 20px; }
-.governance-intro__title > span, .knowledge-intro__count { color: var(--color-foreground-muted); font-size: var(--text-md); }
-.user-admin { padding: 8px 28px; border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.governance-intro__title > span, .knowledge-intro__count { color: var(--color-foreground-muted); font-size: var(--text-md); font-variant-numeric: tabular-nums; }
+.user-admin { padding: 8px 28px; border-radius: var(--radius-lg); box-shadow: none; }
 .user-admin__create { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: end; padding: 24px 0; border-bottom: 1px solid var(--color-border); }
 .user-admin__create .btn-primary { justify-self: start; }
 .user-admin__message { margin: 12px 0; padding: 10px 12px; border-left: 2px solid var(--color-primary); background: var(--tint-navy-bg); color: var(--color-primary); font-size: var(--text-md); }
@@ -59,6 +59,7 @@
 .knowledge-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; margin-top: 16px; padding: 0; }
 .knowledge-search { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 40px; padding-left: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-foreground-muted); }
 .knowledge-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--color-foreground); font: inherit; font-size: var(--text-md); }
+.knowledge-search:focus-within { border-color: var(--color-primary); box-shadow: var(--focus-ring); }
 .knowledge-search input::placeholder { color: var(--color-foreground-faint); }
 .knowledge-toolbar select { min-height: 40px; padding: 6px 30px 6px 11px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-foreground); font: inherit; font-size: var(--text-md); }
 .knowledge-toolbar .btn-primary, .knowledge-toolbar .btn-ghost { min-height: 40px; padding: 0 14px; font-size: var(--text-md); }
@@ -69,7 +70,7 @@
 .knowledge-layout { display: grid; grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr); gap: 28px; align-items: start; margin-top: 16px; }
 .knowledge-list, .knowledge-detail { min-width: 0; padding: 0; overflow: hidden; }
 .knowledge-list.card { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.knowledge-detail.card { border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.knowledge-detail.card { border-radius: var(--radius-lg); box-shadow: none; }
 .knowledge-list__header, .knowledge-detail__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 26px 28px 20px; border-bottom: 1px solid var(--color-hairline); }
 .knowledge-list__header h2, .knowledge-detail__header h2 { margin: 2px 0 0; color: var(--color-foreground); font-size: 1.25rem; font-weight: 600; line-height: 1.6; }
 .knowledge-bulkbar { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-bottom: 1px solid var(--color-muted); background: var(--color-background); color: var(--color-foreground-muted); font-size: 0.8125rem; }
@@ -81,15 +82,15 @@
 .knowledge-danger-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .knowledge-danger-btn--solid { min-height: 40px; border-color: var(--color-danger-strong); background: var(--color-danger-strong); color: var(--color-surface); }
 .knowledge-source-list { display: flex; flex-direction: column; max-height: max(420px, calc(100svh - 310px)); overflow-y: auto; scrollbar-gutter: stable; }
-.knowledge-source-row { display: flex; align-items: center; gap: 12px; padding: 16px 10px; border-bottom: 1px solid var(--color-border); cursor: pointer; transition: background var(--transition-fast), box-shadow var(--transition-fast); }
-.knowledge-source-row:hover { background: var(--color-muted); }
+.knowledge-source-row { display: flex; align-items: center; gap: 12px; padding: 16px 10px; border-bottom: 1px solid var(--color-hairline); cursor: pointer; transition: background var(--transition-fast), box-shadow var(--transition-fast); }
+.knowledge-source-row:hover { background: var(--tint-navy-bg); }
 .knowledge-source-row.is-open { background: var(--color-surface); box-shadow: inset 2px 0 var(--color-accent); }
 .knowledge-source-row__body { min-width: 0; flex: 1; }
 .knowledge-source-row__title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .knowledge-source-row__title strong { color: var(--color-foreground); font-size: var(--text-base); font-weight: var(--weight-medium); line-height: 1.65; overflow-wrap: anywhere; }
 .knowledge-source-row__body p { margin-top: 5px; overflow: hidden; color: var(--color-foreground-muted); font-size: 0.8125rem; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
 .knowledge-source-row__arrow { flex: 0 0 auto; color: var(--color-foreground-faint); }
-.knowledge-status { flex: 0 0 auto; padding: 3px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-pill); color: var(--color-foreground-secondary); font-size: var(--text-xs); line-height: 1.2; white-space: nowrap; }
+.knowledge-status { flex: 0 0 auto; padding: 3px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-foreground-secondary); font-size: var(--text-xs); line-height: 1.2; white-space: nowrap; }
 .knowledge-status--legal { border-color: var(--tint-navy-border); background: var(--tint-navy-bg); color: var(--color-primary); }
 .knowledge-status--internal_policy { border-color: var(--tint-navy-border); background: var(--tint-navy-bg); color: var(--color-primary); }
 .knowledge-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 250px; padding: 28px; color: var(--color-foreground-muted); text-align: center; font-size: var(--text-sm); }

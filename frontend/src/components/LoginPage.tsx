@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, Eye, EyeOff, FileText, FolderOpen, GitBranch, Layers3, Link2, Scale } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import '../styles/login.css';
 import type { FormEvent } from 'react';
 
@@ -9,9 +9,9 @@ interface LoginPageProps {
 }
 
 const REPORT_VIEWS = [
-  { id: 'facts', label: '业务事实', icon: FolderOpen, heading: '原始材料', items: [{ label: '业务场景', value: '跨境客服系统' }, { label: '数据类型', value: '客户联系信息' }, { label: '处理方式', value: 'API 境外传输' }] },
-  { id: 'sources', label: '法律依据', icon: Scale, heading: '引用与溯源', items: [{ label: '法规文件', value: '数据出境法规' }, { label: '适用条款', value: '关联条款' }, { label: '原文定位', value: '材料段落' }] },
-  { id: 'questions', label: '待核实事项', icon: GitBranch, heading: '事实核实', items: [{ label: '事实缺口', value: '出境人数口径' }, { label: '补充材料', value: '业务材料附件' }, { label: '人工复核', value: '审核人确认' }] },
+  { id: 'facts', ordinal: '一', label: '业务事实', heading: '业务材料', items: [{ label: '业务场景', value: '跨境客服工单系统' }, { label: '涉及数据', value: '客户姓名、手机号' }, { label: '传输方式', value: 'API 调用境外服务器' }] },
+  { id: 'sources', ordinal: '二', label: '法律依据', heading: '引用条文', items: [{ label: '出境条件', value: '《个人信息保护法》第三十八条' }, { label: '告知同意', value: '《个人信息保护法》第三十九条' }, { label: '原文定位', value: '业务材料第 2 段' }] },
+  { id: 'questions', ordinal: '三', label: '待核实事项', heading: '事实缺口', items: [{ label: '出境规模', value: '年度出境人数（决定申报路径）' }, { label: '补充材料', value: '境外接收方合同' }, { label: '人工复核', value: '审核人确认后生效' }] },
 ] as const;
 
 export default function LoginPage({ onLogin, error }: LoginPageProps): JSX.Element {
@@ -60,23 +60,23 @@ export default function LoginPage({ onLogin, error }: LoginPageProps): JSX.Eleme
           <div className="login-showcase__copy">
             <h2 id="login-value">让合规判断<br />有据可依</h2>
           </div>
+          <div className="login-dossier">
+          <span className="login-dossier__sheet login-dossier__sheet--far" aria-hidden="true" />
+          <span className="login-dossier__sheet login-dossier__sheet--near" aria-hidden="true" />
           <div className="login-report">
-            <div className="login-report__heading"><span className="login-report__mark"><FileText size={19} /></span><span>合规审查报告</span><Layers3 className="login-report__layers" size={18} aria-hidden="true" /></div>
+            <div className="login-report__heading"><span>合规审查报告</span></div>
             <div className="login-report__workspace">
               <div className="login-report__flow" role="group" aria-label="审查报告内容">
-                {REPORT_VIEWS.map((view, index) => {
-                  const Icon = view.icon;
-                  return <button type="button" key={view.id} className={index === reportView ? 'is-active' : ''} aria-pressed={index === reportView} aria-controls="login-report-preview" onClick={() => setReportView(index)}><span className="login-report__node"><Icon size={22} aria-hidden="true" /></span><span>{view.label}</span></button>;
-                })}
+                {REPORT_VIEWS.map((view, index) => <button type="button" key={view.id} className={index === reportView ? 'is-active' : ''} aria-pressed={index === reportView} aria-controls="login-report-preview" onClick={() => setReportView(index)}><span className="login-report__ordinal" aria-hidden="true">{view.ordinal}、</span><span>{view.label}</span></button>)}
               </div>
               <div className="login-report__paper" id="login-report-preview" aria-live="polite">
                 <div className="login-report__paper-content" key={activeReport.id}>
-                  <div className="login-report__paper-heading"><FileText size={17} aria-hidden="true" /><span>{activeReport.heading}</span></div>
-                  <div className="login-report__entries">{activeReport.items.map((item) => <div className="login-report__entry" key={item.label}><span>{item.label}</span><span className="login-report__entry-value">{item.value}</span></div>)}</div>
-                  <div className="login-report__paper-footer"><Link2 size={14} aria-hidden="true" /><span>原文依据</span><ArrowRight size={14} aria-hidden="true" /></div>
+                  <div className="login-report__paper-heading"><span>{activeReport.heading}</span></div>
+                  <div className="login-report__entries">{activeReport.items.map((item) => <div className="login-report__entry" key={item.label}><span>{item.label}</span><span className="login-report__leader" aria-hidden="true" /><span className="login-report__entry-value">{item.value}</span></div>)}</div>
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </aside>

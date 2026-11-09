@@ -1,18 +1,19 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { createElement, type ComponentType } from 'react';
+import { createElement, Fragment } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer, type ViteDevServer } from 'vite';
 import type { ReviewResult } from '../types/api.ts';
 import type { SavedCase } from '../types/case.ts';
+import { partitionReportContent } from '../utils/reportContent.ts';
 
 let server: ViteDevServer;
-let ReportConclusion: ComponentType<{ result: ReviewResult; onCitationClick: () => void }>;
+let reportComponents: typeof import('./ReportConclusion.tsx');
 let buildHtmlReport: (saved: SavedCase) => string;
 let buildMarkdownReport: (saved: SavedCase) => string;
 before(async () => {
   server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
-  ReportConclusion = (await server.ssrLoadModule('/src/components/ReportConclusion.tsx')).default;
+  reportComponents = await server.ssrLoadModule('/src/components/ReportConclusion.tsx');
   ({ buildHtmlReport, buildMarkdownReport } = await server.ssrLoadModule('/src/utils/report.ts'));
 });
 after(async () => { await server?.close(); });
@@ -24,20 +25,27 @@ const result = {
   claims: [], recommended_actions: [], missing_information: [], legal_basis_gaps: [],
 } as unknown as ReviewResult;
 
+function renderReport(result: ReviewResult) {
+  const { body, conditions } = partitionReportContent(result.conclusion, result.risk_boundaries);
+  return renderToStaticMarkup(createElement(Fragment, null,
+    createElement(reportComponents.default, { result, conditions }),
+    createElement(reportComponents.ReportAnalysis, { body, onCitationClick: () => {} }),
+  ));
+}
+
 test('report hierarchy preserves conditions, highlights and accessible citations/tables', () => {
-  const html = renderToStaticMarkup(createElement(ReportConclusion, { result, onCitationClick: () => {} }));
-  assert.ok(html.indexOf('审查摘要') < html.indexOf('判断要点'));
+  const html = renderReport(result);
+  assert.ok(html.indexOf('审查摘要') < html.indexOf('结论适用前提与范围'));
+  assert.ok(html.indexOf('结论适用前提与范围') < html.indexOf('判断要点'));
   assert.ok(html.indexOf('判断要点') < html.indexOf('完整分析'));
-  assert.ok(html.indexOf('完整分析') < html.indexOf('结论适用前提与范围'));
-  assert.ok(html.indexOf('结论适用前提与范围') < html.indexOf('使用说明'));
   assert.match(html, /<strong>人数尚未确认，暂不能确定出境路径。<\/strong>/);
   assert.match(html, /class="cite-marker"/);
   assert.match(html, /role="region" aria-label="报告表格，可横向滚动" tabindex="0"/);
-  assert.doesNotMatch(html, /当前适用路径|<details/);
+  assert.doesNotMatch(html, /当前适用路径|使用说明|本报告不构成正式法律意见/);
 });
 
 test('empty optional sections stay absent and legacy prose remains readable', () => {
-  const html = renderToStaticMarkup(createElement(ReportConclusion, { result: { ...result, conclusion: '历史报告原文。', trigger_reasons: [], risk_boundaries: [] }, onCitationClick: () => {} }));
+  const html = renderReport({ ...result, conclusion: '历史报告原文。', trigger_reasons: [], risk_boundaries: [] });
   assert.match(html, /历史报告原文。/);
   assert.doesNotMatch(html, /判断要点|结论适用前提与范围|使用说明/);
 });

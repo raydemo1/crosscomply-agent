@@ -31,13 +31,19 @@ body {
   overflow-x: hidden;
 }
 
-/* 标题与界面正文共用字体，依字号和字重建立层级。 */
+/* 标题用宋体，像法规汇编的条文标题；界面正文保持黑体。 */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 600;
   color: var(--color-foreground);
-  line-height: 1.3;
-  letter-spacing: 0.005em;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  text-wrap: balance;
+}
+
+/* 表格与计数的数字等宽对齐 */
+table, time, .tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 h1 { font-size: 2.25rem; }
@@ -50,12 +56,19 @@ p { margin: 0; }
 a {
   color: var(--color-primary);
   text-decoration: none;
+  text-underline-offset: 0.22em;
+  text-decoration-thickness: 1px;
   transition: color var(--transition-fast);
 }
 a:hover { color: var(--color-secondary); }
 
 ::selection {
-  background: rgba(37, 99, 235, 0.15);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: inherit;
+}
+
+input, textarea {
+  caret-color: var(--color-accent);
 }
 
 code, kbd, samp {

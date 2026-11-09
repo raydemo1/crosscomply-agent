@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 import type { MatterSelection, MaterialEvidenceRef, ReviewAnnotationApi, ReviewIssue, ReviewMaterialApi } from '../types/api';
 import {
   decideReviewAnnotation, followupReviewAnnotation, getReviewMaterials,
@@ -22,6 +23,7 @@ interface DocumentReviewProps {
   caseId: string;
   reviewResultId: string;
   issues: ReviewIssue[];
+  fallbackMaterialText?: string;
   canManageActions: boolean;
   focusTarget?: { issue: ReviewIssue; target: MaterialEvidenceRef } | null;
   onFocusHandled?: () => void;
@@ -58,7 +60,7 @@ function orderMaterials(materials: ReviewMaterialApi[], issues: ReviewIssue[]): 
     || right.parsed_text.length - left.parsed_text.length);
 }
 
-export default function DocumentReview({ caseId, reviewResultId, issues, canManageActions, focusTarget, onFocusHandled, onOpenReportIssue, onDirtyChange }: DocumentReviewProps): JSX.Element {
+export default function DocumentReview({ caseId, reviewResultId, issues, fallbackMaterialText, canManageActions, focusTarget, onFocusHandled, onOpenReportIssue, onDirtyChange }: DocumentReviewProps): JSX.Element {
   const assistant = useCaseAssistant();
   const [materials, setMaterials] = useState<ReviewMaterialApi[]>([]);
   const [annotations, setAnnotations] = useState<ReviewAnnotationApi[]>([]);
@@ -78,6 +80,7 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
   const [locateNotice, setLocateNotice] = useState<string | null>(null);
   const paperRef = useRef<HTMLDivElement>(null);
   const detailRef = useRef<HTMLDivElement>(null);
+  const annotationPanelRef = useRef<HTMLElement>(null);
   const locatingTimer = useRef<number | null>(null);
   const noticeTimer = useRef<number | null>(null);
   const load = async (): Promise<void> => {
@@ -141,6 +144,7 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
       const marks = paperRef.current?.querySelectorAll<HTMLElement>('mark[data-review-items]');
       const mark = Array.from(marks ?? []).find((node) => node.dataset.reviewItems?.split('|').includes(pendingLocate));
       if (mark) {
+        mark.focus({ preventScroll: true });
         mark.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
         setPendingLocate(null);
         return;
@@ -218,7 +222,12 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
   };
 
   useEffect(() => {
-    if (!focusTarget || !materials.some((item) => item.id === focusTarget.target.material_version_id)) return;
+    if (!focusTarget || !loaded) return;
+    if (!materials.some((item) => item.id === focusTarget.target.material_version_id)) {
+      setLocateNotice('当前材料中未找到对应的送审版本。');
+      onFocusHandled?.();
+      return;
+    }
     const applied = selectLocation({
       id: `issue:${focusTarget.issue.id}:${focusTarget.target.start_offset}:${focusTarget.target.end_offset}`,
       start: focusTarget.target.start_offset,
@@ -228,7 +237,7 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
       target: focusTarget.target,
     });
     if (applied) onFocusHandled?.();
-  }, [focusTarget, materials, onFocusHandled]);
+  }, [focusTarget, loaded, materials, onFocusHandled]);
 
   const segments = useMemo(() => {
     if (!material) return [];
@@ -297,22 +306,40 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
     setAnnotationMode(next);
   };
 
-  return <section className="document-review" aria-label="原文审阅">
-    {pendingCount > 0 && canManageActions ? <p className="document-review__pending">{pendingCount} 条核查批注待确认</p> : null}
+  const savedMaterial = fallbackMaterialText?.trim() ? fallbackMaterialText : null;
+  const hasSeparateSubmission = savedMaterial && !materials.some((item) => item.parsed_text.trim() === savedMaterial.trim());
+  const openAnnotationPanel = (): void => {
+    annotationPanelRef.current?.focus({ preventScroll: true });
+    annotationPanelRef.current?.scrollIntoView({ block: 'nearest' });
+  };
+
+  return <section className="document-review" aria-labelledby="document-review-title">
+    <header className="case-panel-heading document-review__heading">
+      <h2 id="document-review-title">原文审阅</h2>
+      {pendingCount > 0 && canManageActions ? <span className="document-review__pending">{pendingCount} 条核查批注待确认</span> : null}
+    </header>
     {locateNotice ? <p className="document-review__notice" role="status">{locateNotice}</p> : null}
     {error ? <div className="document-review__error" role="alert">{error}</div> : null}
-    {materials.length === 0 ? <div className="card document-review__empty">{error ? '原文加载失败，请刷新重试。' : loaded ? '本次审查没有可展示的解析材料。' : '正在读取本次审查的送审材料…'}</div> : <>
-      <div className="document-review__files" role="tablist" aria-label="送审材料">
-        {materials.map((item) => <button key={item.id} type="button" role="tab" aria-selected={item.id === materialId}
+    {materials.length === 0 ? (
+      loaded && !error && savedMaterial ? <div className="document-review__paper-shell">
+        <header className="document-review__paper-header"><strong>案件保存的申报文本</strong></header>
+        <div className="document-review__paper document-review__paper--saved">{savedMaterial}</div>
+      </div> : <div className="card document-review__empty" role="status">{error ? '原文加载失败，请刷新重试。' : loaded ? '本次审查没有可展示的解析材料。' : '正在读取本次审查的送审材料…'}</div>
+    ) : <>
+      {materials.length > 1 ? <div className="document-review__files" role="group" aria-label="切换送审材料">
+        {materials.map((item) => <button key={item.id} type="button" aria-pressed={item.id === materialId}
           className={item.id === materialId ? 'is-active' : ''}
           onClick={() => { if (clearSelection()) setMaterialId(item.id); }}>
           {item.logical_name} <small>v{item.version_number}</small>
         </button>)}
-      </div>
-      <div className={'document-review__layout' + (selectedRange || selected || revisionSelection ? ' document-review__layout--focused' : '')}>
+      </div> : null}
+      <div className="document-review__layout document-review__layout--focused">
         <div className="document-review__paper-shell">
-          <div className="document-review__paper-header"><strong>{material?.filename}</strong><span>送审原文</span></div>
-          <div className="document-review__paper" ref={paperRef} tabIndex={-1} data-matter-source="material" data-material-id={material?.id} data-material-label={material?.filename} onClick={(event) => { if (!(event.target as HTMLElement).closest('mark') && window.getSelection()?.isCollapsed) clearSelection(); }} role="tabpanel" aria-label="送审材料原文">
+          <header className="document-review__paper-header">
+            <div><strong>{material?.filename}</strong><small>送审版本 {material?.version_number}</small></div>
+            {locations.length ? <button type="button" className="btn-link document-review__annotation-link" onClick={openAnnotationPanel}>查看批注 · {locations.length} 条</button> : null}
+          </header>
+          <div className="document-review__paper" ref={paperRef} tabIndex={-1} data-matter-source="material" data-material-id={material?.id} data-material-label={material?.filename} onClick={(event) => { if (!(event.target as HTMLElement).closest('mark') && window.getSelection()?.isCollapsed) clearSelection(); }}>
             {segments.map((segment) => segment.items.length === 0 ? <span key={segment.start}>{segment.text}</span> : <mark key={segment.start}
               data-review-items={segment.items.map((item) => item.id).join('|')}
               tabIndex={0} role="button" aria-label={`${segment.items.length} 条批注，点击查看`}
@@ -322,7 +349,7 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
               {segment.text}</mark>)}
           </div>
         </div>
-        {(selectedRange || selected || revisionSelection) ? <aside className="document-review__side" aria-label={revisionSelection ? '文书修改' : '当前原文批注'}>
+        <aside className="document-review__side" ref={annotationPanelRef} tabIndex={-1} aria-label={revisionSelection ? '文书修改' : '原文批注'}>
           {revisionSelection ? <RevisionWorkspace
             key={`${revisionSelection.issue.id}:${revisionSelection.target.material_version_id}:${revisionSelection.target.start_offset}`}
             caseId={caseId}
@@ -352,9 +379,19 @@ export default function DocumentReview({ caseId, reviewResultId, issues, canMana
             </div> : null}
             {selected.issue && selected.target && canManageActions && selected.issue.kind !== 'missing_information' ? <button type="button" onClick={() => openRevision(selected.issue!, selected.target!)}>生成修改建议</button> : null}
             {selected.annotation?.status === 'confirmed' && !selected.annotation.insufficient_evidence && canManageActions ? <button type="button" onClick={() => reviseAnnotation(selected.annotation!)}>基于批注生成修改建议</button> : null}
-          </div> : null}
-        </aside> : null}
+          </div> : <>
+            <div className="document-review__index-heading"><h3>原文批注</h3>{locations.length ? <span>{locations.length} 条</span> : null}</div>
+            {locations.length ? <ol className="document-review__index" role="list">{[...locations].sort((a, b) => a.start - b.start).map((item, index) => <li key={item.id}>
+              <button type="button" onClick={() => selectLocation(item)}>
+                <span className="document-review__index-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                <span><span className="document-review__index-label">{item.issue?.title ?? item.annotation?.finding ?? '原文批注'}</span>{item.annotation?.status === 'pending' ? <small>待确认</small> : null}</span>
+                <ChevronRight size={15} aria-hidden="true" />
+              </button>
+            </li>)}</ol> : <p className="document-review__index-empty">{canManageActions ? '选择正文中的文字，即可添加批注。' : '这份材料暂无批注。'}</p>}
+          </>}
+        </aside>
       </div>
+      {hasSeparateSubmission ? <details className="document-review__submission"><summary>查看案件保存的申报文本</summary><div className="document-review__paper document-review__paper--saved">{savedMaterial}</div></details> : null}
     </>}
   </section>;
 }

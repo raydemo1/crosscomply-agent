@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, FolderOpen, History, ShieldCheck, Terminal } from 'lucide-react';
-import type { CaseKnowledgeRecheckApi, CaseStatus, Citation, CitationGroup, RetrievalHit, ReviewApiResponse, ReviewFacts, ReviewIssue, UserRole } from '../types/api';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ArrowRight, ChevronDown, Download, FolderOpen, History, ShieldCheck, Terminal } from 'lucide-react';
+import type { CaseKnowledgeRecheckApi, CaseStatus, ReviewApiResponse, ReviewFacts, ReviewIssue, UserRole } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
 import { setCitationVerdict } from '../store/caseStore';
@@ -10,7 +10,6 @@ import RiskBadge from './RiskBadge';
 import CaseWorkflowActions from './CaseWorkflowActions';
 import CaseFactsPanel from './CaseFactsPanel';
 import CaseAssistant, { CaseAssistantTrigger } from './CaseAssistant';
-import { useCaseAssistant } from '../hooks/useCaseAssistant';
 import ReviewWorklog from './ReviewWorklog';
 import { caseFactLedger, factValue } from '../utils/factFields';
 import { cssId } from '../utils/display';
@@ -18,8 +17,9 @@ import CitationList from './CitationList';
 import FeedbackPanel from './FeedbackPanel';
 
 import MarkdownText from './MarkdownText';
-import ReportConclusion from './ReportConclusion';
+import ReportConclusion, { ReportAnalysis } from './ReportConclusion';
 import ReportHeading from './ReportHeading';
+import { partitionReportContent } from '../utils/reportContent';
 import { PUBLIC_DEMO } from '../runtime';
 import ShareCaseDialog from './ShareCaseDialog';
 import type { RevisionSelection } from './RevisionWorkspace';
@@ -32,14 +32,9 @@ import {
   EVIDENCE_ISSUE_LABELS,
   EVIDENCE_STATUS_BADGE_CLASS,
   EVIDENCE_STATUS_LABELS,
-  AUTHORITY_LABELS,
-  CITATION_ROLE_LABELS,
-  LAW_STATUS_LABELS,
   ISSUE_KIND_LABELS,
   citationDisplayLabel,
-  DOC_TYPE_LABELS,
   QUERY_TYPE_LABELS,
-  USAGE_LABELS,
   formatTime,
   relativeTime,
   renderBool,
@@ -77,6 +72,7 @@ export default function CaseDetailPage(props: CaseDetailPageProps): JSX.Element 
 }
 
 type SavedCaseWithResponse = SavedCase & { response: ReviewApiResponse };
+const NO_REVIEW_ISSUES: ReviewIssue[] = [];
 
 function focusAnswer(): void {
   const target = document.getElementById('case-agent-answer');
@@ -118,6 +114,7 @@ function CaseDetailContent({
   const [detailView, setDetailView] = useState<'document' | 'report' | 'facts' | 'records'>('report');
   const [documentTarget, setDocumentTarget] = useState<RevisionSelection | null>(null);
   const [reportIssueTarget, setReportIssueTarget] = useState<string | null>(null);
+  const [recordTarget, setRecordTarget] = useState<string | null>(null);
   /** True while the document view holds unsubmitted revision edits; leaving it would drop that text. */
   const [documentDirty, setDocumentDirty] = useState(false);
   const [knowledgeRechecks, setKnowledgeRechecks] = useState<CaseKnowledgeRecheckApi[]>([]);
@@ -132,7 +129,6 @@ function CaseDetailContent({
   }
   const failed = isReviewFailedResponse(response);
   const reviewResult = failed ? null : (response as Extract<ReviewApiResponse, { review_case_id: string }>).review_result;
-  const webFindings = failed ? [] : (response as Extract<ReviewApiResponse, { review_case_id: string }>).web_findings ?? [];
   const completedSaved = saved as SavedCaseWithResponse;
 
   const handleVerdict = (chunkId: string, verdict: CitationVerdict | null) => {
@@ -154,63 +150,59 @@ function CaseDetailContent({
   };
   const attentionCount = new Set(caseFactLedger(saved).filter((entry) => entry.status === 'conflicted' || entry.source_type === 'applicant_statement').map((entry) => entry.field)).size;
   const waiting = saved.reviewTask?.status === 'waiting_input';
+  const openRecord = (id: string): void => {
+    if (!leaveDocumentView()) return;
+    setRecordTarget(id);
+    setDetailView('records');
+  };
+  const progress = <CaseProgress
+    embedded={!failed}
+    caseId={saved.id}
+    canRereview={canEdit}
+    beforeRereview={leaveDocumentView}
+    onRereviewSettled={onReviewSettled}
+    status={saved.status}
+    viewerRole={viewerRole}
+    remediationPlan={saved.remediationPlan}
+    reviewTaskStatus={saved.reviewTask?.status ?? null}
+    approvalStarted={Boolean(saved.feishuApproval)}
+    onAnswerAction={waiting ? () => { if (leaveDocumentView()) focusAnswer(); } : undefined}
+    onOpenAction={() => { if (leaveDocumentView()) onOpenRemediationPlan?.(); }}
+    actionSlot={!waiting ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => { if (leaveDocumentView()) onEdit(completedSaved); }} compact /> : undefined}
+  />;
 
   return (
-    <div className="case-detail">
+    <div className="case-detail case-detail--reviewed">
       <CaseHeader
         saved={completedSaved}
         onBack={() => { if (leaveDocumentView()) onBack(); }}
         onRerun={() => { if (leaveDocumentView()) onRerun(completedSaved.question, completedSaved.materialText); }}
-        viewerRole={viewerRole}
+        onOpenProgress={failed ? undefined : () => openRecord('record-progress')}
       />
-
-      <CaseProgress
-        caseId={saved.id}
-        canRereview={canEdit}
-        beforeRereview={leaveDocumentView}
-        onRereviewSettled={onReviewSettled}
-        status={saved.status}
-        viewerRole={viewerRole}
-        remediationPlan={saved.remediationPlan}
-        reviewTaskStatus={saved.reviewTask?.status ?? null}
-        approvalStarted={Boolean(saved.feishuApproval)}
-        onAnswerAction={waiting ? () => { if (leaveDocumentView()) focusAnswer(); } : undefined}
-        onOpenAction={() => { if (leaveDocumentView()) onOpenRemediationPlan?.(); }}
-        actionSlot={!waiting ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => { if (leaveDocumentView()) onEdit(completedSaved); }} compact /> : undefined}
-      />
-
+      {failed ? progress : null}
       <div className={'case-workspace' + (detailView === 'document' ? ' case-workspace--document' : '')}>
         <div className="case-workspace__main">
-          {waiting ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => { if (leaveDocumentView()) onEdit(completedSaved); }} focusAnswer={focusAgentAnswer} onAnswerFocused={onAgentAnswerFocused} /> : null}
-
-          {webFindings.some((item) => !item.known_source_id || item.refresh_needed) ? <div className="enterprise-callout enterprise-callout--warning" role="status"><strong>公开资料线索</strong><ul>{webFindings.filter((item) => !item.known_source_id || item.refresh_needed).map((item) => {
-            const recheck = knowledgeRechecks.find((entry) => entry.url === item.url);
-            const status = !item.is_official ? '第三方资料，仅供参考' : recheck?.recheck_status === 'pending'
-              ? (recheck.source_status === 'unchanged' ? '官方正文未变化，案件待复核' : '新版已入库，案件待复核')
-              : item.known_source_id ? '发现更新线索，尚待核对原件'
-                : item.excerpt ? '网页摘录待核验' : '已发现来源，待核验';
-            return <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><span> · {status}</span></li>;
-          })}</ul></div> : null}
-
           {!failed ? <nav className="case-detail-views" aria-label="案件详情视图">
             <button type="button" className={detailView === 'report' ? 'is-active' : ''} aria-current={detailView === 'report' ? 'page' : undefined} onClick={() => switchDetailView('report')}>审查报告</button>
             <button type="button" className={detailView === 'facts' ? 'is-active' : ''} aria-current={detailView === 'facts' ? 'page' : undefined} onClick={() => switchDetailView('facts')}>案件事实{attentionCount > 0 ? <span className="case-facts-count" aria-label={`${attentionCount} 项待核对`}>{attentionCount}</span> : null}</button>
             <button type="button" className={detailView === 'document' ? 'is-active' : ''} aria-current={detailView === 'document' ? 'page' : undefined} onClick={() => switchDetailView('document')}>原文审阅</button>
             <button type="button" className={detailView === 'records' ? 'is-active' : ''} aria-current={detailView === 'records' ? 'page' : undefined} onClick={() => switchDetailView('records')}>案件资料</button>
           </nav> : null}
-          {detailView === 'facts' || failed ? <CaseFactsPanel saved={saved} viewerRole={viewerRole} /> : null}
-          {!failed && detailView === 'document' ? <>
+          {waiting ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => { if (leaveDocumentView()) onEdit(completedSaved); }} focusAnswer={focusAgentAnswer} onAnswerFocused={onAgentAnswerFocused} /> : null}
+          {detailView === 'facts' || failed ? <CaseFactsPanel saved={saved} viewerRole={viewerRole} onOpenDocument={failed ? undefined : () => switchDetailView('document')} /> : null}
+          {!failed && detailView === 'document' ?
             <DocumentReview
               caseId={completedSaved.id}
               reviewResultId={reviewResult?.review_result_id ?? ''}
-              issues={reviewResult?.issues ?? []}
+              issues={reviewResult?.issues ?? NO_REVIEW_ISSUES}
+              fallbackMaterialText={saved.materialText}
               canManageActions={canManageActions}
               focusTarget={documentTarget}
               onFocusHandled={() => setDocumentTarget(null)}
               onDirtyChange={setDocumentDirty}
               onOpenReportIssue={(issueId) => { if (!leaveDocumentView()) return; setReportIssueTarget(issueId); setDetailView('report'); }}
             />
-          </> : null}
+          : null}
           {failed ? (
             <FailedChain response={response} />
           ) : detailView === 'report' || detailView === 'records' ? (
@@ -224,6 +216,12 @@ function CaseDetailContent({
               onOpenDocument={(selection) => { setDocumentTarget(selection); setDetailView('document'); }}
               focusIssueId={reportIssueTarget}
               onIssueFocused={() => setReportIssueTarget(null)}
+              progress={progress}
+              knowledgeRechecks={knowledgeRechecks}
+              recordTarget={recordTarget}
+              onRecordFocused={() => setRecordTarget(null)}
+              onOpenRecord={openRecord}
+              onViewDocument={() => switchDetailView('document')}
             />
           ) : null}
           {failed ? <AuditDisclosure saved={saved} /> : null}
@@ -418,13 +416,14 @@ function ReviewIssues({
 }): JSX.Element | null {
   if (issues.length === 0) return null;
   return (
-    <div className="report-main-issues__list">
-      {issues.map((issue) => <article className="report-main-issue" id={`report-issue-${issue.id}`} tabIndex={-1} key={issue.id}>
-        <div className="report-main-issue__heading"><strong>{issue.title}</strong><span className={'issue-kind issue-kind--' + issue.kind}>{ISSUE_KIND_LABELS[issue.kind] ?? issue.kind}</span></div>
+    <ol className="report-main-issues__list" role="list">
+      {issues.map((issue, index) => <li className="report-main-issue" id={`report-issue-${issue.id}`} tabIndex={-1} key={issue.id}>
+        <span className="report-main-issue__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+        <div className="report-main-issue__heading"><h3>{issue.title}</h3><span className={'issue-kind issue-kind--' + issue.kind}>{ISSUE_KIND_LABELS[issue.kind] ?? issue.kind}</span></div>
         <details className="report-main-issue__analysis"><summary><ChevronDown size={14} aria-hidden="true" />查看分析</summary><MarkdownText variant="note" allowRawHtml={false}>{issue.finding}</MarkdownText>{issue.unknowns.length ? <ul>{issue.unknowns.map((item, index) => <li key={index}>{item}</li>)}</ul> : null}</details>
         {issue.material_evidence.length ? <button type="button" className="btn-link" onClick={() => onOpenDocument({ issue, target: issue.material_evidence[0] })}>定位原文</button> : null}
-      </article>)}
-    </div>
+      </li>)}
+    </ol>
   );
 }
 
@@ -492,25 +491,33 @@ interface CaseHeaderProps {
   saved: SavedCaseWithResponse;
   onBack: () => void;
   onRerun: () => void;
-  viewerRole: UserRole;
+  onOpenProgress?: () => void;
 }
 
-function CaseHeader({ saved, onBack, onRerun, viewerRole }: CaseHeaderProps): JSX.Element {
+function CaseHeader({ saved, onBack, onRerun, onOpenProgress }: CaseHeaderProps): JSX.Element {
   const [shareOpen, setShareOpen] = useState(false);
-  const moreRef = useRef<HTMLDetailsElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
 
-  // 「更多」菜单：点击菜单外部时收起（原生 details 只响应 summary 自身）
   useEffect(() => {
     const close = (event: MouseEvent): void => {
-      const details = moreRef.current;
-      if (details?.open && !details.contains(event.target as Node)) details.open = false;
+      if (!(event.target instanceof Node)) return;
+      for (const details of actionsRef.current?.querySelectorAll<HTMLDetailsElement>('.case-header__dropdown[open]') ?? []) {
+        if (!details.contains(event.target)) details.open = false;
+      }
     };
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
   }, []);
 
-  const closeMore = (): void => {
-    if (moreRef.current) moreRef.current.open = false;
+  const closeDropdown = (trigger: HTMLElement): void => {
+    const details = trigger.closest('details');
+    if (!details?.open) return;
+    details.open = false;
+    details.querySelector('summary')?.focus({ preventScroll: true });
+  };
+  const exportCase = async (format: 'markdown' | 'html'): Promise<void> => {
+    const { downloadMarkdown, downloadHtml } = await import('../utils/report');
+    (format === 'markdown' ? downloadMarkdown : downloadHtml)(saved);
   };
   const reportReady = Boolean(saved.report);
   const reportCanGenerate = Boolean(
@@ -520,31 +527,32 @@ function CaseHeader({ saved, onBack, onRerun, viewerRole }: CaseHeaderProps): JS
   );
   return (
     <>
-    <header className="case-header">
+    <header className="case-header case-header--reviewed">
       <div className="case-header__top">
         <button type="button" className="btn-link case-header__back" onClick={onBack}>
           ← 返回案件列表
         </button>
-        <div className="case-header__actions">
+        <div className="case-header__actions" ref={actionsRef} onKeyDown={(event) => {
+          if (event.key !== 'Escape' || !(event.target instanceof HTMLElement) || !event.target.closest('.case-header__dropdown[open]')) return;
+          event.stopPropagation();
+          closeDropdown(event.target);
+        }}>
           <CaseAssistantTrigger />
-          {reportCanGenerate ? (
-            <a className="case-header__action-btn case-header__action-btn--accent" href={caseReportDownloadUrl(saved.id)} download>
-              {reportReady ? '下载完整报告' : '生成完整报告'}
-            </a>
-          ) : saved.feishuApproval?.status === 'pending' ? (
-            <button type="button" className="case-header__action-btn case-header__action-btn--report-pending" disabled>
-              审批完成后生成报告
-            </button>
-          ) : null}
-          {!PUBLIC_DEMO ? <button type="button" className="case-header__action-btn case-header__action-btn--share" onClick={() => setShareOpen(true)}>分享案件</button> : null}
-          <details className="case-header__more" ref={moreRef}>
-            <summary className="case-header__action-btn">更多</summary>
-            <div className="case-header__more-menu">
-              {!PUBLIC_DEMO ? <button type="button" onClick={() => { closeMore(); onRerun(); }}>以此为模板重审</button> : null}
-              <button type="button" onClick={async () => { closeMore(); const { downloadMarkdown } = await import('../utils/report'); downloadMarkdown(saved); }}>导出 Markdown</button>
-              <button type="button" onClick={async () => { closeMore(); const { downloadHtml } = await import('../utils/report'); downloadHtml(saved); }}>导出 HTML</button>
+          <details className="case-header__dropdown">
+            <summary className="case-header__action-btn"><Download size={16} aria-hidden="true" />导出案件<ChevronDown size={14} aria-hidden="true" /></summary>
+            <div className="case-header__dropdown-menu">
+              {reportCanGenerate ? <a href={caseReportDownloadUrl(saved.id)} download onClick={(event) => closeDropdown(event.currentTarget)}>{reportReady ? '下载完整报告' : '生成完整报告'}</a> : null}
+              <button type="button" onClick={(event) => { closeDropdown(event.currentTarget); void exportCase('markdown'); }}>导出 Markdown</button>
+              <button type="button" onClick={(event) => { closeDropdown(event.currentTarget); void exportCase('html'); }}>导出 HTML</button>
             </div>
           </details>
+          {!PUBLIC_DEMO ? <details className="case-header__dropdown">
+            <summary className="case-header__action-btn">更多<ChevronDown size={14} aria-hidden="true" /></summary>
+            <div className="case-header__dropdown-menu">
+              <button type="button" onClick={(event) => { closeDropdown(event.currentTarget); setShareOpen(true); }}>分享案件</button>
+              <button type="button" onClick={(event) => { closeDropdown(event.currentTarget); onRerun(); }}>以此为模板重审</button>
+            </div>
+          </details> : null}
         </div>
       </div>
 
@@ -552,10 +560,7 @@ function CaseHeader({ saved, onBack, onRerun, viewerRole }: CaseHeaderProps): JS
 
       <div className="case-header__meta">
         <span className={`status-chip status-chip--${saved.status}`}>{statusLabel(saved.status)}</span>
-        <span className="case-header__meta-item">
-          <span className="case-header__meta-label">保存于</span>
-          <span title={formatTime(saved.savedAt)}>{relativeTime(saved.savedAt)}</span>
-        </span>
+        {onOpenProgress ? <button type="button" className="btn-link case-view-link case-header__progress-link" onClick={onOpenProgress}>查看流程 <ArrowRight size={14} aria-hidden="true" /></button> : null}
       </div>
     </header>
     <ShareCaseDialog caseId={saved.id} isOpen={shareOpen} onClose={() => setShareOpen(false)} />
@@ -601,34 +606,35 @@ interface ReviewChainProps {
   onOpenDocument: (selection: RevisionSelection) => void;
   focusIssueId: string | null;
   onIssueFocused: () => void;
+  progress: ReactNode;
+  knowledgeRechecks: CaseKnowledgeRecheckApi[];
+  recordTarget: string | null;
+  onRecordFocused: () => void;
+  onOpenRecord: (id: string) => void;
+  onViewDocument: () => void;
 }
 
-function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageActions, onOpenRemediationPlan, onOpenDocument, focusIssueId, onIssueFocused }: ReviewChainProps): JSX.Element {
-  const assistant = useCaseAssistant();
+function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageActions, onOpenRemediationPlan, onOpenDocument, focusIssueId, onIssueFocused, progress, knowledgeRechecks, recordTarget, onRecordFocused, onOpenRecord, onViewDocument }: ReviewChainProps): JSX.Element {
   const response = saved.response as Extract<ReviewApiResponse, { review_case_id: string }>;
   const result = response.review_result;
-  const issues = result.issues ?? [];
+  const issues = result.issues ?? NO_REVIEW_ISSUES;
+  const { body, conditions, usageNotes } = useMemo(
+    () => partitionReportContent(result.conclusion, result.risk_boundaries),
+    [result.conclusion, result.risk_boundaries],
+  );
   const facts = response.review_facts;
   const selfCheck = response.evidence_self_check;
   const queries = response.retrieval_queries ?? [];
+  const sourceLeads = (response.web_findings ?? []).filter((item) => !item.known_source_id || item.refresh_needed);
   const agent = response.agent;
   const evidenceChunks = response.evidence_chunks ?? [];
   const verdicts = saved.feedback?.citationVerdicts ?? {};
-  const [selectedCitationRef, setSelectedCitationRef] = useState<string | null>(null);
-  const [highlightedCitationRef, setHighlightedCitationRef] = useState<string | null>(null);
-  const evidenceDrawerOpen = assistant.active === 'evidence';
-  const [evidenceAnnouncement, setEvidenceAnnouncement] = useState('');
-  const highlightTimer = useRef<number | null>(null);
-
   const evidenceCount = evidenceChunks.length;
-  const citationCount = useMemo(
-    () => response.citation_groups.reduce((sum, g) => sum + g.citations.length, 0),
-    [response.citation_groups],
-  );
   const citations = useMemo(
     () => response.citation_groups.flatMap((group) => group.citations),
     [response.citation_groups],
   );
+  const citationCount = citations.length;
   // 整改清单已经承载了对应建议，报告不再重复展示同一条。
   const outstandingRecommendations = useMemo(() => {
     const covered = new Set(
@@ -638,63 +644,44 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
     );
     return result.recommended_actions.filter((_, index) => !covered.has(index));
   }, [result.recommended_actions, saved.remediationPlan]);
+  const hasFollowup = pendingFollowupCount(saved) > 0;
+  const hasNextSteps = hasFollowup || outstandingRecommendations.length > 0;
+
+  const openCitation = (citationRef: string): void => {
+    const clause = document.getElementById(`report-clause-${cssId(citationRef)}`);
+    if (clause instanceof HTMLDetailsElement) clause.open = true;
+    const target = clause?.querySelector('summary') ?? document.getElementById('report-basis');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  };
 
   useEffect(() => {
-    if (!selectedCitationRef && citations[0]?.citation_ref) {
-      setSelectedCitationRef(citations[0].citation_ref);
+    if (!recordTarget || view !== 'records') return;
+    const record = document.getElementById(recordTarget);
+    if (record instanceof HTMLDetailsElement) {
+      record.open = true;
+      record.querySelector('summary')?.focus({ preventScroll: true });
+      record.scrollIntoView({ block: 'nearest' });
     }
-  }, [citations, selectedCitationRef]);
-
-  const handleEvidenceSelect = useCallback((citationRef: string, label: string) => {
-    if (!assistant.activate('evidence', citationRef)) return;
-    setSelectedCitationRef(citationRef);
-    setHighlightedCitationRef(citationRef);
-    setEvidenceAnnouncement(`已定位到 ${citationRef}：${label}`);
-    if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
-    highlightTimer.current = window.setTimeout(() => setHighlightedCitationRef(null), 1500);
-
-
-    window.requestAnimationFrame(() => {
-      const target = document.getElementById(`evidence-${cssId(citationRef)}`);
-      if (!target) return;
-      target.focus({ preventScroll: true });
-    });
-  }, [assistant.activate]);
-
-  useEffect(() => () => {
-    if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
-  }, []);
+    onRecordFocused();
+  }, [recordTarget, onRecordFocused, view]);
 
   useEffect(() => {
     if (!focusIssueId || view !== 'report') return;
-    const details = document.getElementById('report-issues');
     const target = document.getElementById(`report-issue-${focusIssueId}`);
-    if (!details || !target) return;
-    if (details instanceof HTMLDetailsElement) details.open = true;
+    if (!target) return;
     const analysis = target.querySelector('details');
     if (analysis) analysis.open = true;
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
     target.focus({ preventScroll: true });
     onIssueFocused();
   }, [focusIssueId, onIssueFocused, view]);
 
   return (
-    <>
-      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {evidenceAnnouncement}
-      </div>
       <div className="review-report-layout">
-        <main className="review-report review-report--document" data-matter-source={view === 'report' ? 'report' : undefined} data-report-id={result.review_result_id}>
+        <article className="review-report review-report--document" aria-label={view === 'report' ? '审查报告' : undefined} data-matter-source={view === 'report' ? 'report' : undefined} data-report-id={result.review_result_id}>
           {view === 'report' ? <>
-          <ReportConclusion result={result} onCitationClick={(citationRef) => {
-            const citation = citations.find((item) => item.citation_ref === citationRef);
-            handleEvidenceSelect(citationRef, citation?.citation_label ?? citationRef);
-          }} />
-
-          {(pendingFollowupCount(saved) > 0 || outstandingRecommendations.length > 0) ? <section className="report-section review-next-steps" id="report-next">
-            {pendingFollowupCount(saved) > 0 ? <ReviewFollowupSummary saved={saved} onOpen={onOpenRemediationPlan} /> : null}
-            {outstandingRecommendations.length ? <ReviewRecommendations items={outstandingRecommendations} /> : null}
-          </section> : null}
+          <ReportConclusion result={result} conditions={conditions} />
 
           {issues.length ? <section className="report-main-issues" id="report-issues" aria-label="主要问题">
             <ReportHeading title="主要问题" count={`${issues.length} 项`} />
@@ -704,88 +691,95 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
             />
           </section> : null}
 
-          <details className="report-disclosure report-basis" id="report-basis">
-            <summary><span className="report-section-title">法规依据</span><span className="report-heading__count">{citationCount} 条</span></summary>
-            <div className="report-disclosure__body">
+          {hasNextSteps ? <section className="report-section review-next-steps" id="report-next">
+            {hasFollowup ? <ReviewFollowupSummary saved={saved} onOpen={onOpenRemediationPlan} /> : null}
+            {outstandingRecommendations.length ? <ReviewRecommendations items={outstandingRecommendations} /> : null}
+          </section> : null}
+
+          <ReportAnalysis body={body} onCitationClick={openCitation} />
+
+          <section className="report-section report-basis" id="report-basis" tabIndex={-1}>
+            <ReportHeading title="法规依据" count={citationCount ? `${citationCount} 条` : undefined} />
               {result.legal_basis_gaps?.length ? <div className="report-record-subsection">
-                <div className="section-title">待核实的法规依据</div>
+                <h3>待核实的法规依据</h3>
                 <ul>{result.legal_basis_gaps.map((gap, index) => <li key={index}>{gap}</li>)}</ul>
               </div> : null}
-              <ul className="basis-clause-list">
-                {citations.map((citation) => (
-                  <li key={citation.citation_ref}>
-                    <details className="basis-clause">
+              {citations.length ? <ul className="basis-clause-list" role="list">
+                {citations.map((citation) => {
+                  const label = citationDisplayLabel(citation);
+                  const article = citation.article_no?.trim() ?? '';
+                  const articleIndex = article ? label.lastIndexOf(article) : -1;
+                  return <li key={citation.citation_ref}>
+                    <details className="basis-clause" id={`report-clause-${cssId(citation.citation_ref)}`}>
                       <summary>
-                        <span className="basis-clause__name">{citation.citation_label ?? citation.title}</span>
-                        <span className="basis-clause__ref">{citation.citation_ref}</span>
+                        <span className="basis-clause__name">{articleIndex > 0 ? <>
+                          {label.slice(0, articleIndex)}<span className="basis-clause__article">{article}</span>{label.slice(articleIndex + article.length)}
+                        </> : label}</span>
+                        <ChevronDown className="basis-clause__chevron" size={16} aria-hidden="true" />
                       </summary>
                       <div className="basis-clause__body">
-                        {citation.full_article_text ? <blockquote className="basis-clause__text">{citation.full_article_text}</blockquote> : <p className="basis-clause__text basis-clause__text--missing">暂无条文原文，点击右上「查看条文」打开证据抽屉。</p>}
-                        <div className="basis-clause__meta">
-                          <span>{CITATION_ROLE_LABELS[citation.citation_role] ?? ''}</span>
-                          <button type="button" className="btn-link" onClick={() => handleEvidenceSelect(citation.citation_ref, citation.citation_label ?? citation.title)}>在证据抽屉中查看 ↗</button>
-                        </div>
+                        {citation.full_article_text?.trim() ? <blockquote className="basis-clause__text">{citation.full_article_text}</blockquote> : <p className="basis-clause__text basis-clause__text--missing">暂无条文原文。</p>}
                       </div>
                     </details>
-                  </li>
-                ))}
-              </ul>
-              <button
-                type="button"
-                className="evidence-drawer-trigger evidence-drawer-trigger--inline"
-                onClick={() => assistant.activate('evidence')}
-                aria-controls="evidence-sidebar"
-                aria-expanded={evidenceDrawerOpen}
-              >
-                <span>查看条文</span>
-                <span className="evidence-drawer-trigger__count">{citationCount} 条</span>
-                <span className="evidence-drawer-trigger__icon" aria-hidden="true">↗</span>
-              </button>
-            </div>
-          </details>
-
-          {!PUBLIC_DEMO ? <details className={'report-disclosure report-review-disclosure' + (viewerRole === 'requester' ? ' report-review-disclosure--applicant' : '')} id="report-review">
-            <summary>
-              <span className="report-section-title">{viewerRole === 'requester' ? '对审查结果有疑问？反馈审查问题' : '引用核查与复核意见'}</span>
-            </summary>
-            <div className="report-disclosure__body">
-              {viewerRole !== 'requester' ? <p className="report-disclosure__intro">核对引用并记录人工复核意见。</p> : null}
-              {canManageActions ? <CitationList
-                groups={response.citation_groups}
-                evidenceChunks={evidenceChunks}
-                verdicts={verdicts}
-                onVerdictChange={onVerdictChange}
-                viewerRole={viewerRole}
-              /> : null}
-              <FeedbackPanel saved={saved} viewerRole={viewerRole} />
-            </div>
-          </details> : null}
-
+                  </li>;
+                })}
+              </ul> : <p className="report-disclosure__intro">暂无可引用依据。</p>}
+              {sourceLeads.length ? <button type="button" className="btn-link case-view-link report-basis__leads" onClick={() => onOpenRecord('record-source-leads')}>待核验的法规线索 <ArrowRight size={14} aria-hidden="true" /></button> : null}
+          </section>
+          {usageNotes.length ? <footer className="report-footnote">本报告不构成正式法律意见。</footer> : null}
           </> : null}
 
-          {view === 'records' ? <section className="card report-records-disclosure" id="report-records" aria-label="案件资料">
-            <div className="report-disclosure__body">
+          {view === 'records' ? <section className="case-records" id="report-records" aria-labelledby="case-records-title">
+            <header className="case-panel-heading">
+              <h2 id="case-records-title">案件资料</h2>
+              <span>最近保存 <time dateTime={saved.savedAt}>{formatTime(saved.savedAt)}</time></span>
+            </header>
+            <div className="case-records__list">
+              <details className="report-record-group" id="record-progress">
+                <summary><History size={17} aria-hidden="true" /><span>审查流程</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
+                {progress}
+              </details>
+
               <details className="report-record-group">
-                <summary><FolderOpen size={15} strokeWidth={1.8} aria-hidden="true" />案件材料与版本</summary>
-                <div className="case-field">
-                  <div className="case-field__label">审查问题</div>
-                  <div className="case-field__value">{saved.question}</div>
-                </div>
-                <div className="case-field">
-                  <div className="case-field__label">待审查材料</div>
-                  <pre className="case-field__material">{saved.materialText}</pre>
-                </div>
-                {saved.materialSnapshot ? (
+                <summary><FolderOpen size={17} aria-hidden="true" /><span>案件材料与版本</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
+                <div className="case-records__material">
+                  {saved.materialSnapshot?.version_ids.length ? (
                   <div className="enterprise-materials">
                     {saved.materialSnapshot.version_ids.map((versionId, index) => (
                       <div key={versionId}><span><strong>材料版本 {index + 1}</strong><small>已锁定送审版本</small></span><span><code title={versionId}>{versionId}</code></span></div>
                     ))}
                   </div>
-                ) : null}
+                  ) : <p className="report-record-note">暂无已锁定的送审版本。</p>}
+                  <button type="button" className="btn-link case-view-link" onClick={onViewDocument}>查看送审原文 <ArrowRight size={14} aria-hidden="true" /></button>
+                </div>
+              </details>
+
+              {!PUBLIC_DEMO || citations.length ? <details className="report-record-group">
+                <summary><ShieldCheck size={17} aria-hidden="true" /><span>{PUBLIC_DEMO ? '法规来源' : canManageActions ? '引用核查与复核意见' : '法规来源与审查反馈'}</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
+                {citations.length ? <CitationList groups={response.citation_groups} evidenceChunks={evidenceChunks} claims={result.claims} verdicts={verdicts} onVerdictChange={onVerdictChange} viewerRole={viewerRole} readOnly={!canManageActions} /> : null}
+                {!PUBLIC_DEMO ? <FeedbackPanel saved={saved} viewerRole={viewerRole} /> : null}
+              </details> : null}
+
+              {sourceLeads.length ? <details className="report-record-group" id="record-source-leads">
+                <summary><FolderOpen size={17} aria-hidden="true" /><span>待核验的法规线索</span><small>{sourceLeads.length} 条</small><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
+                <ul className="case-records__sources">{sourceLeads.map((item) => {
+                  const recheck = knowledgeRechecks.find((entry) => entry.url === item.url);
+                  const status = !item.is_official ? '第三方资料，仅供参考' : recheck?.recheck_status === 'pending'
+                    ? (recheck.source_status === 'unchanged' ? '官方正文未变化，案件待复核' : '新版已入库，案件待复核')
+                    : item.known_source_id ? '发现更新线索，尚待核对原件'
+                      : item.excerpt ? '网页摘录待核验' : '已发现来源，待核验';
+                  return <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><small>{status}</small></li>;
+                })}</ul>
+              </details> : null}
+
+              <details className="report-record-group">
+                <summary><ShieldCheck size={17} aria-hidden="true" /><span>审批与操作记录</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
+                <EnterpriseDecisionChain saved={saved} includeMaterial={false} embedded />
+                <Timeline events={saved.events} embedded />
               </details>
 
               {viewerRole === 'admin' ? <details className="report-record-group">
-                <summary><Terminal size={15} strokeWidth={1.8} aria-hidden="true" />技术执行记录</summary>
+                <summary><Terminal size={17} aria-hidden="true" /><span>技术执行记录</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
                 <p className="report-record-note">结论依据核验：{response.semantic_grounding?.status === 'supported' ? '有支持依据' : EVIDENCE_STATUS_LABELS[selfCheck.status]}{response.second_retrieval_triggered ? ' · 已触发二次检索' : ''}。</p>
                 {result.trigger_reasons.length > 0 ? (
                   <div className="report-record-subsection">
@@ -811,34 +805,18 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
                 />
               </details> : null}
 
-              <details className="report-record-group">
-                <summary><ShieldCheck size={15} strokeWidth={1.8} aria-hidden="true" />审批与审计记录</summary>
-                <EnterpriseDecisionChain saved={saved} includeMaterial={false} embedded />
-                <Timeline events={saved.events} embedded />
-              </details>
             </div>
           </section> : null}
-        </main>
+        </article>
 
         {view === 'report' ? <nav className="report-toc" aria-label="报告章节">{[
           ['report-conclusion', '审查结论'],
-          ...((pendingFollowupCount(saved) > 0 || outstandingRecommendations.length > 0) ? [['report-next', '下一步行动']] : []),
           ...(issues.length ? [['report-issues', '主要问题']] : []),
+          ...(hasNextSteps ? [['report-next', hasFollowup && !outstandingRecommendations.length ? '待核实事项' : '下一步行动']] : []),
+          ...(body ? [['report-analysis', '完整分析']] : []),
           ['report-basis', '法规依据'],
         ].map(([id, title]) => <a href={`#${id}`} key={id} onClick={(event) => { event.preventDefault(); const target = document.getElementById(id); if (target instanceof HTMLDetailsElement) target.open = true; target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }}>{title}</a>)}</nav> : null}
-        {view === 'report' ? <EvidenceSidebar
-          groups={response.citation_groups}
-          evidenceChunks={evidenceChunks}
-          claims={result.claims}
-          selectedCitationRef={selectedCitationRef}
-          highlightedCitationRef={highlightedCitationRef}
-          drawerOpen={evidenceDrawerOpen}
-          onCitationSelect={handleEvidenceSelect}
-          onCloseDrawer={() => assistant.close('evidence')}
-          viewerRole={viewerRole}
-        /> : null}
       </div>
-    </>
   );
 }
 
@@ -941,196 +919,6 @@ function ProcessDetails({
         ) : null}
       </section>
     </>
-  );
-}
-
-function EvidenceSidebar({
-  groups,
-  evidenceChunks,
-  claims,
-  selectedCitationRef,
-  highlightedCitationRef,
-  drawerOpen,
-  onCitationSelect,
-  onCloseDrawer,
-  viewerRole,
-}: {
-  groups: CitationGroup[];
-  evidenceChunks: RetrievalHit[];
-  claims: Array<{ supporting_citation_refs: string[] }>;
-  selectedCitationRef: string | null;
-  highlightedCitationRef: string | null;
-  drawerOpen: boolean;
-  onCitationSelect: (citationRef: string, label: string) => void;
-  onCloseDrawer: () => void;
-  viewerRole: UserRole;
-}): JSX.Element {
-  const chunks = useMemo(() => {
-    const map = new Map<string, RetrievalHit>();
-    evidenceChunks.forEach((chunk) => map.set(chunk.chunk_id, chunk));
-    return map;
-  }, [evidenceChunks]);
-  const supportingClaims = useMemo(() => {
-    const map = new Map<string, number[]>();
-    claims.forEach((claim, claimIndex) => {
-      (claim.supporting_citation_refs ?? []).forEach((citationRef) => {
-        const existing = map.get(citationRef) ?? [];
-        map.set(citationRef, [...existing, claimIndex + 1]);
-      });
-    });
-    return map;
-  }, [claims]);
-  const displayGroups = groups;
-
-  useEffect(() => {
-    if (!drawerOpen || !selectedCitationRef) return;
-    const frame = window.requestAnimationFrame(() => {
-      const target = document.getElementById(`evidence-${cssId(selectedCitationRef)}`);
-      if (!target) return;
-      target.scrollIntoView({
-        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-        block: 'nearest',
-        inline: 'nearest',
-      });
-      target.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [drawerOpen, selectedCitationRef]);
-
-  return (
-    <>
-      {drawerOpen ? (
-        <button type="button" className="evidence-sidebar__scrim" onClick={onCloseDrawer} aria-label="关闭依据核查" />
-      ) : null}
-      <aside
-        id="evidence-sidebar"
-        className={'evidence-sidebar' + (drawerOpen ? ' is-drawer-open' : '')}
-        aria-label="引用依据详情"
-        aria-hidden={!drawerOpen}
-        inert={!drawerOpen}
-      >
-        <div className="evidence-sidebar__head">
-          <div>
-            <div className="evidence-sidebar__title">法规依据</div>
-          </div>
-          <div className="evidence-sidebar__head-actions">
-            <div className="evidence-sidebar__count">
-              {displayGroups.reduce((total, group) => total + group.citations.length, 0)} 条依据
-            </div>
-            <button type="button" className="evidence-sidebar__close" onClick={onCloseDrawer} aria-label="关闭法规依据">
-              关闭
-            </button>
-          </div>
-        </div>
-        {displayGroups.length === 0 ? (
-          <div className="state-block__hint">暂无可引用依据。</div>
-        ) : (
-          <div className="evidence-sidebar__list">
-            {displayGroups.map((group) => (
-              <section className="evidence-sidebar__group" key={group.usage}>
-                <div className="evidence-sidebar__group-title">
-                  <span>{USAGE_LABELS[group.usage]}</span>
-                  <span>{group.citations.length} 条</span>
-                </div>
-                {group.citations.map((citation) => (
-                  <EvidenceCard
-                    key={citation.citation_ref || citation.chunk_id}
-                    item={{
-                      ...citation,
-                      groupUsage: group.usage,
-                      chunk: chunks.get(citation.chunk_id),
-                    }}
-                    selected={selectedCitationRef === citation.citation_ref}
-                    locating={highlightedCitationRef === citation.citation_ref}
-                    supportingClaims={supportingClaims.get(citation.citation_ref) ?? []}
-                    onSelect={onCitationSelect}
-                    viewerRole={viewerRole}
-                  />
-                ))}
-              </section>
-            ))}
-          </div>
-        )}
-      </aside>
-    </>
-  );
-}
-
-function EvidenceCard({
-  item,
-  selected = false,
-  locating = false,
-  supportingClaims,
-  onSelect,
-  viewerRole,
-}: {
-  item: Citation & { groupUsage: CitationGroup['usage']; chunk?: RetrievalHit };
-  selected?: boolean;
-  locating?: boolean;
-  supportingClaims: number[];
-  onSelect: (citationRef: string, label: string) => void;
-  viewerRole: UserRole;
-}): JSX.Element {
-  const label = citationDisplayLabel(item);
-  const articleText = item.full_article_text?.trim();
-  return (
-    <article
-      className={
-        'evidence-card' +
-        (selected ? ' is-open' : '') +
-        (locating ? ' is-locating' : '')
-      }
-      id={`evidence-${cssId(item.citation_ref)}`}
-      tabIndex={-1}
-      aria-label={label}
-    >
-      <button
-        type="button"
-        className="evidence-card__trigger"
-        onClick={() => onSelect(item.citation_ref, label)}
-        aria-expanded={selected}
-        aria-controls={`evidence-detail-${cssId(item.citation_ref)}`}
-      >
-        <span className="evidence-card__top">
-          <span className="evidence-card__index">{label}</span>
-        </span>
-      </button>
-      {selected ? (
-        <div className="evidence-card__detail" id={`evidence-detail-${cssId(item.citation_ref)}`}>
-          {!label.includes(item.title) || (item.article_no && !label.includes(item.article_no)) ? <div className="evidence-card__article-label">{item.title}{item.article_no ? ` · ${item.article_no}` : ''}</div> : null}
-          {articleText ? (
-            <pre className="evidence-card__full-article">{articleText}</pre>
-          ) : (
-            <div className="evidence-card__missing-article">当前知识库未收录完整条文</div>
-          )}
-          {supportingClaims.length > 0 ? (
-            <div className="evidence-card__relation">
-              支持结论 {supportingClaims.map((claimIndex) => String.fromCharCode(0x245f + claimIndex)).join('、')}
-            </div>
-          ) : null}
-          <div className="evidence-card__meta-grid">
-            <div><span>效力状态</span><strong>{LAW_STATUS_LABELS[item.law_status] ?? LAW_STATUS_LABELS.unknown}</strong></div>
-            <div><span>适用说明</span><strong>{CITATION_ROLE_LABELS[item.citation_role] ?? '需结合具体事实核对'}</strong></div>
-            <div><span>依据类型</span><strong>{DOC_TYPE_LABELS[item.doc_type] ?? item.doc_type}</strong></div>
-            <div><span>效力层级</span><strong>{AUTHORITY_LABELS[item.authority] ?? item.authority}</strong></div>
-            <div className="evidence-card__meta-wide"><span>发布机关</span><strong>{item.issuing_body || '未提供'}</strong></div>
-            <div><span>发布日期</span><strong>{item.publish_date || '未提供'}</strong></div>
-            <div><span>生效日期</span><strong>{item.effective_date || '未提供'}</strong></div>
-          </div>
-          <div className="evidence-card__footer">
-            <span>{LAW_STATUS_LABELS[item.law_status] ?? LAW_STATUS_LABELS.unknown}</span>
-            {item.source_url ? (
-              <a href={item.source_url} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>
-                打开官方原文 ↗
-              </a>
-            ) : <span>未提供官方原文链接</span>}
-          </div>
-          {viewerRole === 'admin' && item.chunk ? (
-            <details className="evidence-card__tech"><summary>检索记录</summary><p>文本片段 {shortId(item.chunk.chunk_id)} · 检索方式：{item.chunk.retriever} · 检索得分：{item.chunk.score.toFixed(4)}</p></details>
-          ) : null}
-        </div>
-      ) : null}
-    </article>
   );
 }
 

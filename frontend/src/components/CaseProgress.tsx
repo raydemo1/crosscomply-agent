@@ -48,6 +48,7 @@ export interface CaseProgressProps {
   onAnswerRevealed?: () => void;
   actionSlot?: ReactNode;
   children?: ReactNode;
+  embedded?: boolean;
 }
 
 function activeTasks(plan?: RemediationPlanApi | null) {
@@ -144,7 +145,7 @@ function progressState(
   return { current: 0, owner: '申报人', status: '待提交', guidance: '补齐材料和申报信息后提交。' };
 }
 
-export default function CaseProgress({ caseId, hideListAction = false, beforeRereview, canRereview = false, onRereviewSettled, status, viewerRole, remediationPlan, reviewTaskStatus, approvalStarted, onOpenAction, onAnswerAction, revealAnswer, onAnswerRevealed, actionSlot, children }: CaseProgressProps): JSX.Element {
+export default function CaseProgress({ caseId, hideListAction = false, beforeRereview, canRereview = false, onRereviewSettled, status, viewerRole, remediationPlan, reviewTaskStatus, approvalStarted, onOpenAction, onAnswerAction, revealAnswer, onAnswerRevealed, actionSlot, children, embedded = false }: CaseProgressProps): JSX.Element {
   const state = progressState(status, viewerRole === 'requester' && !canRereview ? 'reviewer' : viewerRole, remediationPlan, reviewTaskStatus, approvalStarted);
   const [rereviewing, setRereviewing] = useState(false);
   const [rereviewError, setRereviewError] = useState<string | null>(null);
@@ -193,18 +194,7 @@ export default function CaseProgress({ caseId, hideListAction = false, beforeRer
     return () => window.cancelAnimationFrame(frame);
   }, [revealAnswer, onAnswerRevealed]);
 
-  return (
-    <section className="card case-progress" aria-label="案件进度">
-      <div className="case-progress__next">
-        <div><strong>{rereviewing ? '重新审查中' : state.status}</strong>{status === 'needs_info' && mandatory.length ? <span>送审前必办事项　{completed}/{mandatory.length} 完成</span> : null}</div>
-        {state.actionLabel && !(hideListAction && state.actionKind === 'list') && (onOpenAction || onAnswerAction || state.actionKind === 'answer' || caseId) ? <button type="button" disabled={rereviewing} className="case-header__action-btn case-progress__primary" onClick={() => handleAction(state.actionKind ?? 'list')}>{rereviewing ? '审查中…' : state.actionLabel}</button> : null}
-      </div>
-      {rereviewError ? <p className="case-progress__error" role="alert">{rereviewError}</p> : null}
-      <details ref={detailsRef}>
-      <summary className="case-progress__summary">
-        <span className="case-progress__summary-copy"><small>案件进度</small><strong>{CASE_STAGES[state.current][0]}</strong></span>
-        <span className="case-progress__toggle" aria-hidden="true" />
-      </summary>
+  const flow = (
       <div className="case-progress__body">
         <ol className="case-progress__steps">
           {CASE_STAGES.map(([title, caption], index) => {
@@ -217,12 +207,27 @@ export default function CaseProgress({ caseId, hideListAction = false, beforeRer
           })}
         </ol>
         <div className="case-progress__current">
-          {state.actionKind === 'answer' && state.guidance ? <p className="case-progress__guidance">{state.guidance}</p> : null}
+          {(embedded || state.actionKind === 'answer') && state.guidance ? <p className="case-progress__guidance">{state.guidance}</p> : null}
           {actionSlot ? <div className="case-progress__actions" ref={actionsRef}>{actionSlot}</div> : null}
         </div>
         {children ? <div className="case-progress__supplement">{children}</div> : null}
       </div>
-      </details>
+  );
+
+  return (
+    <section className={embedded ? 'case-progress case-progress--embedded' : 'card case-progress'} aria-label="案件进度">
+      <div className="case-progress__next">
+        <div><strong>{rereviewing ? '重新审查中' : state.status}</strong>{status === 'needs_info' && mandatory.length ? <span>送审前必办事项　{completed}/{mandatory.length} 完成</span> : null}</div>
+        {state.actionLabel && !(hideListAction && state.actionKind === 'list') && (onOpenAction || onAnswerAction || state.actionKind === 'answer' || caseId) ? <button type="button" disabled={rereviewing} className="case-header__action-btn case-progress__primary" onClick={() => handleAction(state.actionKind ?? 'list')}>{rereviewing ? '审查中…' : state.actionLabel}</button> : null}
+      </div>
+      {rereviewError ? <p className="case-progress__error" role="alert">{rereviewError}</p> : null}
+      {embedded ? flow : <details ref={detailsRef}>
+        <summary className="case-progress__summary">
+          <span className="case-progress__summary-copy"><small>案件进度</small><strong>{CASE_STAGES[state.current][0]}</strong></span>
+          <span className="case-progress__toggle" aria-hidden="true" />
+        </summary>
+        {flow}
+      </details>}
     </section>
   );
 }

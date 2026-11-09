@@ -9,8 +9,9 @@ function CitationSup({ node: _node, children, ...props }: ComponentPropsWithoutR
   const onCitationClick = useContext(CitationClickContext);
   const citationRef = props['data-citation-ref'];
   if (!citationRef || !onCitationClick) return <sup {...props}>{children}</sup>;
+  const marker = typeof children === 'string' ? children : '';
   return <button type="button" className="cite-marker" data-citation-ref={citationRef}
-    aria-label={`查看引用 ${citationRef}`} title={`查看 ${citationRef}`}
+    aria-label={`查看对应法条 ${marker}`.trim()} title="查看对应法条"
     onClick={() => onCitationClick(citationRef)}>{children}</button>;
 }
 

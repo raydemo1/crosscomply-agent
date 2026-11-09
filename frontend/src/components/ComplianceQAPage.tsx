@@ -180,9 +180,9 @@ export default function ComplianceQAPage({ history, onOpenHistory, userRole, con
     <section className={'qa-page' + (hasMessages ? ' qa-page--conversation' : '')}>
       <div className="qa-history-entry"><button ref={historyTrigger} className="qa-quiet-button" type="button" aria-expanded={historyOpen} onClick={() => setHistoryOpen((value) => !value)}>历史记录</button></div>
       {historyOpen ? <dialog ref={historyDialog} className="qa-history-drawer" onClose={() => { setHistoryOpen(false); historyTrigger.current?.focus(); }} aria-label="历史咨询记录" onKeyDown={(event) => { if (event.key === 'Escape') setHistoryOpen(false); }}><header><h2>历史咨询</h2><button autoFocus className="qa-quiet-button" type="button" aria-label="关闭历史记录" onClick={() => historyDialog.current?.close()}><X size={18} /></button></header>{history.length ? history.map((item) => <button className="qa-history-row" type="button" key={item.id} aria-current={item.id === conversationId ? 'page' : undefined} onClick={() => { if ((question.trim() || files.length) && !window.confirm('切换咨询会丢弃当前未发送的问题和附件，是否继续？')) return; setHistoryOpen(false); onOpenHistory(item.id); }}>{item.title}<small>{new Date(item.updated_at).toLocaleDateString('zh-CN')}</small></button>) : <p className="qa-history-empty">暂无咨询记录</p>}</dialog> : null}
-      {hasMessages ? <header className="qa-thread-heading"><div><h1>{conversation?.title}</h1></div><button className="qa-quiet-button" type="button" onClick={onNewConversation}><Plus size={16} />新问答</button></header> : (
+      {hasMessages ? <header className="qa-thread-heading"><div><h1 className="page-title">{conversation?.title}</h1></div><button className="qa-quiet-button" type="button" onClick={onNewConversation}><Plus size={16} />新问答</button></header> : (
         <header className="qa-welcome">
-          <h1>咨询数据出境合规问题</h1>
+          <h1 className="page-title">咨询数据出境合规问题</h1>
         </header>
       )}
 

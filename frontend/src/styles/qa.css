@@ -7,8 +7,8 @@
 .qa-welcome { text-align: left; }
 .qa-welcome h1 { margin: 0; color: var(--color-foreground); font: 600 clamp(1.625rem, 2.3vw, 2rem)/1.4 var(--font-heading); letter-spacing: 0; text-wrap: balance; }
 .qa-composer-wrap { margin-top: 28px; }
-.qa-examples { display: grid; gap: 0; margin-top: 24px; }
-.qa-examples button { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; border: 0; border-radius: var(--radius-md); padding: 14px 12px; text-align: left; background: transparent; color: var(--color-foreground-secondary); font: 400 var(--text-md)/1.6 var(--font-body); cursor: pointer; transition: color var(--transition-fast), padding var(--transition-fast); }
+.qa-examples { display: grid; margin-top: 24px; border-top: 1px solid var(--color-border); }
+.qa-examples button { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; border: 0; border-bottom: 1px solid var(--color-hairline); padding: 14px 12px; text-align: left; background: transparent; color: var(--color-foreground-secondary); font: 400 var(--text-md)/1.6 var(--font-body); cursor: pointer; transition: color var(--transition-fast), background var(--transition-fast); }
 .qa-examples button::after { content: '→'; color: var(--color-foreground-muted); }
 .qa-examples button:hover { color: var(--color-primary); background: var(--tint-navy-bg); }
 .qa-guide-entry { display: flex; justify-content: flex-end; padding-top: 12px; }
@@ -20,7 +20,7 @@
 .qa-composer-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; gap: 12px; }
 .qa-attach, .qa-quiet-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; background: transparent; font: var(--weight-medium) var(--text-sm) var(--font-body); color: var(--color-foreground-muted); padding: 8px; cursor: pointer; border-radius: var(--radius-sm); }
 .qa-attach:hover, .qa-quiet-button:hover { color: var(--color-primary); background: var(--color-muted); }
-.qa-send { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 11px; background: var(--color-primary); color: var(--color-on-primary); cursor: pointer; transition: background .2s; }
+.qa-send { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: var(--radius-md); background: var(--color-primary); color: var(--color-on-primary); cursor: pointer; transition: background var(--transition-fast); }
 .qa-send:disabled { background: var(--color-muted); color: var(--color-foreground-faint); cursor: default; }
 .qa-send:not(:disabled):hover { background: var(--color-secondary); }
 .qa-composer.is-dragging { border-color: var(--color-primary); }
@@ -28,10 +28,11 @@
 .qa-page--conversation { padding-top: 30px; }
 .qa-page--conversation .qa-composer textarea { min-height: 72px; }
 .qa-thread-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--color-hairline); padding-bottom: 22px; }
-.qa-thread-heading h1 { font: var(--weight-medium) var(--text-xl)/1.6 var(--font-body); margin: 7px 0 0; overflow-wrap: anywhere; }
+.qa-thread-heading > div { min-width: 0; }
+.qa-thread-heading h1 { font: var(--weight-semibold) var(--text-xl)/1.6 var(--font-heading); margin: 7px 0 0; overflow-wrap: anywhere; }
 .qa-thread-heading .qa-quiet-button { white-space: nowrap; }
 .qa-turn { padding-top: 24px; }
-.qa-user-message { padding: 18px 22px; margin-left: clamp(0px, 5vw, 60px); border-radius: 14px 14px 3px 14px; background: var(--tint-navy-bg); }
+.qa-user-message { padding: 18px 22px; margin-left: clamp(0px, 5vw, 60px); border-inline-start: 2px solid var(--tint-navy-border); border-radius: var(--radius-sm); background: var(--tint-navy-bg); }
 .qa-message-label { display: block; color: var(--color-foreground-muted); font-size: var(--text-xs); }
 .qa-user-message > p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; font-size: var(--text-base); line-height: 1.8; }
 .qa-answer { padding: 18px 0 6px; }

@@ -753,3 +753,173 @@
 .sidebar-recent { margin-top:28px; }.sidebar-recent-title { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:13px; line-height:1.6; color:var(--color-foreground-secondary); }
 .sidebar-recent small { display:block; margin-top:5px; color:var(--color-foreground-muted); font-size:11px; }
 .sidebar-nav-item { gap:10px; }.sidebar-nav-item > svg { flex-shrink:0; }
+
+/* ============================================================
+ * 侧栏外壳
+ * 浅色模式下是比工作区略深、略冷的第二层中性色，与工作区同处一个明度；
+ * 深色模式下沉为更深的墨色。当前位置以提亮底色标记。
+ * ============================================================ */
+.app-sidebar {
+  background: var(--color-sidebar);
+  border-right: 1px solid var(--color-sidebar-border);
+  color: var(--color-sidebar-foreground);
+  scrollbar-color: var(--color-sidebar-border) transparent;
+}
+
+.app-sidebar :focus-visible {
+  outline-color: var(--color-sidebar-foreground);
+}
+
+.sidebar-brand {
+  border-bottom-color: var(--color-sidebar-border);
+}
+
+.sidebar-brand-title {
+  color: var(--color-sidebar-foreground);
+  letter-spacing: 0;
+}
+
+.sidebar-create {
+  padding-top: 20px;
+}
+
+.sidebar-create .btn-primary {
+  background: var(--color-sidebar-cta);
+  border-color: var(--color-sidebar-cta);
+  color: var(--color-sidebar-on-cta);
+}
+
+.sidebar-create .btn-primary:hover {
+  background: var(--color-sidebar-cta-hover);
+  border-color: var(--color-sidebar-cta-hover);
+}
+
+.sidebar-section-label {
+  color: var(--color-sidebar-muted);
+  letter-spacing: 0.08em;
+}
+
+.sidebar-nav-item {
+  position: relative;
+  min-height: 40px;
+  color: var(--color-sidebar-muted);
+  border-radius: var(--radius-md);
+}
+
+.sidebar-nav-item:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-sidebar-foreground);
+}
+
+.sidebar-nav-item.is-active {
+  background: var(--color-sidebar-active);
+  color: var(--color-sidebar-foreground);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--sidebar-active-shadow);
+}
+
+.sidebar-nav-submenu {
+  border-left-color: var(--color-sidebar-border);
+}
+
+.sidebar-task-count {
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-admin {
+  border-top-color: var(--color-sidebar-border);
+}
+
+.app-sidebar .history-item--button {
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+.app-sidebar .history-item--button:hover {
+  background: var(--color-sidebar-hover);
+}
+
+.sidebar-recent-title {
+  color: var(--color-sidebar-foreground);
+  opacity: 0.86;
+}
+
+.sidebar-recent small {
+  color: var(--color-sidebar-muted);
+}
+
+.sidebar-user-card {
+  border-top-color: var(--color-sidebar-border);
+}
+
+.sidebar-user-card__avatar {
+  border-radius: var(--radius-md);
+  background: var(--color-sidebar-raised);
+  color: var(--color-sidebar-foreground);
+}
+
+.sidebar-user-card strong,
+.sidebar-user-card__profile strong {
+  color: var(--color-sidebar-foreground);
+}
+
+.sidebar-user-card span,
+.sidebar-user-card__profile span {
+  color: var(--color-sidebar-muted);
+}
+
+.sidebar-user-card__profile:hover {
+  background: var(--color-sidebar-hover);
+}
+
+.sidebar-user-card__logout {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  color: var(--color-sidebar-muted);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.sidebar-user-card__logout:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-sidebar-foreground);
+}
+
+.sidebar-mobile-close {
+  border-color: var(--color-sidebar-border);
+  color: var(--color-sidebar-muted);
+}
+
+/* ---------- 页面标题：宋体条文标题 + 朱印方点 ---------- */
+.page-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  letter-spacing: 0.03em;
+}
+
+.page-title::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 0.3em;
+  height: 0.3em;
+  border-radius: 1px;
+  background: var(--color-accent);
+  transform: translateY(-0.12em);
+}
+
+/* ---------- 深色主题下品牌标识换用反白版 ---------- */
+[data-theme='dark'] img[src='/crosscomply-logo.svg'] {
+  content: url('/crosscomply-logo-inverse.svg');
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) img[src='/crosscomply-logo.svg'] {
+    content: url('/crosscomply-logo-inverse.svg');
+  }
+}
