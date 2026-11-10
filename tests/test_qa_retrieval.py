@@ -281,8 +281,8 @@ def test_scope_exclusions_are_grounded_in_selected_input_and_fail_as_tool_feedba
     execute_qa(store.get(cid), run, checkpoint=lambda **kw: updates.append(kw), chunks_path="unused", client=client, tools=tools)
     assert tools.seen == [["自由贸易试验区"], ["自由贸易试验区"]]
     initial = json.loads(client.calls[0][1].content)
-    assert initial["material_passages"][0]["text"] == "企业不在自贸区"
-    assert initial["material_reading"]["next_read_request"] is None
+    assert initial["material_passages"] == []
+    assert [item["material_version_id"] for item in initial["materials"]] == ["selected"]
     assert "material_preview" not in initial["state"]
     feedback = next(json.loads(m.content) for m in client.answer_messages if m.role == "tool")
     assert "quote必须逐字来自" in feedback["observation"]["error"]

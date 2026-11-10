@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { ArrowRight, ArrowUp, Check, TriangleAlert, CircleHelp, FileText, Paperclip, Plus, X } from 'lucide-react';
 import { createQAConversation, downloadQAMaterial, getQAConversation, retryQARun, sendQAMessage, subscribeQARun, uploadQAMaterial, validateUploadFile } from '../api/client';
 import type { QAConversation, QAHandoff, QAQuestion, QARun, QASummary } from '../types/qa';
 import QAAnswer from './QAAnswer';
 import { formatQAAnswers, qaQuestionOptions, toggleQAOption } from '../utils/qaQuestions';
+import { pastedAttachment } from '../utils/materialNames';
 import '../styles/qa.css';
 
 interface Props {
@@ -119,6 +120,19 @@ export default function ComplianceQAPage({ history, onOpenHistory, userRole, con
     }
   }, [conversation?.runs[conversation.runs.length - 1]?.answer, hasMessages]);
 
+  const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>): void => {
+    const file = pastedAttachment(event.clipboardData.getData('text/plain'));
+    if (!file) return;
+    event.preventDefault();
+    try {
+      validateUploadFile(file);
+      setFiles((items) => [...items, file]);
+      setError(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '文件无效');
+    }
+  };
+
   const send = async (text = question): Promise<void> => {
     if (!text.trim() || busy) return;
     setSending(true);
@@ -219,7 +233,7 @@ export default function ComplianceQAPage({ history, onOpenHistory, userRole, con
         <form className={'qa-composer' + (draggingFiles ? ' is-dragging' : '')} onSubmit={(event) => { event.preventDefault(); void send(); }} onDragEnter={() => { dragDepthRef.current += 1; setDraggingFiles(true); }} onDragLeave={() => { dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (dragDepthRef.current === 0) setDraggingFiles(false); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); dragDepthRef.current = 0; setDraggingFiles(false); try { const incoming = Array.from(event.dataTransfer?.files ?? []); if (incoming.length) { incoming.forEach(validateUploadFile); setFiles((items) => [...items, ...incoming]); setError(null); } } catch (reason) { setError(reason instanceof Error ? reason.message : '文件无效'); } }}>
           {draggingFiles ? <div className="qa-drag-overlay" aria-hidden="true"><Paperclip size={22} strokeWidth={1.8} /><span>松开以添加材料</span></div> : null}
           <label htmlFor="qa-question" className="sr-only">合规问题</label>
-          <textarea ref={questionInput} id="qa-question" value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={20000} rows={hasMessages ? 1 : 3} placeholder={hasMessages ? '继续提问，或补充业务情况…' : '请描述业务场景或合规问题…'} disabled={loading || sending} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} />
+          <textarea ref={questionInput} id="qa-question" value={question} onChange={(event) => setQuestion(event.target.value)} onPaste={handlePaste} maxLength={20000} rows={hasMessages ? 1 : 3} placeholder={hasMessages ? '继续提问，或补充业务情况…' : '请描述业务场景或合规问题…'} disabled={loading || sending} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} />
           {files.length ? <div className="qa-file-chips">{files.map((file, i) => <span key={i}><FileText size={14} />{file.name}<button type="button" disabled={sending} aria-label={`移除 ${file.name}`} onClick={() => setFiles((items) => items.filter((_, index) => index !== i))}><X size={13} /></button></span>)}</div> : null}
           <div className="qa-composer-toolbar"><button type="button" className="qa-attach" title="添加材料" aria-label="添加材料" disabled={busy} onClick={() => input.current?.click()}><Paperclip size={16} /></button><input ref={input} type="file" hidden multiple accept=".txt,.md,.pdf,.docx,.xlsx,.csv,.html,.htm" onChange={(event) => { try { const incoming = Array.from(event.target.files ?? []); incoming.forEach(validateUploadFile); setFiles((items) => [...items, ...incoming]); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : '文件无效'); } event.target.value = ''; }} /><button className="qa-send" type="submit" aria-label="发送问题" title="发送问题（Ctrl / ⌘ + Enter）" disabled={!question.trim() || busy}><ArrowUp size={20} /></button></div>
         </form>

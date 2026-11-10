@@ -16,6 +16,8 @@ from law_agent.review.agent import (
     review_context,
     run_agent,
 )
+from law_agent.review.enterprise_store import InMemoryEnterpriseStore
+from law_agent.review.material_search import format_frozen_material
 from law_agent.review.qa_agent import QAState, execute_qa
 from law_agent.review.qa_store import InMemoryQAStore
 from law_agent.review.tool_calling import InvalidToolCall
@@ -62,7 +64,8 @@ def test_client_uses_auto_native_tools_and_preserves_reasoning(effort, monkeypat
 def test_final_stream_preserves_native_dialogue_and_tools_at_http_boundary(effort, monkeypatch):
     requests = []
     outputs = [
-        tool_message(("read", "read_material", {"summary": "读取材料"}), reasoning="first-native-reasoning"),
+        tool_message(("read", "read_materials", {"summary": "读取材料", "material_requests": [
+            {"material_version_id": "v1"}]}), reasoning="first-native-reasoning"),
         tool_message(("finish", "finish", {"summary": "有限回答", "evidence_gaps": ["尚未取得法律原文"]}),
                      reasoning="last-native-reasoning"),
     ]
@@ -102,7 +105,7 @@ def test_final_stream_preserves_native_dialogue_and_tools_at_http_boundary(effor
         m["role"] == "user" for m in investigation["messages"])
     assert [m["tool_call_id"] for m in final["messages"] if m["role"] == "tool"] == ["read", "finish"]
     read = next(m for m in final["messages"] if m.get("tool_call_id") == "read")
-    assert "原始业务前提，不替换为摘要。" in json.loads(read["content"])["observation"]["text"]
+    assert json.loads(read["content"])["observation"]["passages"][0]["text"] == "原始业务前提，不替换为摘要。"
     control = json.loads(final["messages"][-1]["content"])["observation"]
     assert control["ready_to_answer"] is True and control["citation_registry"] == []
     assert "answer_points" not in final["tools"][-1]["function"]["parameters"]["properties"]
@@ -112,8 +115,10 @@ def test_final_stream_preserves_native_dialogue_and_tools_at_http_boundary(effor
 
 def test_batch_executes_every_call_serially_and_returns_actual_results():
     client = AnswerClient(outputs=[
-        tool_message(("a", "read_material", {"summary": "读取附件", "offset": 0}),
-                     ("b", "read_material", {"summary": "继续读取", "offset": 4})),
+        tool_message(("a", "read_materials", {"summary": "读取附件", "material_requests": [
+            {"material_version_id": "m"}]}),
+                     ("b", "read_materials", {"summary": "继续读取", "material_requests": [
+                         {"material_version_id": "m", "start": 4}]})),
         tool_message(("c", "finish", {"summary": "结束"})),
     ])
     store = InMemoryQAStore()
@@ -126,10 +131,9 @@ def test_batch_executes_every_call_serially_and_returns_actual_results():
     assert updates[-1]["status"] == "completed" and len(client.calls) == 2
     results = [m for m in client.calls[1] if m.role == "tool"]
     assert [m.tool_call_id for m in results] == ["a", "b"]
-    assert "实际材料原文" in json.loads(results[0].content)["observation"]["text"]
-    assert json.loads(results[0].content)["observation"]["next_read_request"] is None
-    assert not json.loads(results[0].content)["observation"]["truncated"]
-    assert json.loads(results[1].content)["observation"]["text"] != json.loads(results[0].content)["observation"]["text"]
+    first, second = [json.loads(result.content)["observation"]["passages"][0] for result in results]
+    assert first["text"] == "实际材料原文" and second["text"] == "原文"
+    assert first["next_read"] is None and not first["truncated"]
     assert any(m.reasoning_content == "private reasoning" for m in client.answer_messages)
     assert client.answer_messages[:len(client.calls[-1])] == client.calls[-1]
 
@@ -155,6 +159,50 @@ def test_complete_material_has_no_continuation(material):
     result = read_material_page(material, 0)
     assert result["text"] == material and not result["truncated"]
     assert result["next_offset"] is None and result["next_read_request"] is None
+
+
+def test_review_search_returns_usable_original_from_later_version():
+    store = InMemoryEnterpriseStore()
+    annex = "## 保存期限\n" + "处理说明" * 60 + "\n保存三年\n字段 | Data Type"
+    versions = [
+        store.create_material_version(
+            case_id="case", logical_name=name, filename=f"{name}.txt", content_type="text/plain",
+            object_key=name, sha256=name, byte_size=len(text.encode()), uploaded_by="applicant",
+            parse_status="ready", parsed_text=text,
+        )
+        for name, text in [("协议", "正文😀" * 4200), ("附件", annex)]
+    ]
+    material = format_frozen_material(versions)
+    client = FakeClient(outputs=[
+        tool_message(("search", "grep_materials", {"summary": "定位附件", "pattern": "保存期限"})),
+        tool_message(("compute", "run_python", {"summary": "核算", "code": "print(42)"})),
+        tool_message(("finish", "finish", {"summary": "结束", "draft": _draft().model_dump(mode="json")})),
+    ])
+    executions = []
+
+    def execute(code, frozen_text):
+        executions.append((code, frozen_text))
+        return {"ok": True, "stdout": "42\n"}
+
+    model = AgentModel(model_id="test", client=client, python_enabled=True)
+    result = run_agent(
+        AgentState(goal="核查"), material=material, material_versions=versions, intake={},
+        decide=model, search=lambda *_: [], web_search=lambda *_: None,
+        execute_python=execute, finalize=lambda *_: {"complete": True}, checkpoint=lambda _: None,
+    )
+    assert result.status == "completed"
+    hits = result.steps[0].observation["hits"]
+    assert len(hits) == 1
+    hit = hits[0]
+    assert hit["material_version_id"] == versions[1].id
+    assert annex[hit["match_start"]:hit["match_end"]] == "保存期限"
+    assert annex[hit["offset"]:hit["offset"] + len(hit["text"])] == hit["text"]
+    assert "read_request" not in hit
+    search_result = next(message for message in client.calls[-1] if message.tool_call_id == "search")
+    assert json.loads(search_result.content)["observation"]["hits"][0]["text"] == hit["text"]
+    assert [step.action for step in result.steps] == ["grep_materials", "run_python", "finish"]
+    assert executions == [("print(42)", material)]
+    assert result.steps[1].observation == {"ok": True, "stdout": "42\n"}
 
 
 def test_json_action_in_content_is_not_executed_as_a_tool():
@@ -297,7 +345,8 @@ def test_evidence_updates_are_lossless_without_repeating_prior_hit_text():
     from tests.test_review_result_builder import _hit
     client = FakeClient(outputs=[tool_message(("a", "search_evidence", {"summary": "检索", "queries": [
         {"query_id": "q", "text": "规则", "query_type": "legal_issue"}]})),
-        tool_message(("b", "read_material", {"summary": "阅读", "offset": 0}))])
+        tool_message(("b", "read_materials", {"summary": "阅读", "material_requests": [
+            {"material_version_id": "v1"}]}))])
     model = AgentModel(model_id="test", client=client)
     state = AgentState(goal="问题")
     model(state, {})
@@ -336,27 +385,36 @@ def test_review_without_record_facts_keeps_original_material_law_and_native_dial
 
     original = "材料A记录12万人；材料B记录120万人，统计期间、去重口径和业务范围相同。"
     material = original + "业务原文。" * 2500 + "材料末尾的原始限制条件。"
+    version = InMemoryEnterpriseStore().create_material_version(
+        case_id="case", logical_name="业务材料", filename="业务.txt", content_type="text/plain",
+        object_key="business", sha256="business", byte_size=len(material.encode()), uploaded_by="applicant",
+        parse_status="ready", parsed_text=material,
+    )
     law = _hit().model_copy(update={"text": "自当年1月1日起累计，按自然人去重。", "full_article_text": None})
     client = FakeClient(outputs=[
         tool_message(("search", "search_evidence", {"summary": "核对人数门槛", "queries": [
             {"query_id": "q", "text": "累计人数门槛", "query_type": "legal_issue"}]}), reasoning="search-reasoning"),
-        tool_message(("read", "read_material", {"summary": "读取剩余原文", "offset": 12000}), reasoning="read-reasoning"),
+        tool_message(("read", "read_materials", {"summary": "读取原文", "material_requests": [
+            {"material_version_id": version.id}]}), reasoning="read-reasoning"),
         tool_message(("finish", "finish", {"summary": "保留冲突交付", "draft": _draft().model_dump(mode="json")}), reasoning="finish-reasoning"),
     ])
     model = AgentModel(model_id="test", client=client)
     facts = ReviewFacts(cross_border_transfer=False, annual_sensitive_count="0", as_of_date="2024-04-01")
     state = AgentState(goal="审查路径", facts=facts.model_copy(deep=True))
-    result = run_agent(state, material=material, intake={"id": "frozen", "facts": facts.model_dump(mode="json")},
+    result = run_agent(state, material=format_frozen_material([version]), material_versions=[version],
+                       intake={"id": "frozen", "facts": facts.model_dump(mode="json")},
                        decide=model, search=lambda *_, **_kwargs: [law], web_search=lambda *_: [],
                        finalize=lambda draft, state: {"ok": True}, checkpoint=lambda _: None)
     assert result.status == "completed" and result.facts == facts
-    assert [step.action for step in result.steps] == ["search_evidence", "read_material", "finish"]
+    assert [step.action for step in result.steps] == ["search_evidence", "read_materials", "finish"]
     final = client.calls[-1]
     assert final[:len(client.calls[0])] == client.calls[0]
     assert final[:len(client.calls[1])] == client.calls[1]
     initial = json.loads(final[1].content)
     rest = json.loads(next(m.content for m in final if m.tool_call_id == "read"))
-    assert initial["state"]["material_preview"]["text"] + rest["observation"]["text"] == material
+    assert initial["state"]["materials"][0]["material_version_id"] == version.id
+    assert initial["state"]["material_passages"] == []
+    assert rest["observation"]["passages"][0]["text"] == material
     search = json.loads(next(m.content for m in final if m.tool_call_id == "search"))
     assert search["state"]["evidence"][0]["text"] == law.text
     assert [m.reasoning_content for m in final if m.role == "assistant"] == ["search-reasoning", "read-reasoning"]

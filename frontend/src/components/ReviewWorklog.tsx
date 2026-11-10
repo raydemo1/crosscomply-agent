@@ -19,6 +19,10 @@ import { getReviewTask } from '../api/client';
 const ACTION_META: Record<string, { label: string; live: string; Icon: typeof Search }> = {
   propose_plan: { label: '制定计划', live: '正在梳理审查要点', Icon: ListChecks },
   read_material: { label: '复核材料', live: '正在核查送审材料', Icon: FileText },
+  search_material: { label: '检索材料', live: '正在定位材料原文', Icon: Search },
+  read_materials: { label: '阅读材料', live: '正在阅读送审材料', Icon: FileText },
+  grep_materials: { label: '检索材料', live: '正在定位材料原文', Icon: Search },
+  run_python: { label: '处理数据', live: '正在处理材料中的数据', Icon: FileText },
   search_evidence: { label: '检索法规', live: '正在检索法规', Icon: Search },
   read_evidence: { label: '研读条文', live: '正在研读条文', Icon: BookOpen },
   search_web: { label: '联网核查', live: '正在联网核查最新口径', Icon: Globe },
@@ -38,7 +42,7 @@ function meta(action: string) {
 const FOOTER_STATS: Array<{ action: string; label: string; unit: string; Icon: typeof Search }> = [
   { action: 'search_evidence', label: '检索', unit: '次', Icon: Search },
   { action: 'read_evidence', label: '研读条文', unit: '次', Icon: BookOpen },
-  { action: 'read_material', label: '复核材料', unit: '次', Icon: FileText },
+  { action: 'read_materials', label: '阅读材料', unit: '次', Icon: FileText },
   { action: 'search_web', label: '联网核查', unit: '次', Icon: Globe },
   { action: 'queue_enrichment', label: '补充知识库', unit: '项', Icon: Library },
   { action: 'tool_error', label: '重试', unit: '次', Icon: RotateCcw },

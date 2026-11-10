@@ -47,6 +47,7 @@ from law_agent.review.evalset.agent_schemas import (
 from law_agent.review.http.schemas import IntakePayload
 from law_agent.review.ids import utc_now_iso
 from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
+from law_agent.review.material_search import format_frozen_material
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.web_research import WebSearchResult, is_official_url
 
@@ -128,10 +129,7 @@ def make_production_executor(
         ]
         if any(item.parse_status != "ready" for item in versions):
             raise RuntimeError("agent eval material versions must be parsed/ready")
-        frozen_material = "\n\n".join(
-            f"【材料 {item.logical_name} v{item.version_number} | {item.id}】\n{item.parsed_text}"
-            for item in versions
-        )
+        frozen_material = format_frozen_material(versions)
         with ExitStack() as stack:
             effective_chunks = Path(chunks_path)
             if case.controlled_web:

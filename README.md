@@ -34,6 +34,8 @@ docker compose exec -T api python -m law_agent.review service-doctor
 
 完整部署（含飞书审批、统一入口 8080、迁移与数据卷）见 [docs/SERVICE_STACK.md](docs/SERVICE_STACK.md)。
 
+Compose 的正式审查 Worker 镜像已配置 Python 沙箱。直接从源码运行 Worker 时，可安装 `pip install -e ".[service,sandbox]"`，解压 [CPython WASI 3.14.9](https://github.com/brettcannon/cpython-wasi-build/releases/tag/v3.14.9)，将 `LAWAGENT_WASI_PYTHON_ROOT` 指向含 `python.wasm` 和 `lib/` 的专用目录。沙箱只读挂载该运行时目录，因此该目录应仅存放 Python 运行时文件。
+
 仅做前后端本地开发时，按开发文档启动 `postgres`、`elasticsearch` 和发布本机端口的 MinIO，再完成迁移和管理员初始化，然后：
 
 ```powershell

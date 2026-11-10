@@ -35,6 +35,23 @@ def test_partial_reads_do_not_expose_unread_material_or_stale_text():
     assert material_passages(state, [{**materials[0], "parsed_text": "已变化"}, materials[1]]) == []
 
 
+def test_file_level_passages_only_carry_verified_original_text():
+    materials = [{"id": "v1", "filename": "a.txt", "parsed_text": "首行\n保存三年"},
+                 {"id": "v2", "filename": "b.txt", "parsed_text": "仅在当前附件"}]
+    state = {"steps": [
+        {"action": "read_materials", "observation": {"passages": [
+            {"material_version_id": "v1", "offset": 3, "text": "保存三年"},
+            {"material_version_id": "v2", "offset": 0, "text": "模型改写"},
+        ]}},
+        {"action": "grep_materials", "observation": {"hits": [
+            {"material_version_id": "absent", "offset": 0, "text": "其他案件"},
+        ]}},
+    ]}
+    assert material_passages(state, materials) == [
+        {"material_version_id": "v1", "filename": "a.txt", "offset": 3, "text": "保存三年"},
+    ]
+
+
 def test_followup_retains_run_local_citations_and_selected_original_inputs():
     material = {"id": "v1", "filename": "facts.txt", "parsed_text": "用户明确：存在集体合同"}
     previous = {"id": "r1", "status": "completed", "question": "先按2023年规则回答", "material_ids": ["v1"],

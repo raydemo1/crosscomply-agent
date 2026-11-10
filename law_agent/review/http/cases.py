@@ -42,6 +42,7 @@ ALLOWED_UPLOAD_SUFFIXES = {
     ".markdown",
     ".pdf",
     ".docx",
+    ".xlsx",
     ".html",
     ".htm",
     ".json",
@@ -146,7 +147,7 @@ async def material_from_upload(file: UploadFile) -> tuple[str, str]:
         path = Path(tmpdir) / filename
         path.write_bytes(raw)
         try:
-            material = material_from_file(path)
+            material = await run_in_threadpool(material_from_file, path)
         except (FileNotFoundError, RuntimeError, ValueError) as exc:
             raise HTTPException(
                 status_code=422,

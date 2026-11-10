@@ -15,6 +15,13 @@ export function uniqueLogicalName(filename: string, taken: Set<string>): string 
 /** Pasted prose keeps one stable identity so editing it replaces its previous version. */
 export const PASTED_MATERIAL_LOGICAL_NAME = '材料正文';
 
+export function pastedAttachment(text: string): File | null {
+  const bytes = new TextEncoder().encode(text);
+  return bytes.length > 8000 && text.trim()
+    ? new File([bytes], '粘贴材料.txt', { type: 'text/plain;charset=utf-8' })
+    : null;
+}
+
 /**
  * Names claimed by one upload batch, in submission order: the pasted prose keeps its reserved
  * name first, then every dropped file takes the next free name. Callers use this both to preview

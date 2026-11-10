@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 from law_agent.review.agent_context import compact_evidence_context
+from law_agent.review.material_search import READ_BYTES
 from law_agent.review.qa_citations import register_citation_marker
 
 
@@ -17,7 +18,6 @@ def qa_state_context(state):
         hit["citation_marker"] = marker
         hit["citation_label"] = f"{marker} {hit.get('citation_label') or hit.get('article_no') or hit['source_id']}"
     facts = payload.pop("facts")
-    payload.pop("material_preview", None)
     exclusions = payload.pop("source_scope_exclusions", [])
     payload["research_context"] = {
         key: facts[key] for key in ("regions", "industry")
@@ -33,10 +33,12 @@ def material_package(materials):
 
 
 def material_passages(state, materials):
-    package = material_package(materials)
+    observations = [step["observation"] for step in state.get("steps", [])
+                    if step["action"] == "read_material"]
+    if state.get("material_preview"):
+        observations.insert(0, state["material_preview"])
+    package = material_package(materials) if observations else ""
     windows = []
-    observations = [state.get("material_preview", {}),
-                    *(step["observation"] for step in state.get("steps", []) if step["action"] == "read_material")]
     for observation in observations:
         text = observation.get("text")
         offset = observation.get("offset")
@@ -44,6 +46,19 @@ def material_passages(state, materials):
             windows.append((offset, offset + len(text)))
     cursor = 0
     passages = []
+    by_id = {item["id"]: item for item in materials}
+    for step in state.get("steps", []):
+        key = {"read_materials": "passages", "grep_materials": "hits"}.get(step["action"])
+        if key is None:
+            continue
+        for item in step["observation"].get(key, []):
+            material = by_id.get(item.get("material_version_id"))
+            text, offset = item.get("text"), item.get("offset")
+            if (material is not None and isinstance(text, str) and text
+                and type(offset) is int and offset >= 0
+                and material["parsed_text"][offset:offset + len(text)] == text):
+                passages.append({"material_version_id": material["id"], "filename": material["filename"],
+                                 "offset": offset, "text": text})
     for material in materials:
         start = cursor + len(f"【材料 {material['filename']} | {material['id']}】\n")
         end = start + len(material["parsed_text"])
@@ -97,4 +112,13 @@ def conversation_context(conversation, run):
         passages.extend(p for p in material_passages(item.get("state", {}), previous_materials)
                         if p["material_version_id"] in selected)
         history.append(entry)
-    return history, merge_material_passages(passages)
+    remaining = READ_BYTES
+    inherited = []
+    for passage in merge_material_passages(passages):
+        if remaining <= 0:
+            break
+        text = passage["text"][:remaining].encode("utf-8")[:remaining].decode("utf-8", errors="ignore")
+        if text:
+            inherited.append({**passage, "text": text})
+            remaining -= len(text.encode("utf-8"))
+    return history, inherited

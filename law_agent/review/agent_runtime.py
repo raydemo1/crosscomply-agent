@@ -17,6 +17,7 @@ from law_agent.review.agent_tools import ComplianceAgentTools
 from law_agent.review.claim_repair import make_claim_repairer
 from law_agent.review.enterprise_store import MaterialVersion, ReviewTask
 from law_agent.review.fact_provenance import confirmed_intake_ledger
+from law_agent.review.python_sandbox import sandbox_from_env
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.schemas import ReviewFacts
 
@@ -63,6 +64,7 @@ def execute_agent_task(
             fact_ledger=confirmed_intake_ledger(intake_snapshot.intake, intake_snapshot.id),
         )
     )
+    sandbox = sandbox_from_env()
     tools = ComplianceAgentTools(
         chunks_path=chunks_path,
         question=goal,
@@ -77,7 +79,9 @@ def execute_agent_task(
             state,
             material=material,
             intake={"id": intake_snapshot.id, "facts": intake_snapshot.intake},
-            decide=AgentModel(model_id=task.model_id),
+            decide=AgentModel(model_id=task.model_id, python_enabled=sandbox is not None),
+            material_versions=material_versions,
+            execute_python=sandbox.run if sandbox is not None else None,
             search=tools.search,
             search_navigation=tools.search_navigation,
             read_evidence=tools.read_evidence,

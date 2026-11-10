@@ -17,7 +17,7 @@ import {
   validateUploadFile,
 } from '../api/client';
 import { EMPTY_INTAKE } from '../store/caseStore';
-import { allocateUploadNames, PASTED_MATERIAL_LOGICAL_NAME } from '../utils/materialNames';
+import { allocateUploadNames, pastedAttachment, PASTED_MATERIAL_LOGICAL_NAME } from '../utils/materialNames';
 import { intakeQuestion, intakeQuestionFields, visibleIntakeQuestions, type MissingFact } from '../utils/intakeQuestions';
 import '../styles/workbench.css';
 
@@ -189,7 +189,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
     [files, existingMaterialNames, editingMaterialText, material],
   );
 
-  const acceptFiles = (incoming: FileList | null): void => {
+  const acceptFiles = (incoming: ArrayLike<File> | null): void => {
     if (!incoming || incoming.length === 0) return;
     const accepted: File[] = [];
     for (const file of Array.from(incoming)) {
@@ -416,10 +416,10 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
           {templatesOpen ? <div className="intake-template-picker">{templatesLoading ? <p role="status">正在读取模板…</p> : templates.length ? templates.map((template) => <button key={template.id} type="button" onClick={() => applyTemplate(template)}>{template.name}</button>) : <p>暂无可用模板</p>}</div> : null}
           <input id="wb-question" className="workbench__input" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：这个业务是否需要数据出境安全评估？" disabled={busy} />
           <label className="form-label intake-material-label" htmlFor="wb-material">业务背景</label>
-          <textarea id="wb-material" className="workbench__textarea" value={material} onChange={(event) => setMaterial(event.target.value)} placeholder="描述业务安排，或粘贴待审查材料" disabled={busy} rows={6} />
+          <textarea id="wb-material" className="workbench__textarea" value={material} onChange={(event) => setMaterial(event.target.value)} onPaste={(event) => { const file = pastedAttachment(event.clipboardData.getData('text/plain')); if (file) { event.preventDefault(); acceptFiles([file]); } }} placeholder="描述业务安排，或粘贴待审查材料" disabled={busy} rows={6} />
           <div className={'material-dropzone intake-file-drop' + (dragging ? ' is-dragging' : '')} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
             <button type="button" className="intake-file-drop__button" disabled={busy} onClick={() => fileInputRef.current?.click()}><Upload size={18} /><span>{dragging ? '松开以添加文件' : '上传或拖入附件'}</span></button>
-            <input ref={fileInputRef} type="file" accept=".txt,.md,.markdown,.pdf,.docx,.html,.htm,.json,.csv" multiple onChange={handleFileChange} hidden />
+            <input ref={fileInputRef} type="file" accept=".txt,.md,.markdown,.pdf,.docx,.xlsx,.html,.htm,.json,.csv" multiple onChange={handleFileChange} hidden />
             {files.length ? <ul className="material-chips">{files.map((file, index) => <li key={`${file.name}-${index}`}><span>{uploadNames[index]}</span><button type="button" aria-label={`移除 ${file.name}`} onClick={() => removeFile(index)} disabled={busy}><X size={13} /></button></li>)}</ul> : null}
           </div>
           {fileError ? <div className="form-error">{fileError}</div> : null}

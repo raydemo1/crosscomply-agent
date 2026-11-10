@@ -7,6 +7,7 @@ from io import BytesIO
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import Workbook
 
 from law_agent.config import LLMConfig
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
@@ -104,6 +105,27 @@ def test_materials_and_completed_sse_survive_reload(api):
     assert "state" not in restored["runs"][0]
     stream = client.get(path + f"/runs/{run['id']}/events")
     assert "event: snapshot" in stream.text and '"status": "completed"' in stream.text
+
+
+def test_qa_upload_retains_xlsx_original_and_sheet_text(api):
+    client, app, *_ = api
+    cid = client.post("/api/qa/conversations").json()["id"]
+    path = f"/api/qa/conversations/{cid}/materials"
+    workbook = Workbook()
+    workbook.active.title = "人数"
+    workbook.active.append(["业务", "人数"])
+    workbook.active.append(["客服", 42])
+    stream = BytesIO()
+    workbook.save(stream)
+    workbook.close()
+    content = stream.getvalue()
+    response = client.post(path, files={"file": (
+        "台账.xlsx", content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )})
+    assert response.status_code == 200, response.text
+    material = app.state.qa_store.get(cid)["materials"][0]
+    assert material["parsed_text"] == '## 工作表 "人数"\n["业务", "人数"]\n["客服", 42]'
+    assert client.get(f"{path}/{material['id']}/original").content == content
 
 
 def test_handoff_only_on_submit_copies_originals_without_review(api):
@@ -320,7 +342,8 @@ def test_answer_keeps_original_context_and_registers_only_selected_citations():
             return [selected, unselected]
 
     client = StreamingClient(outputs=[
-        tool_message(("call_1", 'read_material', {'summary': '读取用户陈述'})),
+        tool_message(("call_1", 'read_materials', {'summary': '读取用户陈述', 'material_requests': [
+            {'material_version_id': 'm1'}]})),
         tool_message(("call_2", 'search_evidence', {'summary': '查找', 'queries': [{'query_id': 'q1', 'text': '适用范围', 'query_type': 'legal_issue'}], 'date_context': {'as_of_date': None}})),
         tool_message(("call_3", 'finish', {'summary': '回答', 'chunk_ids': ['c1']})),
     ])
@@ -340,7 +363,7 @@ def test_answer_keeps_original_context_and_registers_only_selected_citations():
     assert all(m.reasoning_content == "private reasoning" for m in messages if m.role == "assistant")
     observations = [json.loads(m.content) for m in messages if m.role == "tool"]
     assert any("旧版不同范围" in m.content for m in messages if m.role == "tool")
-    assert "用户称在当地经营" in observations[0]["observation"]["text"]
+    assert observations[0]["observation"]["passages"][0]["text"] == "用户称在当地经营"
     assert any(hit.get("full_article_text") == selected.full_article_text
                for hit in observations[1]["state"]["evidence"])
     assert observations[-1]["observation"]["ready_to_answer"] is True

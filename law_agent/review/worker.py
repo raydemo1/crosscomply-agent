@@ -187,6 +187,7 @@ def main() -> None:
     from law_agent.review.api import create_app
     from law_agent.review.case_store import PostgresCaseStore
     from law_agent.review.enterprise_store import PostgresEnterpriseStore
+    from law_agent.review.material_search import format_frozen_material
     from law_agent.review.remediation import reconcile_guided_action_list
 
     config = load_service_config()
@@ -207,10 +208,7 @@ def main() -> None:
         if any(item is None or not (item.parsed_text or "").strip() for item in versions):
             raise RuntimeError("材料快照中存在未完成解析的版本")
         frozen_versions = [item for item in versions if item is not None]
-        frozen_material = "\n\n".join(
-            f"【材料 {item.logical_name} v{item.version_number} | {item.id}】\n{item.parsed_text}"
-            for item in frozen_versions
-        )
+        frozen_material = format_frozen_material(frozen_versions)
         return execute_agent_task(
             task,
             store=queue,

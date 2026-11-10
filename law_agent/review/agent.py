@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
-from dataclasses import replace
 from typing import Any, Literal
 
 from pydantic import Field, JsonValue, model_validator
@@ -16,8 +15,18 @@ from law_agent.llm.openai_compatible import OpenAICompatibleClient
 from law_agent.review.agent_context import compact_evidence_context, search_observation_context
 from law_agent.review.claim_repair import is_claim_citation_error
 from law_agent.review.dates import business_today
+from law_agent.review.enterprise_store import MaterialVersion
 from law_agent.review.fact_provenance import append_fact
 from law_agent.review.llm import ReviewWorkflowFailed
+from law_agent.review.material_search import (
+    MATERIAL_FILE_TOOLS,
+    MaterialFile,
+    MaterialToolArguments,
+    grep_materials,
+    inline_material_passages,
+    material_inventory,
+    read_materials,
+)
 from law_agent.review.report_grounding import core_report_units, report_units
 from law_agent.review.result_builder import LLMReviewResultDraft
 from law_agent.review.schemas import (
@@ -76,14 +85,16 @@ class EvidenceReadRequest(StrictModel):
         return self
 
 
-class AgentDecision(StrictModel):
+class AgentDecision(MaterialToolArguments):
     action: Literal[
-        "propose_plan", "read_material", "search_evidence",
+        "propose_plan", "read_material", "read_materials", "grep_materials", "run_python", "search_evidence",
         "read_evidence", "search_web", "queue_enrichment", "request_input", "finish",
     ]
     summary: str = Field(min_length=1, max_length=600, description="供用户查看的简短操作目的；补查时说明当前审查还缺哪项依据，不输出私有推理过程")
     plan: list[str] = Field(default_factory=list, max_length=8, description="供用户查看的调查步骤，不输出私有推理过程")
-    offset: int = Field(default=0, ge=0, description="材料包的字符起点；续页使用返回的next_read_request")
+    offset: int = Field(default=0, ge=0, description="材料包内的起始字符位置")
+    length: int = Field(default=12000, ge=1, le=12000, description="最多读取的字符数")
+    code: str = Field(default="", max_length=12000, description="要执行的 Python 代码")
     fact_questions: list[FactQuestion] = Field(default_factory=list, max_length=15)
     queries: list[RetrievalQuery] = Field(default_factory=list, max_length=4)
     max_chunks: int = Field(default=10, ge=1, le=10, strict=True,
@@ -97,6 +108,8 @@ class AgentDecision(StrictModel):
 
     @model_validator(mode="after")
     def required_arguments(self) -> AgentDecision:
+        if self.action == "run_python" and not self.code.strip():
+            raise ValueError("run_python需要非空代码")
         if self.action == "propose_plan" and not self.plan:
             raise ValueError("propose_plan requires a non-empty plan")
         if self.fact_questions and self.action != "request_input":
@@ -201,6 +214,8 @@ class AgentState(StrictModel):
     gate_id: str | None = None
     report_draft: LLMReviewResultDraft | None = None
     material_preview: dict[str, Any] = Field(default_factory=dict)
+    materials: list[dict] = Field(default_factory=list)
+    material_passages: list[dict] = Field(default_factory=list)
     result: dict[str, Any] | None = None
 
 
@@ -253,16 +268,14 @@ def review_context(state, intake):
 
 
 class AgentModel:
-    def __init__(self, *, model_id: str, client: OpenAICompatibleClient | None = None):
+    def __init__(self, *, model_id: str, client: OpenAICompatibleClient | None = None,
+                 python_enabled: bool = False):
         specs = {
             **INVESTIGATION_TOOLS,
             "propose_plan": ToolSpec(("plan",),
                 "制定或更新本次审查的简短调查计划，供用户了解调查方向。适用于需要分步骤处理的审查任务。"
                 "返回更新后的计划，不暂停审查。", ("plan",)),
-            "read_material": replace(MATERIAL_READ_TOOL, description=(
-                "读取本次冻结材料包的原文。首次材料预览已提供，需要查看更多内容时按返回的续读位置读取。"
-                "返回材料原文及next_read_request；truncated=false且next_read_request=null表示材料包已读完。"
-            )),
+            **MATERIAL_FILE_TOOLS,
             "queue_enrichment": ToolSpec(("enrichment_urls",),
                 "将网页搜索发现的相关新官方来源或存在更新迹象的来源提交后台核验补库。"
                 "返回提交状态，正式引用资格由后续流程确定。", ("enrichment_urls",)),
@@ -275,6 +288,10 @@ class AgentModel:
                 "可行的关键调查尚未完成时继续补查，不因仅列明缺口而结束。未通过核验时根据反馈修订或补查。"
                 "核验通过后结束本轮审查。单独调用。", ("draft",)),
         }
+        if python_enabled:
+            specs["run_python"] = ToolSpec(("code",),
+                "在独立的Python沙箱中核对数字或处理表格。material是本次冻结材料的全文字符串，"
+                "用print输出所需结果。", ("code",))
         self.protocol = ToolCallingAgent(client=client or OpenAICompatibleClient(require_agent_llm_config()),
                                          model_id=model_id, decision_model=AgentDecision, specs=specs)
 
@@ -337,15 +354,18 @@ def _material_version_ids(material: str) -> list[str]:
     return ids
 
 
-def read_material_page(material: str, offset: int) -> dict[str, Any]:
+def read_material_page(material: str, offset: int, length: int = 12000) -> dict[str, Any]:
     if offset < 0 or offset > len(material):
         raise ValueError(f"材料offset={offset}超出字符范围0至{len(material)}；请使用上次返回的next_read_request")
-    text = material[offset:offset + 12000]
+    text = material[offset:offset + length]
     end = offset + len(text)
     truncated = end < len(material)
+    next_request = {"offset": end} if truncated else None
+    if next_request is not None and length != 12000:
+        next_request["length"] = length
     return {"text": text, "read_mode": "text", "offset": offset, "total_characters": len(material),
             "truncated": truncated, "next_offset": end if truncated else None,
-            "next_read_request": {"offset": end} if truncated else None}
+            "next_read_request": next_request}
 
 
 def _check_evidence_read(
@@ -586,14 +606,22 @@ def run_agent(
     checkpoint: Callable[[AgentState], None],
     on_web_findings: Callable[[list[WebFinding]], None] | None = None,
     repair_claims: Callable[[LLMReviewResultDraft, str, list[RetrievalHit]], LLMReviewResultDraft] | None = None,
+    extra_tools: dict[str, Callable[[AgentDecision], dict[str, Any]]] | None = None,
+    material_versions: Sequence[MaterialVersion] = (),
+    execute_python: Callable[[str, str], dict[str, Any]] | None = None,
 ) -> AgentState:
     """Only the model selects the next action; code enforces budgets and tool contracts."""
     if state.status != "running":
         return state
     decision_intake = dict(intake)
-    if material and not state.material_preview:
+    files = [MaterialFile.from_version(version) for version in material_versions]
+    if files:
+        state.materials = material_inventory(files)
+        state.material_passages = inline_material_passages(files)
+        state.material_preview = {}
+    elif material and not state.material_preview:
         state.material_preview = read_material_page(material, 0)
-    version_ids = _material_version_ids(material)
+    version_ids = [version.id for version in material_versions] if material_versions else _material_version_ids(material)
     if version_ids:
         decision_intake["_material_version_ids"] = version_ids
     while remaining_budget(state)["turns"] > 0:
@@ -612,11 +640,22 @@ def run_agent(
             state.plan = decision.plan
         observation: dict[str, Any]
         try:
-            if decision.action == "propose_plan":
+            if extra_tools and decision.action in extra_tools:
+                observation = extra_tools[decision.action](decision)
+            elif decision.action == "propose_plan":
                 state.plan = decision.plan
                 observation = {"plan_updated": True}
             elif decision.action == "read_material":
-                observation = read_material_page(material, decision.offset)
+                length = decision.length if isinstance(decision, AgentDecision) else 12000
+                observation = read_material_page(material, decision.offset, length)
+            elif decision.action == "read_materials":
+                observation = read_materials(files, decision.material_requests)
+            elif decision.action == "grep_materials":
+                observation = grep_materials(files, decision.pattern, decision.material_version_ids)
+            elif decision.action == "run_python":
+                if execute_python is None:
+                    raise ValueError("本次审查未启用Python沙箱")
+                observation = execute_python(decision.code, material)
             elif decision.action in {"search_evidence", "read_evidence", "search_web"}:
                 observation = investigate(
                     state, decision, search=search, search_navigation=search_navigation,

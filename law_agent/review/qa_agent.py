@@ -17,18 +17,24 @@ from law_agent.llm.openai_compatible import OpenAICompatibleClient
 from law_agent.llm.usage import usage_scope
 from law_agent.review.agent import (
     INVESTIGATION_TOOLS,
-    MATERIAL_READ_TOOL,
     AgentStep,
     BudgetUsage,
     EvidenceReadRequest,
     ReadEvidenceRecord,
     investigate,
-    read_material_page,
     remaining_budget,
 )
 from law_agent.review.agent_context import search_observation_context
 from law_agent.review.agent_tools import ComplianceAgentTools
 from law_agent.review.dates import business_today
+from law_agent.review.material_search import (
+    MATERIAL_FILE_TOOLS,
+    MaterialFile,
+    MaterialToolArguments,
+    grep_materials,
+    material_inventory,
+    read_materials,
+)
 from law_agent.review.qa_citations import (
     CitationReferenceError,
     apply_citation_repairs,
@@ -39,8 +45,6 @@ from law_agent.review.qa_citations import (
 from law_agent.review.qa_context import (
     conversation_context,
     material_package,
-    material_passages,
-    merge_material_passages,
     qa_state_context,
 )
 from law_agent.review.qa_store import QAConflict
@@ -118,7 +122,6 @@ class QAState(StrictModel):
     web_searches: int = 0
     read_history: list[ReadEvidenceRecord] = Field(default_factory=list)
     usage: list[dict] = Field(default_factory=list)
-    material_preview: dict = Field(default_factory=dict)
     source_scope_exclusions: list[QAScopeExclusion] = Field(default_factory=list)
     max_turns: int = 16
     max_searches: int = 5
@@ -150,11 +153,10 @@ class QAQuestion(StrictModel):
         return self
 
 
-class QADecision(StrictModel):
-    action: Literal["read_material", "search_evidence", "read_evidence", "search_web", "ask_user", "finish"]
+class QADecision(MaterialToolArguments):
+    action: Literal["read_materials", "grep_materials", "search_evidence", "read_evidence", "search_web", "ask_user", "finish"]
     summary: str = Field(min_length=1, max_length=300, description="供用户查看的简短操作目的；补查时说明当前问题还缺哪项依据，不输出私有推理过程")
     questions: list[QAQuestion] = Field(default_factory=list, max_length=3)
-    offset: int = Field(default=0, ge=0, description="当前材料包的字符起点；续页使用返回的next_read_request")
     research_context: QASearchContext | None = Field(default=None, description="仅供本地检索使用的地区、行业及明确排除范围，不是事实台账；未提供的字段保留既有线索")
     date_context: QADateContext | None = Field(default=None,
         description='首次调查明确判断时点及原句，未指定日期填{"as_of_date":null}；后续省略沿用，调整时重新提供')
@@ -284,10 +286,11 @@ def prepare_citations(state, decision, materials):
 def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools=None):
     client = client or OpenAICompatibleClient(require_agent_llm_config())
     materials = [m for m in conversation["materials"] if m["id"] in run["material_ids"]]
+    files = [MaterialFile.from_qa(material) for material in materials]
+    inventory = material_inventory(files)
     material_text = material_package(materials)
     history, inherited_passages = conversation_context(conversation, run)
-    state = QAState(goal=run["question"], material_preview=read_material_page(material_text, 0) if materials else {})
-    input_passages = merge_material_passages([*inherited_passages, *material_passages(state.model_dump(), materials)])
+    state = QAState(goal=run["question"])
     scope_inputs = [run["question"], *(entry["user_statement"] for entry in history),
                     *(material["parsed_text"] for material in materials)]
     owned_tools = tools is None
@@ -300,9 +303,7 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
             "search_evidence": ToolSpec(("queries", "max_chunks", "research_context", "date_context"),
                 INVESTIGATION_TOOLS["search_evidence"].description +
                 "首次调查确认date_context，后续省略沿用。research_context仅提供范围线索，不代替事实确认和法律适用判断。", ("queries",)),
-            "read_material": ToolSpec(MATERIAL_READ_TOOL.fields,
-                "阅读当前会话选中附件的原文，根据返回的next_read_request取得后续内容。"
-                "truncated=false且next_read_request=null表示材料包已读完；材料陈述不代表独立核实或法源。"),
+            **(MATERIAL_FILE_TOOLS if files else {}),
             "ask_user": ToolSpec(("questions",),
                 "询问直接影响答案、尚未说明的关键业务事实，提供简明选项，等待用户补充后继续回答。"
                 "单独调用。界面提供不清楚和自定义回答，无需重复这些选项。", ("questions",)),
@@ -348,11 +349,10 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
                 "can_cite_clause", "answer_as_of_date", "available_at_answer_date", "retrieved_as_of_dates",
             )})
         return {"current_date": state.current_date.isoformat(), "history": history,
-                "material_passages": input_passages,
-                "material_reading": {key: value for key, value in state.material_preview.items() if key != "text"},
+                "material_passages": inherited_passages,
                 "web_search_scope": web_search_scope(),
                 "state": projected,
-                "materials": [{"id": m["id"], "filename": m["filename"], "characters": len(m["parsed_text"])} for m in materials]}
+                "materials": inventory}
 
     def publish_text(delta):
         nonlocal turn_text, last_flush
@@ -491,11 +491,13 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
                     state.tool_session.complete({"completed": True}, context(), stop=True)
                 finished = True
                 break
-            checkpoint(state=state.model_dump(mode="json"), progress={"read_material": "正在阅读材料", "search_evidence": "正在查找法律依据",
+            checkpoint(state=state.model_dump(mode="json"), progress={"read_materials": "正在阅读材料", "grep_materials": "正在定位材料原文", "search_evidence": "正在查找法律依据",
                                  "read_evidence": "正在阅读来源原文", "search_web": "正在查找公开资料"}[decision.action])
             try:
-                if decision.action == "read_material":
-                    observation = read_material_page(material_text, decision.offset)
+                if decision.action == "read_materials":
+                    observation = read_materials(files, decision.material_requests)
+                elif decision.action == "grep_materials":
+                    observation = grep_materials(files, decision.pattern, decision.material_version_ids)
                 else:
                     observation = investigate(
                         state, decision, search=search, search_navigation=tools.search_navigation,

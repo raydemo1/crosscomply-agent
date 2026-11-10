@@ -178,7 +178,7 @@ const TASK_POLL_INTERVAL_MS = 1_500;
 
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const ALLOWED_UPLOAD_SUFFIXES = [
-  '.txt', '.md', '.markdown', '.pdf', '.docx', '.html', '.htm', '.json',
+  '.txt', '.md', '.markdown', '.pdf', '.docx', '.xlsx', '.csv', '.html', '.htm', '.json',
 ] as const;
 
 export class ApiError extends Error {

@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { allocateUploadNames, PASTED_MATERIAL_LOGICAL_NAME } from './materialNames.ts';
+import { allocateUploadNames, pastedAttachment, PASTED_MATERIAL_LOGICAL_NAME } from './materialNames.ts';
+
+test('only pastes over the UTF-8 threshold become lossless text attachments', async () => {
+  assert.equal(pastedAttachment('甲'.repeat(2666) + 'ab'), null);
+  const text = '甲'.repeat(2667) + '\r\n乙';
+  const file = pastedAttachment(text);
+  assert.equal(file?.name, '粘贴材料.txt');
+  assert.equal(await file?.text(), text);
+});
 
 /** Mimics the submit path: names are claimed one by one against a shared "taken" set. */
 function allocate(names: string[], alreadyTaken: string[] = []): string[] {
