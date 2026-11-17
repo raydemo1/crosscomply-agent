@@ -35,6 +35,7 @@ Vercel 仅发布前端示例站，使用 `frontend/vercel.json` 中的 `npm run 
 - `OPENAI_COMPATIBLE_API_KEY`（审查 Agent 与各 LLM 节点，OpenAI 兼容协议）
 - `EMBEDDING_API_KEY`（默认 SiliconFlow BGE-M3，1024 维）
 - 飞书审批集成：`CROSSCOMPLY_FEISHU_APP_ID`、`CROSSCOMPLY_FEISHU_APP_SECRET`、`CROSSCOMPLY_FEISHU_APPROVAL_CODE`、`CROSSCOMPLY_FEISHU_INITIATOR_OPEN_ID`、`CROSSCOMPLY_FEISHU_VERIFICATION_TOKEN`、`CROSSCOMPLY_FEISHU_ENCRYPT_KEY`，并把 `CROSSCOMPLY_PUBLIC_BASE_URL` 设为审批人可访问的工作台地址（默认 `http://127.0.0.1:8080`）
+- 飞书待办提醒由 `knowledge-worker` 发送。设置 `CROSSCOMPLY_FEISHU_WORK_RECIPIENTS='{"employee@example.com":"ou_example"}'`，将工作台登录名映射到同一飞书机器人应用下的用户 `open_id`，并设置收件人可访问的 `CROSSCOMPLY_PUBLIC_BASE_URL`。可用 `CROSSCOMPLY_WORK_REVIEWER_USERNAME` 指定法务公共队列的提醒收件人。未映射用户仍可在站内处理待办。到期提醒采用北京时间，在截止日前两天开始推送。
 - 可选：`CROSSCOMPLY_FEISHU_RECHECK_OPEN_ID`（新法源待复核提醒收件人）、`EXA_API_KEY`（受控官方 Web 调查；不配置时该能力对 Agent 不可用，不影响审查）
 - `RERANK_MODE` 默认 `off`，仅在评测证明收益时打开
 

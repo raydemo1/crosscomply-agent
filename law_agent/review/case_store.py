@@ -157,7 +157,9 @@ class CaseStore(Protocol):
 
     def get_case(self, case_id: str) -> dict[str, Any] | None: ...
 
-    def list_cases(self, user: UserRecord, query: str | None = None) -> list[dict[str, Any]]: ...
+    def list_cases(
+        self, user: UserRecord, query: str | None = None, *, statuses: tuple[str, ...] = (),
+    ) -> list[dict[str, Any]]: ...
 
     def update_case(self, case_id: str, **kwargs: Any) -> dict[str, Any]: ...
 
@@ -302,38 +304,40 @@ class PostgresCaseStore:
             conn.commit()
 
     def create_case(self, **kwargs: Any) -> dict[str, Any]:
+        with self._connect() as conn, conn.cursor() as cur:
+            return self.insert_case(cur, **kwargs)
+
+    @staticmethod
+    def insert_case(cur: Any, **kwargs: Any) -> dict[str, Any]:
         identifier = kwargs.get("id") or case_id()
         now = datetime.now(UTC)
-        with self._connect() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO review_cases (
-                    id, case_number, title, question, material_text, material_source, intake_json,
-                    status, rerank_mode, created_by, owner_id,
-                    facts_confirmed, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING *
-                """,
-                (
-                    identifier,
-                    kwargs.get("case_number") or case_number(),
-                    kwargs.get("title") or kwargs["question"][:80],
-                    kwargs["question"],
-                    kwargs["material_text"],
-                    kwargs.get("material_source"),
-                    _jsonb(kwargs.get("intake")),
-                    kwargs.get("status", "draft"),
-                    kwargs.get("rerank_mode", "off"),
-                    kwargs["created_by"],
-                    kwargs.get("owner_id"),
-                    kwargs.get("facts_confirmed", False),
-                    now,
-                    now,
-                ),
-            )
-            row = cur.fetchone()
-            conn.commit()
-        return _row_case(row)
+        cur.execute(
+            """
+            INSERT INTO review_cases (
+                id, case_number, title, question, material_text, material_source, intake_json,
+                status, rerank_mode, created_by, owner_id,
+                facts_confirmed, created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING *
+            """,
+            (
+                identifier,
+                kwargs.get("case_number") or case_number(),
+                kwargs.get("title") or kwargs["question"][:80],
+                kwargs["question"],
+                kwargs["material_text"],
+                kwargs.get("material_source"),
+                _jsonb(kwargs.get("intake")),
+                kwargs.get("status", "draft"),
+                kwargs.get("rerank_mode", "off"),
+                kwargs["created_by"],
+                kwargs.get("owner_id"),
+                kwargs.get("facts_confirmed", False),
+                now,
+                now,
+            ),
+        )
+        return _row_case(cur.fetchone())
 
     def get_case(self, identifier: str) -> dict[str, Any] | None:
         with self._connect() as conn, conn.cursor() as cur:
@@ -341,7 +345,9 @@ class PostgresCaseStore:
             row = cur.fetchone()
         return _row_case(row) if row else None
 
-    def list_cases(self, user: UserRecord, query: str | None = None) -> list[dict[str, Any]]:
+    def list_cases(
+        self, user: UserRecord, query: str | None = None, *, statuses: tuple[str, ...] = (),
+    ) -> list[dict[str, Any]]:
         conditions = []
         params: list[Any] = []
         if user.role == "requester":
@@ -351,6 +357,9 @@ class PostgresCaseStore:
             conditions.append("(question ILIKE %s OR id ILIKE %s OR title ILIKE %s)")
             pattern = f"%{query.strip()}%"
             params.extend([pattern, pattern, pattern])
+        if statuses:
+            conditions.append("status = ANY(%s)")
+            params.append(list(statuses))
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         # 列表只需摘要字段：不携带材料正文与完整审查结果（数 MB 级大列）
         columns = (
@@ -360,7 +369,8 @@ class PostgresCaseStore:
             " created_at, updated_at"
         )
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute(f"SELECT {columns} FROM review_cases {where} ORDER BY updated_at DESC LIMIT 200", params)
+            limit = "" if statuses else "LIMIT 200"
+            cur.execute(f"SELECT {columns} FROM review_cases {where} ORDER BY updated_at DESC {limit}", params)
             return [_row_case(row) for row in cur.fetchall()]
 
     def update_case(
@@ -395,7 +405,6 @@ class PostgresCaseStore:
         values = list(updates.values()) + [identifier]
         where = "id = %s"
         if status_guard:
-            assignments_extra = ""  # guard goes into WHERE only
             where += " AND status = %s"
             values.append(expected_status)
         with self._connect() as conn, conn.cursor() as cur:
@@ -1055,7 +1064,9 @@ class InMemoryCaseStore:
         item = self.cases.get(identifier)
         return self._case_dict(item) if item else None
 
-    def list_cases(self, user: UserRecord, query: str | None = None) -> list[dict[str, Any]]:
+    def list_cases(
+        self, user: UserRecord, query: str | None = None, *, statuses: tuple[str, ...] = (),
+    ) -> list[dict[str, Any]]:
         items = list(self.cases.values())
         if user.role == "requester":
             items = [
@@ -1069,6 +1080,8 @@ class InMemoryCaseStore:
                 for item in items
                 if needle in item.question.lower() or needle in item.id.lower()
             ]
+        if statuses:
+            items = [item for item in items if item.status in statuses]
         items.sort(key=lambda item: item.updated_at, reverse=True)
         return [self._case_dict(item) for item in items]
 

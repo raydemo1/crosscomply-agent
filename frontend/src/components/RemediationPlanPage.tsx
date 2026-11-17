@@ -91,6 +91,7 @@ export interface RemediationPlanPageProps {
 export interface MyRemediationsPageProps {
   user: WorkbenchUser;
   initialItems?: RemediationTaskApi[];
+  requestedTaskId?: string | null;
 }
 
 interface TaskDetailProps {
@@ -615,12 +616,12 @@ function AgentReviewCard({ assessment, submission, onAnswer }: { assessment: Rem
   );
 }
 
-export function MyRemediationsPage({ user, initialItems }: MyRemediationsPageProps): JSX.Element {
+export function MyRemediationsPage({ user, initialItems, requestedTaskId }: MyRemediationsPageProps): JSX.Element {
   const [items, setItems] = useState<RemediationTaskApi[]>(initialItems ?? []);
   const [allItems, setAllItems] = useState<RemediationTaskApi[]>(initialItems ?? []);
   const [loading, setLoading] = useState(initialItems === undefined);
   const [status, setStatus] = useState<'all' | 'active' | RemediationTaskStatus>('all');
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialItems?.[0]?.id ?? null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(requestedTaskId ?? initialItems?.[0]?.id ?? null);
   const [selectedDetail, setSelectedDetail] = useState<RemediationTaskApi | null>(null);
   const [assignableUsers, setAssignableUsers] = useState<RemediationAssigneeApi[]>([]);
   const [error, setError] = useState<string | null>(null);

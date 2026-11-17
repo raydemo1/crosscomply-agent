@@ -2830,4 +2830,24 @@ dialog.share-dialog {
 }
 
 
-/* 申报人的复核入口：次要单行样式 */
+.report-approval {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  padding-block: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-md);
+}
+
+.report-approval > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-approval p {
+  margin-top: var(--space-xs);
+  color: var(--color-foreground-muted);
+}

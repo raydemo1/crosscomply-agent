@@ -1086,8 +1086,18 @@ export interface CaseRecordApi extends CaseSummaryApi {
   response: ReviewApiResponse | null;
 }
 
+export interface ApprovalReadinessApi {
+  code: 'ready' | 'submitted' | 'decided' | 'review_pending' | 'review_failed'
+    | 'source_review' | 'fact_review' | 'evidence_review' | 'actions_open' | 'stale_review' | 'transfer_impact';
+  detail: string;
+  action_ids: string[];
+}
+
 export interface CaseDetailApi {
   case: CaseRecordApi;
+  approval_readiness?: ApprovalReadinessApi;
+  transfer_activity_id?: string | null;
+  transfer_impact_required?: boolean;
   /** Legacy field may be absent; current remediation data lives in remediation_plan. */
   events: CaseEvent[];
   feedback: CaseFeedbackApi | null;

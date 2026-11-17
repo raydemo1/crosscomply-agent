@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { CaseStatus, RemediationPlanApi, ReviewTaskStatus, UserRole } from '../types/api';
+import type { ApprovalReadinessApi, CaseStatus, RemediationPlanApi, ReviewTaskStatus, UserRole } from '../types/api';
 import './CaseProgress.css';
 import { runGuidedRereview, waitForReviewTask } from '../api/client';
 import { openCase } from '../store/caseStore';
@@ -40,6 +40,7 @@ export interface CaseProgressProps {
   reviewTaskStatus?: ReviewTaskStatus | null;
   /** Whether a Feishu approval instance already exists for this case. */
   approvalStarted?: boolean;
+  approvalReadiness?: ApprovalReadinessApi;
   onOpenAction?: (kind: ProgressActionKind) => void;
   /** Hosts with no inline answer form send the user to the real one instead of revealing this card. */
   onAnswerAction?: () => void;
@@ -61,6 +62,7 @@ function progressState(
   plan?: RemediationPlanApi | null,
   reviewTaskStatus?: ReviewTaskStatus | null,
   approvalStarted?: boolean,
+  approvalReadiness?: ApprovalReadinessApi,
 ): ProgressState {
   const tasks = activeTasks(plan);
   const preApprovalTasks = tasks.filter((task) => task.phase === 'pre_approval');
@@ -72,6 +74,9 @@ function progressState(
     return { current: 4, owner: 'CrossComply', status: '最终决定已留痕', guidance: '可查看正式报告、最终决定和完整审计记录。' };
   }
   if (status === 'pending_feishu_approval') {
+    if (approvalReadiness && !['ready', 'submitted'].includes(approvalReadiness.code)) {
+      return { current: 2, owner: '审核人', status: '暂缓送审', guidance: approvalReadiness.detail };
+    }
     return {
       current: 3,
       owner: '审核人 / 企业审批',
@@ -145,8 +150,8 @@ function progressState(
   return { current: 0, owner: '申报人', status: '待提交', guidance: '补齐材料和申报信息后提交。' };
 }
 
-export default function CaseProgress({ caseId, hideListAction = false, beforeRereview, canRereview = false, onRereviewSettled, status, viewerRole, remediationPlan, reviewTaskStatus, approvalStarted, onOpenAction, onAnswerAction, revealAnswer, onAnswerRevealed, actionSlot, children, embedded = false }: CaseProgressProps): JSX.Element {
-  const state = progressState(status, viewerRole === 'requester' && !canRereview ? 'reviewer' : viewerRole, remediationPlan, reviewTaskStatus, approvalStarted);
+export default function CaseProgress({ caseId, hideListAction = false, beforeRereview, canRereview = false, onRereviewSettled, status, viewerRole, remediationPlan, reviewTaskStatus, approvalStarted, approvalReadiness, onOpenAction, onAnswerAction, revealAnswer, onAnswerRevealed, actionSlot, children, embedded = false }: CaseProgressProps): JSX.Element {
+  const state = progressState(status, viewerRole === 'requester' && !canRereview ? 'reviewer' : viewerRole, remediationPlan, reviewTaskStatus, approvalStarted, approvalReadiness);
   const [rereviewing, setRereviewing] = useState(false);
   const [rereviewError, setRereviewError] = useState<string | null>(null);
   const mandatory = activeTasks(remediationPlan).filter((task) => task.blocking && task.phase === 'pre_approval');

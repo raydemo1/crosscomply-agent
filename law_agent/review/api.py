@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from law_agent.config import load_service_config
 from law_agent.kb.admin import KnowledgeJobStore
 from law_agent.review.annotations import InMemoryAnnotationStore, PostgresAnnotationStore
+from law_agent.review.approval_readiness import assess_approval_readiness
 from law_agent.review.case_store import CaseStore, InMemoryCaseStore, PostgresCaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
 from law_agent.review.feishu import (
@@ -60,6 +61,7 @@ from law_agent.review.http.responses import AgentJSONResponse as JSONResponse
 from law_agent.review.http.revisions import register_revision_routes
 from law_agent.review.http.system import register_system_routes
 from law_agent.review.http.templates import register_template_routes
+from law_agent.review.http.transfers import register_transfer_routes
 from law_agent.review.http.users import register_user_routes
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
 from law_agent.review.qa_store import InMemoryQAStore, PostgresQAStore
@@ -85,7 +87,9 @@ from law_agent.review.template_store import (
     PostgresTemplateStore,
     TemplateStore,
 )
+from law_agent.review.transfer_store import InMemoryTransferStore, PostgresTransferStore
 from law_agent.review.user_admin import PostgresUserAdminStore, UserAdminStore
+from law_agent.review.work_inbox import WorkInbox
 from law_agent.review.workflow import review_has_missing_information
 
 
@@ -359,6 +363,11 @@ def create_app(
     app.state.chunks_path = Path(chunks_path)
     knowledge_corpus_path = Path(knowledge_corpus) if knowledge_corpus else Path(chunks_path).parent
     app.state.case_store = case_store or PostgresCaseStore(load_service_config().postgres.dsn)
+    transfers = (
+        InMemoryTransferStore(app.state.case_store)
+        if isinstance(app.state.case_store, InMemoryCaseStore)
+        else PostgresTransferStore(load_service_config().postgres.dsn)
+    )
     app.state.revision_store = (
         InMemoryRevisionStore() if isinstance(app.state.case_store, InMemoryCaseStore)
         else PostgresRevisionStore(load_service_config().postgres.dsn)
@@ -542,6 +551,19 @@ def create_app(
         task = enterprise().get_latest_task(case["id"])
         approval = governance().get_latest_approval(case["id"])
         report = governance().get_latest_report(case["id"])
+        activity_id = transfers.for_case(case["id"])
+        activity = transfers.get(activity_id) if activity_id else None
+        linked_review = transfers.review_for_case(case["id"]) if activity else None
+        transfer_impact_required = bool(
+            linked_review and task and (linked_review.get("impact") or {}).get("task_id") != task.id
+        )
+        readiness = assess_approval_readiness(
+            case=case, task=task, plan=payload["remediation_plan"],
+            material_snapshot_id=snapshot.id if snapshot else None,
+            intake_snapshot_id=intake_snapshot.id if intake_snapshot else None,
+            approval_exists=approval is not None,
+            transfer_impact_required=transfer_impact_required,
+        )
         payload.update(
             {
                 "material_snapshot": asdict(snapshot) if snapshot else None,
@@ -552,6 +574,11 @@ def create_app(
                     asdict(approval) if approval and approval.status != "pending" else None
                 ),
                 "report": asdict(report) if report else None,
+                "transfer_activity_id": (
+                    activity_id if activity and (user.role != "requester" or activity["owner_id"] == user.id) else None
+                ),
+                "transfer_impact_required": transfer_impact_required,
+                "approval_readiness": asdict(readiness),
             }
         )
         return payload
@@ -664,6 +691,7 @@ def create_app(
         configured_feishu=configured_feishu,
         deliver_feishu_approval=deliver_feishu_approval,
         remediation_event=record_remediation_event,
+        transfer_review=transfers.review_for_case,
     )
     register_report_routes(
         app,
@@ -675,11 +703,16 @@ def create_app(
         originals=originals,
         can_view=_can_view,
     )
+    register_transfer_routes(
+        app, current_user=current_user, cases=store, enterprise=enterprise, governance=governance,
+        transfers=transfers, can_view_case=_can_view, reviewer_only=reviewer_only,
+    )
     register_activity_routes(
         app,
         current_user=current_user,
         store=store,
         can_view=_can_view,
+        inbox=lambda: WorkInbox(store(), enterprise(), governance(), transfers),
     )
 
     return app

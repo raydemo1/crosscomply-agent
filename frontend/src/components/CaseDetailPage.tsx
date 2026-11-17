@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronDown, Download, FolderOpen, History, ShieldCheck, Terminal } from 'lucide-react';
 import type { CaseKnowledgeRecheckApi, CaseStatus, ReviewApiResponse, ReviewFacts, ReviewIssue, UserRole } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
@@ -166,6 +167,7 @@ function CaseDetailContent({
     remediationPlan={saved.remediationPlan}
     reviewTaskStatus={saved.reviewTask?.status ?? null}
     approvalStarted={Boolean(saved.feishuApproval)}
+    approvalReadiness={saved.approvalReadiness}
     onAnswerAction={waiting ? () => { if (leaveDocumentView()) focusAnswer(); } : undefined}
     onOpenAction={() => { if (leaveDocumentView()) onOpenRemediationPlan?.(); }}
     actionSlot={!waiting ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => { if (leaveDocumentView()) onEdit(completedSaved); }} compact /> : undefined}
@@ -221,6 +223,7 @@ function CaseDetailContent({
               recordTarget={recordTarget}
               onRecordFocused={() => setRecordTarget(null)}
               onOpenRecord={openRecord}
+              onOpenFacts={() => switchDetailView('facts')}
               onViewDocument={() => switchDetailView('document')}
             />
           ) : null}
@@ -280,6 +283,7 @@ function DraftCaseView({
         remediationPlan={saved.remediationPlan}
         reviewTaskStatus={saved.reviewTask?.status ?? null}
         approvalStarted={Boolean(saved.feishuApproval)}
+        approvalReadiness={saved.approvalReadiness}
         onAnswerAction={saved.reviewTask?.status === 'waiting_input' ? focusAnswer : undefined}
         actionSlot={saved.reviewTask?.status !== 'waiting_input' ? <CaseWorkflowActions saved={saved} canManage={canManageActions} allowApplicantAnswer={viewerRole === 'requester'} operation={workflowOperation} error={workflowError} setOperation={setWorkflowOperation} setError={setWorkflowError} onEditMaterial={() => onEdit(saved)} compact /> : undefined}
       />
@@ -461,6 +465,8 @@ function eventLabel(event: string): string {
     review_completed: '生成审查结果',
     review_failed: '审查运行失败',
     knowledge_recheck_pending: '法规来源已核验，案件待复核',
+    transfer_review_created: '创建出境活动复审',
+    transfer_impact_confirmed: '确认出境变更影响',
     action_created: '创建整改任务',
     action_updated: '更新整改任务',
     remediation_plan_created: '建立待办事项清单',
@@ -611,10 +617,11 @@ interface ReviewChainProps {
   recordTarget: string | null;
   onRecordFocused: () => void;
   onOpenRecord: (id: string) => void;
+  onOpenFacts: () => void;
   onViewDocument: () => void;
 }
 
-function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageActions, onOpenRemediationPlan, onOpenDocument, focusIssueId, onIssueFocused, progress, knowledgeRechecks, recordTarget, onRecordFocused, onOpenRecord, onViewDocument }: ReviewChainProps): JSX.Element {
+function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageActions, onOpenRemediationPlan, onOpenDocument, focusIssueId, onIssueFocused, progress, knowledgeRechecks, recordTarget, onRecordFocused, onOpenRecord, onOpenFacts, onViewDocument }: ReviewChainProps): JSX.Element {
   const response = saved.response as Extract<ReviewApiResponse, { review_case_id: string }>;
   const result = response.review_result;
   const issues = result.issues ?? NO_REVIEW_ISSUES;
@@ -655,6 +662,23 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
     target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   };
 
+  const readiness = saved.approvalReadiness;
+  const nextStep = readiness && {
+    ready: { label: '查看送审流程', run: () => onOpenRecord('record-progress') },
+    submitted: { label: '查看审批记录', run: () => onOpenRecord('record-approval') },
+    decided: { label: '查看审批记录', run: () => onOpenRecord('record-approval') },
+    source_review: { label: '核对法规依据', run: () => openCitation('') },
+    fact_review: viewerRole === 'requester' && saved.reviewTask?.status === 'waiting_input'
+      ? { label: '补充事实', run: focusAnswer }
+      : { label: '查看案件事实', run: onOpenFacts },
+    actions_open: { label: '查看待办', run: onOpenRemediationPlan },
+    evidence_review: { label: '核对法规依据', run: () => openCitation('') },
+    review_pending: { label: '查看审查流程', run: () => onOpenRecord('record-progress') },
+    review_failed: { label: '查看审查流程', run: () => onOpenRecord('record-progress') },
+    stale_review: { label: '查看送审版本', run: () => onOpenRecord('record-materials') },
+    transfer_impact: null,
+  }[readiness.code];
+
   useEffect(() => {
     if (!recordTarget || view !== 'records') return;
     const record = document.getElementById(recordTarget);
@@ -681,6 +705,18 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
       <div className="review-report-layout">
         <article className="review-report review-report--document" aria-label={view === 'report' ? '审查报告' : undefined} data-matter-source={view === 'report' ? 'report' : undefined} data-report-id={result.review_result_id}>
           {view === 'report' ? <>
+          {readiness ? <aside className="report-approval" aria-label="送审状态">
+            <div>
+              <strong>{readiness.code === 'ready' ? '报告已生成 · 可送审'
+                : readiness.code === 'submitted' ? '报告已生成 · 等待审批'
+                  : readiness.code === 'decided' ? '报告已生成 · 审批已结束'
+                    : '报告已生成 · 暂缓送审'}</strong>
+              {readiness.detail ? <p>{readiness.detail}</p> : null}
+            </div>
+            {nextStep?.run ? <button type="button" className="btn-link case-view-link" onClick={nextStep.run}>{nextStep.label}<ArrowRight size={14} aria-hidden="true" /></button> : null}
+            {readiness.code === 'transfer_impact' && canManageActions && saved.transferActivityId
+              ? <Link className="case-view-link" to={`/cases/business/${saved.transferActivityId}`}>确认变更影响<ArrowRight size={14} aria-hidden="true" /></Link> : null}
+          </aside> : null}
           <ReportConclusion result={result} conditions={conditions} />
 
           {issues.length ? <section className="report-main-issues" id="report-issues" aria-label="主要问题">
@@ -740,7 +776,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
                 {progress}
               </details>
 
-              <details className="report-record-group">
+              <details className="report-record-group" id="record-materials">
                 <summary><FolderOpen size={17} aria-hidden="true" /><span>案件材料与版本</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
                 <div className="case-records__material">
                   {saved.materialSnapshot?.version_ids.length ? (
@@ -772,7 +808,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
                 })}</ul>
               </details> : null}
 
-              <details className="report-record-group">
+              <details className="report-record-group" id="record-approval">
                 <summary><ShieldCheck size={17} aria-hidden="true" /><span>审批与操作记录</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
                 <EnterpriseDecisionChain saved={saved} includeMaterial={false} embedded />
                 <Timeline events={saved.events} embedded />

@@ -145,6 +145,34 @@ def test_approval_rechecks_fact_gaps_even_if_case_was_marked_pending(tmp_path, g
         assert governance.get_latest_approval(case_id) is None
 
 
+def test_stale_review_is_blocked_in_detail_and_at_approval_submission(tmp_path):
+    cases = InMemoryCaseStore(seed_password="pw")
+    enterprise = InMemoryEnterpriseStore()
+    governance = InMemoryGovernanceStore()
+    chunks = tmp_path / "chunks.jsonl"
+    chunks.write_text("", encoding="utf-8")
+    app = create_app(chunks_path=chunks, case_store=cases, enterprise_store=enterprise, governance_store=governance)
+    with TestClient(app) as client:
+        _login(client)
+        case_id = _create_case(client)
+        snapshot, intake = _freeze_inputs(enterprise, case_id)
+        task = enterprise.enqueue_review_task(case_id=case_id, material_snapshot_id=snapshot.id,
+            intake_snapshot_id=intake.id, model_id="test", data_boundary_summary={})
+        enterprise.claim_next_task(worker_id="offline")
+        report = {"review_result": {"risk_level": "low", "missing_information": []}}
+        enterprise.complete_task(task.id, result=report, final_node="completed")
+        cases.update_case(case_id, status="pending_feishu_approval", response_json=report)
+        assert client.get(f"/api/cases/{case_id}").json()["approval_readiness"]["code"] == "ready"
+
+        latest, _ = _freeze_inputs(enterprise, case_id)
+        assert latest.id != snapshot.id
+        current = client.get(f"/api/cases/{case_id}").json()["approval_readiness"]
+        assert current["code"] == "stale_review"
+        submit = client.post(f"/api/cases/{case_id}/feishu-approval")
+        assert submit.status_code == 409 and submit.json()["detail"] == current["detail"]
+        assert not governance.approval_deliveries
+
+
 def test_run_enqueues_idempotent_task_and_exposes_polling(tmp_path: Path) -> None:
     case_store = InMemoryCaseStore(seed_password="pw")
     enterprise = InMemoryEnterpriseStore()

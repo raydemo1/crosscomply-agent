@@ -4,6 +4,7 @@
 
 import type { ReviewApiResponse, RiskLevel } from './api';
 import type {
+  ApprovalReadinessApi,
   CaseEvent,
   CaseIntake,
   CaseStatus,
@@ -38,6 +39,9 @@ export interface CaseFeedback {
  */
 export interface SavedCase {
   ownerId?: string | null;
+  transferActivityId?: string | null;
+  transferImpactRequired?: boolean;
+  approvalReadiness?: ApprovalReadinessApi;
   /** Stable case id from the backend. */
   id: string;
   /** Trace id from the latest backend response. */

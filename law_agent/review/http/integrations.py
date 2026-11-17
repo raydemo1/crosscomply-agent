@@ -11,8 +11,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 
+from law_agent.review.approval_readiness import ApprovalReadiness, assess_approval_readiness
 from law_agent.review.case_store import CaseStore, UserRecord
-from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
+from law_agent.review.enterprise_store import (
+    InMemoryEnterpriseStore,
+    PostgresEnterpriseStore,
+    ReviewTask,
+)
 from law_agent.review.feishu import (
     FeishuEventError,
     apply_authoritative_decision,
@@ -20,10 +25,6 @@ from law_agent.review.feishu import (
     parse_approval_event,
 )
 from law_agent.review.governance_store import InMemoryGovernanceStore, PostgresGovernanceStore
-from law_agent.review.workflow import (
-    review_has_missing_information,
-    review_needs_source_verification,
-)
 
 
 def register_integration_routes(
@@ -38,8 +39,38 @@ def register_integration_routes(
     configured_feishu: Callable[[], tuple[Any, Any]],
     deliver_feishu_approval: Callable[..., dict[str, Any]],
     remediation_event: Callable[..., None],
+    transfer_review: Callable[[str], dict[str, Any] | None],
 ) -> None:
     router = APIRouter()
+
+    def readiness_for(case: dict[str, Any], task: ReviewTask | None, *, approval_exists: bool) -> ApprovalReadiness:
+        identifier = case["id"]
+        records = enterprise()
+        snapshot = records.get_latest_material_snapshot(identifier)
+        intake = records.get_latest_intake_snapshot(case_id=identifier, material_snapshot_id=snapshot.id) if snapshot else None
+        transfer = transfer_review(identifier)
+        return assess_approval_readiness(
+            case=case, task=task, plan=store().get_remediation_plan(identifier),
+            material_snapshot_id=snapshot.id if snapshot else None,
+            intake_snapshot_id=intake.id if intake else None,
+            approval_exists=approval_exists,
+            transfer_impact_required=bool(transfer and task and (transfer.get("impact") or {}).get("task_id") != task.id),
+        )
+
+    def require_ready(readiness: ApprovalReadiness) -> None:
+        if readiness.code == "actions_open":
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "pre_approval_actions_open",
+                    "message": "送审前行动项尚未全部完成",
+                    "action_ids": readiness.action_ids,
+                },
+            )
+        if readiness.code in {"fact_review", "evidence_review", "source_review"}:
+            raise HTTPException(status_code=409, detail="审查仍有事实或证据缺口，不能发起飞书审批")
+        if readiness.code != "ready":
+            raise HTTPException(status_code=409, detail=readiness.detail or "当前案件状态不能发起飞书审批")
 
     @router.post("/api/cases/{identifier}/feishu-approval")
     async def create_feishu_approval(
@@ -50,35 +81,13 @@ def register_integration_routes(
         case = store().get_case(identifier)
         if case is None:
             raise HTTPException(status_code=404, detail="案件不存在")
-        if case["status"] != "pending_feishu_approval":
-            raise HTTPException(status_code=409, detail="案件尚未完成审查，不能发起飞书审批")
-        if review_needs_source_verification(case.get("response") or {}):
-            raise HTTPException(status_code=409, detail="法律依据仍待核验，暂不能发起飞书审批")
-        plan = store().get_remediation_plan(identifier)
-        blockers = [
-            item for item in (plan or {}).get("tasks") or []
-            if item.get("is_current", True)
-            and item.get("phase") == "pre_approval"
-            and item.get("blocking")
-            and item.get("status") != "completed"
-        ]
-        if blockers:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "pre_approval_actions_open",
-                    "message": "送审前行动项尚未全部完成",
-                    "action_ids": [item.get("id") for item in blockers],
-                },
-            )
         task = enterprise().get_latest_task(identifier)
-        if task is None or task.status != "succeeded":
-            raise HTTPException(status_code=409, detail="案件没有已完成的审查任务")
-        if review_has_missing_information(case.get("response") or {}) or review_has_missing_information(task.result or {}):
-            raise HTTPException(status_code=409, detail="审查仍有事实或证据缺口，不能发起飞书审批")
         existing = governance().get_latest_approval(identifier)
-        if existing is not None:
+        readiness = readiness_for(case, task, approval_exists=existing is not None)
+        if readiness.code == "submitted" and existing:
             return asdict(existing)
+        require_ready(readiness)
+        assert task is not None
         governance().requeue_expired_approval_deliveries(target_status="failed")
         delivery = governance().enqueue_approval_delivery(
             case_id=identifier,
@@ -116,6 +125,10 @@ def register_integration_routes(
         task = enterprise().get_task(delivery.task_id)
         if case is None or task is None:
             raise HTTPException(status_code=409, detail="投递任务绑定的案件或审查任务不存在")
+        latest = enterprise().get_latest_task(case["id"])
+        if latest is None or latest.id != task.id:
+            raise HTTPException(status_code=409, detail="审批投递绑定的审查任务已过期")
+        require_ready(readiness_for(case, task, approval_exists=False))
         try:
             queued = governance().retry_approval_delivery(delivery_id)
         except ValueError as exc:

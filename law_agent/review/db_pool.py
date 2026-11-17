@@ -11,7 +11,7 @@ from __future__ import annotations
 import threading
 from contextlib import contextmanager
 
-_pools: dict[str, "object"] = {}
+_pools: dict[str, object] = {}
 _lock = threading.Lock()
 try:  # pragma: no cover - availability depends on deployment extras
     from psycopg_pool import ConnectionPool
@@ -36,6 +36,14 @@ def _get_pool(dsn: str):
             )
             _pools[dsn] = pool
         return pool
+
+
+def close_pool(dsn: str) -> None:
+    """Close a pool when its database will no longer be used in this process."""
+    with _lock:
+        pool = _pools.pop(dsn, None)
+    if pool is not None:
+        pool.close()
 
 
 @contextmanager

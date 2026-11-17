@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.http.schemas import FeedbackRequest
+from law_agent.review.work_inbox import WorkInbox
 
 
 def register_activity_routes(
@@ -20,6 +21,7 @@ def register_activity_routes(
     current_user: Callable[..., Any],
     store: Callable[[], CaseStore],
     can_view: Callable[[UserRecord, dict[str, Any]], bool],
+    inbox: Callable[[], WorkInbox],
 ) -> None:
     router = APIRouter()
 
@@ -53,6 +55,14 @@ def register_activity_routes(
     @router.get("/api/dashboard/summary")
     async def dashboard_summary(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
         return store().dashboard_summary(user)
+
+    @router.get("/api/work-inbox")
+    def work_inbox(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+        items = [
+            {key: value for key, value in item.items() if key not in {"notification_user_id", "notify_on_ready"}}
+            for item in inbox().list(user)
+        ]
+        return {"items": items, "total": len(items)}
 
     app.include_router(router)
 

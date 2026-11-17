@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import socket
 import time
@@ -60,11 +61,14 @@ def main() -> None:
     from law_agent.config import load_service_config
     from law_agent.review.feishu import FeishuApprovalClient, FeishuApprovalConfig
     from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
+    from law_agent.review.work_reminders import WorkReminderWorker, configured_recipients
 
     config = load_service_config()
     open_id = os.getenv("CROSSCOMPLY_FEISHU_RECHECK_OPEN_ID", "")
+    recipients = configured_recipients()
+    public_url = os.getenv("CROSSCOMPLY_PUBLIC_BASE_URL", "").strip()
     notification_client = None
-    if open_id and os.getenv("CROSSCOMPLY_FEISHU_APP_ID") and os.getenv("CROSSCOMPLY_FEISHU_APP_SECRET"):
+    if (open_id or recipients) and os.getenv("CROSSCOMPLY_FEISHU_APP_ID") and os.getenv("CROSSCOMPLY_FEISHU_APP_SECRET"):
         import httpx
 
         notification_client = FeishuApprovalClient(
@@ -82,8 +86,19 @@ def main() -> None:
         notification_client=notification_client,
         notification_open_id=open_id,
     )
+    reminder_worker = (
+        WorkReminderWorker(config.postgres.dsn, notification_client, public_url, recipients)
+        if notification_client and recipients and public_url.startswith(("http://", "https://")) else None
+    )
+    next_reminder_check = 0.0
     poll_seconds = max(0.2, float(os.getenv("CROSSCOMPLY_WORKER_POLL_SECONDS", "2")))
     while True:
+        if reminder_worker and time.monotonic() >= next_reminder_check:
+            try:
+                reminder_worker.run_once()
+            except Exception:
+                logging.getLogger(__name__).exception("待办提醒检查失败")
+            next_reminder_check = time.monotonic() + 60
         if not worker.run_once():
             time.sleep(poll_seconds)
 

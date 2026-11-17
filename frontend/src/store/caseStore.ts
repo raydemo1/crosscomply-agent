@@ -82,6 +82,9 @@ export function fromDetail(detail: CaseDetailApi): SavedCase {
   return {
     id: item.id,
     ownerId: item.owner_id,
+    transferActivityId: detail.transfer_activity_id ?? null,
+    transferImpactRequired: detail.transfer_impact_required ?? false,
+    approvalReadiness: detail.approval_readiness,
     traceId: item.trace_id ?? '',
     savedAt: item.updated_at,
     question: item.question,

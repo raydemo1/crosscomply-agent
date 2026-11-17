@@ -1,5 +1,8 @@
 /** Client for the CrossComply persisted case workbench API. */
 import { PUBLIC_DEMO } from '../runtime';
+import type {
+  EligibleTransferCase, ImpactOutcome, TransferActivity, TransferDetail, WorkItem,
+} from '../types/operations';
 
 import type {
   MatterTurnApi,
@@ -540,6 +543,50 @@ export async function extractIntake(question: string, materialText: string, file
 export async function listCases(query = ''): Promise<CaseListApi> {
   const suffix = query ? `?query=${encodeURIComponent(query)}` : '';
   return request<CaseListApi>(`/api/cases${suffix}`);
+}
+
+export function listWorkInbox(): Promise<{ items: WorkItem[]; total: number }> {
+  return request('/api/work-inbox');
+}
+
+export function listTransferActivities(): Promise<{ items: TransferActivity[] }> {
+  return request('/api/transfer-activities');
+}
+
+export function listEligibleTransferCases(): Promise<{ items: EligibleTransferCase[] }> {
+  return request('/api/transfer-activities/eligible-cases');
+}
+
+export function getTransferActivity(id: string): Promise<TransferDetail> {
+  return request(`/api/transfer-activities/${encodeURIComponent(id)}`);
+}
+
+export function registerTransferActivity(payload: {
+  case_id: string; title: string; business_entity: string; next_review_on: string;
+}): Promise<{ id: string }> {
+  return request('/api/transfer-activities', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function updateTransferReviewDate(id: string, date: string): Promise<{ next_review_on: string }> {
+  return request(`/api/transfer-activities/${encodeURIComponent(id)}`, {
+    method: 'PATCH', body: JSON.stringify({ next_review_on: date }),
+  });
+}
+
+export function startTransferReview(id: string, payload: {
+  baseline_case_id: string; business_entity: string; change_note: string;
+}): Promise<{ case_id: string; owner_id: string }> {
+  return request(`/api/transfer-activities/${encodeURIComponent(id)}/reviews`, {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export function confirmTransferImpact(id: string, payload: {
+  case_id: string; task_id: string; outcome: ImpactOutcome; note: string;
+}): Promise<{ confirmed: boolean }> {
+  return request(`/api/transfer-activities/${encodeURIComponent(id)}/impact`, {
+    method: 'POST', body: JSON.stringify(payload),
+  });
 }
 
 export async function listCaseTemplates(query = ''): Promise<{ items: CaseTemplateApi[]; total: number }> {

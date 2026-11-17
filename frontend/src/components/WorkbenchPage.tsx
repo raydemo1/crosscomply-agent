@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Upload, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, Paperclip, X } from 'lucide-react';
 import type { CaseIntake, CaseTemplateApi } from '../types/api';
 import {
   ApiError,
+  ALLOWED_UPLOAD_SUFFIXES,
+  MAX_UPLOAD_BYTES,
   createCase,
   createCaseFromQA,
   extractIntake,
@@ -25,6 +27,7 @@ interface WorkbenchPageProps {
   /** 通过 ?case= 进入时携带案件详情，页面进入补充/更正模式。 */
   editSeed: {
     id: string;
+    transferActivityId?: string | null;
     question: string;
     materialText: string;
     intake: CaseIntake;
@@ -110,10 +113,15 @@ function updateIntake(intake: CaseIntake, onChange: (next: CaseIntake) => void, 
 export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): JSX.Element {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const questionInputRef = useRef<HTMLTextAreaElement>(null);
+  const pageHeadingRef = useRef<HTMLHeadingElement>(null);
+  const reviewHeadingRef = useRef<HTMLHeadingElement>(null);
+  const previousStep = useRef<1 | 2>(1);
   const dragDepthRef = useRef(0);
   const [question, setQuestion] = useState('');
   const [material, setMaterial] = useState('');
   const [intake, setIntake] = useState<CaseIntake>({ ...EMPTY_INTAKE });
+  const [dataTypesDraft, setDataTypesDraft] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -122,6 +130,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
   const [templates, setTemplates] = useState<CaseTemplateApi[]>([]);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [missingFacts, setMissingFacts] = useState<MissingFact[]>([]);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -133,6 +142,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
   const [existingMaterialNames, setExistingMaterialNames] = useState<string[]>([]);
 
   const handoff = seed?.handoff ?? null;
+  const transferReview = Boolean(editSeed?.transferActivityId && !editSeed.materialSnapshot);
 
   // 预填：问答带入 / 模板 / 以此重审（每次进入页面只应用一次）
   const seedAppliedRef = useRef(false);
@@ -178,10 +188,20 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
     return () => { cancelled = true; };
   }, [editingCaseId, editingVersionIds]);
 
-  const hasMaterial = Boolean(material.trim() || files.length || existingMaterialNames.length);
-  const canSubmit = !loading && Boolean(question.trim()) && hasMaterial;
   const busy = loading || analyzing;
+  const hasQuestion = Boolean(question.trim());
   const hasNewMaterialToRead = Boolean(material.trim() || files.length);
+  const hasMaterial = hasNewMaterialToRead || existingMaterialNames.length > 0;
+  const canSubmit = hasQuestion && hasMaterial;
+  const intakeHint = hasQuestion
+    ? (hasMaterial ? '' : '请填写业务背景或上传附件。')
+    : (hasMaterial ? '请填写审查问题。' : '请填写审查问题，并提供业务背景或附件。');
+
+  useEffect(() => {
+    if (previousStep.current === step) return;
+    previousStep.current = step;
+    (step === 1 ? pageHeadingRef : reviewHeadingRef).current?.focus();
+  }, [step]);
 
   // 同一份提交路径使用的编号分配，页面展示的名称即之后冻结的名称
   const uploadNames = useMemo(
@@ -190,7 +210,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
   );
 
   const acceptFiles = (incoming: ArrayLike<File> | null): void => {
-    if (!incoming || incoming.length === 0) return;
+    if (busy || !incoming || incoming.length === 0) return;
     const accepted: File[] = [];
     for (const file of Array.from(incoming)) {
       try {
@@ -212,13 +232,15 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>): void => {
+    if (!event.dataTransfer.types.includes('Files')) return;
     event.preventDefault();
     dragDepthRef.current = 0;
     setDragging(false);
     acceptFiles(event.dataTransfer?.files ?? null);
   };
 
-  const handleDragEnter = (): void => {
+  const handleDragEnter = (event: DragEvent<HTMLDivElement>): void => {
+    if (busy || !event.dataTransfer.types.includes('Files')) return;
     dragDepthRef.current += 1;
     setDragging(true);
   };
@@ -235,7 +257,12 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
     setError(null);
     try {
       const result = await extractIntake(question.trim(), material.trim(), files);
-      const parsed = { ...intake, ...result.intake, data_types: [...result.intake.data_types] };
+      const extractedValues = transferReview
+        ? Object.fromEntries(Object.entries(result.intake).filter(([, value]) =>
+          value !== '' && value !== null && value !== 'unknown' && (!Array.isArray(value) || value.length > 0),
+        ))
+        : result.intake;
+      const parsed = { ...intake, ...extractedValues };
       setIntake(parsed);
       setExtracted(structuredClone(parsed));
       setMissingFacts(result.missing);
@@ -249,7 +276,8 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
   };
 
   const goToStepTwo = async (): Promise<void> => {
-    if (!canSubmit) return;
+    if (!canSubmit || busy) return;
+    setTemplatesOpen(false);
     // 仅编辑事实时没有新材料可读，无需再让 Agent 读一遍
     if (!hasNewMaterialToRead) {
       setStep(2);
@@ -260,18 +288,20 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
 
   const openTemplates = async (): Promise<void> => {
     if (templatesOpen) { setTemplatesOpen(false); return; }
-    setTemplatesOpen(true); setTemplatesLoading(true);
+    setTemplatesOpen(true); setTemplatesLoading(true); setTemplatesError(null);
     try { setTemplates((await listCaseTemplates()).items.filter((item) => !item.archived)); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : '无法读取模板'); }
+    catch (reason) { setTemplatesError(reason instanceof Error ? reason.message : '无法读取模板'); }
     finally { setTemplatesLoading(false); }
   };
   const applyTemplate = (template: CaseTemplateApi): void => {
     if (question.trim() && !window.confirm('使用模板将替换审查问题和案件要素，已添加的材料会保留。是否继续？')) return;
     setQuestion(template.question); setIntake({ ...EMPTY_INTAKE, ...template.intake });
     setExtracted(null); setMissingFacts([]); setTemplatesOpen(false);
+    questionInputRef.current?.focus();
   };
 
   const handleSubmit = async (): Promise<void> => {
+    if (!canSubmit || busy) return;
     setLoading(true);
     setError(null);
     const textMaterial = material.trim();
@@ -365,11 +395,16 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
 
   const fields: Record<string, JSX.Element> = {
     business_activity: <label className="form-field form-field--wide"><span>业务活动</span><input value={intake.business_activity} onChange={(event) => updateIntake(intake, setIntake, 'business_activity', event.target.value)} placeholder="例如：推荐系统、客服平台、人力资源管理" /></label>,
-    data_types: <label className="form-field form-field--wide"><span>数据类型（业务描述）</span><input value={intake.data_types.join('、')} onChange={(event) => updateIntake(intake, setIntake, 'data_types', event.target.value.split(/[、,，]/).map((item) => item.trim()).filter(Boolean))} placeholder="例如：手机号、定位信息" /></label>,
+    data_types: <label className="form-field form-field--wide"><span>数据类型（业务描述）</span><input value={dataTypesDraft ?? intake.data_types.join('、')} onChange={(event) => {
+      const text = event.target.value;
+      setDataTypesDraft(text);
+      updateIntake(intake, setIntake, 'data_types', text.split(/[、,，]/).map((item) => item.trim()).filter(Boolean));
+    }} onBlur={() => setDataTypesDraft(null)} placeholder="例如：手机号、定位信息" /></label>,
     cross_border_transfer: <label className="form-field"><span>是否向境外提供数据</span><select value={triStateValue(intake.cross_border_transfer)} onChange={(event) => updateIntake(intake, setIntake, 'cross_border_transfer', triStateUpdate(event.target.value))}><option value="">尚不确定</option><option value="yes">是，涉及出境</option><option value="no">否，不涉及出境</option></select></label>,
     contains_personal_information: <label className="form-field"><span>出境数据是否包含个人信息</span><select value={triStateValue(intake.contains_personal_information)} onChange={(event) => updateIntake(intake, setIntake, 'contains_personal_information', triStateUpdate(event.target.value))}><option value="">尚不确定</option><option value="yes">是，包含个人信息</option><option value="no">否，不含个人信息</option></select></label>,
     sensitive_personal_info: <label className="form-field"><span>是否涉及敏感个人信息</span><select value={triStateValue(intake.sensitive_personal_info)} onChange={(event) => updateIntake(intake, setIntake, 'sensitive_personal_info', triStateUpdate(event.target.value))}><option value="">尚不确定</option><option value="yes">涉及</option><option value="no">不涉及</option></select></label>,
     overseas_recipient: <label className="form-field"><span>境外接收方</span><input value={intake.overseas_recipient} onChange={(event) => updateIntake(intake, setIntake, 'overseas_recipient', event.target.value)} placeholder="例如：境外供应商、集团关联公司" /></label>,
+    ...(transferReview ? { vendor_name: <label className="form-field"><span>供应商</span><input value={intake.vendor_name} onChange={(event) => updateIntake(intake, setIntake, 'vendor_name', event.target.value)} /></label> } : {}),
     destination_region: <label className="form-field"><span>境外接收地</span><input value={intake.destination_region} onChange={(event) => updateIntake(intake, setIntake, 'destination_region', event.target.value)} placeholder="例如：新加坡" /></label>,
     legal_basis_or_consent: <label className="form-field form-field--wide"><span>告知、同意及其他处理依据</span><textarea value={intake.legal_basis_or_consent} onChange={(event) => updateIntake(intake, setIntake, 'legal_basis_or_consent', event.target.value)} placeholder="请说明已履行的手续或所依据的其他事由" rows={3} /></label>,
     important_data_status: <label className="form-field"><span>重要数据识别状态</span><select value={intake.important_data_status} onChange={(event) => updateIntake(intake, setIntake, 'important_data_status', event.target.value as CaseIntake['important_data_status'])}><option value="unknown">尚不确定</option><option value="not_important">已确认不涉及</option><option value="important">已确认涉及</option><option value="under_review">正在核实</option></select></label>,
@@ -393,54 +428,88 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
   const otherFields = Object.keys(fields).filter((key) => !askedKeys.has(key));
 
   return (
-    <div className="workbench" aria-busy={busy}>
+    <div className="workbench">
       <header className="workbench__heading">
         <div className="page-header__copy">
-          <h1 className="page-title">{editingCaseId ? '补充案件信息' : '新建案件'}</h1>
-          {editingCaseId ? <p className="page-header__lede">补充或更正后，将重新提交审查。</p> : null}
+          <h1 ref={pageHeadingRef} className="page-title" tabIndex={-1}>{transferReview ? '申报出境变更' : editingCaseId ? '补充案件信息' : '新建案件'}</h1>
+          {editingCaseId ? <p className="page-header__lede">{transferReview ? '请上传本次材料，并逐项核对从原审批带入的业务事实。' : '补充或更正后，将重新提交审查。'}</p> : null}
         </div>
-        <div className="intake-progress" aria-label="审查进度">
-          <div className={'intake-progress__step' + (step === 1 ? ' is-active' : ' is-done')} aria-current={step === 1 ? 'step' : undefined}><span>{step === 1 ? '1' : '✓'}</span><strong>提供问题与材料</strong></div>
-          <div className="intake-progress__line" />
-          <div className={'intake-progress__step' + (step === 2 ? ' is-active' : '')} aria-current={step === 2 ? 'step' : undefined}><span>2</span><strong>核对案件要素</strong></div>
-        </div>
+        <ol role="list" className="intake-progress" aria-label="提交案件进度">
+          <li className="intake-progress__step" aria-current={step === 1 ? 'step' : undefined}>
+            <span aria-hidden="true">{step === 1 ? '01' : <Check size={15} />}</span>
+            <strong>提供问题与材料</strong>{step === 2 ? <span className="sr-only">（已完成）</span> : null}
+          </li>
+          <li className="intake-progress__step" aria-current={step === 2 ? 'step' : undefined}>
+            <span aria-hidden="true">02</span><strong>核对案件要素</strong>
+          </li>
+        </ol>
       </header>
 
       {investigationLeads ? <details className="qa-workbench-leads"><summary>前期问答记录</summary><div>{investigationLeads}</div></details> : null}
 
-      {error ? <div className="error-box" role="alert"><span className="error-box__mark">!</span><div>{error}</div></div> : null}
-
-      {step === 1 ? (
-        <section className="card intake-card">
-          <div className="material-heading"><label className="form-label" htmlFor="wb-question">审查问题</label>{!editingCaseId ? <button type="button" className="btn-link" disabled={busy} aria-expanded={templatesOpen} onClick={() => void openTemplates()}>使用模板</button> : null}</div>
-          {templatesOpen ? <div className="intake-template-picker">{templatesLoading ? <p role="status">正在读取模板…</p> : templates.length ? templates.map((template) => <button key={template.id} type="button" onClick={() => applyTemplate(template)}>{template.name}</button>) : <p>暂无可用模板</p>}</div> : null}
-          <input id="wb-question" className="workbench__input" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：这个业务是否需要数据出境安全评估？" disabled={busy} />
-          <label className="form-label intake-material-label" htmlFor="wb-material">业务背景</label>
-          <textarea id="wb-material" className="workbench__textarea" value={material} onChange={(event) => setMaterial(event.target.value)} onPaste={(event) => { const file = pastedAttachment(event.clipboardData.getData('text/plain')); if (file) { event.preventDefault(); acceptFiles([file]); } }} placeholder="描述业务安排，或粘贴待审查材料" disabled={busy} rows={6} />
-          <div className={'material-dropzone intake-file-drop' + (dragging ? ' is-dragging' : '')} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
-            <button type="button" className="intake-file-drop__button" disabled={busy} onClick={() => fileInputRef.current?.click()}><Upload size={18} /><span>{dragging ? '松开以添加文件' : '上传或拖入附件'}</span></button>
-            <input ref={fileInputRef} type="file" accept=".txt,.md,.markdown,.pdf,.docx,.xlsx,.html,.htm,.json,.csv" multiple onChange={handleFileChange} hidden />
-            {files.length ? <ul className="material-chips">{files.map((file, index) => <li key={`${file.name}-${index}`}><span>{uploadNames[index]}</span><button type="button" aria-label={`移除 ${file.name}`} onClick={() => removeFile(index)} disabled={busy}><X size={13} /></button></li>)}</ul> : null}
+      <div className="intake-card">
+        {step === 1 ? <>
+          <div className="intake-question-heading">
+            <label className="form-label" htmlFor="wb-question">审查问题</label>
+            {!editingCaseId ? <button type="button" className="btn-link intake-inline-action" disabled={busy} aria-expanded={templatesOpen} onClick={() => void openTemplates()}>
+              使用模板 <ChevronDown size={15} aria-hidden="true" />
+            </button> : null}
           </div>
-          {fileError ? <div className="form-error">{fileError}</div> : null}
-          {existingMaterialNames.length ? <p className="intake-hint">本案已有 {existingMaterialNames.length} 份材料，将原样保留在下次审查中；此处新增的文件只会追加，不会替换它们。</p> : null}
-          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={() => void goToStepTwo()}>{analyzing ? '正在解析材料…' : hasNewMaterialToRead ? '解析材料并继续' : '核对案件要素'}</button></div>
-        </section>
-      ) : (
-        <section className="card intake-card">
-          <div className="section-heading-row"><h2>核对案件要素</h2><button type="button" className="btn-link" onClick={() => setStep(1)}>← 返回材料</button></div>
-          {askedFacts.map(renderFact)}
-          {uniqueFacts.length > MAX_QUESTIONS ? <details className="intake-group--optional"><summary>还有 {uniqueFacts.length - MAX_QUESTIONS} 项待确认</summary>{uniqueFacts.slice(MAX_QUESTIONS).map((fact) => {
-            return renderFact(fact);
-          })}</details> : null}
-          <details className="intake-group--optional" open={askedFacts.length === 0}>
-            <summary>{askedFacts.length ? '查看并核对其他案件要素' : '核对案件要素'}</summary>
-            <div className="intake-group__grid">{otherFields.map((key) => <Fragment key={key}>{fields[key]}</Fragment>)}</div>
-          </details>
-          <div className="intake-card__footer"><button type="button" className="btn-primary" disabled={!canSubmit || busy} onClick={handleSubmit}>{loading ? '正在提交案件…' : editingCaseId ? '保存补充并重新提交' : '提交审查'}</button></div>
-        </section>
-      )}
+          {templatesOpen ? <div className="intake-template-picker">
+            {templatesLoading ? <p role="status">正在读取模板…</p>
+              : templatesError ? <p className="form-error" role="alert">{templatesError}</p>
+                : templates.length ? templates.map((template) => <button key={template.id} type="button" disabled={busy} onClick={() => applyTemplate(template)}>{template.name}</button>)
+                  : <p>暂无可用模板</p>}
+          </div> : null}
+          <textarea ref={questionInputRef} id="wb-question" className="intake-textarea" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="本业务需要做数据出境安全评估吗？" disabled={busy} aria-required="true" rows={2} />
 
+          <div className="intake-materials" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={(event) => {
+            if (event.dataTransfer.types.includes('Files')) event.preventDefault();
+          }} onDrop={handleDrop}>
+            <label className="form-label" htmlFor="wb-material">业务背景</label>
+            <textarea id="wb-material" className="intake-textarea" value={material} onChange={(event) => setMaterial(event.target.value)} onPaste={(event) => { const file = pastedAttachment(event.clipboardData.getData('text/plain')); if (file) { event.preventDefault(); acceptFiles([file]); } }} placeholder="描述业务安排，或粘贴待审查材料" disabled={busy} rows={5} />
+            <div className={'intake-file-drop' + (dragging ? ' is-dragging' : '')}>
+              <button type="button" className="intake-file-drop__button" disabled={busy} aria-describedby="intake-file-hint" onClick={() => fileInputRef.current?.click()}>
+                <Paperclip size={18} aria-hidden="true" />{dragging ? '松开以添加附件' : '上传或拖入附件'}
+              </button>
+              <span id="intake-file-hint">PDF、DOCX、TXT 等 · 单文件 {MAX_UPLOAD_BYTES / (1024 * 1024)} MB 以内</span>
+            </div>
+            <input ref={fileInputRef} type="file" accept={ALLOWED_UPLOAD_SUFFIXES.join(',')} multiple onChange={handleFileChange} hidden />
+            {files.length ? <ul className="intake-files" aria-label="已添加附件">
+              {files.map((file, index) => <li key={`${file.name}-${index}`}>
+                <FileText size={16} aria-hidden="true" /><span>{uploadNames[index]}</span>
+                <button type="button" aria-label={`移除 ${uploadNames[index]}`} onClick={() => removeFile(index)} disabled={busy}><X size={17} aria-hidden="true" /></button>
+              </li>)}
+            </ul> : null}
+            <span className="sr-only" role="status">已添加 {files.length} 份附件</span>
+            {fileError ? <p className="form-error" role="alert">{fileError}</p> : null}
+            {existingMaterialNames.length ? <p className="intake-hint">本案已有 {existingMaterialNames.length} 份材料。新增附件将追加。</p> : null}
+          </div>
+        </> : <>
+          <div className="intake-review-heading">
+            <h2 id="intake-review-heading" ref={reviewHeadingRef} tabIndex={-1}>核对案件要素</h2>
+            <button type="button" className="btn-link intake-inline-action" disabled={busy} onClick={() => { setError(null); setStep(1); }}><ArrowLeft size={16} aria-hidden="true" />返回材料</button>
+          </div>
+          <fieldset className="intake-review-fields" disabled={busy} aria-labelledby="intake-review-heading">
+            {askedFacts.length ? <div className="intake-review-priority">{askedFacts.map(renderFact)}</div> : null}
+            {uniqueFacts.length > MAX_QUESTIONS ? <details className="intake-group--optional"><summary><ChevronDown size={16} aria-hidden="true" />还有 {uniqueFacts.length - MAX_QUESTIONS} 项待确认</summary>{uniqueFacts.slice(MAX_QUESTIONS).map(renderFact)}</details> : null}
+            {askedFacts.length ? <details className="intake-group--optional"><summary><ChevronDown size={16} aria-hidden="true" />查看其他案件要素</summary>
+              <div className="intake-group__grid">{otherFields.map((key) => fields[key])}</div>
+            </details> : <div className="intake-group__grid">{otherFields.map((key) => fields[key])}</div>}
+          </fieldset>
+        </>}
+        {error ? <p className="form-error intake-action-error" role="alert">{error}</p> : null}
+        <div className="intake-card__footer">
+          {step === 1 && intakeHint ? <span id="intake-action-hint" className="intake-hint">{intakeHint}</span> : null}
+          <span className="sr-only" role="status">{analyzing ? '正在解析材料…' : loading ? '正在提交案件…' : ''}</span>
+          {step === 1 ? <button type="button" className="btn-primary" disabled={!canSubmit} aria-disabled={busy || undefined} aria-describedby={intakeHint ? 'intake-action-hint' : undefined} onClick={() => void goToStepTwo()}>
+            {analyzing ? '正在解析材料…' : editingCaseId && !hasNewMaterialToRead ? '核对案件要素' : '解析材料并继续'}
+            {!busy ? <ArrowRight size={16} aria-hidden="true" /> : null}
+          </button> : <button type="button" className="btn-primary" disabled={!canSubmit} aria-disabled={busy || undefined} onClick={() => void handleSubmit()}>
+            {loading ? '正在提交案件…' : editingCaseId ? '保存补充并重新提交' : '提交审查'}
+          </button>}
+        </div>
+      </div>
     </div>
   );
 }

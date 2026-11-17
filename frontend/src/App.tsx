@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { ArrowRight, Menu } from 'lucide-react';
 import type { WorkbenchUser } from './types/api';
 import type { QAHandoff, QASummary } from './types/qa';
 import Sidebar from './components/Sidebar';
@@ -9,6 +9,7 @@ import WorkbenchPage from './components/WorkbenchPage';
 import LoginPage from './components/LoginPage';
 import { ApiError, getCurrentUser, listQAConversations, login, logout } from './api/client';
 import { clearCaseStore, openCase, refreshCases, useCaseStore } from './store/caseStore';
+import './styles/operations.css';
 
 const CaseCenterPage = lazy(() => import('./components/CaseCenterPage'));
 const ComplianceQAPage = lazy(() => import('./components/ComplianceQAPage'));
@@ -17,6 +18,8 @@ const KnowledgeBasePage = lazy(() => import('./components/KnowledgeBasePage'));
 const CaseDetailPage = lazy(() => import('./components/CaseDetailPage'));
 const TemplateCenterPage = lazy(() => import('./components/TemplateCenterPage'));
 const RemediationPlanPage = lazy(() => import('./components/RemediationPlanPage'));
+const WorkInboxPage = lazy(() => import('./components/WorkInboxPage'));
+const TransferActivitiesPage = lazy(() => import('./components/TransferActivitiesPage'));
 const MyRemediationsPage = lazy(async () => {
   const module = await import('./components/RemediationPlanPage');
   return { default: module.MyRemediationsPage };
@@ -76,10 +79,14 @@ export default function App(): JSX.Element {
         <Route path="/qa/:conversationId?" element={<QaRoute user={user} />} />
         <Route path="/workbench" element={<WorkbenchRoute user={user} />} />
         <Route path="/templates" element={<TemplateRoute user={user} />} />
-        <Route path="/reviews" element={<MyRemediationsRoute user={user} />} />
+        <Route path="/reviews" element={<WorkInboxPage />} />
+        <Route path="/reviews/remediation" element={<MyRemediationsRoute user={user} />} />
         <Route path="/reviews/plan/:caseId" element={<RemediationPlanRoute user={user} />} />
+        <Route path="/transfers/:activityId?" element={<LegacyTransferRedirect />} />
         <Route path="/cases" element={<CaseCenterPage user={user} />} />
+        <Route path="/cases/business/:activityId?" element={<TransferActivitiesPage user={user} />} />
         <Route path="/cases/:caseId" element={<CaseDetailRoute user={user} />} />
+        <Route path="/knowledge" element={<Navigate to="/knowledge/legal" replace />} />
         <Route path="/knowledge/:kind" element={<KnowledgeRoute user={user} />} />
         <Route path="/governance" element={<GovernanceRoute user={user} />} />
         <Route path="/index.html" element={<LegacyRedirect />} />
@@ -101,10 +108,18 @@ function LegacyRedirect(): JSX.Element {
   return <Navigate to="/qa" replace />;
 }
 
+function LegacyTransferRedirect(): JSX.Element {
+  const { activityId } = useParams();
+  const { search, hash } = useLocation();
+  return <Navigate to={{ pathname: activityId ? `/cases/business/${encodeURIComponent(activityId)}` : '/cases/business', search, hash }} replace />;
+}
+
 /** 已登录外壳：侧栏 + 主内容。问答历史等跨页状态在这里持有。 */
 function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogout: typeof logout; onUserChanged: () => void }): JSX.Element {
   const navigate = useNavigate();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLButtonElement>(null);
+  const mobileWasOpen = useRef(false);
   const [qaHistory, setQaHistory] = useState<QASummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const location = useLocation();
@@ -122,6 +137,26 @@ function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogou
 
   // 页面切换时关闭移动端抽屉
   useEffect(() => { setMobileSidebarOpen(false); }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) {
+      if (mobileWasOpen.current) mobileMenuRef.current?.focus();
+      mobileWasOpen.current = false;
+      return;
+    }
+    mobileWasOpen.current = true;
+    const desktop = window.matchMedia('(min-width: 769px)');
+    const closeOnResize = () => { if (desktop.matches) setMobileSidebarOpen(false); };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileSidebarOpen(false);
+    };
+    desktop.addEventListener('change', closeOnResize);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      desktop.removeEventListener('change', closeOnResize);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [mobileSidebarOpen]);
 
   const handleLogout = useCallback(async (): Promise<void> => {
     setError(null);
@@ -143,14 +178,14 @@ function Shell({ user, onLogout, onUserChanged }: { user: WorkbenchUser; onLogou
         isMobileOpen={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
-      {mobileSidebarOpen ? <button type="button" className="sidebar-scrim" onClick={() => setMobileSidebarOpen(false)} aria-label="关闭案件导航" /> : null}
-      <main className="app-center">
+      {mobileSidebarOpen ? <div className="sidebar-scrim" onClick={() => setMobileSidebarOpen(false)} aria-hidden="true" /> : null}
+      <main className="app-center" inert={mobileSidebarOpen}>
         <div className="app-mobile-nav">
-          <button type="button" className="app-mobile-menu" onClick={() => setMobileSidebarOpen(true)} aria-expanded={mobileSidebarOpen} aria-controls="primary-sidebar" aria-label="打开案件导航">
+          <button ref={mobileMenuRef} type="button" className="app-mobile-menu" onClick={() => setMobileSidebarOpen(true)} aria-expanded={mobileSidebarOpen} aria-controls="primary-sidebar" aria-label="打开案件导航">
             <Menu size={20} strokeWidth={1.8} aria-hidden="true" />
           </button>
           <div className="app-mobile-brand">
-            <img src="/crosscomply-logo.svg" alt="" className="app-mobile-brand__mark" />
+            <img src="/crosscomply-logo-inverse.svg" alt="" className="app-mobile-brand__mark" />
             <span>CrossComply</span>
           </div>
         </div>
@@ -206,7 +241,7 @@ function WorkbenchRoute({ user }: { user: WorkbenchUser }): JSX.Element {
   if (caseId && !saved) return <div className="card state-block"><div className="state-block__title">未找到案件</div><p>请从最近案件中选择一个案件。</p></div>;
 
   const seed = (location.state ?? null) as { handoff?: QAHandoff; template?: import('./types/api').CaseTemplateApi; rerun?: { question: string; material: string } } | null;
-  return <WorkbenchPage editSeed={caseId ? saved : null} seed={seed} />;
+  return <WorkbenchPage key={caseId ?? 'new'} editSeed={caseId ? saved : null} seed={seed} />;
 }
 
 function TemplateRoute({ user }: { user: WorkbenchUser }): JSX.Element {
@@ -219,7 +254,10 @@ function TemplateRoute({ user }: { user: WorkbenchUser }): JSX.Element {
 }
 
 function MyRemediationsRoute({ user }: { user: WorkbenchUser }): JSX.Element {
-  return <MyRemediationsPage user={user} />;
+  const taskId = new URLSearchParams(useLocation().search).get('task');
+  return <><div className="ops-case-context"><Link className="ops-link" to="/reviews">返回我的待办</Link></div>
+    <MyRemediationsPage key={taskId ?? 'all'} user={user} requestedTaskId={taskId} />
+  </>;
 }
 
 function RemediationPlanRoute({ user }: { user: WorkbenchUser }): JSX.Element {
@@ -301,21 +339,32 @@ function CaseDetailRoute({ user }: { user: WorkbenchUser }): JSX.Element {
     return window.confirm('原文审阅有未提交的修改，离开将丢失。确定离开吗？');
   };
 
-  return <CaseDetailPage
-    key={saved.id}
-    saved={saved}
-    canEdit={user.role === 'requester' && saved.ownerId === user.id}
-    canManageActions={user.role === 'reviewer' || user.role === 'admin'}
-    viewerRole={user.role}
-    focusAgentAnswer={Boolean((location.state as { focusAgentAnswer?: boolean } | null)?.focusAgentAnswer)}
-    onAgentAnswerFocused={() => navigate(`/cases/${saved.id}`, { replace: true, state: null })}
-    onDocumentDirtyChange={(dirty) => { dirtyRef.current = dirty; }}
-    onEdit={() => { if (guard()) navigate(`/workbench?case=${saved.id}`); }}
-    onRerun={(question, material) => navigate('/workbench', { state: { rerun: { question, material } } })}
-    onBack={() => { if (guard()) navigate('/cases'); }}
-    onOpenRemediationPlan={() => navigate(`/reviews/plan/${saved.id}`)}
-    onReviewSettled={() => { if (caseId) void openCase(caseId).catch(() => {}); }}
-  />;
+  const canRegisterBusiness = !saved.transferActivityId
+    && (saved.signedDecision?.status === 'approved' || saved.signedDecision?.status === 'conditionally_approved')
+    && (user.role !== 'requester' || saved.ownerId === user.id);
+  return <>
+    {saved.transferActivityId || canRegisterBusiness ? <div className="ops-case-context">
+      <Link className="ops-link" to={saved.transferActivityId ? `/cases/business/${saved.transferActivityId}` : `/cases/business?register=${saved.id}`} onClick={(event) => { if (!guard()) event.preventDefault(); }}>
+        {saved.transferActivityId ? '查看关联业务' : '登记出境业务'}<ArrowRight size={15} aria-hidden="true" />
+      </Link>
+    </div> : null}
+    <CaseDetailPage
+      key={saved.id}
+      saved={saved}
+      canEdit={user.role === 'requester' && saved.ownerId === user.id}
+      canManageActions={user.role === 'reviewer' || user.role === 'admin'}
+      viewerRole={user.role}
+      focusAgentAnswer={Boolean((location.state as { focusAgentAnswer?: boolean } | null)?.focusAgentAnswer)
+        || new URLSearchParams(location.search).get('action') === 'answer'}
+      onAgentAnswerFocused={() => navigate(`/cases/${saved.id}`, { replace: true, state: null })}
+      onDocumentDirtyChange={(dirty) => { dirtyRef.current = dirty; }}
+      onEdit={() => { if (guard()) navigate(`/workbench?case=${saved.id}`); }}
+      onRerun={(question, material) => navigate('/workbench', { state: { rerun: { question, material } } })}
+      onBack={() => { if (guard()) navigate('/cases'); }}
+      onOpenRemediationPlan={() => navigate(`/reviews/plan/${saved.id}`)}
+      onReviewSettled={() => { if (caseId) void openCase(caseId).catch(() => {}); }}
+    />
+  </>;
 }
 
 function KnowledgeRoute({ user }: { user: WorkbenchUser }): JSX.Element {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type JSX } from 'react';
+import { Link } from 'react-router-dom';
 import type { SavedCase } from '../types/case';
 import { createFeishuApproval, retryReviewTask, runCase, waitForReviewTask } from '../api/client';
 import { openCase } from '../store/caseStore';
@@ -117,7 +118,11 @@ export default function CaseWorkflowActions({
       {canManage && saved.status === 'needs_info' && !activeTask && !frozenInputAlreadyReviewed ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={startReview}>{operation === 'run' ? '正在启动审查…' : '基于最新材料重新审查'}</button> : null}
       {canManage && saved.status === 'pending_source_verification' ? <span>{saved.events.some((event) => event.event_type === 'knowledge_recheck_pending') ? '法规来源已完成核验，案件待人工复核；原结论未自动改写' : '法规依据尚待核实或补充，案件暂缓送审；原结论不会自动改写'}</span> : null}
       {canManage && saved.status === 'run_failed' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null || !saved.reviewTask} onClick={retryReview}>{operation === 'retry' ? (guidedActionSyncFailed ? '正在恢复待办事项清单…' : '重新运行中…') : (guidedActionSyncFailed ? '重试待办事项清单保存' : '重试失败任务')}</button> : null}
-      {canManage && saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null}
+      {canManage && saved.status === 'pending_feishu_approval' && !saved.feishuApproval ? (
+        (saved.approvalReadiness?.code === 'transfer_impact' || (!saved.approvalReadiness && saved.transferImpactRequired)) && saved.transferActivityId
+          ? <Link className="case-header__action-btn case-header__action-btn--accent" to={`/cases/business/${saved.transferActivityId}`}>确认变更影响</Link>
+          : !saved.approvalReadiness || saved.approvalReadiness.code === 'ready' ? <button type="button" className="case-header__action-btn case-header__action-btn--accent" disabled={operation !== null} onClick={createApproval}>{operation === 'approval' ? '正在创建审批…' : '发起飞书审批'}</button> : null
+      ) : null}
     </div>
   );
 
@@ -148,7 +153,11 @@ function workflowActionTitle(saved: SavedCase): string {
   if (saved.status === 'run_failed') return hasUnresolvedGuidedActionSyncFailure(saved)
     ? '审查结果已保存，待办事项清单生成失败'
     : '失败记录已保留，可以人工重试';
-  if (saved.status === 'pending_feishu_approval') return saved.feishuApproval ? '飞书审批已发起，等待审批结果同步' : '审查已完成，可以发起飞书审批';
+  if (saved.status === 'pending_feishu_approval') {
+    if (saved.feishuApproval) return '飞书审批已发起，等待审批结果同步';
+    if (saved.approvalReadiness && !['ready', 'transfer_impact'].includes(saved.approvalReadiness.code)) return '案件暂缓送审';
+    return saved.transferImpactRequired ? '审查已完成，待法务确认变更影响' : '审查已完成，可以发起飞书审批';
+  }
   return '流程状态已更新';
 }
 

@@ -24,37 +24,25 @@
   --color-on-accent: #ffffff;
 
   /* ---- 表面与文字（法规纸灰 + 墨，语义命名） ---- */
-  --color-background: #f3f3f0;
+  --color-background: #f1f3f5;
   --color-surface: #ffffff;
-  --color-muted: #ebebe6;
+  --color-muted: #e9edf1;
   --color-foreground: #1b1f27;
   --color-foreground-secondary: #434852;
   --color-foreground-muted: #5f6470;
   --color-foreground-faint: #868a93;
-  --color-border: #d5d5cf;
-  --color-hairline: #e3e3de;
+  --color-border: #cdd4dc;
+  --color-hairline: #e2e6eb;
 
   /* ---- 外壳（侧栏）：深墨蓝 ---- */
   --color-shell: #152238;
+  --color-shell-accent: #e08a76;
   --color-shell-raised: #1d2d47;
   --color-shell-foreground: #eceef2;
   --color-shell-muted: #a3adbd;
   --color-shell-border: rgba(236, 238, 242, 0.1);
   --color-shell-hover: rgba(236, 238, 242, 0.06);
   --color-shell-active: rgba(236, 238, 242, 0.11);
-
-  /* ---- 侧栏：浅色下为第二层中性色，与工作区同一明度 ---- */
-  --color-sidebar: #e9eaec;
-  --color-sidebar-raised: #dcdfe4;
-  --color-sidebar-foreground: #1b1f27;
-  --color-sidebar-muted: #4b515d;
-  --color-sidebar-border: rgba(27, 31, 39, 0.08);
-  --color-sidebar-hover: rgba(27, 31, 39, 0.05);
-  --color-sidebar-active: #ffffff;
-  --color-sidebar-cta: #213a5c;
-  --color-sidebar-cta-hover: #172b46;
-  --color-sidebar-on-cta: #ffffff;
-  --sidebar-active-shadow: 0 1px 2px rgba(27, 31, 39, 0.06), 0 0 0 1px rgba(27, 31, 39, 0.04);
 
   /* ---- 语义色三元组（文字 / 底 / 边框同源） ---- */
   --color-success: #2b6a48;
@@ -187,18 +175,6 @@
   --color-shell-hover: rgba(230, 232, 236, 0.05);
   --color-shell-active: rgba(230, 232, 236, 0.09);
 
-  --color-sidebar: #0b0f15;
-  --color-sidebar-raised: #151b25;
-  --color-sidebar-foreground: #e6e8ec;
-  --color-sidebar-muted: #8f97a5;
-  --color-sidebar-border: rgba(230, 232, 236, 0.08);
-  --color-sidebar-hover: rgba(230, 232, 236, 0.05);
-  --color-sidebar-active: rgba(230, 232, 236, 0.09);
-  --color-sidebar-cta: #e6e8ec;
-  --color-sidebar-cta-hover: #ffffff;
-  --color-sidebar-on-cta: #0b0f15;
-  --sidebar-active-shadow: none;
-
   --color-success: #6fbf94;
   --color-success-bg: rgba(111, 191, 148, 0.12);
   --color-success-border: rgba(111, 191, 148, 0.38);
@@ -259,18 +235,6 @@
     --color-shell-border: rgba(230, 232, 236, 0.08);
     --color-shell-hover: rgba(230, 232, 236, 0.05);
     --color-shell-active: rgba(230, 232, 236, 0.09);
-
-    --color-sidebar: #0b0f15;
-    --color-sidebar-raised: #151b25;
-    --color-sidebar-foreground: #e6e8ec;
-    --color-sidebar-muted: #8f97a5;
-    --color-sidebar-border: rgba(230, 232, 236, 0.08);
-    --color-sidebar-hover: rgba(230, 232, 236, 0.05);
-    --color-sidebar-active: rgba(230, 232, 236, 0.09);
-    --color-sidebar-cta: #e6e8ec;
-    --color-sidebar-cta-hover: #ffffff;
-    --color-sidebar-on-cta: #0b0f15;
-    --sidebar-active-shadow: none;
 
     --color-success: #6fbf94;
     --color-success-bg: rgba(111, 191, 148, 0.12);

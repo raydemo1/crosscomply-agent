@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Search } from 'lucide-react';
+import { ChevronRight, Search } from 'lucide-react';
 import { listCases, listMyRemediations } from '../api/client';
 import type { CaseSummaryApi, CaseStatus, WorkbenchUser } from '../types/api';
 import { CASE_STATUS_LABELS } from '../utils/workflow';
-import { relativeTime, RISK_LABELS } from '../utils/display';
-import '../styles/case-center.css';
+import { formatTime, relativeTime } from '../utils/display';
+import CaseCenterHeader from './CaseCenterHeader';
+import RiskBadge from './RiskBadge';
 
 const GROUPS: Record<string, CaseStatus[]> = {
   draft: ['draft'], running: ['pending_review', 'review_running'],
@@ -41,17 +42,40 @@ export default function CaseCenterPage({ user }: { user: WorkbenchUser }): JSX.E
       && (!relation || (relation === 'owner' ? item.owner_id === user.id : assigned.has(item.id)));
   }), [cases, query, risk, stage, relation, assigned, user.id]);
   return <section className="case-center">
-    <header className="case-center__heading"><h1 className="page-title">案件中心</h1><span>{loading ? '加载中' : `${visible.length} 个案件`}</span></header>
-    <div className="case-center__filters">
-      <label className="case-center__search"><Search size={17} /><input type="search" aria-label="搜索案件" placeholder="搜索案件或编号" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+    <CaseCenterHeader action={!loading && !error ? <span role="status">{visible.length} 个案件</span> : null} />
+    <div className="case-center__filters" role="search" aria-label="筛选案件">
+      <label className="case-center__search"><Search size={17} aria-hidden="true" /><input type="search" aria-label="搜索案件" placeholder="搜索案件或编号" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
       <select aria-label="风险等级" value={risk} onChange={(event) => setRisk(event.target.value)}><option value="">全部风险</option><option value="high">高风险</option><option value="medium">中风险</option><option value="low">低风险</option><option value="unrated">未定级</option></select>
       <select aria-label="案件阶段" value={stage} onChange={(event) => setStage(event.target.value)}><option value="">全部阶段</option><option value="draft">草稿</option><option value="running">审查中</option><option value="needs_info">待补充核实</option><option value="verification">待法规核验</option><option value="approval">待审批</option><option value="finished">已结束</option><option value="failed">审查失败</option></select>
       <select aria-label="与我相关" value={relation} onChange={(event) => setRelation(event.target.value)}><option value="">全部可见案件</option><option value="owner">我申报的</option><option value="assigned" disabled={assignmentError}>含我负责事项的</option></select>
     </div>
     {assignmentError ? <p className="case-center__error" role="status">暂时无法读取事项分派信息。</p> : null}
-    {error ? <div className="error-box" role="alert">{error}</div> : loading ? <p role="status">正在读取案件…</p> : <>
-      <div className="case-center__table"><table><thead><tr><th>案件</th><th>阶段</th><th>风险</th><th>待处理</th><th>更新于</th><th><span className="sr-only">打开</span></th></tr></thead><tbody>{visible.map((item) => <tr key={item.id}><td><Link className="case-center__title" to={`/cases/${item.id}`}>{item.question || item.title}</Link><small>{item.id}</small></td><td>{CASE_STATUS_LABELS[item.status]}</td><td><span className={`case-center__risk case-center__risk--${item.risk_level ?? 'pending'}`}>{item.risk_level ? RISK_LABELS[item.risk_level] : '未定级'}</span></td><td>{item.pending_followup_count || '—'}</td><td>{relativeTime(item.updated_at)}</td><td><Link className="case-center__open" to={`/cases/${item.id}`} aria-label={`打开案件：${item.question}`}><ArrowRight size={18} /></Link></td></tr>)}</tbody></table></div>
-      {!visible.length ? <div className="case-center__empty"><p>{cases.length ? '没有符合条件的案件' : '暂无案件'}</p>{cases.length ? <button type="button" className="btn-link" onClick={() => { setQuery(''); setRisk(''); setStage(''); setRelation(''); }}>清除筛选</button> : <Link className="btn-primary" to="/workbench">新建案件</Link>}</div> : null}
-    </>}
+    {error ? <div className="error-box" role="alert">{error}</div> : loading ? <p className="case-center__empty" role="status">正在读取案件…</p> : visible.length ? (
+      <div className="case-center__table">
+        <table aria-label="案件列表" role="table">
+          <thead role="rowgroup"><tr role="row">
+            <th scope="col" role="columnheader">案件</th>
+            <th scope="col" role="columnheader">阶段</th>
+            <th scope="col" role="columnheader">风险</th>
+            <th scope="col" role="columnheader">待处理</th>
+            <th scope="col" role="columnheader">更新于</th>
+          </tr></thead>
+          <tbody role="rowgroup">{visible.map((item) => (
+            <tr key={item.id} role="row">
+              <td role="cell"><Link className="case-center__title" to={`/cases/${item.id}`}>
+                <span>{item.question || item.title}</span><ChevronRight size={17} aria-hidden="true" />
+              </Link></td>
+              <td role="cell">{CASE_STATUS_LABELS[item.status]}</td>
+              <td role="cell">{item.risk_level ? <RiskBadge level={item.risk_level} /> : <span className="case-center__meta">未定级</span>}</td>
+              <td role="cell"><span className="case-center__pending-label" aria-hidden="true">待处理 </span>{item.pending_followup_count || '—'}</td>
+              <td role="cell"><time dateTime={item.updated_at} title={formatTime(item.updated_at)}>{relativeTime(item.updated_at)}</time></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    ) : <div className="case-center__empty">
+      <p>{cases.length ? '没有符合条件的案件' : '暂无案件'}</p>
+      {cases.length ? <button type="button" className="btn-secondary" onClick={() => { setQuery(''); setRisk(''); setStage(''); setRelation(''); }}>清除筛选</button> : <Link className="btn-primary" to="/workbench">新建案件</Link>}
+    </div>}
   </section>;
 }

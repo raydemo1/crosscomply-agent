@@ -13,12 +13,11 @@ from base64 import b64decode
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal, Protocol
+from typing import Any, Protocol
 
 from Crypto.Cipher import AES
 
 from law_agent.review.workflow import ApprovalDecision, CaseStatus
-
 
 
 class HttpResponse(Protocol):
@@ -126,13 +125,16 @@ class FeishuApprovalClient:
             request_id=request_id if isinstance(request_id, str) else None,
         )
 
-    def send_text_message(self, *, open_id: str, text: str) -> str:
+    def send_text_message(self, *, open_id: str, text: str, uuid: str | None = None) -> str:
         token = self._tenant_access_token()
+        payload = {"receive_id": open_id, "msg_type": "text", "content": json.dumps({"text": text}, ensure_ascii=False)}
+        if uuid:
+            payload["uuid"] = uuid
         response = self._transport(
             "POST",
             f"{self._config.base_url}/im/v1/messages?receive_id_type=open_id",
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json; charset=utf-8"},
-            json={"receive_id": open_id, "msg_type": "text", "content": json.dumps({"text": text}, ensure_ascii=False)},
+            json=payload,
             timeout=self._config.timeout_seconds,
         )
         body = _response_body(response, operation="发送飞书消息")

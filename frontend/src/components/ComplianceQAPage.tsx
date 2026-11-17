@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
-import { ArrowRight, ArrowUp, Check, TriangleAlert, CircleHelp, FileText, Paperclip, Plus, X } from 'lucide-react';
-import { createQAConversation, downloadQAMaterial, getQAConversation, retryQARun, sendQAMessage, subscribeQARun, uploadQAMaterial, validateUploadFile } from '../api/client';
+import { ArrowRight, ArrowUp, Check, ChevronRight, CircleHelp, FileText, History, Paperclip, Plus, TriangleAlert, X } from 'lucide-react';
+import { ALLOWED_UPLOAD_SUFFIXES, createQAConversation, downloadQAMaterial, getQAConversation, retryQARun, sendQAMessage, subscribeQARun, uploadQAMaterial, validateUploadFile } from '../api/client';
 import type { QAConversation, QAHandoff, QAQuestion, QARun, QASummary } from '../types/qa';
 import QAAnswer from './QAAnswer';
 import { formatQAAnswers, qaQuestionOptions, toggleQAOption } from '../utils/qaQuestions';
@@ -192,13 +192,21 @@ export default function ComplianceQAPage({ history, onOpenHistory, userRole, con
 
   return (
     <section className={'qa-page' + (hasMessages ? ' qa-page--conversation' : '')}>
-      <div className="qa-history-entry"><button ref={historyTrigger} className="qa-quiet-button" type="button" aria-expanded={historyOpen} onClick={() => setHistoryOpen((value) => !value)}>历史记录</button></div>
-      {historyOpen ? <dialog ref={historyDialog} className="qa-history-drawer" onClose={() => { setHistoryOpen(false); historyTrigger.current?.focus(); }} aria-label="历史咨询记录" onKeyDown={(event) => { if (event.key === 'Escape') setHistoryOpen(false); }}><header><h2>历史咨询</h2><button autoFocus className="qa-quiet-button" type="button" aria-label="关闭历史记录" onClick={() => historyDialog.current?.close()}><X size={18} /></button></header>{history.length ? history.map((item) => <button className="qa-history-row" type="button" key={item.id} aria-current={item.id === conversationId ? 'page' : undefined} onClick={() => { if ((question.trim() || files.length) && !window.confirm('切换咨询会丢弃当前未发送的问题和附件，是否继续？')) return; setHistoryOpen(false); onOpenHistory(item.id); }}>{item.title}<small>{new Date(item.updated_at).toLocaleDateString('zh-CN')}</small></button>) : <p className="qa-history-empty">暂无咨询记录</p>}</dialog> : null}
-      {hasMessages ? <header className="qa-thread-heading"><div><h1 className="page-title">{conversation?.title}</h1></div><button className="qa-quiet-button" type="button" onClick={onNewConversation}><Plus size={16} />新问答</button></header> : (
-        <header className="qa-welcome">
-          <h1 className="page-title">咨询数据出境合规问题</h1>
-        </header>
-      )}
+      <header className={'qa-heading' + (hasMessages ? ' qa-heading--thread' : '')}>
+        <h1 className="page-title">{hasMessages ? conversation?.title : '合规问答'}</h1>
+        <div className="qa-heading__actions">
+          {hasMessages ? <button className="qa-quiet-button" type="button" onClick={onNewConversation}><Plus size={16} aria-hidden="true" />新问答</button> : null}
+          <button ref={historyTrigger} className="qa-quiet-button" type="button" aria-expanded={historyOpen} aria-haspopup="dialog" onClick={() => setHistoryOpen(true)}><History size={16} aria-hidden="true" />历史记录</button>
+        </div>
+      </header>
+      {historyOpen ? <dialog ref={historyDialog} className="qa-history-drawer" aria-labelledby="qa-history-title" onClose={() => { setHistoryOpen(false); historyTrigger.current?.focus(); }}>
+        <header><h2 id="qa-history-title">历史咨询</h2><button autoFocus className="qa-quiet-button" type="button" aria-label="关闭历史记录" onClick={() => historyDialog.current?.close()}><X size={18} aria-hidden="true" /></button></header>
+        {history.length ? history.map((item) => <button className="qa-history-row" type="button" key={item.id} aria-current={item.id === conversationId ? 'page' : undefined} onClick={() => {
+          if ((question.trim() || files.length) && !window.confirm('切换咨询会丢弃当前未发送的问题和附件，是否继续？')) return;
+          historyDialog.current?.close();
+          onOpenHistory(item.id);
+        }}>{item.title}<small>{new Date(item.updated_at).toLocaleDateString('zh-CN')}</small></button>) : <p className="qa-history-empty">暂无咨询记录</p>}
+      </dialog> : null}
 
       {loading ? <p className="qa-loading" role="status">正在恢复对话…</p> : null}
       <div className="qa-messages" aria-label="问答记录">
@@ -233,13 +241,20 @@ export default function ComplianceQAPage({ history, onOpenHistory, userRole, con
         <form className={'qa-composer' + (draggingFiles ? ' is-dragging' : '')} onSubmit={(event) => { event.preventDefault(); void send(); }} onDragEnter={() => { dragDepthRef.current += 1; setDraggingFiles(true); }} onDragLeave={() => { dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (dragDepthRef.current === 0) setDraggingFiles(false); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); dragDepthRef.current = 0; setDraggingFiles(false); try { const incoming = Array.from(event.dataTransfer?.files ?? []); if (incoming.length) { incoming.forEach(validateUploadFile); setFiles((items) => [...items, ...incoming]); setError(null); } } catch (reason) { setError(reason instanceof Error ? reason.message : '文件无效'); } }}>
           {draggingFiles ? <div className="qa-drag-overlay" aria-hidden="true"><Paperclip size={22} strokeWidth={1.8} /><span>松开以添加材料</span></div> : null}
           <label htmlFor="qa-question" className="sr-only">合规问题</label>
-          <textarea ref={questionInput} id="qa-question" value={question} onChange={(event) => setQuestion(event.target.value)} onPaste={handlePaste} maxLength={20000} rows={hasMessages ? 1 : 3} placeholder={hasMessages ? '继续提问，或补充业务情况…' : '请描述业务场景或合规问题…'} disabled={loading || sending} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} />
+          <textarea ref={questionInput} id="qa-question" value={question} onChange={(event) => setQuestion(event.target.value)} onPaste={handlePaste} maxLength={20000} rows={hasMessages ? 1 : 3} placeholder={hasMessages ? '继续提问，或补充业务情况…' : '描述业务场景或输入数据出境问题…'} disabled={loading || sending} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} />
           {files.length ? <div className="qa-file-chips">{files.map((file, i) => <span key={i}><FileText size={14} />{file.name}<button type="button" disabled={sending} aria-label={`移除 ${file.name}`} onClick={() => setFiles((items) => items.filter((_, index) => index !== i))}><X size={13} /></button></span>)}</div> : null}
-          <div className="qa-composer-toolbar"><button type="button" className="qa-attach" title="添加材料" aria-label="添加材料" disabled={busy} onClick={() => input.current?.click()}><Paperclip size={16} /></button><input ref={input} type="file" hidden multiple accept=".txt,.md,.pdf,.docx,.xlsx,.csv,.html,.htm" onChange={(event) => { try { const incoming = Array.from(event.target.files ?? []); incoming.forEach(validateUploadFile); setFiles((items) => [...items, ...incoming]); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : '文件无效'); } event.target.value = ''; }} /><button className="qa-send" type="submit" aria-label="发送问题" title="发送问题（Ctrl / ⌘ + Enter）" disabled={!question.trim() || busy}><ArrowUp size={20} /></button></div>
+          <div className="qa-composer-toolbar"><button type="button" className="qa-attach" disabled={busy} onClick={() => input.current?.click()}><Paperclip size={16} aria-hidden="true" />添加材料</button><input ref={input} type="file" hidden multiple accept={ALLOWED_UPLOAD_SUFFIXES.join(',')} onChange={(event) => { try { const incoming = Array.from(event.target.files ?? []); incoming.forEach(validateUploadFile); setFiles((items) => [...items, ...incoming]); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : '文件无效'); } event.target.value = ''; }} /><button className="qa-send" type="submit" aria-label="发送问题" title="发送问题（Ctrl / ⌘ + Enter）" disabled={!question.trim() || busy}>发送<ArrowUp size={16} aria-hidden="true" /></button></div>
         </form>
-        {!hasMessages && !loading ? <div className="qa-examples" aria-label="示例问题">{EXAMPLES.map((example) => <button key={example} type="button" disabled={busy} onClick={() => { setQuestion(example); questionInput.current?.focus(); }}>{example}</button>)}</div> : null}
-        {!hasMessages && !loading ? <div className="qa-guide-entry"><button type="button" className="qa-quiet-button" disabled={busy} aria-expanded={showGuide} onClick={() => setShowGuide((value) => !value)}><CircleHelp size={15} />使用指引</button></div> : null}
-        {!hasMessages && !loading && showGuide ? <QaOnboarding userRole={userRole} onDismiss={() => setShowGuide(false)} /> : null}
+        {!hasMessages && !loading ? <section className="qa-examples" aria-labelledby="qa-examples-title">
+          <header>
+            <h2 id="qa-examples-title">示例问题</h2>
+            <button type="button" className="qa-quiet-button" disabled={busy} aria-expanded={showGuide} onClick={() => setShowGuide((value) => !value)}><CircleHelp size={15} aria-hidden="true" />使用指引</button>
+          </header>
+          {showGuide ? <QaOnboarding userRole={userRole} onDismiss={() => setShowGuide(false)} onStartQuestion={() => questionInput.current?.focus()} /> : null}
+          <ul role="list">{EXAMPLES.map((example) => <li key={example}>
+            <button type="button" disabled={busy} onClick={() => { setQuestion(example); questionInput.current?.focus(); }}><span>{example}</span><ChevronRight size={17} aria-hidden="true" /></button>
+          </li>)}</ul>
+        </section> : null}
       </div>
     </section>
   );
