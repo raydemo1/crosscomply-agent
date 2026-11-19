@@ -6,11 +6,12 @@
 
 /* ---------- 卡片 ---------- */
 .card {
+  /* 白色表面落在纸灰底上即可分层，不再描边（与审查报告一致）；边框保留透明以便选中态使用。 */
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   padding: 20px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   transition: box-shadow var(--transition-base), border-color var(--transition-base);
 }
 
@@ -371,4 +372,44 @@
   .form-field--wide {
     grid-column: auto;
   }
+}
+
+/* ============================================================
+ * 统计页签：关键数字 + 一键筛选（案件中心、我的待办共用）
+ * 与审查报告的关键数字带同一语言：底色分隔、无边框、等宽数字。
+ * ============================================================ */
+.stat-tabs {
+  display: grid;
+  grid-template-columns: repeat(var(--stat-columns, 5), minmax(0, 1fr));
+  gap: 1px;
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  overflow: hidden;
+}
+
+.stat-tab {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 0;
+  background: var(--color-surface);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.stat-tab:hover { background: color-mix(in srgb, var(--color-surface), var(--color-primary) 4%); }
+.stat-tab[aria-pressed="true"] { box-shadow: inset 0 -2px var(--color-accent); }
+.stat-tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.stat-tab span { color: var(--color-foreground-muted); font-size: var(--text-xs); letter-spacing: 0.04em; }
+.stat-tab strong { color: var(--color-foreground); font: 500 26px/1.2 var(--font-mono); font-variant-numeric: tabular-nums; }
+.stat-tab.is-empty strong { color: var(--color-foreground-faint); }
+.stat-tab.is-alert strong { color: var(--color-danger); }
+
+@media (max-width: 720px) {
+  .stat-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat-tab:first-child, .stat-tab:last-child:nth-child(even) { grid-column: 1 / -1; }
+  .stat-tab strong { font-size: 20px; }
 }

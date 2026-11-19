@@ -77,6 +77,18 @@
   --color-risk-low: #2b6a48;
   --color-risk-insufficient: #5f6470;
 
+  /* ---- 图表：分类色按固定顺序使用（已用色盲校验），门槛刻度为单色阶 ---- */
+  --chart-1: #2f5f9e;  /* 合规缺口 / 单系列 */
+  --chart-2: #c08a2a;  /* 信息缺口 */
+  --chart-3: #8a5aa8;  /* 材料冲突 */
+  --chart-scale-1: #e3e9f1;
+  --chart-scale-2: #bccbe0;
+  --chart-scale-3: #7f9ac0;
+  --chart-scale-ink: #2c3038;
+  --chart-scale-ink-strong: #ffffff;
+  --chart-track: #dde2e8;
+  --chart-marker: var(--color-accent);
+
   /* ---- 字体：宋体写标题与条文，黑体写界面 ---- */
   --font-heading: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', STSong, serif;
   --font-legal: var(--font-heading);
@@ -200,6 +212,16 @@
   --color-risk-medium: #d9a45b;
   --color-risk-low: #6fbf94;
   --color-risk-insufficient: #959ca8;
+  --chart-1: #5a88cf;
+  --chart-2: #bf8a2c;
+  --chart-3: #9b72c4;
+  --chart-scale-1: #1f2633;
+  --chart-scale-2: #2e4161;
+  --chart-scale-3: #4d6fa3;
+  --chart-scale-ink: #d6dbe3;
+  --chart-scale-ink-strong: #f2f4f7;
+  --chart-track: #2a313d;
+  --chart-marker: var(--color-accent);
 
   --color-ring: #a9bddb;
   --focus-ring: 0 0 0 3px rgba(169, 189, 219, 0.22);
@@ -261,6 +283,16 @@
     --color-risk-medium: #d9a45b;
     --color-risk-low: #6fbf94;
     --color-risk-insufficient: #959ca8;
+    --chart-1: #5a88cf;
+    --chart-2: #bf8a2c;
+    --chart-3: #9b72c4;
+    --chart-scale-1: #1f2633;
+    --chart-scale-2: #2e4161;
+    --chart-scale-3: #4d6fa3;
+    --chart-scale-ink: #d6dbe3;
+    --chart-scale-ink-strong: #f2f4f7;
+    --chart-track: #2a313d;
+    --chart-marker: var(--color-accent);
 
     --color-ring: #a9bddb;
     --focus-ring: 0 0 0 3px rgba(169, 189, 219, 0.22);

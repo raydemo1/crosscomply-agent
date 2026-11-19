@@ -67,3 +67,8 @@
   .case-progress--embedded .case-progress__steps li { flex-direction: row; align-items: flex-start; gap: 12px; text-align: start; }
   .case-progress--embedded .case-progress__index { flex-shrink: 0; }
 }
+
+/* 送审前必办事项：数字 + 分段进度，与报告「待核实事项」同一图形 */
+.case-progress__next .case-progress__mandatory { display: inline-flex; align-items: center; gap: 10px; color: var(--color-foreground-muted); font-size: 13px; }
+.case-progress__mandatory b { color: var(--color-foreground); font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; }
+.case-progress__mandatory .segment-progress { width: clamp(80px, 12vw, 160px); margin: 0; }

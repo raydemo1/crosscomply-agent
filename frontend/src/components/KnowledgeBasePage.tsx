@@ -165,6 +165,8 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
   const [detailLoading, setDetailLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 来源清单本身没读到时，不能显示「0 份来源 / 暂无来源」，否则像是知识库被清空了。
+  const [listFailed, setListFailed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [showTrash, setShowTrash] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -218,6 +220,7 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
       ]);
       setSources(sourceResult.items);
       setTrash(trashResult.items);
+      setListFailed(false);
       setSelectedIds((current) => new Set([...current].filter((id) => sourceResult.items.some((item) => item.source.source_id === id))));
       if (keepDetail && selectedId) {
         try {
@@ -232,6 +235,7 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '无法加载知识库来源');
+      setListFailed(true);
     } finally {
       setLoading(false);
     }
@@ -414,7 +418,7 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
       <header className="knowledge-intro">
         <div className="knowledge-intro__copy">
           <h1 id="knowledge-title" className="page-title">知识库</h1>
-          <span className="knowledge-intro__count">{summary.sourceCount} 份来源</span>
+          {loading || listFailed ? null : <span className="knowledge-intro__count">{summary.sourceCount} 份来源</span>}
         </div>
       </header>
 
@@ -444,7 +448,7 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
       <section className="knowledge-layout">
         <div className="knowledge-list card" ref={listRef} tabIndex={-1}>
           <div className="knowledge-bulkbar"><label><input type="checkbox" checked={sources.length > 0 && selectedIds.size === sources.length} onChange={toggleAll} />全选当前结果</label>{summary.selectedCount ? <><span>已选 {summary.selectedCount} 项</span><button type="button" className="knowledge-danger-btn" disabled={busy} onClick={() => void startDeletePreview()}><Trash2 size={15} />移入回收站</button></> : null}</div>
-          {loading ? <div className="knowledge-state"><LoaderCircle className="spin" size={22} /><span>正在读取来源清单…</span></div> : sources.length === 0 ? <div className="knowledge-state"><FileArchive size={27} /><strong>暂无来源</strong><button type="button" className="btn-primary" onClick={() => setShowImport(true)}><FilePlus2 size={15} />开始导入</button></div> : <div className="knowledge-source-list">{sources.map((item) => <div key={item.source.source_id} className={'knowledge-source-row' + (selectedId === item.source.source_id ? ' is-open' : '')} role="button" aria-pressed={selectedId === item.source.source_id} tabIndex={0} onClick={() => void openSource(item.source.source_id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void openSource(item.source.source_id); } }}><input type="checkbox" checked={selectedIds.has(item.source.source_id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.source.source_id)} aria-label={`选择${item.source.title}`} /><div className="knowledge-source-row__body"><div className="knowledge-source-row__title"><strong>{highlightText(item.source.title, query)}</strong><span className={`knowledge-status knowledge-status--${item.source.library_kind}`}>{statusText(item)}</span></div><p>{highlightText(sourceMeta(item), query)}</p></div><ChevronRight size={17} className="knowledge-source-row__arrow" /></div>)}</div>}
+          {loading ? <div className="knowledge-state"><LoaderCircle className="spin" size={22} /><span>正在读取来源清单…</span></div> : listFailed ? <div className="knowledge-state"><FileArchive size={27} /><strong>来源清单未能读取</strong><button type="button" className="btn-secondary" onClick={() => void refresh()}>重新读取</button></div> : sources.length === 0 ? <div className="knowledge-state"><FileArchive size={27} /><strong>暂无来源</strong><button type="button" className="btn-primary" onClick={() => setShowImport(true)}><FilePlus2 size={15} />开始导入</button></div> : <div className="knowledge-source-list">{sources.map((item) => <div key={item.source.source_id} className={'knowledge-source-row' + (selectedId === item.source.source_id ? ' is-open' : '')} role="button" aria-pressed={selectedId === item.source.source_id} tabIndex={0} onClick={() => void openSource(item.source.source_id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void openSource(item.source.source_id); } }}><input type="checkbox" checked={selectedIds.has(item.source.source_id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.source.source_id)} aria-label={`选择${item.source.title}`} /><div className="knowledge-source-row__body"><div className="knowledge-source-row__title"><strong>{highlightText(item.source.title, query)}</strong><span className={`knowledge-status knowledge-status--${item.source.library_kind}`}>{statusText(item)}</span></div><p>{highlightText(sourceMeta(item), query)}</p></div><ChevronRight size={17} className="knowledge-source-row__arrow" /></div>)}</div>}
         </div>
 
         <aside className="knowledge-detail card" aria-label="来源详情" ref={detailRef} tabIndex={-1} data-open={Boolean(selectedId)}>

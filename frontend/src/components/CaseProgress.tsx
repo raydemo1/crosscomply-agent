@@ -3,6 +3,7 @@ import type { ApprovalReadinessApi, CaseStatus, RemediationPlanApi, ReviewTaskSt
 import './CaseProgress.css';
 import { runGuidedRereview, waitForReviewTask } from '../api/client';
 import { openCase } from '../store/caseStore';
+import { SegmentProgress } from './ReportFigures';
 
 const CASE_STAGES = [
   ['提交申报', '上传材料'],
@@ -222,7 +223,7 @@ export default function CaseProgress({ caseId, hideListAction = false, beforeRer
   return (
     <section className={embedded ? 'case-progress case-progress--embedded' : 'card case-progress'} aria-label="案件进度">
       <div className="case-progress__next">
-        <div><strong>{rereviewing ? '重新审查中' : state.status}</strong>{status === 'needs_info' && mandatory.length ? <span>送审前必办事项　{completed}/{mandatory.length} 完成</span> : null}</div>
+        <div><strong>{rereviewing ? '重新审查中' : state.status}</strong>{status === 'needs_info' && mandatory.length ? <div className="case-progress__mandatory">送审前必办事项<b>{completed}/{mandatory.length} 完成</b><SegmentProgress done={completed} total={mandatory.length} label="送审前必办事项" /></div> : null}</div>
         {state.actionLabel && !(hideListAction && state.actionKind === 'list') && (onOpenAction || onAnswerAction || state.actionKind === 'answer' || caseId) ? <button type="button" disabled={rereviewing} className="case-header__action-btn case-progress__primary" onClick={() => handleAction(state.actionKind ?? 'list')}>{rereviewing ? '审查中…' : state.actionLabel}</button> : null}
       </div>
       {rereviewError ? <p className="case-progress__error" role="alert">{rereviewError}</p> : null}

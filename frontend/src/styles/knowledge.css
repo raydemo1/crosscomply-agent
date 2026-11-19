@@ -2,7 +2,7 @@
  * 用户管理（治理台）
  * ============================================================ */
 .governance-main { width: min(var(--content-wide), 100%); margin-inline: auto; }
-.governance-intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--color-border); }
+.governance-intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .governance-intro__title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px 20px; }
 .governance-intro__title > span, .knowledge-intro__count { color: var(--color-foreground-muted); font-size: var(--text-md); font-variant-numeric: tabular-nums; }
 .user-admin { padding: 8px 28px; border-radius: var(--radius-lg); box-shadow: none; }
@@ -52,7 +52,7 @@
   margin: 0;
   padding: 2px 2px 16px;
 }
-.knowledge-tabs { display: flex; gap: 2px; margin-bottom: 0; border-bottom: 1px solid var(--color-border); }
+.knowledge-tabs { display: flex; gap: 2px; margin-bottom: 0; }
 .knowledge-tabs button { display: flex; align-items: baseline; gap: 8px; padding: 9px 16px 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--color-foreground-muted); font: inherit; font-size: 0.9375rem; cursor: pointer; }
 .knowledge-tabs button:hover { color: var(--color-primary); }
 .knowledge-tabs button.is-active { border-bottom-color: var(--color-accent); color: var(--color-primary); font-weight: var(--weight-bold); }

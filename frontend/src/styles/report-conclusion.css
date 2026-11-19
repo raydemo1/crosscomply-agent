@@ -8,8 +8,7 @@
   --report-body-leading: 1.75;
   --report-heading-size: var(--text-2xl);
   min-width: 0;
-  padding: clamp(32px, 5vw, 52px);
-  border: 1px solid var(--color-border);
+  padding: clamp(32px, 5vw, 56px);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   font-family: var(--font-body);
@@ -43,11 +42,9 @@
   font-weight: var(--weight-semibold);
 }
 .report-conclusion { min-width: 0; }
-.review-report--document .report-conclusion > .report-heading {
+.review-report--document .report-conclusion__summary > .report-heading {
   align-items: center;
-  margin-bottom: 22px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--color-foreground);
+  margin-bottom: 20px;
 }
 .case-workspace .review-report.review-report--document .report-conclusion .report-heading h2 { font-size: var(--text-3xl); }
 .report-conclusion__lead {
@@ -107,7 +104,6 @@
 .report-analysis .markdown-body blockquote {
   margin: 16px 0;
   padding: 12px 16px;
-  border: 1px solid var(--color-hairline);
   border-radius: var(--radius-sm);
   background: var(--color-background);
   color: var(--color-foreground-secondary);
@@ -118,8 +114,6 @@
   max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-sm);
 }
 .report-table__scroll:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
 .markdown-body--report .report-table table { margin: 0; width: 100%; border-collapse: collapse; font-size: var(--text-md); line-height: 1.65; }
@@ -131,15 +125,15 @@
   vertical-align: top;
   overflow-wrap: anywhere;
 }
-.markdown-body--report .report-table th { border-bottom-color: var(--color-border); background: var(--color-muted); font-weight: var(--weight-semibold); color: var(--color-foreground); }
+.markdown-body--report .report-table th { border-bottom-color: var(--color-border); background: transparent; color: var(--color-foreground-muted); font-weight: var(--weight-semibold); color: var(--color-foreground); }
 .markdown-body--report .report-table td { color: var(--color-foreground-secondary); }
 .markdown-body--report .report-table :is(th, td):first-child { min-width: 104px; }
 .markdown-body--report .report-table tr:last-child td { border-bottom: 0; }
 .markdown-body--report .report-table tr:nth-child(even) td { background: transparent; }
 .report-conclusion__boundaries {
   margin-top: 20px;
-  padding: 14px 18px;
-  border-inline-start: 2px solid var(--color-border);
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
   background: var(--color-background);
 }
 .report-conclusion__boundaries h3 { margin: 0 0 8px; font: var(--weight-semibold) var(--text-md)/1.5 var(--font-body); color: var(--color-foreground); }
@@ -148,9 +142,7 @@
 .report-conclusion__boundaries li:first-child { margin-top: 0; }
 .review-report.review-report--document .report-conclusion__boundaries .markdown-body { font-size: var(--text-md); line-height: 1.7; }
 .report-footnote {
-  margin-top: 32px;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-hairline);
+  margin-top: 48px;
   color: var(--color-foreground-muted);
   font-size: var(--text-sm);
 }
@@ -193,14 +185,15 @@
 .report-heading__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
 .report-heading__count { color: var(--color-foreground-muted); font: 400 var(--text-md)/1.6 var(--font-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .review-report.review-report--document > :is(.report-section, .report-main-issues, .report-disclosure) + :is(.report-section, .report-main-issues, .report-disclosure) {
-  margin-top: clamp(24px, 3vw, 36px);
-  padding-top: clamp(20px, 2.5vw, 30px);
-  border-top: 1px solid var(--color-hairline);
+  margin-top: clamp(40px, 5vw, 60px);
+  padding-top: 0;
+  border-top: 0;
 }
-.review-report--document .review-followup-summary + .review-recommendations { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--color-hairline); }
+.review-report--document .review-followup-summary + .review-recommendations { margin-top: 32px; padding-top: 0; border-top: 0; }
 .review-report--document .review-followup-summary__items { margin-top: 0; }
-.review-report--document .review-followup-summary__items li { padding: 12px 0; gap: 12px; align-items: baseline; border-color: var(--color-hairline); }
-.review-report--document .review-followup-summary__item-title { white-space: normal; overflow: visible; text-overflow: clip; font-size: var(--report-body-size); line-height: 1.75; }
+.review-report--document .review-followup-summary__items li { padding: 6px 0; gap: 12px; align-items: baseline; border: 0; }
+.review-report--document .review-followup-summary__item-title { white-space: normal; overflow: visible; text-overflow: clip; font-size: var(--text-base); line-height: 1.75; }
+.review-report--document .review-followup-summary__items li::before { content: ''; flex: none; width: 9px; height: 9px; margin-inline-end: 4px; border: 1.5px solid var(--color-foreground-faint); border-radius: 2px; transform: translateY(-1px); }
 .review-item-state { flex: 0 0 auto; color: var(--color-foreground-muted); font-size: var(--text-sm); white-space: nowrap; }
 .review-item-state--pending_review, .review-item-state--in_progress { color: var(--color-primary); }
 .review-report--document .review-followup-summary__more { margin-top: 8px; min-height: 44px; justify-content: flex-start; }
@@ -210,13 +203,13 @@
 .review-report--document .review-recommendations__list .markdown-body { min-width: 0; font: 400 var(--text-base)/1.75 var(--font-body); }
 .review-report--document .review-recommendations__list .markdown-body p { margin: 0; }
 .review-report--document .report-main-issues__list { margin: 0; padding: 0; list-style: none; }
-.review-report--document .report-main-issue { grid-template-columns: 2ch minmax(0, 1fr) auto; column-gap: 12px; padding: 14px 0; border-color: var(--color-hairline); font: 400 var(--text-base)/1.75 var(--font-body); }
-.review-report--document .report-main-issue:first-child { padding-top: 0; border-top: 0; }
+.review-report--document .report-main-issue { grid-template-columns: 2ch minmax(0, 1fr) auto; column-gap: 12px; padding: 0; border: 0; font: 400 var(--text-base)/1.75 var(--font-body); }
+.review-report--document .report-main-issue + .report-main-issue { margin-top: 24px; }
 .report-main-issue__index { grid-column: 1; grid-row: 1; color: var(--color-accent); font: var(--weight-medium) var(--text-sm)/1.65 var(--font-mono); }
-.review-report--document .report-main-issue__heading { display: flex; flex-wrap: wrap; align-items: baseline; min-width: 0; grid-column: 2 / -1; grid-row: 1; gap: 2px 12px; }
+.review-report--document .report-main-issue__heading { display: flex; flex-wrap: wrap; align-items: baseline; min-width: 0; grid-column: 2; grid-row: 1; gap: 2px 12px; }
 .review-report--document .report-main-issue__heading h3 { font: var(--weight-semibold) var(--text-base)/1.65 var(--font-body); overflow-wrap: anywhere; }
 .review-report--document .issue-kind { padding: 0; border: 0; color: var(--color-foreground-muted); background: transparent; font: 400 var(--text-sm)/1.65 var(--font-body); }
-.review-report--document .report-main-issue > .btn-link { grid-column: 3; grid-row: 2; align-self: start; position: relative; z-index: 1; min-height: 32px; font: 400 var(--text-md)/1.65 var(--font-body); }
+.review-report--document .report-main-issue > .btn-link { grid-column: 3; grid-row: 1; align-self: baseline; position: relative; z-index: 1; min-height: 32px; font: 400 var(--text-md)/1.65 var(--font-body); }
 .review-report--document .report-main-issue__analysis { grid-column: 2 / -1; grid-row: 2; margin-top: 0; }
 .review-report--document .report-main-issue__analysis > summary { display: flex; align-items: center; gap: 6px; width: fit-content; min-height: 32px; list-style: none; font: 400 var(--text-md)/1.65 var(--font-body); }
 .review-report--document .report-main-issue__analysis > summary::-webkit-details-marker { display: none; }
@@ -232,7 +225,7 @@
 .basis-clause__article { margin-inline-start: 0.35em; color: var(--color-accent); }
 .basis-clause__chevron { flex: none; align-self: center; color: var(--color-foreground-muted); }
 .basis-clause[open] .basis-clause__chevron { transform: rotate(180deg); }
-.review-report--document .basis-clause__text { padding: 14px 18px; border-inline-start: 2px solid var(--color-border); background: var(--color-background); font: 400 var(--report-body-size)/1.85 var(--font-legal); }
+.review-report--document .basis-clause__text { padding: 16px 20px; border-radius: var(--radius-md); background: var(--color-background); font: 400 var(--report-body-size)/1.85 var(--font-legal); }
 .review-report--document .basis-clause__text--missing { font: 400 var(--text-md)/1.65 var(--font-body); }
 .report-basis__leads { margin-top: 12px; }
 .review-report--document .report-disclosure__intro { font-size: var(--text-md); line-height: 1.7; }
@@ -244,7 +237,7 @@
 .review-report--document .cite-row__head { min-height: 48px; font: 500 var(--report-body-size)/1.75 var(--font-body); }
 .review-report--document .cite-verdict { min-height: 44px; }
 .case-records .report-record-group { margin: 0; padding: 0 0 2px; }
-.case-records .report-record-group + .report-record-group { border-top: 1px solid var(--color-hairline); }
+.case-records .report-record-group + .report-record-group { margin-top: 28px; padding-top: 0; border-top: 0; }
 .case-records .report-record-group > summary {
   display: flex;
   align-items: center;
@@ -263,12 +256,14 @@
 .case-records .report-record-group[open] > summary { margin-bottom: 8px; color: var(--color-primary); }
 .case-records .report-record-group[open] { padding-bottom: 16px; }
 .case-records__material .enterprise-materials { margin-top: 0; }
+.case-records .enterprise-materials > div:first-child { padding-top: 0; border-top: 0; }
+.case-records .case-timeline--compact { padding: 0; border: 0; background: transparent; }
 .case-records__material .btn-link { margin-top: 8px; }
 .case-records__sources { margin: 0; padding: 0; list-style: none; }
 .case-records__sources li { display: grid; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--color-hairline); }
 .case-records__sources li:last-child { border-bottom: 0; }
 .case-records__sources small { color: var(--color-foreground-muted); }
-.case-records .cite-list + .feedback { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--color-hairline); }
+.case-records .cite-list + .feedback { margin-top: 28px; }
 .review-report--document .case-field__value, .review-report--document .case-field__material { font: 400 var(--report-body-size)/1.75 var(--font-body); }
 .review-report--document .report-record-note { font-size: var(--text-md); line-height: 1.7; }
 @media (max-width: 600px) {
@@ -299,6 +294,9 @@
 .review-report--document .enterprise-materials > div { flex-wrap: wrap; align-items: flex-start; gap: 8px 16px; }
 .review-report--document .enterprise-materials > div > span { max-width: 100%; }
 .review-report--document .enterprise-materials code { overflow-wrap: anywhere; white-space: normal; text-align: left; }
+.case-timeline--compact .case-timeline__rows { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.case-timeline--compact .case-timeline__rows li { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 16px; padding: 4px 0; font-size: var(--text-md); line-height: 1.6; }
+.case-timeline--compact .case-timeline__rows time { color: var(--color-foreground-muted); font: 400 var(--text-sm)/1.7 var(--font-mono); font-variant-numeric: tabular-nums; }
 .review-report--document .case-timeline__item > div { min-width: 0; flex-wrap: wrap; gap: 4px 16px; }
 .review-report--document .case-timeline__item strong { overflow-wrap: anywhere; }
 
@@ -316,13 +314,89 @@
     align-self: start;
     position: sticky;
     top: 28px;
-    margin-top: 48px;
-    border-inline-start: 1px solid var(--color-border);
+    margin-top: 52px;
   }
   .report-toc a {
-    padding: 8px 12px;
+    position: relative;
+    padding: 6px 0 6px 14px;
     color: var(--color-foreground-muted);
     font-size: var(--text-sm);
   }
-  .report-toc a:hover { color: var(--color-primary); background: var(--tint-navy-bg); }
+  .report-toc a::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 1px;
+    background: var(--color-accent);
+    opacity: 0;
+    transform: translateY(-50%);
+    transition: opacity var(--transition-fast);
+  }
+  .report-toc a:hover { color: var(--color-foreground); }
+  .report-toc a.is-current { color: var(--color-foreground); }
+  .report-toc a.is-current::before { opacity: 1; }
 }
+
+/* ============================================================
+ * 手机端：字号降一档，报告与事实通栏铺开，次要操作收紧
+ * ============================================================ */
+@media (max-width: 600px) {
+  .case-detail--reviewed .case-header--reviewed .case-header__title { margin-bottom: 8px; font-size: var(--text-xl); line-height: 1.5; }
+  .case-detail--reviewed .case-header__top { gap: 8px; margin-bottom: 10px; }
+  .case-detail--reviewed .case-header__actions { gap: 6px; }
+  .case-detail--reviewed .case-header__action-btn { min-height: 36px; padding: 6px 10px; font-size: var(--text-sm); }
+  .case-detail--reviewed .case-detail-views button { min-height: 42px; }
+
+  .case-detail--reviewed .review-report.review-report--document,
+  .case-detail--reviewed .case-facts {
+    --report-body-size: var(--text-base);
+    margin-inline: -16px;
+    padding: 24px 16px 32px;
+    border-radius: 0;
+  }
+  .case-workspace .review-report.review-report--document .report-heading h2 { font-size: var(--text-xl); gap: 10px; }
+  .case-workspace .review-report.review-report--document .report-conclusion .report-heading h2 { font-size: var(--text-2xl); }
+  .review-report--document .report-conclusion__summary > .report-heading { margin-bottom: 14px; }
+  .report-conclusion__lead { font-size: var(--text-lg); line-height: 1.75; }
+  .review-report.review-report--document > :is(.report-section, .report-main-issues, .report-disclosure) + :is(.report-section, .report-main-issues, .report-disclosure) { margin-top: 36px; }
+  .report-approval { padding: 12px 14px; margin-bottom: 28px; font-size: var(--text-sm); }
+
+  .review-report--document .report-main-issue { grid-template-columns: 2ch minmax(0, 1fr); column-gap: 10px; }
+  .review-report--document .report-main-issue__heading h3 { font-size: var(--text-base); }
+  .review-report--document .report-main-issue > .btn-link { grid-column: 2; grid-row: 3; justify-self: start; min-height: 36px; }
+  .review-report--document .report-main-issue__analysis .markdown-body,
+  .review-report--document .review-recommendations__list .markdown-body,
+  .review-report--document .review-followup-summary__item-title { font-size: var(--text-md); }
+  .review-report--document .basis-clause__name { font-size: var(--text-base); }
+
+  .case-facts__toolbar { top: 24px; right: 16px; }
+  .case-facts__group-title { font-size: var(--text-lg); }
+  .case-detail--reviewed .case-facts .case-facts__values { padding-inline-start: 0; }
+  .case-detail--reviewed .case-facts .case-facts__values > div { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 8px 0; }
+  .case-facts__values dt { font-size: var(--text-sm); }
+  .case-facts__values dd { font-size: var(--text-md); }
+
+  .case-timeline--compact .case-timeline__rows li { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 6px 0; }
+  .case-records .report-record-group > summary { font-size: var(--text-base); }
+}
+
+/* ---- 章节序号（一、二、三…）与结论首行 ---- */
+.review-report--document .report-heading--numbered h2::before { display: none; }
+.report-heading__index {
+  flex: none;
+  color: var(--color-accent);
+  font: inherit;
+  letter-spacing: 0;
+}
+.review-report--document .report-heading--numbered h2 { gap: 0; }
+.report-conclusion__top { display: flex; align-items: flex-start; gap: 28px; }
+.report-conclusion__top > .report-conclusion__summary { flex: 1; min-width: 0; }
+.report-conclusion__top > .risk-seal { margin-top: 6px; }
+@media (max-width: 600px) {
+  .report-conclusion__top { gap: 16px; }
+  .report-conclusion__top > .risk-seal { margin-top: 0; }
+}
+.case-workspace .review-report.review-report--document .report-heading--numbered h2 { gap: 0; }

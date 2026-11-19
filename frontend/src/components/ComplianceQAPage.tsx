@@ -251,8 +251,8 @@ export default function ComplianceQAPage({ history, onOpenHistory, userRole, con
             <button type="button" className="qa-quiet-button" disabled={busy} aria-expanded={showGuide} onClick={() => setShowGuide((value) => !value)}><CircleHelp size={15} aria-hidden="true" />使用指引</button>
           </header>
           {showGuide ? <QaOnboarding userRole={userRole} onDismiss={() => setShowGuide(false)} onStartQuestion={() => questionInput.current?.focus()} /> : null}
-          <ul role="list">{EXAMPLES.map((example) => <li key={example}>
-            <button type="button" disabled={busy} onClick={() => { setQuestion(example); questionInput.current?.focus(); }}><span>{example}</span><ChevronRight size={17} aria-hidden="true" /></button>
+          <ul role="list">{EXAMPLES.map((example, index) => <li key={example}>
+            <button type="button" disabled={busy} onClick={() => { setQuestion(example); questionInput.current?.focus(); }}><span className="qa-examples__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><span className="qa-examples__text">{example}</span><ChevronRight size={17} aria-hidden="true" /></button>
           </li>)}</ul>
         </section> : null}
       </div>

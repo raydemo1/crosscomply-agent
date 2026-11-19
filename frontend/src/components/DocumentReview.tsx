@@ -313,11 +313,8 @@ export default function DocumentReview({ caseId, reviewResultId, issues, fallbac
     annotationPanelRef.current?.scrollIntoView({ block: 'nearest' });
   };
 
-  return <section className="document-review" aria-labelledby="document-review-title">
-    <header className="case-panel-heading document-review__heading">
-      <h2 id="document-review-title">原文审阅</h2>
-      {pendingCount > 0 && canManageActions ? <span className="document-review__pending">{pendingCount} 条核查批注待确认</span> : null}
-    </header>
+  return <section className="document-review" aria-label="原文审阅">
+    {pendingCount > 0 && canManageActions ? <p className="document-review__pending" role="status">{pendingCount} 条核查批注待确认</p> : null}
     {locateNotice ? <p className="document-review__notice" role="status">{locateNotice}</p> : null}
     {error ? <div className="document-review__error" role="alert">{error}</div> : null}
     {materials.length === 0 ? (

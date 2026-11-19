@@ -1,7 +1,11 @@
 import type { FactLedgerEntryApi, UserRole } from '../types/api';
-import { ArrowRight, CheckCircle2, Files, TriangleAlert, MessageCircle, ChevronDown } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Files, TriangleAlert, MessageCircle } from 'lucide-react';
 import type { SavedCase } from '../types/case';
-import { caseFactLedger, factLabel, factValue } from '../utils/factFields';
+import { FACT_FIELDS, caseFactLedger, factLabel, factValue } from '../utils/factFields';
+
+// 阅读顺序：接收地紧随境外接收方，其余沿用字段定义顺序。
+const FIELD_ORDER: string[] = Object.keys(FACT_FIELDS).filter((field) => field !== 'destination_region')
+  .flatMap((field) => field === 'overseas_recipient' ? [field, 'destination_region'] : [field]);
 
 export default function CaseFactsPanel({ saved, viewerRole, onOpenDocument }: { saved: SavedCase; viewerRole: UserRole; onOpenDocument?: () => void }) {
   const task = saved.reviewTask;
@@ -22,17 +26,14 @@ export default function CaseFactsPanel({ saved, viewerRole, onOpenDocument }: { 
   ];
   const populatedSections = sections.filter((section) => section.entries.length);
   if (!populatedSections.length && !onOpenDocument) return null;
-  return <section className="card case-facts" aria-labelledby="case-facts-title">
-    <header className="case-panel-heading">
-      <h2 id="case-facts-title">案件事实</h2>
-      {onOpenDocument ? <button type="button" className="btn-link case-view-link" onClick={onOpenDocument}>核对原文 <ArrowRight size={14} aria-hidden="true" /></button> : null}
-    </header>
+  return <section className="card case-facts" aria-label="案件事实">
+    {onOpenDocument ? <div className="case-facts__toolbar"><button type="button" className="btn-link case-view-link" onClick={onOpenDocument}>核对原文 <ArrowRight size={14} aria-hidden="true" /></button></div> : null}
     {populatedSections.length === 0 ? <p className="case-facts__empty">{aligned ? '本次审查暂无可展示的结构化事实。' : '当前审查与送审版本未匹配，暂无法展示事实。'}</p> : null}
-    {populatedSections.map((section) => <details className={`case-facts__group case-facts__group--${section.kind}`} key={`${task?.id}-${section.kind}`} open={section.kind === 'confirmed' || section.kind === 'conflict' || (section.kind === 'statement' && task?.status !== 'waiting_input')}>
-      <summary><section.icon size={19} aria-hidden="true" /><span><strong>{section.title}</strong></span><span className="case-facts__count">{new Set(section.entries.map((entry) => entry.field)).size} 项</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
+    {populatedSections.map((section) => <section className={`case-facts__group case-facts__group--${section.kind}`} key={`${task?.id}-${section.kind}`} aria-label={section.title}>
+      <h3 className="case-facts__group-title"><section.icon size={17} aria-hidden="true" /><span>{section.title}</span><span className="case-facts__count">{new Set(section.entries.map((entry) => entry.field)).size}</span></h3>
       <FactValues entries={section.entries} viewerRole={viewerRole} />
       {section.kind === 'statement' && statementHistory.length > 0 ? <details className="case-facts__history"><summary>此前的补充说明 · {statementHistory.length} 条</summary><FactValues entries={statementHistory} viewerRole={viewerRole} /></details> : null}
-    </details>)}
+    </section>)}
   </section>;
 }
 
@@ -49,17 +50,13 @@ function FactValues({ entries, viewerRole }: { entries: FactLedgerEntryApi[]; vi
     group.push(entry);
     groups.set(entry.field, group);
   }
+  const order = (field: string): number => { const index = FIELD_ORDER.indexOf(field); return index < 0 ? FIELD_ORDER.length : index; };
   return <dl className="case-facts__values">
-    {[...groups].map(([field, group]) => <div key={field}>
+    {[...groups].sort(([a], [b]) => order(a) - order(b)).map(([field, group]) => <div key={field}>
       <dt>{factLabel(field)}</dt>
       <dd>{group.map((entry, index) => <div className="case-facts__value" key={`${entry.source_ref}-${index}`}>
-        <span>{factValue(field, entry.value)}</span>
-        {entry.status === 'conflicted' ? <small>{FACT_SOURCE_LABELS[entry.source_type]}</small> : null}
-        {viewerRole !== 'requester' ? <details className="case-facts__source">
-          <summary aria-label="查看来源记录">来源</summary>
-          {entry.status !== 'conflicted' ? <span>{FACT_SOURCE_LABELS[entry.source_type]}</span> : null}
-          <small>{entry.source_ref}</small>
-        </details> : null}
+        <span title={viewerRole !== 'requester' ? `来源：${FACT_SOURCE_LABELS[entry.source_type]} · ${entry.source_ref}` : undefined}>{factValue(field, entry.value)}</span>
+        {entry.status === 'conflicted' ? <small className="case-facts__source">{FACT_SOURCE_LABELS[entry.source_type]}</small> : null}
       </div>)}</dd>
     </div>)}
   </dl>;

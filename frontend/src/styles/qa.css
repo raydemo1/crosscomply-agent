@@ -16,8 +16,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-sm) var(--space-md);
-  padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-sm);
 }
 
 .qa-heading__actions {
@@ -49,42 +48,57 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-xs);
 }
 
 .qa-examples h2 {
-  font: var(--weight-semibold) var(--text-md)/1.5 var(--font-body);
-  color: var(--color-foreground-secondary);
+  font: var(--weight-medium) var(--text-sm)/1.5 var(--font-body);
+  letter-spacing: 0.04em;
+  color: var(--color-foreground-muted);
 }
 
 .qa-examples ul {
   list-style: none;
 }
 
-.qa-examples > ul > li {
-  border-bottom: 1px solid var(--color-hairline);
+.qa-examples > ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
 }
 
 .qa-examples > ul button {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-md);
   width: 100%;
-  min-height: 48px;
-  padding: var(--space-sm) var(--space-xs);
+  min-height: 52px;
+  padding: var(--space-sm) var(--space-md);
   border: 0;
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--color-foreground-secondary);
-  font: var(--text-md)/1.6 var(--font-body);
+  color: var(--color-foreground);
+  font: var(--text-base)/1.6 var(--font-body);
   text-align: start;
   cursor: pointer;
+  transition: background var(--transition-fast);
 }
 
 .qa-examples > ul button:hover {
   color: var(--color-primary);
-  background: var(--tint-navy-bg);
+  background: var(--color-surface);
 }
+
+.qa-examples__index {
+  flex: none;
+  color: var(--color-accent);
+  font: 500 var(--text-sm)/1 var(--font-mono);
+}
+
+.qa-examples__text { flex: 1; min-width: 0; }
+
+.qa-examples > ul svg { color: var(--color-foreground-faint); }
 
 .qa-examples > ul svg {
   flex: 0 0 auto;
@@ -93,7 +107,7 @@
 .qa-composer {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-surface);
   transition: box-shadow var(--transition-base), border-color var(--transition-base);
@@ -130,7 +144,6 @@
   gap: var(--space-md);
   margin-inline: var(--space-md);
   padding-block: var(--space-sm);
-  border-top: 1px solid var(--color-hairline);
 }
 
 .qa-attach,

@@ -7,7 +7,7 @@ import type { CitationVerdict, SavedCase } from '../types/case';
 import { setCitationVerdict } from '../store/caseStore';
 import { openCase } from '../store/caseStore';
 import { caseReportDownloadUrl, getCaseKnowledgeRechecks } from '../api/client';
-import RiskBadge from './RiskBadge';
+import { IssueMix, SegmentProgress, SourceBars, issueKindChartClass } from './ReportFigures';
 import CaseWorkflowActions from './CaseWorkflowActions';
 import CaseFactsPanel from './CaseFactsPanel';
 import CaseAssistant, { CaseAssistantTrigger } from './CaseAssistant';
@@ -73,6 +73,7 @@ export default function CaseDetailPage(props: CaseDetailPageProps): JSX.Element 
 }
 
 type SavedCaseWithResponse = SavedCase & { response: ReviewApiResponse };
+const CHINESE_NUMERALS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 const NO_REVIEW_ISSUES: ReviewIssue[] = [];
 
 function focusAnswer(): void {
@@ -313,8 +314,11 @@ function DraftCaseView({
   );
 }
 
-function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = false }: { saved: SavedCase; includeMaterial?: boolean; embedded?: boolean }): JSX.Element | null {
-  const { materialSnapshot, intakeSnapshot, reviewTask, feishuApproval, signedDecision, report } = saved;
+function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = false, approvalOnly = false }: { saved: SavedCase; includeMaterial?: boolean; embedded?: boolean; approvalOnly?: boolean }): JSX.Element | null {
+  const { materialSnapshot, feishuApproval, signedDecision, report } = saved;
+  // 案件资料里事实与审查过程各有专区，审批记录只保留审批与归档本身。
+  const intakeSnapshot = approvalOnly ? null : saved.intakeSnapshot;
+  const reviewTask = approvalOnly ? null : saved.reviewTask;
   if (!(includeMaterial && materialSnapshot) && !intakeSnapshot && !reviewTask && !feishuApproval && !signedDecision && !report) return null;
 
   return (
@@ -345,7 +349,7 @@ function EnterpriseDecisionChain({ saved, includeMaterial = true, embedded = fal
       {reviewTask ? (
         <article className={(embedded ? '' : 'card ') + 'enterprise-record'}>
           <div className="enterprise-record__heading"><div><span>03</span><h2>CrossComply 证据审查</h2></div><span className={`task-state task-state--${reviewTask.status}`}>{REVIEW_TASK_STATUS_LABELS[reviewTask.status]}</span></div>
-          {reviewTask.current_node ? <div className="enterprise-record__facts"><div><span>当前节点</span><strong>{reviewTask.current_node}</strong></div></div> : null}
+          {reviewTask.current_node && (reviewTask.status === 'running' || reviewTask.status === 'failed') ? <div className="enterprise-record__facts"><div><span>当前节点</span><strong>{reviewTask.current_node}</strong></div></div> : null}
           {reviewTask.steps?.length ? <div className="enterprise-materials">{reviewTask.steps.map((step) => <div key={step.number}><span><strong>{step.summary}</strong><small>{step.action}</small></span></div>)}</div> : null}
           {reviewTask.status === 'failed' ? <div className="enterprise-callout enterprise-callout--danger"><strong>{reviewTask.error_category || '审查任务失败'}</strong><span>{reviewTask.error_message || '可由审核人发起重试，失败节点和记录已保留。'}</span></div> : null}
         </article>
@@ -378,7 +382,7 @@ function pendingFollowupCount(saved: SavedCase): number {
     .filter((task) => task.is_current !== false && task.status !== 'completed').length;
 }
 
-function ReviewFollowupSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: () => void }): JSX.Element | null {
+function ReviewFollowupSummary({ saved, onOpen, index }: { saved: SavedCase; onOpen?: () => void; index?: string }): JSX.Element | null {
   const currentTasks = (saved.remediationPlan?.tasks ?? []).filter((task) => task.is_current !== false);
   const pending = pendingFollowupCount(saved);
   const pendingReview = currentTasks.filter((task) => task.status === 'pending_review').length;
@@ -391,19 +395,20 @@ function ReviewFollowupSummary({ saved, onOpen }: { saved: SavedCase; onOpen?: (
   const rest = openTasks.slice(PREVIEW);
   return (
     <div className="review-followup-summary" aria-label="待补充与核实">
-      <ReportHeading title="待核实事项" count={`${pending} 项${pendingReview ? ` · ${pendingReview} 项待复核` : ''}`} action={onOpen ? <button type="button" className="btn-link" onClick={onOpen}>查看完整清单 →</button> : <a className="btn-link" href={href}>查看完整清单 →</a>} />
+      <ReportHeading title="待核实事项" index={index} count={`${pending} 项待处理${pendingReview ? ` · ${pendingReview} 项待复核` : ''}`} action={onOpen ? <button type="button" className="btn-link" onClick={onOpen}>查看完整清单 →</button> : <a className="btn-link" href={href}>查看完整清单 →</a>} />
+      <SegmentProgress done={currentTasks.filter((task) => task.status === 'completed').length} total={currentTasks.length} label="送审前待办" />
       <ul className="review-followup-summary__items">
-        {(showAll ? openTasks : preview).map((task) => <li key={task.id}><span className={`review-item-state review-item-state--${task.status}`}>{task.status === 'pending_review' ? '待复核' : task.status === 'in_progress' ? '处理中' : '待处理'}</span><span className="review-followup-summary__item-title">{task.title}</span>{task.due_date ? <small>截止 {task.due_date}</small> : null}</li>)}
+        {(showAll ? openTasks : preview).map((task) => <li key={task.id}>{task.status === 'pending_review' || task.status === 'in_progress' ? <span className={`review-item-state review-item-state--${task.status}`}>{task.status === 'pending_review' ? '待复核' : '处理中'}</span> : null}<span className="review-followup-summary__item-title">{task.title}</span>{task.due_date ? <small>截止 {task.due_date}</small> : null}</li>)}
       </ul>
       {rest.length ? <button type="button" className="review-followup-summary__more" aria-expanded={showAll} onClick={() => setShowAll((value) => !value)}><span className="rest-toggle">{showAll ? '收起' : `展开其余 ${rest.length} 项`}<ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" /></span></button> : null}
     </div>
   );
 }
 
-function ReviewRecommendations({ items }: { items: string[] }): JSX.Element | null {
+function ReviewRecommendations({ items, index }: { items: string[]; index?: string }): JSX.Element | null {
   if (items.length === 0) return null;
   return <section className="review-recommendations" aria-label="下一步行动">
-    <ReportHeading title="下一步行动" count={`${items.length} 项`} />
+    <ReportHeading title="下一步行动" index={index} count={`${items.length} 项`} />
     <ol className="review-recommendations__list">{items.map((item, index) => <li key={index}>
       <span className="review-recommendations__index" aria-hidden="true">{index + 1}</span>
       <MarkdownText variant="note" allowRawHtml={false}>{item}</MarkdownText>
@@ -423,8 +428,8 @@ function ReviewIssues({
     <ol className="report-main-issues__list" role="list">
       {issues.map((issue, index) => <li className="report-main-issue" id={`report-issue-${issue.id}`} tabIndex={-1} key={issue.id}>
         <span className="report-main-issue__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-        <div className="report-main-issue__heading"><h3>{issue.title}</h3><span className={'issue-kind issue-kind--' + issue.kind}>{ISSUE_KIND_LABELS[issue.kind] ?? issue.kind}</span></div>
-        <details className="report-main-issue__analysis"><summary><ChevronDown size={14} aria-hidden="true" />查看分析</summary><MarkdownText variant="note" allowRawHtml={false}>{issue.finding}</MarkdownText>{issue.unknowns.length ? <ul>{issue.unknowns.map((item, index) => <li key={index}>{item}</li>)}</ul> : null}</details>
+        <div className="report-main-issue__heading"><h3>{issue.title}</h3><span className={'issue-kind issue-kind--' + issue.kind}><span className={`issue-kind-swatch ${issueKindChartClass(issue.kind)}`} aria-hidden="true" />{ISSUE_KIND_LABELS[issue.kind] ?? issue.kind}</span></div>
+        <div className="report-main-issue__analysis"><MarkdownText variant="note" allowRawHtml={false}>{issue.finding}</MarkdownText>{issue.unknowns.length ? <ul>{issue.unknowns.map((item, index) => <li key={index}>{item}</li>)}</ul> : null}</div>
         {issue.material_evidence.length ? <button type="button" className="btn-link" onClick={() => onOpenDocument({ issue, target: issue.material_evidence[0] })}>定位原文</button> : null}
       </li>)}
     </ol>
@@ -433,13 +438,15 @@ function ReviewIssues({
 
 function Timeline({ events, embedded = false }: { events: SavedCase['events']; embedded?: boolean }): JSX.Element {
   return (
-    <section className={(embedded ? '' : 'card ') + 'case-timeline'}>
-      <div className="section-title">审计时间线</div>
-      <div className="case-timeline__list">
-        {events.length === 0 ? <span className="state-block__hint">暂无流程记录。</span> : events.map((event) => (
+    <section className={(embedded ? 'case-timeline--compact ' : 'card ') + 'case-timeline'}>
+      {embedded ? null : <div className="section-title">审计时间线</div>}
+      {events.length === 0 ? <span className="state-block__hint">暂无流程记录。</span> : embedded ? <ol className="case-timeline__rows">
+        {events.map((event) => <li key={event.id}><time dateTime={event.created_at}>{event.created_at.replace('T', ' ').slice(0, 16)}</time><span>{eventLabel(event.event_type)}</span></li>)}
+      </ol> : <div className="case-timeline__list">
+        {events.map((event) => (
           <div className="case-timeline__item" key={event.id}><span className="case-timeline__dot" /><div><strong>{eventLabel(event.event_type)}</strong><span>{event.created_at.replace('T', ' ').slice(0, 16)}</span></div></div>
         ))}
-      </div>
+      </div>}
     </section>
   );
 }
@@ -459,6 +466,24 @@ function AuditDisclosure({ saved, includeMaterial = false }: { saved: SavedCase;
 function eventLabel(event: string): string {
   const labels: Record<string, string> = {
     case_created: '创建案件',
+    case_owner_changed: '变更案件负责人',
+    material_version_created: '上传材料版本',
+    material_snapshot_frozen: '锁定送审材料',
+    material_integrity_failed: '材料完整性校验失败',
+    facts_confirmed_for_review: '确认送审事实',
+    fact_answer_recorded: '补充案件事实',
+    agent_waiting_input: '等待补充信息',
+    agent_input_received: '收到补充信息',
+    review_queued: '提交审查',
+    review_retried: '重新运行审查',
+    review_task_superseded: '审查任务被新版本替代',
+    annotation_created: '添加原文批注',
+    annotation_followup_created: '添加原文追问',
+    revision_proposal_created: '生成修改建议',
+    guided_action_list_reconciled: '同步待办事项',
+    guided_action_list_failed: '待办事项同步失败',
+    status_change_rolled_back: '撤回状态变更',
+    qa_handoff: '从合规问答转入',
     case_updated: '更新案件材料',
     status_changed: '变更案件状态',
     review_started: '开始证据化审查',
@@ -694,12 +719,44 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
     if (!focusIssueId || view !== 'report') return;
     const target = document.getElementById(`report-issue-${focusIssueId}`);
     if (!target) return;
-    const analysis = target.querySelector('details');
-    if (analysis) analysis.open = true;
     target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
     target.focus({ preventScroll: true });
     onIssueFocused();
   }, [focusIssueId, onIssueFocused, view]);
+
+  const sectionOrder = [
+    'conclusion',
+    ...(issues.length ? ['issues'] : []),
+    ...(hasFollowup ? ['followup'] : []),
+    ...(outstandingRecommendations.length ? ['recommendations'] : []),
+    ...(body ? ['analysis'] : []),
+    'basis',
+  ];
+  const numeral = (key: string): string | undefined => CHINESE_NUMERALS[sectionOrder.indexOf(key)];
+  const tocItems = [
+    ['report-conclusion', '审查结论'],
+    ...(issues.length ? [['report-issues', '主要问题']] : []),
+    ...(hasNextSteps ? [['report-next', hasFollowup && !outstandingRecommendations.length ? '待核实事项' : '下一步行动']] : []),
+    ...(body ? [['report-analysis', '完整分析']] : []),
+    ['report-basis', '法规依据'],
+  ];
+  const tocKey = tocItems.map(([id]) => id).join('|');
+  const [currentSection, setCurrentSection] = useState('report-conclusion');
+  useEffect(() => {
+    if (view !== 'report' || typeof IntersectionObserver === 'undefined') return;
+    const sections = tocKey.split('|').map((id) => document.getElementById(id)).filter((el): el is HTMLElement => Boolean(el));
+    const visible = new Set<string>();
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) visible.add(entry.target.id);
+        else visible.delete(entry.target.id);
+      }
+      const first = sections.find((section) => visible.has(section.id));
+      if (first) setCurrentSection(first.id);
+    }, { rootMargin: '-15% 0px -55% 0px' });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [tocKey, view]);
 
   return (
       <div className="review-report-layout">
@@ -707,20 +764,21 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           {view === 'report' ? <>
           {readiness ? <aside className="report-approval" aria-label="送审状态">
             <div>
-              <strong>{readiness.code === 'ready' ? '报告已生成 · 可送审'
-                : readiness.code === 'submitted' ? '报告已生成 · 等待审批'
-                  : readiness.code === 'decided' ? '报告已生成 · 审批已结束'
-                    : '报告已生成 · 暂缓送审'}</strong>
+              <strong>{readiness.code === 'ready' ? '可送审'
+                : readiness.code === 'submitted' ? '等待审批'
+                  : readiness.code === 'decided' ? '审批已结束'
+                    : '暂缓送审'}</strong>
               {readiness.detail ? <p>{readiness.detail}</p> : null}
             </div>
             {nextStep?.run ? <button type="button" className="btn-link case-view-link" onClick={nextStep.run}>{nextStep.label}<ArrowRight size={14} aria-hidden="true" /></button> : null}
             {readiness.code === 'transfer_impact' && canManageActions && saved.transferActivityId
               ? <Link className="case-view-link" to={`/cases/business/${saved.transferActivityId}`}>确认变更影响<ArrowRight size={14} aria-hidden="true" /></Link> : null}
           </aside> : null}
-          <ReportConclusion result={result} conditions={conditions} />
+          <ReportConclusion result={result} conditions={conditions} facts={facts} index={numeral('conclusion')} />
 
           {issues.length ? <section className="report-main-issues" id="report-issues" aria-label="主要问题">
-            <ReportHeading title="主要问题" count={`${issues.length} 项`} />
+            <ReportHeading title="主要问题" index={numeral('issues')} count={`${issues.length} 项`} />
+            <IssueMix issues={issues} />
             <ReviewIssues
               issues={issues}
               onOpenDocument={onOpenDocument}
@@ -728,14 +786,15 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           </section> : null}
 
           {hasNextSteps ? <section className="report-section review-next-steps" id="report-next">
-            {hasFollowup ? <ReviewFollowupSummary saved={saved} onOpen={onOpenRemediationPlan} /> : null}
-            {outstandingRecommendations.length ? <ReviewRecommendations items={outstandingRecommendations} /> : null}
+            {hasFollowup ? <ReviewFollowupSummary saved={saved} onOpen={onOpenRemediationPlan} index={numeral('followup')} /> : null}
+            {outstandingRecommendations.length ? <ReviewRecommendations items={outstandingRecommendations} index={numeral('recommendations')} /> : null}
           </section> : null}
 
-          <ReportAnalysis body={body} onCitationClick={openCitation} />
+          <ReportAnalysis body={body} onCitationClick={openCitation} index={numeral('analysis')} />
 
           <section className="report-section report-basis" id="report-basis" tabIndex={-1}>
-            <ReportHeading title="法规依据" count={citationCount ? `${citationCount} 条` : undefined} />
+            <ReportHeading title="法规依据" index={numeral('basis')} count={citationCount ? `${citationCount} 条` : undefined} />
+              <SourceBars citations={citations} />
               {result.legal_basis_gaps?.length ? <div className="report-record-subsection">
                 <h3>待核实的法规依据</h3>
                 <ul>{result.legal_basis_gaps.map((gap, index) => <li key={index}>{gap}</li>)}</ul>
@@ -765,18 +824,14 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           {usageNotes.length ? <footer className="report-footnote">本报告不构成正式法律意见。</footer> : null}
           </> : null}
 
-          {view === 'records' ? <section className="case-records" id="report-records" aria-labelledby="case-records-title">
-            <header className="case-panel-heading">
-              <h2 id="case-records-title">案件资料</h2>
-              <span>最近保存 <time dateTime={saved.savedAt}>{formatTime(saved.savedAt)}</time></span>
-            </header>
+          {view === 'records' ? <section className="case-records" id="report-records" aria-label="案件资料">
             <div className="case-records__list">
-              <details className="report-record-group" id="record-progress">
+              <details className="report-record-group" id="record-progress" open>
                 <summary><History size={17} aria-hidden="true" /><span>审查流程</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
                 {progress}
               </details>
 
-              <details className="report-record-group" id="record-materials">
+              <details className="report-record-group" id="record-materials" open>
                 <summary><FolderOpen size={17} aria-hidden="true" /><span>案件材料与版本</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
                 <div className="case-records__material">
                   {saved.materialSnapshot?.version_ids.length ? (
@@ -790,13 +845,19 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
                 </div>
               </details>
 
-              {!PUBLIC_DEMO || citations.length ? <details className="report-record-group">
+              <details className="report-record-group" id="record-approval" open>
+                <summary><ShieldCheck size={17} aria-hidden="true" /><span>审批与操作记录</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
+                <EnterpriseDecisionChain saved={saved} includeMaterial={false} embedded approvalOnly />
+                <Timeline events={saved.events} embedded />
+              </details>
+
+              {!PUBLIC_DEMO || citations.length ? <details className="report-record-group" open>
                 <summary><ShieldCheck size={17} aria-hidden="true" /><span>{PUBLIC_DEMO ? '法规来源' : canManageActions ? '引用核查与复核意见' : '法规来源与审查反馈'}</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
                 {citations.length ? <CitationList groups={response.citation_groups} evidenceChunks={evidenceChunks} claims={result.claims} verdicts={verdicts} onVerdictChange={onVerdictChange} viewerRole={viewerRole} readOnly={!canManageActions} /> : null}
                 {!PUBLIC_DEMO ? <FeedbackPanel saved={saved} viewerRole={viewerRole} /> : null}
               </details> : null}
 
-              {sourceLeads.length ? <details className="report-record-group" id="record-source-leads">
+              {sourceLeads.length ? <details className="report-record-group" id="record-source-leads" open>
                 <summary><FolderOpen size={17} aria-hidden="true" /><span>待核验的法规线索</span><small>{sourceLeads.length} 条</small><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
                 <ul className="case-records__sources">{sourceLeads.map((item) => {
                   const recheck = knowledgeRechecks.find((entry) => entry.url === item.url);
@@ -807,12 +868,6 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
                   return <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a><small>{status}</small></li>;
                 })}</ul>
               </details> : null}
-
-              <details className="report-record-group" id="record-approval">
-                <summary><ShieldCheck size={17} aria-hidden="true" /><span>审批与操作记录</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
-                <EnterpriseDecisionChain saved={saved} includeMaterial={false} embedded />
-                <Timeline events={saved.events} embedded />
-              </details>
 
               {viewerRole === 'admin' ? <details className="report-record-group">
                 <summary><Terminal size={17} aria-hidden="true" /><span>技术执行记录</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
@@ -845,13 +900,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
           </section> : null}
         </article>
 
-        {view === 'report' ? <nav className="report-toc" aria-label="报告章节">{[
-          ['report-conclusion', '审查结论'],
-          ...(issues.length ? [['report-issues', '主要问题']] : []),
-          ...(hasNextSteps ? [['report-next', hasFollowup && !outstandingRecommendations.length ? '待核实事项' : '下一步行动']] : []),
-          ...(body ? [['report-analysis', '完整分析']] : []),
-          ['report-basis', '法规依据'],
-        ].map(([id, title]) => <a href={`#${id}`} key={id} onClick={(event) => { event.preventDefault(); const target = document.getElementById(id); if (target instanceof HTMLDetailsElement) target.open = true; target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }}>{title}</a>)}</nav> : null}
+        {view === 'report' ? <nav className="report-toc" aria-label="报告章节">{tocItems.map(([id, title]) => <a href={`#${id}`} key={id} className={currentSection === id ? 'is-current' : undefined} aria-current={currentSection === id ? 'location' : undefined} onClick={(event) => { event.preventDefault(); const target = document.getElementById(id); if (target instanceof HTMLDetailsElement) target.open = true; target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }}>{title}</a>)}</nav> : null}
       </div>
   );
 }
