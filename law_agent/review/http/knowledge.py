@@ -25,6 +25,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from starlette.concurrency import run_in_threadpool
 
 from law_agent.config import require_service_config
 from law_agent.data.schemas import LibraryKind, SourceRecord
@@ -101,6 +102,8 @@ def register_knowledge_routes(
 ) -> None:
     """Register all knowledge administration endpoints on ``app``."""
 
+    # 知识库读写语料目录（同步文件 I/O，语料大或磁盘慢时可达数十秒）。这些路由用普通
+    # def 声明，由 FastAPI 放进线程池执行，避免阻塞事件循环、拖住整个服务。
     router = APIRouter(prefix="/api/admin")
 
     def enrichment_store() -> PostgresEnrichmentStore:
@@ -108,14 +111,14 @@ def register_knowledge_routes(
         return PostgresEnrichmentStore(load_service_config().postgres.dsn)
 
     @router.get("/knowledge-enrichment-jobs")
-    async def list_enrichment_jobs(
+    def list_enrichment_jobs(
         status: str | None = None, user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
         admin_only(user)
         return {"items": enrichment_store().list_jobs(status=status)}
 
     @router.get("/knowledge-enrichment-jobs/{job_id}/raw")
-    async def download_enrichment_raw(
+    def download_enrichment_raw(
         job_id: str, user: UserRecord = Depends(current_user),
     ) -> FileResponse:
         admin_only(user)
@@ -126,7 +129,7 @@ def register_knowledge_routes(
         return FileResponse(path, filename=path.name)
 
     @router.post("/knowledge-enrichment-jobs/{job_id}/approve")
-    async def approve_enrichment_job(
+    def approve_enrichment_job(
         job_id: str, source: SourceRecord, user: UserRecord = Depends(current_user),
     ) -> dict[str, str]:
         admin_only(user)
@@ -137,7 +140,7 @@ def register_knowledge_routes(
         return {"status": "approved"}
 
     @router.post("/knowledge-enrichment-jobs/{job_id}/reject")
-    async def reject_enrichment_job(
+    def reject_enrichment_job(
         job_id: str, user: UserRecord = Depends(current_user),
     ) -> dict[str, str]:
         admin_only(user)
@@ -148,7 +151,7 @@ def register_knowledge_routes(
         return {"status": "rejected"}
 
     @router.post("/knowledge-enrichment-jobs/{job_id}/retry")
-    async def retry_enrichment_job(
+    def retry_enrichment_job(
         job_id: str, user: UserRecord = Depends(current_user),
     ) -> dict[str, str]:
         admin_only(user)
@@ -297,7 +300,7 @@ def register_knowledge_routes(
         return job
 
     @router.get("/knowledge-sources")
-    async def list_knowledge_sources(
+    def list_knowledge_sources(
         library_kind: LibraryKind,
         query: str = "",
         status: str | None = None,
@@ -312,7 +315,7 @@ def register_knowledge_routes(
         return {"items": [source_summary_payload(item) for item in items], "total": len(items)}
 
     @router.get("/knowledge-sources/{source_id}")
-    async def get_knowledge_source(
+    def get_knowledge_source(
         source_id: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -323,7 +326,7 @@ def register_knowledge_routes(
             raise HTTPException(status_code=404, detail="知识库来源不存在") from exc
 
     @router.get("/knowledge-sources/{source_id}/raw")
-    async def download_knowledge_source(
+    def download_knowledge_source(
         source_id: str,
         user: UserRecord = Depends(current_user),
     ) -> FileResponse:
@@ -353,10 +356,10 @@ def register_knowledge_routes(
 
         preview_id = f"kbpreview_{uuid.uuid4().hex[:16]}"
         temp_root = Path(tempfile.mkdtemp(prefix=f"{preview_id}_"))
-        state = app.state.knowledge_service._read_state()
+        state = await run_in_threadpool(app.state.knowledge_service._read_state)
         existing = {
             item.source.source_id: item
-            for item in app.state.knowledge_service.list_sources(library_kind=library_kind)
+            for item in await run_in_threadpool(app.state.knowledge_service.list_sources, library_kind=library_kind)
         }
         # The preview must judge an import exactly as the commit would: same
         # preparation boundary, same duplicate rule, live processing signature.
@@ -458,7 +461,7 @@ def register_knowledge_routes(
         }
 
     @router.post("/knowledge-import-jobs", status_code=202)
-    async def create_knowledge_import_job(
+    def create_knowledge_import_job(
         payload: KnowledgeImportCommitRequest,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -476,7 +479,7 @@ def register_knowledge_routes(
         return {"job": knowledge_job_payload(job)}
 
     @router.patch("/knowledge-sources/{source_id}/metadata", status_code=202)
-    async def update_knowledge_metadata(
+    def update_knowledge_metadata(
         source_id: str,
         payload: KnowledgeMetadataUpdateRequest,
         user: UserRecord = Depends(current_user),
@@ -499,7 +502,7 @@ def register_knowledge_routes(
         return {"job": knowledge_job_payload(job)}
 
     @router.post("/knowledge-delete-previews")
-    async def preview_knowledge_delete(
+    def preview_knowledge_delete(
         payload: KnowledgeDeletePreviewRequest,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -526,7 +529,7 @@ def register_knowledge_routes(
         }
 
     @router.post("/knowledge-delete-jobs", status_code=202)
-    async def create_knowledge_delete_job(
+    def create_knowledge_delete_job(
         payload: KnowledgeDeleteJobRequest,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -545,7 +548,7 @@ def register_knowledge_routes(
         return {"job": knowledge_job_payload(job)}
 
     @router.get("/knowledge-trash")
-    async def list_knowledge_trash(
+    def list_knowledge_trash(
         library_kind: LibraryKind,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -554,7 +557,7 @@ def register_knowledge_routes(
         return {"items": items, "total": len(items)}
 
     @router.post("/knowledge-trash/{source_id}/restore", status_code=202)
-    async def restore_knowledge_source(
+    def restore_knowledge_source(
         source_id: str,
         payload: KnowledgeRestoreRequest,
         user: UserRecord = Depends(current_user),
@@ -572,7 +575,7 @@ def register_knowledge_routes(
         return {"job": knowledge_job_payload(job)}
 
     @router.get("/knowledge-jobs/{job_id}")
-    async def get_knowledge_job(
+    def get_knowledge_job(
         job_id: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
