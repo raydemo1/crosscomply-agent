@@ -1,134 +1,145 @@
-# CrossComply 架构
+# 架构
 
-CrossComply 是企业数据出境合规的**单 Agent** 系统：一个有状态、有预算、可暂停恢复的 Compliance Agent 完成全部调查与报告；程序负责冻结快照、工具门禁、预算、引用校验和外部副作用；正式审批与整改由人完成。
+CrossComply 用**一个** Compliance Agent 完成案件调查和报告起草。职责划分如下：
 
-## 运行链路
+- **Agent** 决定读什么、查什么、何时追问、何时交付；
+- **程序** 负责冻结输入、执行工具、限制预算、校验引用、持久化状态，并执行所有对外动作；
+- **人** 确认事实、复核报告、发起和完成审批、验收整改、治理知识库。
+
+本文只描述当前实现。
+
+## 运行组件
 
 ```mermaid
 flowchart LR
-    UI["React 案件工作台"] --> API["FastAPI（law_agent.review.api）"]
+    UI["React 工作台"] --> API["FastAPI<br/>law_agent.review.api"]
     API --> DB[("PostgreSQL")]
-    API -->|创建 ReviewTask| TASK["案件审查任务"]
-    WORKER["独立 Worker（review.worker）"] -->|领取租约| TASK
-    TASK --> RUNTIME["agent_runtime.execute_agent_task"]
-    RUNTIME --> AGENT["单一 Compliance Agent（review.agent）"]
-
-    AGENT -->|read_material| SNAP["不可变 MaterialSnapshot / IntakeSnapshot"]
-    AGENT -->|search_evidence / read_evidence| SEARCH["受控混合检索批次"]
-    SEARCH --> ES["Elasticsearch（关键词）"]
-    SEARCH --> PG["PostgreSQL + pgvector（向量）"]
-    AGENT -->|search_web / queue_enrichment| WEB["受控官方 Web 调查 → 补库待治理"]
-    AGENT -->|request_input| PAUSE["waiting_input 持久化暂停"]
-    PAUSE -->|人工回答（带 provenance）| TASK
-    AGENT -->|finish| GATE["引用门禁 + 独立语义校验"]
-    GATE -->|通过| RESULT["ReviewResult 写入任务与案件"]
-    GATE -->|不通过| AGENT
+    API -->|排队 ReviewTask / QA run| DB
+    W["Worker<br/>law_agent.review.worker"] -->|租约领取| DB
+    W --> RT["agent_runtime.execute_agent_task"]
+    RT --> AG["Compliance Agent<br/>review.agent"]
+    AG -->|检索| ES["Elasticsearch<br/>关键词"]
+    AG -->|检索| PGV["pgvector<br/>向量"]
+    AG -->|受限 Web 调查| EXA["Exa（仅官方来源）"]
+    KW["knowledge-worker<br/>law_agent.kb.enrichment_worker"] -->|补库核验、飞书提醒| DB
+    API --> S3[("MinIO<br/>材料原件、PDF 报告")]
+    API <-->|审批投递 / 验签事件| FS["飞书"]
 ```
 
-之后由确定性流程接续：Worker 回写案件状态与整改动作清单 → 人在工作台核实/整改 → 人发起飞书审批 → 验签的审批事件回写终态 → 需要时生成带 SHA-256 的 PDF 决策报告。
+| 进程 | 入口 | 职责 |
+| --- | --- | --- |
+| API | `law_agent.review.api:app` | HTTP 接口、认证、领域写操作；只排队任务，不直接跑 Agent |
+| Worker | `python -m law_agent.review.worker` | 依次领取审查任务和问答任务，调用 runtime，回写结果 |
+| knowledge-worker | `python -m law_agent.kb.enrichment_worker` | 处理 Agent 提交的补库来源，发送飞书待办提醒 |
 
-## Agent 决定什么
+检索必须同时连通 ES 与 pgvector，任一不可用即显式失败，没有本地回退；LLM 节点也没有规则兜底。
 
-每一轮模型只选择一个动作（`law_agent/review/agent.py` 的 `AgentDecision`），没有固定步骤顺序，可按证据与缺口重复或跳过：
+## 审查流程
 
-- `propose_plan`：更新对用户可见的简短计划。**计划不暂停运行**，Agent 同一次运行内继续执行；
-- `read_material`：分页读取本任务冻结的材料；
-- `search_evidence`：自生成 1-4 个查询，重复调用受控混合检索（预算 5 次）；
-- `read_evidence`：在已检索到的来源内按条号或 chunk 续读完整条款（预算 8 次）；
-- `search_web`：仅在受控库不足或需核实时效性时，检索受限官方来源（预算 2 次）；Web finding 只是调查上下文，不能作为 claim 证据；
-- `queue_enrichment`：把新官方来源或标记 refresh 的已入库 URL 提交后台补库（每次运行最多 2 条），入库前不具备引用资格；
-- `request_input`：阻塞性缺口进入持久化暂停；人工答复带 `provenance`（申报人陈述 / 审查人指引），不自动改写冻结事实；
-- `finish`：提交结构化草稿，进入程序门禁。
+1. 申请人创建案件、上传材料、确认申报事实。
+2. 发起审查时，程序冻结 `MaterialSnapshot`（材料版本与解析文本）和 `IntakeSnapshot`（确认事实），排队一个 `ReviewTask`。
+3. Worker 领取任务，Agent 循环决策，直到交付、暂停追问或预算耗尽。
+4. 交付的报告依次经过确定性引用门禁和独立语义校验；不通过则带着反馈退回 Agent 修改。
+5. Worker 写回结果和整改动作清单，并按结果推进案件状态。
+6. 审查人复核后发起飞书审批；验签后的审批事件写回终态，需要时生成带 SHA-256 的 PDF 决策报告。
 
-受控检索先在每个查询内部融合关键词与向量结果，再按查询轮流选取不重复的来源，共享每次默认 10 个来源的预算。不同查询的原始分数不直接混排截断；来源按最相关片段排序，不因匹配片段更多而额外加分。候选片段、完整条文与相邻段落继续作为阅读上下文返回，日期过滤在查询融合前执行。
+## Agent 的动作
 
-同一来源被不同查询命中时，各查询的代表片段优先保留，不能因来源去重而只剩首个查询的条款。程序为每批查询分配唯一 ID，并在工具反馈的 `query_results` 和片段 `matched_query_ids` 中保留对应关系；这里记录候选命中，不替模型判断法律相关性或结论成立。来源数量预算不变，必要支持片段随本批不同查询的实际命中保留。
+每一轮模型输出一个 `AgentDecision`（`law_agent/review/agent.py`）JSON，由程序执行其中的单个动作。没有固定步骤顺序。
 
-Agent 的模型输入通过 `agent_context.compact_evidence_context` 无损整理证据：共用来源元数据放入 `state.evidence_sources`，正文、引用资格与定位保留在片段中；与正文完全相同的全文不重复发送，不同的全文完整保留。工作状态、checkpoint、引用门禁和最终证据账本不做裁剪或摘要。已找到具有条款结构的来源后，可直接读取尚未返回的条号，不必先再次全库检索。工作事实中的 `legal_basis_or_consent` 记录材料或申请人的陈述，不记录 Agent 的法律适用结论；该字段未填不自动代表业务事实缺口。
-
-`read_evidence` 使用显式 `read_requests` 数组，一次动作可精读 1–4 个位置；每项单独计读取预算、保存成功读取账本、返回续读位置或错误，一项失败不丢弃其他项的原文。仅填 `source_id` 可浏览受控来源的分页目录，再自主选择条号或段落；目录预览不进入引用证据。旧的单项动作参数已移除，不宽松解析多个动作 JSON。
-
-关键词原始排名靠前但被混合排序或来源合并省略的位置，通过 `keyword_candidates` 返回定位和短预览，包括已选来源内部的其他条款。每个查询取日期过滤后关键词前 10 项中至多 4 个未返回位置；主要证据仍共享 10 个来源预算，预览本身不能作为引用。候选来源可以按返回定位精读，只有实际返回的原文才加入证据。Agent 自主选择继续搜索、浏览、精读、追问或交付，程序不指定必须查的法条、判断分支或法律结论。
-
-报告草稿的 `trigger_reasons`、`missing_information`、`recommended_actions`、`risk_boundaries` 可省略，省略时为空数组；风险等级、判断摘要和结论仍须提交，非证据不足的报告仍须有合法引用的法律主张。辅助栏目不要求模型为填充字段扩大调查范围；确实写入的内容继续接受原有引用及语义校验。这项输出契约调整未被验证为法律判断质量的修复。
-
-检索权重只保留案件地域、行业及查询用途，不按正式法条或解释辅助角色固定升降排名。来源效力、引用资格、时点和范围元数据照常返回，适用关系交给 Agent 与独立校验器，正式引用资格仍由门禁检查。生产默认关闭额外 rerank，不增加重排模型调用；手动开启 embedding rerank 时按每个查询独立重排，一批 1–4 个查询对应至多 4 次重排请求，最后仍共享来源预算。当前真实诊断仅验证默认关闭模式，不能据此推断开启重排后的效果。
-
-## 程序保证什么
-
-- **冻结输入不可变**：`MaterialSnapshot`（材料版本 + 解析文本）与 `IntakeSnapshot`（申请人确认事实）一经冻结只能新增版本，Agent 不能修改；补充分改变硬事实时必须重新冻结。
-- **固定预算**：16 轮、5 次检索、8 次按来源读取、2 次 Web 搜索、2 条补库提交。预算耗尽只允许以 `insufficient_evidence` 收口。
-- **引用门禁**（`agent_tools.ComplianceAgentTools.finalize`）：法律 claim 只能由 `can_cite_clause=true` 的 chunk 支持；材料引用的版本必须属于本次冻结快照且原文唯一精确命中；风险结论非证据不足时至少一条可引用法条。
-- **独立语义校验**（`semantic_grounding.SemanticGroundingVerifier`）：独立模型核验依据审查目标、冻结事实与完整法条逐条核验 claim 与结论，同时接收被引法源的时效与效力元数据，以及本轮已返回、属于治理后法律库的解释辅助资料。`GroundedClaim.text` 的 schema 描述引导模型说明本案事实与法源之间的适用关系，未确认前提保留为条件性判断；不要求固定措辞或用程序编码法律推导。`interpretation_authorities` 保留问答等资料的效力、日期、地域及对象范围，辅助理解法条，不升级为正式法条引用；未检索到的资料不自动注入。地域/行业适用性不满足判 unsupported，必要事实不足判 uncertain；不通过则把裁决退回 Agent 补证或修正，不产出报告。机制选择、整体合规与手续完成按用户目标区分，额外法律断言仍须获得支持。新旧法源冲突由模型依据时点、范围与衔接原文判断，程序不编码门槛或法律路径。
-
-Agent 与语义校验器区分关键条件未知、已确认不满足条件和核实前的审慎建议。条件性判断不要求固定风险等级或必须追问；摘要、主结论、法律路径和问题发现应与事实的确定程度一致。校验不止核对法条转述，也核对事实到个案结论的推导，不能用末尾的条件说明掩盖主结论过度确定。
-
-`AgentState.report_draft` 保存最近一次尚未通过校验的完整报告，与校验反馈一同进入下一轮决策上下文和 checkpoint。再次提交时替换草稿，通过最终校验或完成预算收口后清空；草稿不是正式结果，不更新事实账本或案件审批状态。Agent 据此修改实际被拒绝的报告，而不必从动作摘要重新生成。
-
-正式报告经过确定性门禁后，由 `semantic_grounding` 发起一次完整报告语义核验，同时核对事实、法源、主结论、路径、问题分类、建议和风险边界。`report_grounding` 只负责字段目标组织，不再触发独立栏目核验。输入包含完整报告及字段 Schema、冻结事实、材料原文、事实账本、实际取得的法源和网页发现身份；问题项整体理解、按具体字段定位。`claim_checks` 覆盖全部主张，`core_checks` 与 `report_checks` 只返回未获支持的问题；任何逐项 unsupported/uncertain 都不能被总体 supported 放过。程序验证主张索引、字段位置、反馈去重和证据编号，精确引句可省略。每稿正常一次请求，保留一次格式或结构校验修复，不因法律意见退回而追加核验节点。核验意见连同原稿和依据交回 Agent，对照原文决定修订或补查，不直接成为新的法律条件。`LAWAGENT_SEMANTIC_MODEL` 指定正式核验模型，留空时继承任务 model_id；推理强度、SSE 与超时保持独立配置。QA 不经过该核验链路。该结构调整尚未建立法律质量或实际耗时收益。
-
-主 Agent 和案件追问通过 `LAWAGENT_AGENT_REASONING_EFFORT` 配置思考强度，独立语义校验通过 `LAWAGENT_SEMANTIC_REASONING_EFFORT` 配置，两者默认 low，支持 none/low/high/max。上述节点使用 JSON 输出；其余节点继续使用 `OPENAI_COMPATIBLE_REASONING_EFFORT`（默认 none）。[DeepSeek 思考模式](https://api-docs.deepseek.com/guides/thinking_mode/)支持工具调用，但不支持强制指定工具的 tool_choice；当前 strict_tool 实现使用这种指定方式，因此该模式须使用 none。项目不设置输出 token 上限；供应商自身的默认和模型容量仍然生效。high 作为疑难问题的手动配置选项，不按业务条件自动升级。
-
-主 Agent 使用单轮 `AgentDecision` JSON 决策接口，由程序执行动作，不注册 API tools。提示明确这一区别，避免模型将动作名称输出成工具调用标记或在 JSON 后追加执行描述；解析失败仍按节点既有重试机制处理，不增加宽松解析或兼容层。
-
-处理合法性基础、出境机制、同意及其他保护义务由Agent分别核对一般依据与例外；建议和边界中的假设分支同样接受语义校验，事实变化不会自动取消未改变的例外。程序不编码这些法律结论。历史证据须在审查时点已发布且生效，检索、相邻扩展、读取和最终报告均复查日期；没有生效日期的指南或问答仍受发布时间限制。最终引用只来自实际返回给Agent且该时点可用的证据，不从检索候选缓存补入未展示的内容。
-
-报告的 `material_conflict` 用于两段冻结材料原文之间的矛盾；确认填报或人工陈述与材料不一致且尚待核实时，通过 `missing_information` 说明来源和值以及待核实事项，来源账本保留双方。输出 schema 与结构校验反馈说明这个区别，材料引用仍只允许真实冻结材料，不将事实快照伪装成第二段材料。
-- **时效阻断**：发现可能改变核心结论的新官方材料（`web_impact=core`）时置 `freshness_hold`，不得进入审批。
-- **无本地回退**：检索必须同时连通 ES 与 pgvector，服务不可用即显式失败；LLM 节点无 rule-based 兜底。
-- **外部副作用不属于 Agent**：Agent 不能发飞书、不能批准、不能激活整改。
-- **终态权威**：案件审批终态只能由验签且幂等的飞书事件写回；Worker 失败必须持久化失败节点与原因。
-
-## 人必须完成什么
-
-- 申请人：填报并确认案件要素（IntakeSnapshot），提供冻结材料，回答阻塞性问题；
-- 审查人：在工作台核对证据与引用、要求补正、发起飞书审批、验收整改；
-- 审批人：在飞书完成通过 / 附条件通过 / 拒绝；
-- 知识库管理员：复核 Agent 提交的补库来源，通过治理前新来源不进受控库。
-
-## 持久化与任务状态
-
-- 案件状态机在 `review/workflow.py`：`draft → needs_info → pending_review → review_running → pending_source_verification / pending_feishu_approval → approved / conditionally_approved / rejected`，异常为 `run_failed`。
-- `ReviewTask`（PostgreSQL）持有模型 ID、冻结快照引用、租约、预算消耗与完整 `AgentState` checkpoint。任务状态：`queued → running → waiting_input →（重新排队）→ succeeded / failed / superseded`。
-- Worker 基于租约单次领取一个任务（默认 2 小时租约），每步保存 checkpoint 与 append-only 的用户可读步骤记录（不保存模型私有思维链）；租约失效后从最近 checkpoint 继续。
-- `completion_has_missing_information` 阻止证据不足、仍有缺失信息或时效阻断的结果被提升到审批。
-
-## 事实来源与确认
-
-`ReviewFacts` 在正式审查中由冻结 intake 初始化，供检索和结果传递使用，包括 CIIO 身份、重要数据情况、人数、统计期间、接收地及豁免业务事实。Agent 没有重写该结构的工具；空字段不代表原始材料未说明。材料事实、冲突与限制直接结合冻结原文和保留的调查对话判断，不增加中间提炼步骤。人数保留原始陈述和口径，不由程序按门槛选择法律路径。恢复时保留已保存状态和来源账本，不重新初始化。
-
-正式审查和 QA 在初始上下文提供本轮材料清单。正式审查的短粘贴正文同时提供冻结原文，QA 的短粘贴文本留在用户消息中。两处输入框会将超过 8,000 UTF-8 字节的粘贴内容作为 TXT 附件。PDF、DOCX 和 XLSX 复用上传解析流程，原始文件和解析文本各自保留。
-
-`read_materials` 可一次读取多个版本的全文或指定字符范围。XLSX 支持按工作表读取，解析结果以每行一个 JSON 数组保留行序和单元格值，公式只使用工作簿已保存的结果。每次返回最多 48,000 UTF-8 字节的原文，并分别标注实际范围与续读位置。PDF 和 DOCX 使用解析文本的字符坐标。 `grep_materials` 做字面搜索，返回命中位置及附近原文。正式审查的 `run_python` 可独立处理冻结材料中的数据。原文和计算结果随工具记录保留，法律判断由 Agent 结合材料与法源完成。
-
-`AgentState.fact_ledger` 每条仅有 `field / value / source_type / source_ref / status`。新任务从 `IntakeSnapshot` 写入 `confirmed_intake / confirmed`，过滤空值与 unknown，保留 false 和零。confirmed 仅表示申请人确认填报内容，估算、待核实身份、拟采用路径仍保持原本含义，不等于独立核实或法律结论。
-
-模型不能通过工具写入事实可信等级或来源 ID。材料引用直接绑定当前冻结版本，并由程序检查逐字原文及位置；正式报告的归因与法律判断由现有语义核验处理。已有账本观测随 checkpoint 保留，同字段、同来源、同值去重，不随模型生成报告而重写。账本中的窄冲突检测不推断名称、自由文本或人数口径之间的语义冲突。
-
-`request_input` 可附带 `fact_questions`，声明待询问字段与回答类型。申请人可先记录结构化回答，或自行明确选择要更正的业务字段。回答和对应值始终为 `applicant_statement / unverified`，来源绑定本次 gate；编辑待确认内容不消耗 Agent 推理预算。自由文本回答仍可继续原任务，reviewer/admin 的回答只作为操作指引，不写事实账本。
-
-申请人点击“确认这些事实并继续审查”后，服务器核对案件所有权、当前任务、材料与事实版本、gate、回答修订号及确认值。在同一事务中写回 intake、新增同材料版本的事实快照、关闭旧 waiting task 并排新审查任务。任何排队失败均回滚整组写入；重复或过期确认被拒绝。明确确认生成的快照指纹同时绑定前一事实快照，改回历史值也会形成新版本，不复用已经结束的旧任务。当前闭环限于 `needs_info` 案件，正在运行、进入审批或已有审批决定的案件不能借此改写事实。确认值未变化时直接继续原任务。
-
-账本随 checkpoint 和最终 result JSON 保存，无新增数据库表。语义 verifier 同时接收账本、冻结 intake 与 human_inputs；空账本不意味着没有历史来源。与材料一致且不存在具体矛盾的确认填报，可以作为明确限定前提的法律判断输入，不能只因缺少独立核实证明而重新列为未知；它也不证明事实已经客观核实。真实冲突或法律必要事实缺失仍须澄清。前端以已确认填报、材料发现、冲突、未确认补充说明呈现，内部 source/status 仅在审核人的来源详情展开。
-
-## 案件持续问答
-
-`matter_agent.py` 提供独立的解释与调查能力，绑定当前 ReviewTask、MaterialSnapshot 与 IntakeSnapshot。输入仅包含该版本的冻结材料、来源账本、工作事实、通过语义校验的正式报告，以及报告实际引用且具有引用资格的受控证据。人工输入和对话记录必须明确标记来源，缺少来源时拒绝继续，不补造来源。申请人对话中的结构化事实建议以事件 ID 为来源、unverified 为状态加入只读账本视图；不写回任务工作事实。审核人的对话继续作为操作指引。历史对话按同一任务隔离，作为数据而非事实授权。
-
-回答中的法源 claim 必须引用该证据集；材料引用必须属于当前冻结版本并唯一精确命中原文；最终回答复用独立语义 verifier，并传入法源的地域与行业适用范围。当前法源库缺少原证据、正文变化或引用资格已撤销时拒绝回答。无新增 Web 调查或补库副作用；材料与上下文总长度超过 120000 字符时明确拒绝，不暗中截断。用户的假设只用于条件性解释，不改写实际案件事实。
-
-问答只新增 `matter_agent_turn` 案件事件，不修改正式报告、审批、任务或确认事实。模型返回后再次核对输入版本，版本已变化则不保存回答。新实际事实可整理为待确认建议，申请人明确确认后才进入上述冻结与重新审查闭环；需要补充且已完成的任务通过对话事件 ID 绑定确认内容。前端 conversation hook 按案件与输入版本隔离异步结果，切换版本清空当前对话显示，历史事件仍保留审计记录。
-
-## 代码边界
-
-| 模块 | 身份 |
+| 动作 | 作用 |
 | --- | --- |
-| `law_agent/review/agent_runtime.py` | **生产审查 runtime**：Worker 为一个 ReviewTask 组装 Agent、受控工具与门禁。 |
-| `law_agent/review/agent.py` / `agent_tools.py` | Agent 决策循环、预算与全部受控工具、finalize 门禁。 |
-| `law_agent/review/fact_confirmation.py` / `transactions.py` | 明确确认、冻结事实与任务替换的原子业务流程；HTTP 路由仅做权限与输入适配。 |
-| `law_agent/review/matter_agent.py` | 绑定案件版本的只读问答与证据门禁。 |
-| `law_agent/review/worker.py` | 生产 Worker：领任务、调 runtime、持久化成功/暂停/失败、回写案件与整改。 |
-| `law_agent/review/service.py` | **检索 benchmark / 离线评测的固定流水线工具**（CLI `run`/`retrieve`、`evalset` runner、专项测试使用）；不是生产 Worker 的执行拓扑。 |
-| `law_agent/review/api.py` + `review/http/` | FastAPI 组装与 HTTP 路由适配器；不启动 CLI 子进程。 |
+| `propose_plan` | 更新对用户可见的计划，不暂停运行 |
+| `read_material` / `read_materials` | 分页读取冻结材料；单次最多返回 48,000 UTF-8 字节，XLSX 可按工作表读取 |
+| `grep_materials` | 在冻结材料中字面搜索，返回命中位置和上下文 |
+| `run_python` | 在 WASI 沙箱中处理材料数据（需配置 `LAWAGENT_WASI_PYTHON_ROOT`） |
+| `search_evidence` | 1–4 个查询的受控混合检索，每批最多返回 10 段原文 |
+| `read_evidence` | 1–4 个读取请求：按条号、chunk 或来源目录精读已检索到的来源 |
+| `search_web` | 在受控库不足或需核实时效时检索官方来源；结果只作调查上下文，不能作为引用证据 |
+| `queue_enrichment` | 把新官方来源提交补库，单次运行最多 2 条；入库前没有引用资格 |
+| `request_input` | 持久化暂停，向申请人提问，可附结构化 `fact_questions` |
+| `finish` | 提交结构化报告草稿，进入门禁 |
 
-法源如何获得引用资格见 [data-governance-design.md](./data-governance-design.md)；部署与运维事实见 [SERVICE_STACK.md](./SERVICE_STACK.md)。
+默认预算（`AgentState`）：16 轮、5 次检索、10 次读取、5 次 Web 搜索、2 条补库。预算耗尽只能以 `insufficient_evidence` 收口。
+
+### 检索
+
+- 每个查询内部先融合关键词和向量结果（各取前 50 候选），日期过滤在融合前完成；再跨查询按最强命中选择来源，重复命中不额外加分。
+- 排序只按案件地域、行业和查询用途做软加权（`retrieval/boosts.py`）：条件性地方/行业规范在地域或行业匹配时加权、地域明确不符时降权；不按"正式法条 / 解释辅助"角色固定升降。
+- 未返回正文的高排名位置以 `candidate_navigation` 形式给出定位和短预览；预览不能被引用，需要精读后才进入证据。
+- 额外 rerank 默认关闭（`RERANK_MODE=off`）。
+
+### 上下文
+
+`agent_context.compact_evidence_context` 无损整理发送给模型的证据：同源元数据合并、与正文相同的全文不重复发送。checkpoint、引用门禁和最终证据账本不做裁剪或摘要。
+
+## 程序保证
+
+- **冻结输入不可变**：快照只能新增版本，Agent 无法修改；补充材料改变事实时必须重新冻结。
+- **引用门禁**（`agent_tools.ComplianceAgentTools.finalize`）：法律主张只能由 `can_cite_clause=true` 的 chunk 支持；材料引用必须属于本次快照且原文唯一精确命中；非证据不足的结论至少有一条可引用法条；引用只来自实际返回给 Agent、且在审查时点已发布生效的证据。
+- **独立语义校验**（`semantic_grounding.SemanticGroundingVerifier`）：独立模型对照冻结事实、材料原文、事实账本和被引法条，核验每条主张、主结论、路径、问题分类、建议和风险边界。地域/行业不适用判 unsupported，必要事实不足判 uncertain；任何逐项不通过都不能被总体通过掩盖。正式核验模型由 `LAWAGENT_SEMANTIC_MODEL` 指定。
+- **时效阻断**：发现可能改变核心结论的新官方材料（`web_impact=core`）时设置 `freshness_hold`，案件不能进入审批。
+- **对外动作不属于 Agent**：Agent 不能发飞书、不能批准、不能激活整改。
+- **终态权威**：审批终态只能由验签且幂等的飞书事件写入（`workflow.py`）。
+
+未通过校验的报告保存在 `AgentState.report_draft`，与反馈一起进入下一轮决策，通过后清空。
+
+## 事实来源
+
+- `AgentState.fact_ledger` 每条记录 `field / value / source_type / source_ref / status`。新任务从 `IntakeSnapshot` 写入 `confirmed_intake / confirmed`。`confirmed` 只表示申请人确认了填报内容，不等于独立核实。
+- Agent 不能通过工具改写事实或其可信等级。
+- `request_input` 的回答记为 `applicant_statement / unverified`；审查人的回答只是操作指引，不进入事实账本。
+- 申请人点击"确认这些事实并继续审查"时，服务器在**一个事务**内写回 intake、新增事实快照、关闭旧的等待任务并排队新任务（`fact_confirmation.py`、`transactions.py`），任何一步失败都整体回滚。仅限 `needs_info` 状态的案件。
+
+## 人工职责
+
+| 角色 | 职责 |
+| --- | --- |
+| 申请人（requester） | 填报并确认事实，提供材料，回答追问，处理分派的整改 |
+| 审查人（reviewer） | 核对证据与引用、要求补正、发起飞书审批、验收整改 |
+| 审批人 | 在飞书完成通过 / 附条件通过 / 拒绝 |
+| 管理员（admin） | 用户管理、知识库治理、补库来源复核 |
+
+## 状态机
+
+案件（`law_agent/review/workflow.py`）：
+
+```text
+draft ⇄ needs_info → pending_review → review_running
+review_running → needs_info | pending_source_verification | pending_feishu_approval | run_failed
+pending_source_verification → review_running
+pending_feishu_approval → approved | conditionally_approved | rejected   （仅飞书事件）
+run_failed → review_running | needs_info | pending_source_verification | pending_feishu_approval
+```
+
+证据不足、仍有缺失信息或存在时效阻断的结果不会被推进到审批。
+
+审查任务（`ReviewTask`，`enterprise_store.py`）：`queued → running → waiting_input → (重新排队) → succeeded | failed | superseded`。领取时获得 30 分钟租约，每次 checkpoint 续约；租约过期的任务在下次领取时被重新排队，并从最近 checkpoint 继续。checkpoint 保存完整 `AgentState` 和面向用户的步骤记录，不保存模型私有推理。
+
+## 案件问答与独立问答
+
+- **案件问答**（`matter_agent.py`）：绑定当前任务和快照版本，只读冻结材料、事实账本、已通过校验的报告及其引用证据；回答同样经过引用门禁和语义校验。不改写报告、事实或任务，只新增 `matter_agent_turn` 事件；上下文超过 120,000 字符时明确拒绝。新事实只能作为待确认建议，由申请人确认后进入上面的冻结与重审流程。
+- **合规问答**（`qa_agent.py`、`qa_store.py`）：不依附案件，与审查共用检索和材料工具，在同一 Worker 进程中处理，经 SSE 流式返回；不经过语义核验链路，可转为正式案件。
+
+## 模型配置
+
+主 Agent 与案件问答使用 `LAWAGENT_AGENT_REASONING_EFFORT`，语义校验使用 `LAWAGENT_SEMANTIC_REASONING_EFFORT`（默认均为 low）；其余结构化节点使用 `OPENAI_COMPATIBLE_REASONING_EFFORT`（默认 none）。DeepSeek 思考模式不支持强制指定工具，因此 `strict_tool` 输出模式必须配 none。完整变量见 [配置参考](configuration.md)。
+
+## 代码地图
+
+| 模块 | 职责 |
+| --- | --- |
+| `review/agent_runtime.py` | 生产审查 runtime：为一个 ReviewTask 组装 Agent、工具和门禁 |
+| `review/agent.py`、`agent_tools.py`、`agent_context.py` | 决策循环、预算、受控工具、finalize 门禁、上下文整理 |
+| `review/semantic_grounding.py`、`report_grounding.py` | 独立语义校验、报告字段定位 |
+| `review/worker.py` | Worker 主循环与成功/暂停/失败回写 |
+| `review/enterprise_store.py`、`case_store.py` | 任务、快照、案件、用户持久化（各有内存实现供测试） |
+| `review/fact_confirmation.py`、`transactions.py` | 事实确认的原子业务流程 |
+| `review/matter_agent.py`、`qa_agent.py` | 案件问答、合规问答 |
+| `review/remediation.py`、`feishu.py`、`reports.py` | 整改、飞书审批、PDF 决策报告 |
+| `review/work_inbox.py`、`transfer_store.py`、`work_reminders.py` | 待办、持续出境业务、飞书提醒 |
+| `review/retrieval/` | 混合检索、融合、加权、时效过滤、来源定位 |
+| `review/api.py` + `review/http/` | 应用组装与按业务划分的路由（见 [http/README](../law_agent/review/http/README.md)） |
+| `review/service.py` | 检索 benchmark 使用的固定流水线，**不是**生产执行路径 |
+| `kb/` | 知识库入库、版本切换、补库 Worker |
+| `data/` | 离线数据治理流水线，见 [数据治理](data-governance.md) |

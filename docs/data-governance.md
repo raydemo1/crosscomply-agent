@@ -1,4 +1,4 @@
-# 数据治理设计
+# 数据治理
 
 ## 目标
 
@@ -60,22 +60,7 @@ data/corpus/legal_docs_20260702/
   REVIEW_INDEX.md                   # 语料包说明
 ```
 
-`data/` 目录默认被 git 忽略（`.gitignore` 中 `/data/`），只提交 schema、样例与报告，真实数据与本地索引不进 Git。
-
-## 版本控制边界
-
-不进 Git：
-
-1. `data/raw/`、`data/normalized/`、`data/cleaned/`、`data/enriched/`、`data/chunks/`、`data/eval/`
-2. `data/corpus/`（语料快照、模型缓存、评测运行产物）
-3. 本地索引、缓存和下载文件
-
-可以进 Git：
-
-1. `data/manifests/*.schema.json`
-2. 小规模示例 manifest（如 `data/manifests/source_manifest.example.csv`）
-3. 数据治理报告与数据源说明文档
-4. 评测集场景定义（在 `law_agent/review/evalset/` 内作为代码维护）
+`data/` 整体被 Git 忽略；仓库只保留 `data/manifests/` 下的 schema 与示例 manifest（已显式加入版本控制）。语料在机器间用 `scripts/transfer_corpus.py` 打包传递，见 [开发指南](development.md#3-恢复语料与检索索引)。
 
 ## 模块结构
 
@@ -105,7 +90,7 @@ data/corpus/legal_docs_20260702/
 3. `authority`：`national_law`、`administrative_regulation`、`ministry_policy`、`local_regulation`、`judicial_interpretation`、`public_interpretation`、`privacy_policy`、`simulated_internal_policy`、`unknown`
 4. `law_status`：`effective`、`not_yet_effective`、`amended`、`repealed`、`unknown`
 5. 法律元数据：`publish_date`、`effective_date`、`issuing_body`、`applicable_region`、`legal_domain`、`applicable_subjects`、`topic_tags`
-6. 案例/合同字段（第一版法规数据可为空，后续案例与合同接入时启用）：`case_no`、`court`、`trial_instance`、`contract_parties`、`clause_type`
+6. 案例/合同字段（法规数据可为空）：`case_no`、`court`、`trial_instance`、`contract_parties`、`clause_type`
 7. 门控字段：`include_in_mvp`（只有为 `true` 才进入 fetch）、`review_note`
 
 来源纳入遵循“脚本负责发现，人负责确认”：`manifest build --from-flk` 通过 `flk.npc.gov.cn` 公开搜索接口生成候选，人工审核 `include_in_mvp` 与法律元数据后再进入流水线。
@@ -132,7 +117,7 @@ data/corpus/legal_docs_20260702/
    - `library_kind="internal_policy"` 的内部制度一律没有条款效力。
 2. **条款定位**（`has_clause_locator`）——chunk 必须带具体 `article_no`（如“第三十九条”）。
    `can_cite_clause_chunk(source, article_no)` = 法律效力 ∧ 条款定位，两个硬条件缺一不可。
-3. **案件适用性**（地域、行业、日期）——**不是引用门禁**。检索阶段由 `law_agent/review/retrieval/boosts.py` 做软加权（地域命中加权、明确错配轻降、解读类来源轻降，但一律不过滤），适用边界写入引用的 scope note；在线语义校验再核对已确认事实是否落在该法源的地域/行业/时点范围内（不满足判 unsupported，事实不足判 uncertain）。地方性、行业性规范因此既保留条款效力，其适用边界又始终可见。
+3. **案件适用性**（地域、行业、日期）——**不是引用门禁**。检索阶段由 `law_agent/review/retrieval/boosts.py` 做软加权（条件性地方/行业规范在地域或行业匹配时加权、地域明确不符时降权，不按引用角色升降排名，也不过滤），适用边界写入引用的 scope note；在线语义校验再核对已确认事实是否落在该法源的地域/行业/时点范围内（不满足判 unsupported，事实不足判 uncertain）。地方性、行业性规范因此既保留条款效力，其适用边界又始终可见。
 
 各角色含义：
 
@@ -148,7 +133,7 @@ data/corpus/legal_docs_20260702/
 
 ## 清洗规则
 
-第一版清洗为确定性规则，不改写法规正文。`clean_text` 按顺序执行并记录每类命中数：
+清洗为确定性规则，不改写法规正文。`clean_text` 按顺序执行并记录每类命中数：
 
 1. 移除控制字符、统一换行与空白、折叠重复空行。
 2. 去除重复标题行。
@@ -224,7 +209,7 @@ Docling 配置要点：
 
 ## 来源纳入规则
 
-第一版知识库默认只纳入可直接作为合规判断依据或操作指引的现行材料：
+知识库默认只纳入可直接作为合规判断依据或操作指引的现行材料：
 
 1. 修改决定、修正草案、征求意见稿、新闻稿式发布说明不直接进入正式检索知识库；除非做版本沿革说明，否则只作为来源 trace 或人工审阅材料保留。
 2. 同一文件存在多个版本时，默认启用最新现行版本；旧版进入 `superseded`/`amended` 状态，不参与默认召回。
