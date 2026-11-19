@@ -1,8 +1,9 @@
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
+from law_agent.review import dates
 from law_agent.review.qa_agent import QADateContext, execute_qa
 from law_agent.review.qa_context import conversation_context
 from law_agent.review.qa_store import InMemoryQAStore
@@ -131,3 +132,19 @@ def test_confirmed_scope_is_available_to_followup_without_reading_model_answer_a
     current["material_ids"] = []
     history, _ = conversation_context(conversation, current)
     assert "previous_date_context" not in history[0]
+
+
+@pytest.mark.parametrize(("utc_time", "expected"), [
+    ("2026-10-20T15:59:00+00:00", date(2026, 10, 20)),
+    ("2026-10-20T16:03:00+00:00", date(2026, 10, 21)),
+    ("2026-10-21T00:03:00+00:00", date(2026, 10, 21)),
+])
+def test_business_date_uses_utc_plus_eight(monkeypatch, utc_time, expected):
+    class Clock:
+        @staticmethod
+        def now(tz):
+            assert tz is UTC
+            return datetime.fromisoformat(utc_time)
+
+    monkeypatch.setattr(dates, "datetime", Clock)
+    assert dates.business_today() == expected

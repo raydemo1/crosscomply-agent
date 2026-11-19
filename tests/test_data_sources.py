@@ -1,7 +1,9 @@
 import pytest
 
+from law_agent.data.cli import main
 from law_agent.data.fetchers.flk_npc import _extract_issuing_body, get_download_url, strip_html
 from law_agent.data.fetchers.generic import fetch_source
+from law_agent.data.manifest import build_manifest
 from law_agent.data.schemas import SourceRecord
 
 
@@ -69,3 +71,16 @@ def test_fetch_flk_source_has_no_download_fallback(tmp_path, monkeypatch) -> Non
     assert result.ok is False
     assert result.error == "official download unavailable"
     assert not result.path.exists()
+
+
+def test_manifest_build_requires_real_source() -> None:
+    with pytest.raises(ValueError, match="A real source must be selected"):
+        build_manifest("data_compliance")
+
+
+def test_manifest_validate_example(capsys) -> None:
+    exit_code = main(["manifest", "validate", "data/manifests/source_manifest.example.csv"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Validated 1 sources (1 included in MVP)" in captured.out

@@ -1,5 +1,13 @@
 """Tests for evaluation suite (Issue 9)."""
 
+from pathlib import Path
+
+import pytest
+
+import law_agent.review.evalset.runner as runner_module
+from law_agent.data.citation_policy import CLAUSE_LEVEL_DOC_TYPES, can_cite_clause
+from law_agent.data.io import read_manifest
+from law_agent.data.schemas import SourceRecord
 from law_agent.review.evalset.cases import get_default_scenarios, get_scenarios
 from law_agent.review.evalset.metrics import (
     aggregate_metrics,
@@ -11,12 +19,21 @@ from law_agent.review.evalset.metrics import (
     evaluate_case,
     ordered_unique_sources,
 )
-from law_agent.review.evalset.schemas import CaseMetricResult, EvalScenario
-from law_agent.review.schemas import RetrievalHit
-
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
+from law_agent.review.evalset.runner import (
+    EvalCaseInput,
+    _read_eval_inputs,
+    _run_single_case_safely,
+    format_summary_markdown,
+)
+from law_agent.review.evalset.schemas import (
+    CaseMetricResult,
+    EvalScenario,
+    EvalSummary,
+    ModeMetrics,
+)
+from law_agent.review.llm import ReviewWorkflowFailed
+from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
+from law_agent.review.schemas import RetrievalHit, RetrievalQuery, ReviewFacts
 
 
 def _hit(
@@ -464,3 +481,168 @@ def test_format_summary_text_contains_key_metrics() -> None:
     assert "Mean total latency" in text
     assert "LLM calls / retries" in text
     assert "Bad cases" in text
+
+
+def test_eval_inputs_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "full_llm_inputs.jsonl"
+    path.write_text(
+        '{"case_id":"case_1","facts":{"business_activity":"测试",'
+        '"data_types":[],"sensitive_personal_info":null,'
+        '"cross_border_transfer":true,"overseas_recipient":null,'
+        '"processing_purpose":null,"legal_basis_or_consent":null,'
+        '"industry":null,"regions":[],"missing_information":[]},'
+        '"queries":[{"query_id":"q_1","query_type":"legal_issue",'
+        '"text":"数据出境"}]}\n',
+        encoding="utf-8",
+    )
+
+    loaded = _read_eval_inputs(path)
+    assert loaded["case_1"] == EvalCaseInput(
+        facts=ReviewFacts(business_activity="测试", cross_border_transfer=True),
+        queries=[
+            RetrievalQuery(
+                query_id="q_1",
+                query_type="legal_issue",
+                text="数据出境",
+            )
+        ],
+    )
+
+
+def test_markdown_report_contains_core_metrics_and_bad_cases() -> None:
+    summary = EvalSummary(
+        generated_at="2026-07-11T00:00:00+00:00",
+        chunks_path="data/corpus/chunks.jsonl",
+        cases_path="full",
+        mode_metrics={
+            "retrieval=service": ModeMetrics(
+                mode="retrieval=service",
+                mean_recall_at_3=0.75,
+                mean_recall_at_5=0.85,
+                mean_mrr_at_10=0.9,
+                abstention_accuracy=1.0,
+                bad_case_count=0,
+                total_cases=82,
+            )
+        },
+    )
+
+    report = format_summary_markdown(summary)
+    assert "# LawAgent Full Evaluation Report" in report
+    assert "| Recall@5 | 0.8500 |" in report
+    assert "No bad cases" in report
+
+
+def test_eval_records_workflow_failure_without_aborting_suite(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario = get_default_scenarios()[0]
+
+    def fail_case(*args, **kwargs):
+        raise ReviewWorkflowFailed(
+            failed_node="result_generation",
+            reason="claim_grounding_validation_failed",
+            message="unsupported claim",
+            attempts=1,
+            trace_id="trace_failed",
+        )
+
+    monkeypatch.setattr(runner_module, "_run_single_case", fail_case)
+    result = _run_single_case_safely(
+        scenario,
+        tmp_path / "chunks.jsonl",
+        top_k=10,
+    )
+
+    assert result.is_bad_case is True
+    assert result.workflow_failed is True
+    assert result.failed_node == "result_generation"
+    assert result.failure_reason == "claim_grounding_validation_failed"
+
+
+MANIFEST_PATH = DEFAULT_CHUNKS_PATH.parent / "source_manifest.csv"
+CONDITIONAL_ROLES = {"conditional_local_basis", "conditional_industry_basis"}
+
+
+def _manifest_records() -> list[SourceRecord]:
+    if not MANIFEST_PATH.exists():
+        pytest.skip(f"语料未发布：{MANIFEST_PATH}")
+    return read_manifest(MANIFEST_PATH)
+
+
+def _manifest_roles() -> dict[str, str]:
+    return {record.source_id: record.citation_role for record in _manifest_records()}
+
+
+def test_golden_cases_reference_published_sources() -> None:
+    roles = _manifest_roles()
+    missing = sorted(
+        {
+            source_id
+            for scenario in get_default_scenarios()
+            for source_id in [
+                *scenario.expected_sources,
+                *scenario.must_have_sources,
+                *scenario.optional_supporting_sources,
+            ]
+            if source_id not in roles
+        }
+    )
+
+    assert missing == []
+
+
+def test_regional_and_industry_cases_expect_the_manifest_roles() -> None:
+    roles = _manifest_roles()
+    offenders: list[str] = []
+    for scenario in get_default_scenarios():
+        if not ({"regional", "industry"} & set(scenario.tags)):
+            continue
+        declared = set(scenario.expected_citation_roles)
+        sources = [*scenario.expected_sources, *scenario.must_have_sources]
+        actual = {roles[source_id] for source_id in sources}
+        for source_id in [*scenario.must_have_sources, *scenario.optional_supporting_sources]:
+            role = roles[source_id]
+            if role in CONDITIONAL_ROLES and role not in declared:
+                offenders.append(f"{scenario.case_id}: {source_id} -> 未声明的 {role}")
+        for role in declared & CONDITIONAL_ROLES:
+            if role not in actual:
+                offenders.append(f"{scenario.case_id}: 声明了 {role}，但预期来源均非该角色")
+
+    assert offenders == []
+
+
+def test_corpus_citation_permission_follows_the_instrument_not_the_role() -> None:
+    """引用权限由材料本身决定，不由 citation_role 单独决定。
+
+    已验证的法规/规章/司法解释不因 ``conditional_*``（仅表示适用范围受限）
+    而失去条款引用能力；指南、标准、政策问答、负面清单也不会被批量赋予法规效力。
+    """
+
+    records = _manifest_records()
+
+    for record in records:
+        expected = record.library_kind == "legal" and (
+            record.citation_role == "primary_legal_basis"
+            or (
+                record.citation_role in CONDITIONAL_ROLES
+                and record.doc_type in CLAUSE_LEVEL_DOC_TYPES
+            )
+        )
+        assert can_cite_clause(record) is expected, record.source_id
+
+    # 地方性法规：条款有效力，只是适用范围限于深圳。
+    shenzhen = next(r for r in records if r.source_id == "shenzhen_data_regulation_2021")
+    assert shenzhen.doc_type == "regulation"
+    assert shenzhen.citation_role == "conditional_local_basis"
+    assert can_cite_clause(shenzhen) is True
+
+    # 负面清单：管理性清单，可引用其内容但不作为条款级法律依据。
+    lists = [
+        record
+        for record in records
+        if record.citation_role == "conditional_local_basis" and record.doc_type == "guideline"
+    ]
+    assert lists
+    assert all(can_cite_clause(record) is False for record in lists)

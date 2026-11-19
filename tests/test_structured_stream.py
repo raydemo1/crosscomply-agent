@@ -194,8 +194,8 @@ def test_total_deadline_cancels_the_connection_even_with_continuous_keepalives(m
     with server(write) as (url, disconnected), usage_scope("semantic_grounding", records.append):
         started = time.monotonic()
         with pytest.raises(LLMStreamTimeout, match="total timeout"):
-            call(config(base_url=url, read_timeout_seconds=6, total_timeout_seconds=3))
-        assert time.monotonic() - started < 4.5
+            call(config(base_url=url, read_timeout_seconds=2, total_timeout_seconds=0.6))
+        assert time.monotonic() - started < 1.8
         assert records[0]["first_byte_ms"] is not None, "Exercise cancellation of an active stream"
         assert disconnected.wait(0.5), f"Deadline must close the request: {records}"
     assert records[0]["error_stage"] == "total_deadline"
