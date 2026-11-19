@@ -247,7 +247,7 @@ def test_role_permissions_and_case_status_flow(app) -> None:
     assert submitted.json()["case"]["facts_confirmed"] is True
     # 提交即进入审查队列，申请人不需要再等审核人手动启动。
     assert submitted.json()["case"]["status"] == "review_running"
-    events = requester.get(f"/api/cases/{case_id}/events").json()["items"]
+    events = requester.get(f"/api/cases/{case_id}").json()["events"]
     assert "review_queued" in {event["event_type"] for event in events}
 
     denied = requester.post(
@@ -290,7 +290,7 @@ def test_run_persists_queued_task_and_audit_event(app) -> None:
         task = client.get(f"/api/tasks/{body['task_id']}")
         assert task.status_code == 200
         assert task.json()["status"] == "queued"
-        events = client.get(f"/api/cases/{case_id}/events").json()["items"]
+        events = client.get(f"/api/cases/{case_id}").json()["events"]
         assert {event["event_type"] for event in events} >= {
             "case_created",
             "status_changed",
@@ -313,7 +313,7 @@ def test_evidence_gap_allows_agent_investigation_but_not_terminal_decision(app) 
         assert complete.status_code == 403
 
 
-def test_remediation_feedback_and_dashboard_are_persisted(app) -> None:
+def test_remediation_and_feedback_are_persisted(app) -> None:
     with TestClient(app) as client:
         _login(client, "reviewer@crosscomply.local")
         case_id = _create_case(client)
@@ -369,9 +369,8 @@ def test_remediation_feedback_and_dashboard_are_persisted(app) -> None:
         )
         assert reviewed.status_code == 200, reviewed.text
         assert reviewed.json()["status"] == "accepted"
-        events = client.get(f"/api/cases/{case_id}/events")
-        assert events.status_code == 200
-        assert any(item["event_type"] == "remediation_task_updated" for item in events.json()["items"])
+        events = client.get(f"/api/cases/{case_id}").json()["events"]
+        assert any(item["event_type"] == "remediation_task_updated" for item in events)
 
         feedback = client.post(
             f"/api/cases/{case_id}/feedback",
@@ -380,9 +379,6 @@ def test_remediation_feedback_and_dashboard_are_persisted(app) -> None:
         assert feedback.status_code == 200
         assert feedback.json()["conclusion_useful"] is True
 
-        summary = client.get("/api/dashboard/summary")
-        assert summary.status_code == 200
-        assert summary.json()["total_cases"] == 1
 
 
 def test_intake_extraction_does_not_infer_personal_information_from_data_types(
@@ -467,7 +463,7 @@ def test_changed_materials_supersede_paused_agent_task_and_queue_replacement(app
         assert queued_task.id != paused_task.id
         assert queued_task.status == "queued"
 
-        events = client.get(f"/api/cases/{case_id}/events").json()["items"]
+        events = client.get(f"/api/cases/{case_id}").json()["events"]
         assert "review_task_superseded" in {event["event_type"] for event in events}
 
 
@@ -500,7 +496,7 @@ def test_failed_enqueue_rolls_back_status_and_records_why(app) -> None:
         assert rejected.status_code == 409, rejected.text
         assert client.get(f"/api/cases/{case_id}").json()["case"]["status"] == "draft"
 
-        events = client.get(f"/api/cases/{case_id}/events").json()["items"]
+        events = client.get(f"/api/cases/{case_id}").json()["events"]
         rolled_back = [
             event for event in events if event["event_type"] == "status_change_rolled_back"
         ]

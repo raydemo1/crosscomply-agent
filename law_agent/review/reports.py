@@ -219,23 +219,41 @@ def verify_report_hash(pdf_bytes: bytes, expected_sha256: str) -> bool:
     return len(expected_sha256) == 64 and actual == expected_sha256.lower()
 
 
+def _first_existing_file(candidates: list[str]) -> str | None:
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            if Path(candidate).is_file():
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
 def _register_fonts(pdfmetrics, tt_font):
     """Load the approved Noto Sans SC regular and semibold faces without substitution."""
 
+    # Parsing the two TTF files takes seconds; reportlab's registry is
+    # process-wide, so register them once and reuse.
+    if {"CCBody", "CCBodyBold"} <= set(pdfmetrics.getRegisteredFontNames()):
+        return "CCBody", "CCBodyBold", "Courier"
+    bundled = Path(__file__).resolve().parents[2] / "docker/fonts"
     regular_candidates = [
         os.getenv("CROSSCOMPLY_REPORT_FONT", ""),
-        "C:/Windows/Fonts/NotoSansSC-Regular.ttf",
-        str(Path(__file__).resolve().parents[2] / "docker/fonts/NotoSansSC-Regular.ttf"),
+        str(bundled / "NotoSansSC-Regular.ttf"),
         "/usr/local/share/fonts/NotoSansSC-Regular.ttf",
     ]
     bold_candidates = [
         os.getenv("CROSSCOMPLY_REPORT_FONT_BOLD", ""),
-        "C:/Windows/Fonts/NotoSansSC-SemiBold.ttf",
-        str(Path(__file__).resolve().parents[2] / "docker/fonts/NotoSansSC-SemiBold.ttf"),
+        str(bundled / "NotoSansSC-SemiBold.ttf"),
         "/usr/local/share/fonts/NotoSansSC-SemiBold.ttf",
     ]
-    regular_path = next((path for path in regular_candidates if path and Path(path).is_file()), None)
-    bold_path = next((path for path in bold_candidates if path and Path(path).is_file()), None)
+    if os.name == "nt":
+        regular_candidates.append("C:/Windows/Fonts/NotoSansSC-Regular.ttf")
+        bold_candidates.append("C:/Windows/Fonts/NotoSansSC-SemiBold.ttf")
+    regular_path = _first_existing_file(regular_candidates)
+    bold_path = _first_existing_file(bold_candidates)
     if not regular_path or not bold_path:
         raise RuntimeError(
             "生成 PDF 决策报告需要 Noto Sans SC Regular 与 SemiBold 字体；"

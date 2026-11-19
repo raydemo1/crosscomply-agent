@@ -33,7 +33,7 @@ def register_template_routes(
         return payload
 
     @router.get("/api/case-templates")
-    async def list_case_templates(
+    def list_case_templates(
         query: str | None = None,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -41,7 +41,7 @@ def register_template_routes(
         return {"items": [template_payload(item) for item in items], "total": len(items)}
 
     @router.post("/api/case-templates")
-    async def create_case_template(
+    def create_case_template(
         payload: CaseTemplateCreateRequest,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -59,7 +59,7 @@ def register_template_routes(
         return template_payload(item)
 
     @router.patch("/api/case-templates/{identifier}")
-    async def update_case_template(
+    def update_case_template(
         identifier: str,
         payload: CaseTemplateUpdateRequest,
         user: UserRecord = Depends(current_user),
@@ -86,7 +86,7 @@ def register_template_routes(
         return template_payload(item)
 
     @router.post("/api/case-templates/{identifier}/archive")
-    async def archive_case_template(
+    def archive_case_template(
         identifier: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:

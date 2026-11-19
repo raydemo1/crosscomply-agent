@@ -42,7 +42,7 @@ def register_matter_routes(app, *, current_user, store, enterprise, can_view):
         return {"id": event["id"], "created_at": event["created_at"], **event["payload"]}
 
     @router.get("/api/cases/{case_id}/conversation")
-    async def history(case_id: str, user=Depends(current_user)):
+    def history(case_id: str, user=Depends(current_user)):
         visible(case_id, user)
         return {"items": [
             {"id": e["id"], "created_at": e["created_at"], **e["payload"]}

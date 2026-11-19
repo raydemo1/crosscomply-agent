@@ -77,7 +77,7 @@ def register_annotation_routes(
         return quote, material.parsed_text, result
 
     @router.get("/api/cases/{case_id}/review-materials")
-    async def review_materials(case_id: str, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+    def review_materials(case_id: str, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
         case = visible_case(case_id, user)
         result = (case.get("response") or {}).get("review_result")
         if not isinstance(result, dict) or not result.get("review_result_id"):
@@ -98,7 +98,7 @@ def register_annotation_routes(
         return {"items": items}
 
     @router.get("/api/cases/{case_id}/annotations")
-    async def list_annotations(case_id: str, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+    def list_annotations(case_id: str, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
         case = visible_case(case_id, user)
         result_id = ((case.get("response") or {}).get("review_result") or {}).get("review_result_id")
         items = [item for item in annotations().list(case_id) if item["review_result_id"] == result_id]
@@ -107,7 +107,7 @@ def register_annotation_routes(
         return {"items": items}
 
     @router.post("/api/cases/{case_id}/annotations")
-    async def create_human(case_id: str, payload: HumanAnnotationRequest,
+    def create_human(case_id: str, payload: HumanAnnotationRequest,
                            user: UserRecord = Depends(current_user)) -> dict[str, Any]:
         reviewer_only(user)
         case = visible_case(case_id, user)
@@ -165,7 +165,7 @@ def register_annotation_routes(
         return item
 
     @router.post("/api/annotations/{annotation_id}/decision")
-    async def decide(annotation_id: str, payload: AnnotationDecision,
+    def decide(annotation_id: str, payload: AnnotationDecision,
                      user: UserRecord = Depends(current_user)) -> dict[str, Any]:
         reviewer_only(user)
         item = annotations().get(annotation_id)

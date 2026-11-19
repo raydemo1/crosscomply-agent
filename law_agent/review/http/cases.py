@@ -258,39 +258,8 @@ def register_case_routes(
 
         texts = [material_text.strip()] if material_text.strip() else []
         for upload in files:
-            filename = Path(upload.filename or "uploaded-material").name
-            suffix = Path(filename).suffix.lower()
-            if suffix not in ALLOWED_UPLOAD_SUFFIXES:
-                raise HTTPException(
-                    status_code=422,
-                    detail={"code": "unsupported_file_type", "filename": filename},
-                )
-            raw = await upload.read()
-            if not raw or len(raw) > MAX_UPLOAD_BYTES:
-                code = "empty_file" if not raw else "file_too_large"
-                raise HTTPException(status_code=422, detail={"code": code, "filename": filename})
-            with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / filename
-                path.write_bytes(raw)
-                try:
-                    from law_agent.review.materials import material_from_file
-
-                    parsed = material_from_file(path)
-                except (FileNotFoundError, RuntimeError, ValueError) as exc:
-                    raise HTTPException(
-                        status_code=422,
-                        detail={
-                            "code": "parse_failed",
-                            "filename": filename,
-                            "message": _file_parse_hint(filename, exc),
-                        },
-                    ) from exc
-            if not (parsed.material_text or "").strip():
-                raise HTTPException(
-                    status_code=422,
-                    detail={"code": "empty_parsed_text", "filename": filename},
-                )
-            texts.append(parsed.material_text)
+            parsed_text, _filename = await material_from_upload(upload)
+            texts.append(parsed_text)
         combined = "\n\n".join(texts).strip()
         if not combined:
             raise HTTPException(status_code=422, detail="请先提供待审查材料")
@@ -364,7 +333,7 @@ def register_case_routes(
         return asdict(version)
 
     @router.get("/api/cases/{identifier}/materials")
-    async def list_materials(
+    def list_materials(
         identifier: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -375,7 +344,7 @@ def register_case_routes(
         return {"items": [asdict(item) for item in items], "total": len(items)}
 
     @router.get("/api/materials/{version_id}/download")
-    async def download_material(
+    def download_material(
         version_id: str,
         user: UserRecord = Depends(current_user),
     ) -> Response:
@@ -411,7 +380,7 @@ def register_case_routes(
         )
 
     @router.post("/api/cases/{identifier}/material-snapshots")
-    async def freeze_material_snapshot(
+    def freeze_material_snapshot(
         identifier: str,
         payload: MaterialSnapshotRequest,
         user: UserRecord = Depends(current_user),
@@ -456,7 +425,7 @@ def register_case_routes(
         return {"material_snapshot": asdict(snapshot), "intake_snapshot": asdict(intake_snapshot)}
 
     @router.get("/api/cases")
-    async def list_cases(
+    def list_cases(
         query: str | None = None,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -477,7 +446,7 @@ def register_case_routes(
         return {"items": items, "total": len(items)}
 
     @router.get("/api/cases/{identifier}")
-    async def get_case(
+    def get_case(
         identifier: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -487,7 +456,7 @@ def register_case_routes(
         return case_payload(case, user)
 
     @router.get("/api/cases/{identifier}/knowledge-rechecks")
-    async def get_case_knowledge_rechecks(
+    def get_case_knowledge_rechecks(
         identifier: str, user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
         case = store().get_case(identifier)
@@ -498,7 +467,7 @@ def register_case_routes(
         return {"items": items}
 
     @router.patch("/api/cases/{identifier}")
-    async def update_case(
+    def update_case(
         identifier: str,
         payload: CaseUpdateRequest,
         user: UserRecord = Depends(current_user),
@@ -533,7 +502,7 @@ def register_case_routes(
         return case_payload(updated, user)
 
     @router.post("/api/cases/{identifier}/status")
-    async def update_case_status(
+    def update_case_status(
         identifier: str,
         payload: CaseStatusRequest,
         user: UserRecord = Depends(current_user),
@@ -605,7 +574,7 @@ def register_case_routes(
         return case_payload(updated, user)
 
     @router.post("/api/cases/{identifier}/run")
-    async def run_case(
+    def run_case(
         identifier: str,
         user: UserRecord = Depends(current_user),
     ) -> JSONResponse:
@@ -648,7 +617,7 @@ def register_case_routes(
         return JSONResponse(status_code=202, content=queued)
 
     @router.post("/api/cases/{identifier}/guided-rereview")
-    async def guided_rereview_case(
+    def guided_rereview_case(
         identifier: str,
         user: UserRecord = Depends(current_user),
     ) -> JSONResponse:
@@ -713,7 +682,7 @@ def register_case_routes(
         return JSONResponse(status_code=202, content=queued)
 
     @router.get("/api/tasks/{task_id}")
-    async def get_review_task(
+    def get_review_task(
         task_id: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -726,7 +695,7 @@ def register_case_routes(
         return asdict(task)
 
     @router.post("/api/tasks/{task_id}/answer")
-    async def answer_agent_question(
+    def answer_agent_question(
         task_id: str,
         payload: AgentInputRequest,
         user: UserRecord = Depends(current_user),
@@ -781,7 +750,7 @@ def register_case_routes(
             return asdict(resumed)
 
     @router.post("/api/tasks/{task_id}/retry")
-    async def retry_review_task(
+    def retry_review_task(
         task_id: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:

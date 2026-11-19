@@ -1,4 +1,4 @@
-"""Case feedback, audit-event, and dashboard HTTP adapter."""
+"""Case feedback and work-inbox HTTP adapter."""
 
 # FastAPI intentionally declares dependency providers in endpoint defaults.
 # ruff: noqa: B008
@@ -26,7 +26,7 @@ def register_activity_routes(
     router = APIRouter()
 
     @router.post("/api/cases/{identifier}/feedback")
-    async def save_feedback(
+    def save_feedback(
         identifier: str,
         payload: FeedbackRequest,
         user: UserRecord = Depends(current_user),
@@ -41,20 +41,6 @@ def register_activity_routes(
         feedback = store().save_feedback(identifier, user.id, **payload.model_dump(mode="json"))
         store().add_event(identifier, user.id, event_type="feedback_saved", payload={"actor_role": user.role})
         return feedback
-
-    @router.get("/api/cases/{identifier}/events")
-    async def get_events(
-        identifier: str,
-        user: UserRecord = Depends(current_user),
-    ) -> dict[str, Any]:
-        case = store().get_case(identifier)
-        if case is None or not can_view(user, case):
-            raise HTTPException(status_code=404, detail="案件不存在或无权访问")
-        return {"items": store().list_events(identifier)}
-
-    @router.get("/api/dashboard/summary")
-    async def dashboard_summary(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
-        return store().dashboard_summary(user)
 
     @router.get("/api/work-inbox")
     def work_inbox(user: UserRecord = Depends(current_user)) -> dict[str, Any]:

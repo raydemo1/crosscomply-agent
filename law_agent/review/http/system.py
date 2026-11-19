@@ -15,7 +15,7 @@ def register_system_routes(app: FastAPI, *, current_user, admin_only) -> None:
     router = APIRouter()
 
     @router.get("/api/health")
-    async def health_check() -> dict[str, str]:
+    def health_check() -> dict[str, str]:
         # 公开端点只报状态，不暴露 base_url/路径/异常原文；详情走 admin 诊断端点
         llm_config = load_llm_config()
         try:
@@ -32,7 +32,7 @@ def register_system_routes(app: FastAPI, *, current_user, admin_only) -> None:
         return {"status": status}
 
     @router.get("/api/admin/diagnostics", response_model=HealthResponse)
-    async def diagnostics(user=Depends(current_user)) -> HealthResponse:
+    def diagnostics(user=Depends(current_user)) -> HealthResponse:
         admin_only(user)
         llm_config = load_llm_config()
         try:

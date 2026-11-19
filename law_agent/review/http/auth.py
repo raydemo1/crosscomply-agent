@@ -74,7 +74,8 @@ def register_auth_routes(
     router = APIRouter()
 
     @router.post("/api/auth/login")
-    async def login(payload: LoginRequest, request: Request) -> JSONResponse:
+    def login(payload: LoginRequest, request: Request) -> JSONResponse:
+        # Sync handler: password hashing and the session insert run in the threadpool.
         client_key = f"{payload.username}@{request.client.host if request.client else '?'}"
         _login_throttle.check(client_key)
         user = store().authenticate(payload.username, payload.password)
@@ -103,7 +104,7 @@ def register_auth_routes(
         return response
 
     @router.post("/api/auth/logout")
-    async def logout(request: Request) -> JSONResponse:
+    def logout(request: Request) -> JSONResponse:
         token = request.cookies.get(SESSION_COOKIE)
         if token:
             store().delete_session(token)
@@ -112,7 +113,7 @@ def register_auth_routes(
         return response
 
     @router.get("/api/auth/me")
-    async def me(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+    def me(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
         return {"user": user.to_dict()}
 
     app.include_router(router)

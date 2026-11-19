@@ -13,7 +13,6 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Literal
 
 from law_agent.config import RerankMode, load_rerank_config
 from law_agent.review.citations import assemble_article_text

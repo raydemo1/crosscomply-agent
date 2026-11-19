@@ -23,11 +23,11 @@ def register_fact_routes(app, *, current_user, store, enterprise):
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @router.post("/api/cases/{case_id}/fact-answers")
-    async def answer(case_id: str, payload: FactAnswerRequest, user=Depends(current_user)):
+    def answer(case_id: str, payload: FactAnswerRequest, user=Depends(current_user)):
         return invoke(stage_fact_answer, case_id, payload, user)
 
     @router.post("/api/cases/{case_id}/confirm-facts")
-    async def confirm(case_id: str, payload: FactConfirmRequest, user=Depends(current_user)):
+    def confirm(case_id: str, payload: FactConfirmRequest, user=Depends(current_user)):
         return JSONResponse(status_code=202, content=invoke(confirm_facts, case_id, payload, user))
 
     app.include_router(router)

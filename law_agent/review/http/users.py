@@ -33,7 +33,7 @@ def register_user_routes(
     router = APIRouter()
 
     @router.get("/api/admin/users")
-    async def list_managed_users(
+    def list_managed_users(
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
         admin_only(user)
@@ -41,7 +41,7 @@ def register_user_routes(
         return {"items": [asdict(item) for item in items], "total": len(items)}
 
     @router.post("/api/admin/users")
-    async def create_managed_user(
+    def create_managed_user(
         payload: UserCreateRequest,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -58,7 +58,7 @@ def register_user_routes(
         return asdict(created)
 
     @router.patch("/api/admin/users/{user_id}/state")
-    async def set_managed_user_state(
+    def set_managed_user_state(
         user_id: str,
         payload: UserStateRequest,
         user: UserRecord = Depends(current_user),
@@ -71,7 +71,7 @@ def register_user_routes(
         return asdict(updated)
 
     @router.post("/api/admin/users/{user_id}/reset-password")
-    async def reset_managed_user_password(
+    def reset_managed_user_password(
         user_id: str,
         payload: UserPasswordResetRequest,
         user: UserRecord = Depends(current_user),
@@ -84,7 +84,7 @@ def register_user_routes(
         return asdict(updated)
 
     @router.patch("/api/admin/users/{user_id}/role")
-    async def assign_managed_user_role(
+    def assign_managed_user_role(
         user_id: str,
         payload: UserRoleRequest,
         user: UserRecord = Depends(current_user),

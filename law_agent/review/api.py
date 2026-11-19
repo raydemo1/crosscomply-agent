@@ -10,7 +10,6 @@ from __future__ import annotations
 import html
 import os
 import re
-import threading
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
@@ -39,11 +38,6 @@ from law_agent.review.http.activity import register_activity_routes
 from law_agent.review.http.annotations import register_annotation_routes
 from law_agent.review.http.auth import SESSION_COOKIE, register_auth_routes
 from law_agent.review.http.cases import register_case_routes
-from law_agent.review.http.evaluation import (
-    idle_eval_job,
-    preload_eval_cache,
-    register_evaluation_routes,
-)
 from law_agent.review.http.integrations import register_integration_routes
 from law_agent.review.http.knowledge import (
     configure_knowledge_state,
@@ -319,7 +313,6 @@ def _feishu_approval_form(
 def create_app(
     *,
     chunks_path: Path | str = DEFAULT_CHUNKS_PATH,
-    eval_cache_dir: Path | str | None = None,
     case_store: CaseStore | None = None,
     enterprise_store: InMemoryEnterpriseStore | PostgresEnterpriseStore | None = None,
     material_object_store: MaterialObjectStore | None = None,
@@ -412,15 +405,6 @@ def create_app(
     app.state.feishu_client = feishu_client
     app.state.feishu_config = feishu_config
     app.state.case_store_initialized = False
-    app.state.eval_cache: dict[str, Any] = {"off": None, "embedding": None}
-    app.state.eval_jobs: dict[str, dict[str, Any]] = {
-        "off": idle_eval_job(),
-        "embedding": idle_eval_job(),
-    }
-    app.state.eval_lock = threading.Lock()
-    app.state.eval_cache_dir = Path(eval_cache_dir) if eval_cache_dir is not None else None
-    if app.state.eval_cache_dir is not None:
-        preload_eval_cache(app, app.state.eval_cache_dir)
 
     def store() -> CaseStore:
         if not app.state.case_store_initialized:
@@ -603,7 +587,6 @@ def create_app(
     register_knowledge_routes(app, current_user=current_user, admin_only=admin_only)
     register_system_routes(app, current_user=current_user, admin_only=admin_only)
     register_auth_routes(app, current_user=current_user, store=store)
-    register_evaluation_routes(app, current_user=current_user, admin_only=admin_only)
     register_template_routes(
         app,
         current_user=current_user,
@@ -696,7 +679,6 @@ def create_app(
     register_report_routes(
         app,
         current_user=current_user,
-        reviewer_only=reviewer_only,
         store=store,
         enterprise=enterprise,
         governance=governance,
@@ -718,4 +700,4 @@ def create_app(
     return app
 
 
-app = create_app(eval_cache_dir=Path("data/review_runs"))
+app = create_app()

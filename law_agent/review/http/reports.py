@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable
-from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
@@ -24,7 +23,6 @@ def register_report_routes(
     app: FastAPI,
     *,
     current_user: Callable[..., Any],
-    reviewer_only: Callable[[UserRecord], None],
     store: Callable[[], CaseStore],
     enterprise: Callable[[], InMemoryEnterpriseStore | PostgresEnterpriseStore],
     governance: Callable[[], InMemoryGovernanceStore | PostgresGovernanceStore],
@@ -46,33 +44,8 @@ def register_report_routes(
             headers={"Content-Disposition": f'attachment; filename="{case["case_number"]}.pdf"'},
         )
 
-    @router.post("/api/cases/{identifier}/reports")
-    async def create_decision_report(
-        identifier: str,
-        user: UserRecord = Depends(current_user),
-    ) -> dict[str, Any]:
-        reviewer_only(user)
-        case = store().get_case(identifier)
-        if case is None:
-            raise HTTPException(status_code=404, detail="案件不存在")
-        try:
-            report = ensure_decision_report(
-                case=case,
-                case_store=store(),
-                enterprise_store=enterprise(),
-                governance_store=governance(),
-                object_store=originals(),
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        except HTTPException:
-            raise
-        except Exception as exc:
-            raise HTTPException(status_code=503, detail="正式报告暂未生成，请稍后重试") from exc
-        return asdict(report)
-
     @router.get("/api/cases/{identifier}/reports/download")
-    async def download_case_decision_report(
+    def download_case_decision_report(
         identifier: str,
         user: UserRecord = Depends(current_user),
     ) -> Response:
@@ -113,19 +86,6 @@ def register_report_routes(
                 event_type="report_generated",
                 payload={"report_id": report.id, "trigger": "download"},
             )
-        return report_response(report)
-
-    @router.get("/api/reports/{report_id}/download")
-    async def download_decision_report(
-        report_id: str,
-        user: UserRecord = Depends(current_user),
-    ) -> Response:
-        report = governance().get_report(report_id)
-        if report is None:
-            raise HTTPException(status_code=404, detail="决策报告不存在")
-        case = store().get_case(report.case_id)
-        if case is None or not can_view(user, case):
-            raise HTTPException(status_code=404, detail="决策报告不存在或无权访问")
         return report_response(report)
 
     app.include_router(router)

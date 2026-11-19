@@ -11,7 +11,7 @@ import hashlib
 import secrets
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal, Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 
 import psycopg
@@ -19,9 +19,8 @@ from psycopg.types.json import Jsonb
 from pwdlib import PasswordHash
 
 from law_agent.review.db_schema import EXPECTED_SCHEMA_REVISION
-from law_agent.review.workflow import CASE_TRANSITIONS, CaseStatus
-
-UserRole = Literal["requester", "reviewer", "admin"]
+from law_agent.review.user_admin import UserRole
+from law_agent.review.workflow import CaseStatus
 
 
 def _jsonb(value: Any) -> Jsonb:
@@ -183,7 +182,6 @@ class CaseStore(Protocol):
 
     def activate_remediation_plan(self, plan_id: str, **kwargs: Any) -> dict[str, Any]: ...
 
-    def cancel_remediation_plan(self, plan_id: str, **kwargs: Any) -> dict[str, Any]: ...
 
     def list_remediation_tasks(self, case_id: str | None = None, *, assignee_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]: ...
 
@@ -215,7 +213,6 @@ class CaseStore(Protocol):
 
     def save_feedback(self, case_id: str, actor_id: str, **kwargs: Any) -> dict[str, Any]: ...
 
-    def dashboard_summary(self, user: UserRecord) -> dict[str, Any]: ...
 
 
 class PostgresCaseStore:
@@ -676,15 +673,6 @@ class PostgresCaseStore:
             conn.commit()
         return self.get_remediation_plan(row["case_id"]) or self._remediation_plan_dict(row)
 
-    def cancel_remediation_plan(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
-        with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("UPDATE remediation_plans SET status = 'cancelled', version = version + 1, updated_at = now() WHERE id = %s RETURNING *", (identifier,))
-            row = cur.fetchone()
-            conn.commit()
-        if row is None:
-            raise KeyError(identifier)
-        return self.get_remediation_plan(row["case_id"]) or self._remediation_plan_dict(row)
-
     def list_remediation_tasks(self, case_id: str | None = None, *, assignee_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
         conditions: list[str] = []
         params: list[Any] = []
@@ -925,38 +913,6 @@ class PostgresCaseStore:
             conn.commit()
         return self.get_feedback(identifier, actor_id) or {"case_id": identifier}
 
-    def dashboard_summary(self, user: UserRecord) -> dict[str, Any]:
-        scope = ""
-        params: list[Any] = []
-        if user.role == "requester":
-            scope = "WHERE created_by = %s OR owner_id = %s"
-            params = [user.id, user.id]
-        with self._connect() as conn, conn.cursor() as cur:
-            cur.execute(
-                f"SELECT status, count(*) AS n FROM review_cases {scope} GROUP BY status",
-                params,
-            )
-            counts = {status: 0 for status in CASE_TRANSITIONS}
-            total = 0
-            for row in cur.fetchall():
-                counts[row["status"]] = counts.get(row["status"], 0) + row["n"]
-                total += row["n"]
-            cur.execute(
-                f"SELECT risk_level, count(*) AS n FROM review_cases {scope} AND risk_level IS NOT NULL GROUP BY risk_level",
-                params,
-            )
-            risk_counts = {"high": 0, "medium": 0, "low": 0, "insufficient_evidence": 0}
-            for row in cur.fetchall():
-                if row["risk_level"] in risk_counts:
-                    risk_counts[row["risk_level"]] += row["n"]
-        recent = self.list_cases(user)[:5]
-        return {
-            "total_cases": total,
-            "status_counts": counts,
-            "risk_counts": risk_counts,
-            "recent_cases": recent,
-        }
-
 
 class InMemoryCaseStore:
     """Explicit test double with the same public behavior as PostgreSQL."""
@@ -1156,13 +1112,6 @@ class InMemoryCaseStore:
         if any(not item.get("assignee_id") or not item.get("due_date") for item in tasks):
             raise ValueError("整改任务必须指定负责人和截止日期后才能激活")
         plan.update(status="completed" if not tasks else "active", version=plan["version"] + 1, updated_at=utc_now())
-        return self.get_remediation_plan(plan["case_id"]) or plan
-
-    def cancel_remediation_plan(self, identifier: str, **kwargs: Any) -> dict[str, Any]:
-        plan = self.remediation_plans.get(identifier)
-        if plan is None:
-            raise KeyError(identifier)
-        plan.update(status="cancelled", version=plan["version"] + 1, updated_at=utc_now())
         return self.get_remediation_plan(plan["case_id"]) or plan
 
     def list_remediation_tasks(self, case_id: str | None = None, *, assignee_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
@@ -1397,18 +1346,3 @@ class InMemoryCaseStore:
         }
         self.feedback[(identifier, actor_id)] = feedback
         return feedback
-
-    def dashboard_summary(self, user: UserRecord) -> dict[str, Any]:
-        cases = self.list_cases(user)
-        counts = {status: 0 for status in CASE_TRANSITIONS}
-        risks = {"high": 0, "medium": 0, "low": 0, "insufficient_evidence": 0}
-        for item in cases:
-            counts[item["status"]] = counts.get(item["status"], 0) + 1
-            if item.get("risk_level") in risks:
-                risks[item["risk_level"]] += 1
-        return {
-            "total_cases": len(cases),
-            "status_counts": counts,
-            "risk_counts": risks,
-            "recent_cases": cases[:5],
-        }

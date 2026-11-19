@@ -73,7 +73,7 @@ def register_integration_routes(
             raise HTTPException(status_code=409, detail=readiness.detail or "当前案件状态不能发起飞书审批")
 
     @router.post("/api/cases/{identifier}/feishu-approval")
-    async def create_feishu_approval(
+    def create_feishu_approval(
         identifier: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -112,7 +112,7 @@ def register_integration_routes(
         return deliver_feishu_approval(case=case, task=task, user=user, delivery=delivery)
 
     @router.post("/api/approval-deliveries/{delivery_id}/retry")
-    async def retry_feishu_approval_delivery(
+    def retry_feishu_approval_delivery(
         delivery_id: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -222,7 +222,7 @@ def register_integration_routes(
         }
 
     @router.post("/api/integrations/feishu/subscribe")
-    async def subscribe_feishu_approval_events(
+    def subscribe_feishu_approval_events(
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
         admin_only(user)

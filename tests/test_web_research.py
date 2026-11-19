@@ -59,7 +59,7 @@ def test_official_content_is_visible_but_never_joins_evidence() -> None:
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
     assert state.evidence == []
-    assert "web_findings" not in state.model_fields
+    assert "web_findings" not in type(state).model_fields
     assert enqueued == [finding]
     assert state.steps[0].observation["findings"][0]["excerpt"] == "新的办理要求"
     assert state.steps[0].observation["queries"] == [query().model_dump(mode="json")]

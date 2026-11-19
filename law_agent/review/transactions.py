@@ -7,8 +7,6 @@ from contextvars import ContextVar
 from copy import deepcopy
 from typing import Any
 
-import psycopg
-from psycopg.rows import dict_row
 
 _active: ContextVar[tuple[str, Any] | None] = ContextVar("review_transaction", default=None)
 

@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field, JsonValue, field_validator
 
 from law_agent.config import RerankMode
 from law_agent.data.schemas import InternalPolicyStatus, LibraryKind, StrictModel
-from law_agent.review.evalset.cases import EvalSuite
 from law_agent.review.schemas import (
     CIIOStatus,
     ConfirmableFactField,
@@ -80,22 +79,6 @@ class HealthResponse(BaseModel):
     llm: dict[str, object] = Field(default_factory=dict)
     services: dict[str, object] = Field(default_factory=dict)
     corpus: dict[str, object] = Field(default_factory=dict)
-
-
-class EvalRunRequest(BaseModel):
-    chunks_path: str | None = None
-    top_k: int = Field(default=10, ge=1, le=100)
-    max_workers: int = Field(default=4, ge=1, le=16)
-    rerank_mode: RerankMode = "off"
-    suite: EvalSuite = "full"
-
-
-class EvalJobResponse(BaseModel):
-    job_id: str | None = None
-    status: Literal["idle", "running", "succeeded", "failed"] = "idle"
-    message: str | None = None
-    started_at: str | None = None
-    finished_at: str | None = None
 
 
 class IntakePayload(BaseModel):
@@ -331,8 +314,6 @@ __all__ = [
     "CaseTemplateCreateRequest",
     "CaseTemplateUpdateRequest",
     "CaseUpdateRequest",
-    "EvalJobResponse",
-    "EvalRunRequest",
     "FeedbackRequest",
     "HealthResponse",
     "IntakePayload",

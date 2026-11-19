@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from law_agent.data.schemas import Chunk
 from law_agent.review.http.schemas import FactConfirmRequest, MatterQuestionRequest
 from law_agent.review.matter_agent import answer_matter, matter_context
-from law_agent.review.semantic_grounding import SemanticGroundingRejected, SemanticVerdict
+from law_agent.review.semantic_grounding import SemanticVerdict
 from tests.test_fact_confirmation import binding, confirm, make_matter
 from tests.test_review_llm import FakeClient
 from tests.test_review_result_builder import _hit

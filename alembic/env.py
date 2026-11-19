@@ -11,10 +11,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option(
-    "sqlalchemy.url",
-    os.getenv("PG_DSN", config.get_main_option("sqlalchemy.url")),
-)
+_dsn = os.getenv("PG_DSN") or config.get_main_option("sqlalchemy.url")
+# The application uses psycopg 3 with plain ``postgresql://`` DSNs; SQLAlchemy 2.0
+# would map that scheme to psycopg2, which is not installed.
+if _dsn.startswith(("postgresql://", "postgres://")):
+    _dsn = "postgresql+psycopg://" + _dsn.split("://", 1)[1]
+config.set_main_option("sqlalchemy.url", _dsn.replace("%", "%%"))
 target_metadata = None
 
 

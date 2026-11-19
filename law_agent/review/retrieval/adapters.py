@@ -180,14 +180,6 @@ class PgVectorAdapter:
             )
         return results
 
-    def _embed_one(self, query: str) -> list[float]:
-        cached = self._query_cache.get(query)
-        if cached is not None:
-            return cached
-        self.prewarm_queries([query])
-        vector = self._query_cache[query]
-        return vector
-
 
 def require_service_adapters(
     *,

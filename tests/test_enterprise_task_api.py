@@ -782,12 +782,9 @@ def test_feishu_authoritative_writeback_and_hashed_report(tmp_path: Path) -> Non
         assert report["metadata"]["material_snapshot_id"] == snapshot.id
         assert report["metadata"]["intake_snapshot_id"] == rule.id
         assert hashlib.sha256(downloaded.content).hexdigest() == report["sha256"]
-        repeated_download = client.get(f"/api/reports/{report['id']}/download")
+        repeated_download = client.get(f"/api/cases/{case_id}/reports/download")
         assert repeated_download.status_code == 200
         assert repeated_download.content == downloaded.content
-        explicit = client.post(f"/api/cases/{case_id}/reports")
-        assert explicit.status_code == 200, explicit.text
-        assert explicit.json()["id"] == report["id"]
 
 
 def test_feishu_network_failure_is_persisted_and_can_be_retried(tmp_path: Path) -> None:

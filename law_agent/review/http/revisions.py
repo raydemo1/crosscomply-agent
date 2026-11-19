@@ -162,13 +162,13 @@ def register_revision_routes(
         return proposal
 
     @router.get("/api/cases/{case_id}/revision-proposals")
-    async def list_proposals(case_id: str, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+    def list_proposals(case_id: str, user: UserRecord = Depends(current_user)) -> dict[str, Any]:
         visible_case(case_id, user)
         items = revisions().list(case_id)
         return {"items": items, "total": len(items)}
 
     @router.post("/api/revision-proposals/{proposal_id}/decision")
-    async def decide(
+    def decide(
         proposal_id: str, payload: DecideRevisionRequest,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -195,7 +195,7 @@ def register_revision_routes(
         return updated
 
     @router.get("/api/cases/{case_id}/working-draft")
-    async def working_draft(
+    def working_draft(
         case_id: str, material_version_id: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:

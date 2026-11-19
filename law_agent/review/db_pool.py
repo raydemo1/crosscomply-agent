@@ -38,14 +38,6 @@ def _get_pool(dsn: str):
         return pool
 
 
-def close_pool(dsn: str) -> None:
-    """Close a pool when its database will no longer be used in this process."""
-    with _lock:
-        pool = _pools.pop(dsn, None)
-    if pool is not None:
-        pool.close()
-
-
 @contextmanager
 def pooled_connection(dsn: str):
     """Yield a pooled connection when available, else a direct one."""

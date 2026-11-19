@@ -299,7 +299,7 @@ def build_parser() -> argparse.ArgumentParser:
     report_governance.add_argument("--cleaned", default="data/cleaned/documents.cleaned.jsonl")
     report_governance.add_argument("--enriched", default="data/enriched/documents.enriched.jsonl")
     report_governance.add_argument("--chunks", default="data/chunks/chunks.jsonl")
-    report_governance.add_argument("--output", default="docs/data_governance_report.md")
+    report_governance.add_argument("--output", default="data/reports/data_governance_report.md")
     report_governance.set_defaults(func=_cmd_report_governance)
 
     pipeline = subparsers.add_parser("pipeline", help="Run the file pipeline")
@@ -312,7 +312,7 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline_run.add_argument("--enriched", default="data/enriched/documents.enriched.jsonl")
     pipeline_run.add_argument("--chunks", default="data/chunks/chunks.jsonl")
     pipeline_run.add_argument("--eval-output", default="data/eval/retrieval_cases.jsonl")
-    pipeline_run.add_argument("--report-output", default="docs/data_governance_report.md")
+    pipeline_run.add_argument("--report-output", default="data/reports/data_governance_report.md")
     pipeline_run.add_argument("--timeout-seconds", type=int, default=30)
     pipeline_run.add_argument("--limit", type=int, default=60)
     pipeline_run.add_argument(

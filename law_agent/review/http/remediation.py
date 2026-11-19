@@ -376,7 +376,7 @@ def register_remediation_routes(
         return {"items": items, "total": len(items)}
 
     @router.post("/api/cases/{identifier}/remediation-plan")
-    async def create_remediation_plan(
+    def create_remediation_plan(
         identifier: str,
         payload: RemediationPlanRequest,
         user: UserRecord = Depends(current_user),
@@ -407,7 +407,7 @@ def register_remediation_routes(
         return plan_payload(plan)
 
     @router.get("/api/cases/{identifier}/remediation-plan")
-    async def get_remediation_plan(
+    def get_remediation_plan(
         identifier: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -417,7 +417,7 @@ def register_remediation_routes(
         return plan_payload(plan)
 
     @router.post("/api/remediation-plans/{plan_id}/activate")
-    async def activate_remediation_plan(
+    def activate_remediation_plan(
         plan_id: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -437,27 +437,8 @@ def register_remediation_routes(
         record_event(plan_id, user.id, event_type="plan_activated")
         return plan_payload(plan)
 
-    @router.post("/api/remediation-plans/{plan_id}/cancel")
-    async def cancel_remediation_plan(
-        plan_id: str,
-        user: UserRecord = Depends(current_user),
-    ) -> dict[str, Any]:
-        reviewer_only(user)
-        try:
-            plan = store().cancel_remediation_plan(plan_id)
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail="整改计划不存在") from exc
-        store().add_event(
-            plan["case_id"],
-            user.id,
-            event_type="remediation_plan_cancelled",
-            payload={"plan_id": plan_id},
-        )
-        record_event(plan_id, user.id, event_type="plan_cancelled")
-        return plan_payload(plan)
-
     @router.get("/api/remediations")
-    async def list_remediations(
+    def list_remediations(
         scope: Literal["mine", "review"] = "mine",
         status: str | None = None,
         user: UserRecord = Depends(current_user),
@@ -471,13 +452,13 @@ def register_remediation_routes(
         return {"items": [task_payload(item) for item in current_items], "total": len(current_items)}
 
     @router.get("/api/users/assignable")
-    async def list_assignable_users(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
+    def list_assignable_users(user: UserRecord = Depends(current_user)) -> dict[str, Any]:
         reviewer_only(user)
         items = [item.to_dict() for item in store().list_assignable_users()]
         return {"items": items, "total": len(items)}
 
     @router.get("/api/remediation-tasks/{task_id}")
-    async def get_remediation_task(
+    def get_remediation_task(
         task_id: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -488,7 +469,7 @@ def register_remediation_routes(
         return {"task": task_payload(task), "case": case_summary(case) if case else None}
 
     @router.patch("/api/remediation-tasks/{task_id}")
-    async def update_remediation_task(
+    def update_remediation_task(
         task_id: str,
         payload: RemediationTaskUpdateRequest,
         user: UserRecord = Depends(current_user),
@@ -513,7 +494,7 @@ def register_remediation_routes(
         return task_payload(task)
 
     @router.post("/api/remediation-tasks/{task_id}/start")
-    async def start_remediation_task(
+    def start_remediation_task(
         task_id: str,
         user: UserRecord = Depends(current_user),
     ) -> dict[str, Any]:
@@ -758,7 +739,7 @@ def register_remediation_routes(
         return updated
 
     @router.post("/api/remediation-submissions/{submission_id}/review")
-    async def review_remediation_submission(
+    def review_remediation_submission(
         submission_id: str,
         payload: RemediationSubmissionReviewRequest,
         user: UserRecord = Depends(current_user),
@@ -819,7 +800,7 @@ def register_remediation_routes(
         return reviewed
 
     @router.get("/api/remediation-evidence/{evidence_id}/download")
-    async def download_remediation_evidence(
+    def download_remediation_evidence(
         evidence_id: str,
         user: UserRecord = Depends(current_user),
     ) -> Response:

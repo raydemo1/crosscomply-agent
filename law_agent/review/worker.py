@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import socket
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Protocol
 
 from law_agent.review.agent import AgentState
@@ -105,8 +107,6 @@ class ReviewWorker:
             try:
                 self._on_succeeded(completed)
             except Exception:
-                import logging
-
                 logging.getLogger(__name__).exception(
                     "task %s succeeded but on_succeeded callback failed", task.id
                 )
@@ -154,27 +154,21 @@ class ReviewWorker:
                     raise
                 return current
             except Exception:
-                import logging
-                import time as _time
-
                 if attempt == 2:
                     raise
                 logging.getLogger(__name__).exception(
                     "fail_task(%s) attempt %s failed; retrying", task.id, attempt + 1
                 )
-                _time.sleep(2 ** attempt)
+                time.sleep(2 ** attempt)
         if failed is None:
             raise RuntimeError(f"fail_task({task.id}) did not return a task")
         try:
             self._on_failed(failed)
         except Exception:
-            import logging
-
             logging.getLogger(__name__).exception(
                 "task %s failed but on_failed callback errored", task.id
             )
         return failed
-
 
 
 def build_production_review_worker(*, case_store, queue, enrichment_store, chunks_path, worker_id: str) -> ReviewWorker:
@@ -354,25 +348,24 @@ def main() -> None:
     """Run the production worker until the container is stopped."""
     from law_agent.config import load_service_config
     from law_agent.kb.enrichment import PostgresEnrichmentStore
-    from law_agent.review.api import create_app
     from law_agent.review.case_store import PostgresCaseStore
     from law_agent.review.enterprise_store import PostgresEnterpriseStore
     from law_agent.review.qa_agent import QAWorker
+    from law_agent.review.qa_store import PostgresQAStore
+    from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 
     config = load_service_config()
     case_store = PostgresCaseStore(config.postgres.dsn)
-    app = create_app(case_store=case_store)
     case_store.initialize()
+    chunks_path = Path(DEFAULT_CHUNKS_PATH)
     worker_id = os.getenv("CROSSCOMPLY_WORKER_ID") or f"{socket.gethostname()}-{os.getpid()}"
     poll_seconds = max(0.2, float(os.getenv("CROSSCOMPLY_WORKER_POLL_SECONDS", "2")))
     worker = build_production_review_worker(
         case_store=case_store, queue=PostgresEnterpriseStore(config.postgres.dsn),
         enrichment_store=PostgresEnrichmentStore(config.postgres.dsn),
-        chunks_path=app.state.chunks_path, worker_id=worker_id,
+        chunks_path=chunks_path, worker_id=worker_id,
     )
-    qa_worker = QAWorker(app.state.qa_store, chunks_path=app.state.chunks_path)
-    import logging
-
+    qa_worker = QAWorker(PostgresQAStore(config.postgres.dsn), chunks_path=chunks_path)
     logger = logging.getLogger(__name__)
     backoff = poll_seconds
     while True:
