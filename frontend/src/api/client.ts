@@ -1,10 +1,12 @@
 /** Client for the CrossComply persisted case workbench API. */
 import { PUBLIC_DEMO } from '../runtime';
+import { readMatterStream, type MatterStreamEvent } from '../utils/matterStream';
 import type {
   EligibleTransferCase, ImpactOutcome, TransferActivity, TransferDetail, WorkItem,
 } from '../types/operations';
 
 import type {
+  MatterSelection,
   MatterTurnApi,
   CaseDetailApi,
   CaseFeedbackApi,
@@ -14,11 +16,6 @@ import type {
   CaseTemplateApi,
   CaseTemplatePayload,
   CaseStatus,
-  EvalJobResponse,
-  EvalRerankMode,
-  EvalRunOptions,
-  EvalSummary,
-  HealthResponse,
   KnowledgeDeletePreviewApi,
   KnowledgeImportPreviewApi,
   KnowledgeJobApi,
@@ -861,12 +858,6 @@ export async function getMatterConversation(caseId: string): Promise<MatterTurnA
   return (await request<{ items: MatterTurnApi[] }>(`/api/cases/${encodeURIComponent(caseId)}/conversation`)).items;
 }
 
-export async function askMatterAgent(caseId: string, payload: FactBinding & { question: string }): Promise<MatterTurnApi> {
-  return request(`/api/cases/${encodeURIComponent(caseId)}/conversation`, { method: 'POST', body: JSON.stringify(payload), timeoutMs: REVIEW_TIMEOUT_MS });
-}
-
-import { readMatterStream, type MatterStreamEvent } from '../utils/matterStream';
-import type { MatterSelection } from '../types/api';
 
 /** 流式案件问答，保存后以 done 事件下发完整轮次。 */
 export async function streamMatterAnswer(

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createServer, type ViteDevServer } from 'vite';
+import type { ViteDevServer } from 'vite';
+import { createSsrServer } from '../testing/ssrServer.ts';
 import type { MatterStreamEvent } from '../utils/matterStream.ts';
 
 let server: ViteDevServer;
@@ -11,7 +12,7 @@ let examples: typeof import('./examples.ts');
 let networkCalls = 0;
 const originalFetch = globalThis.fetch;
 before(async () => {
-  server = await createServer({ mode: 'demo', server: { middlewareMode: true, hmr: false }, appType: 'custom' });
+  server = await createSsrServer('demo');
   client = await server.ssrLoadModule('/src/api/client.ts');
   examples = await server.ssrLoadModule('/src/demo/examples.ts');
   globalThis.fetch = async () => { networkCalls += 1; throw new Error('A demo must never fetch an API'); };

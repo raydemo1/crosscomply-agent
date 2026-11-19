@@ -264,7 +264,7 @@
 .case-records__sources li:last-child { border-bottom: 0; }
 .case-records__sources small { color: var(--color-foreground-muted); }
 .case-records .cite-list + .feedback { margin-top: 28px; }
-.review-report--document .case-field__value, .review-report--document .case-field__material { font: 400 var(--report-body-size)/1.75 var(--font-body); }
+
 .review-report--document .report-record-note { font-size: var(--text-md); line-height: 1.7; }
 @media (max-width: 600px) {
   .review-report--document .report-heading { align-items: flex-start; flex-wrap: wrap; gap: 8px; }

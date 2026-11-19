@@ -27,9 +27,6 @@
 /* Long legal prose is easier to scan when the report column has a bounded
  * measure. The evidence drawer remains independent and does not reserve a
  * second column in this layout. */
-.review-report > .remediation-summary {
-  padding: 1.75rem 2rem;
-}
 
 /* 待核实事项：内联预览，无独立边框——与报告区块共用分隔线节奏 */
 .review-followup-summary {
@@ -112,7 +109,6 @@
   .review-followup-summary__item-title { white-space: normal; }
 }
 
-
 .report-disclosure {
   padding: 0;
   overflow: visible;
@@ -157,7 +153,6 @@
     grid-template-columns: 1fr;
   }
 }
-
 
 .case-header__top {
   display: flex;
@@ -269,41 +264,6 @@
 }
 
 /* Case field blocks (question / material recap) */
-.case-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-md);
-}
-.case-field:last-child {
-  margin-bottom: 0;
-}
-.case-field__label {
-  font-size: var(--text-xs);
-  font-weight: 700;
-  color: var(--color-primary);
-  letter-spacing: 0.02em;
-}
-.case-field__value {
-  font-size: 0.9375rem;
-  color: var(--color-foreground);
-  line-height: 1.6;
-}
-.case-field__material {
-  background: var(--color-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
-  font-family: var(--font-body);
-  font-size: var(--text-md);
-  line-height: 1.6;
-  color: var(--color-foreground-secondary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 320px;
-  overflow-y: auto;
-  margin: 0;
-}
 
 /* Conclusion block */
 .case-conclusion__head {
@@ -327,155 +287,6 @@
 .case-conclusion > .section-title::before {
   display: none;
 }
-
-
-
-
-.grounded-claims {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  margin-top: var(--space-sm);
-}
-
-.grounded-claims--compact {
-  margin-top: var(--space-md);
-}
-
-.grounded-claims__header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-primary);
-  font-size: var(--text-md);
-  font-weight: var(--weight-bold);
-}
-
-.grounded-claims__header span:last-child {
-  color: var(--color-foreground-muted);
-  font-size: var(--text-xs);
-  font-weight: 500;
-}
-
-.grounded-claim {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-sm);
-  align-items: flex-start;
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.grounded-claim__text {
-  display: flex;
-  gap: var(--space-sm);
-  min-width: 0;
-  font-size: var(--text-md);
-  line-height: 1.6;
-  color: var(--color-foreground-secondary);
-}
-
-.grounded-claims--compact .grounded-claim__text {
-  font-size: 0.9375rem;
-  color: var(--color-foreground);
-}
-
-.grounded-claim__emphasis {
-  color: var(--color-foreground);
-  font-weight: var(--weight-bold);
-}
-
-.grounded-claim__marker {
-  display: inline-flex;
-  margin-left: 0.25rem;
-  color: var(--color-accent);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  text-decoration: none;
-}
-
-.grounded-claim__marker:hover {
-  text-decoration: underline;
-}
-
-.grounded-claim__index {
-  flex: 0 0 auto;
-  width: 1.25rem;
-  height: 1.25rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--tint-navy-bg);
-  color: var(--color-primary);
-  font-size: var(--text-xs);
-  font-weight: 700;
-}
-
-.grounded-claim__refs {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.375rem;
-}
-
-.grounded-claim__ref {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem;
-  max-width: 19rem;
-  padding: 0.375rem 0.625rem;
-  border: 1px solid var(--tint-navy-border);
-  border-radius: var(--radius-pill);
-  background: var(--tint-navy-bg);
-  color: var(--color-primary);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  line-height: 1.35;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.grounded-claim__ref:hover,
-.grounded-claim__ref:focus-visible {
-  border-color: var(--color-primary);
-  background: rgba(30, 58, 138, 0.12);
-  color: var(--color-primary);
-}
-
-.grounded-claim__ref-id {
-  flex: 0 0 auto;
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  font-weight: var(--weight-bold);
-}
-
-@media (max-width: 640px) {
-  .grounded-claim {
-    grid-template-columns: 1fr;
-  }
-
-  .grounded-claim__refs {
-    justify-content: flex-start;
-  }
-
-  .grounded-claims__header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 2px;
-  }
-}
-
 
 /* ============================================================
  * 案件状态徽章
@@ -710,14 +521,7 @@
   line-height: 1.5;
 }
 
-
 /* Warning & missing lists */
-.warning-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
 
 /* ============================================================
  * Citation list (expandable)
@@ -799,7 +603,6 @@
   white-space: nowrap;
 }
 
-
 .cite-row__body {
   padding: 0 var(--space-md) var(--space-md);
   border-top: 1px solid var(--color-border);
@@ -820,7 +623,6 @@
   letter-spacing: 0.02em;
 }
 
-
 .cite-row__meta {
   display: flex;
   flex-wrap: wrap;
@@ -835,7 +637,6 @@
 .cite-row__meta code {
   font-size: 0.6875rem;
 }
-
 
 .cite-row__feedback {
   display: flex;
@@ -962,7 +763,6 @@
     min-width: 100px;
   }
 }
-
 
 /* ---------- Markdown body (legal report content) ----------
    Renders LLM-generated conclusion / claims / risk_boundaries markdown.
@@ -1112,27 +912,8 @@
   }
 }
 
-.grounded-claims__header { font-size: var(--text-base); }
-.grounded-claims__header span:last-child { font-size: 0.8125rem; }
-.grounded-claim__text { font-size: var(--text-base); }
 /* Legal references use the established serif text face so long Chinese titles
  * retain the formal, statute-like rhythm of the surrounding citation text. */
-.grounded-claim__ref {
-  padding: 0.45rem 0.8rem;
-  font-family: var(--font-legal);
-  font-size: clamp(0.84rem, 1.1vw, 0.9rem);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  line-height: 1.45;
-}
-.grounded-claim__ref-id {
-  flex: 1 1 auto;
-  font-family: var(--font-legal);
-  font-size: inherit;
-  font-weight: 600;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
 
 .markdown-body--report { font-size: 1rem; }
 .markdown-body--report h3 { font-size: 1.125rem; }
@@ -1146,13 +927,6 @@
   .template-page__header,
   .remediation-page__top {
     align-items: center;
-  }
-}
-
-@media (max-width: 640px) {
-  .grounded-claim__ref {
-    max-width: 100%;
-    font-size: var(--text-md);
   }
 }
 
@@ -1171,17 +945,12 @@
 /* Content surfaces are quiet by default; interaction and warning states
  * provide the contrast instead of a stack of permanent shadows. */
 
-
 .case-header {
   padding: 4px 0 8px;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-}
-
-.hero-case-progress {
-  padding: 0;
 }
 
 .review-report {
@@ -1229,8 +998,6 @@
   line-height: 1.45;
 }
 
-
-
 .case-conclusion > .section-title {
   margin: 32px 0 16px;
   padding: 0;
@@ -1239,27 +1006,9 @@
   line-height: 1.35;
 }
 
-
-
-
 .markdown-body--report {
   font-size: 17px;
   line-height: 1.8;
-}
-
-.grounded-claims--compact {
-  margin-top: 32px;
-}
-
-.grounded-claims--compact .grounded-claim {
-  padding: 16px 0;
-  border-width: 1px 0 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.grounded-claims--compact .grounded-claim:last-child {
-  border-bottom: 1px solid var(--color-border);
 }
 
 .review-gaps__heading {
@@ -1278,21 +1027,6 @@
 
 .review-gaps__heading p {
   max-width: 680px;
-}
-
-.review-report > .remediation-summary {
-  display: grid;
-  padding: 20px 0;
-  border: 0;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.review-report > .report-section.remediation-summary {
-  padding-top: 20px;
 }
 
 .report-disclosure {
@@ -1386,12 +1120,6 @@ details.card.report-disclosure > summary > svg {
   color: var(--color-foreground-muted);
 }
 
-.report-inline-disclosure { margin-top: 18px; }
-.report-inline-disclosure > summary { width: fit-content; color: var(--color-primary); cursor: pointer; font-size: var(--text-base); font-weight: 700; }
-.report-inline-disclosure > .case-conclusion__body { margin-top: 16px; }
-.report-issues-disclosure .review-issues { padding: 0; border: 0; }
-.report-issues-disclosure .review-issues__heading { display: none; }
-
 .report-main-issues__list { display: grid; gap: 0; }
 .report-main-issue { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 16px; padding: var(--space-md) 0; border-top: 1px solid var(--color-border); }
 .report-main-issue > .btn-link { grid-column: 2; grid-row: 1; justify-self: end; white-space: nowrap; }
@@ -1457,7 +1185,6 @@ details.card.report-disclosure > summary > svg {
   }
 }
 
-
 @media (max-width: 767px) {
   .case-header {
     padding: 0;
@@ -1482,10 +1209,6 @@ details.card.report-disclosure > summary > svg {
     padding-top: 24px;
   }
 
-  .review-report > .report-section.remediation-summary {
-    padding-top: 16px;
-  }
-
   .markdown-body--report {
     font-size: 16px;
     line-height: 1.8;
@@ -1498,79 +1221,7 @@ details.card.report-disclosure > summary > svg {
   }
 }
 
-
 /* The citation entry belongs to the claims section, not to the page chrome. */
-.grounded-claims__header {
-  align-items: center;
-  gap: 12px;
-}
-
-.grounded-claims__header-action {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-  flex: 0 0 auto;
-}
-
-.grounded-claims__title {
-  margin: 0;
-  color: var(--color-primary);
-  font-family: var(--font-heading);
-  font-size: 1.35rem;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.grounded-claims__hint {
-  color: var(--color-foreground-muted);
-  font-size: 0.8125rem;
-  font-weight: 500;
-}
-
-.grounded-claims--compact {
-  margin-top: 24px;
-  gap: 0;
-}
-
-.grounded-claims--compact .grounded-claim {
-  gap: 8px;
-  padding: 10px 0;
-}
-
-.grounded-claims--compact .grounded-claim__text {
-  gap: 8px;
-  line-height: 1.65;
-}
-
-.grounded-claims--compact .grounded-claim__index {
-  width: 1.15rem;
-  height: 1.15rem;
-  font-size: var(--text-xs);
-}
-
-.grounded-claims--compact .grounded-claim__refs {
-  gap: 4px 12px;
-  margin-top: 2px;
-}
-
-.grounded-claims--compact .grounded-claim__ref {
-  min-height: 0;
-  max-width: none;
-  padding: 2px 0;
-  border: 0;
-  border-bottom: 1px solid var(--tint-navy-border);
-  border-radius: 0;
-  background: transparent;
-  font-size: var(--text-sm);
-  line-height: 1.3;
-}
-
-.grounded-claims--compact .grounded-claim__ref:hover,
-.grounded-claims--compact .grounded-claim__ref:focus-visible {
-  border-color: var(--color-primary);
-  background: transparent;
-}
 
 .case-header__action-btn--report-pending {
   border-color: var(--color-hairline);
@@ -1579,42 +1230,7 @@ details.card.report-disclosure > summary > svg {
   cursor: not-allowed;
 }
 
-@media (max-width: 767px) {
-  .grounded-claims__header {
-    flex-direction: row;
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .grounded-claims__header-action {
-    margin-left: auto;
-  }
-}
-
-
 /* Keep the connector on its own rail so it never cuts through step labels. */
-@media (min-width: 768px) {
-  .hero-case-progress__steps li {
-    align-items: center;
-    flex-direction: column;
-    gap: 6px;
-    padding-right: 0;
-  }
-
-  .hero-case-progress__steps li::before {
-    right: -50%;
-    left: 50%;
-    z-index: 0;
-  }
-
-  .hero-case-progress__steps li > div {
-    width: 100%;
-    padding-right: 0;
-    background: transparent;
-    text-align: center;
-  }
-}
-
 
 /* ============================================================
  * Report reading order and supporting records
@@ -1630,7 +1246,6 @@ details.card.report-disclosure > summary > svg {
   grid-row: 1;
   grid-column: 1;
 }
-
 
 #report-conclusion,
 #report-basis,
@@ -1649,46 +1264,12 @@ details.card.report-disclosure > summary > svg {
   font-size: 1.35rem;
 }
 
-.report-basis .grounded-claims--compact {
-  margin-top: 0;
-}
-
-.report-basis .grounded-claims__header {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.report-basis .grounded-claims--compact .grounded-claim,
-.report-basis .grounded-claims--compact .grounded-claim:last-child {
-  gap: 4px;
-  padding-block: 8px;
-  border: 0;
-}
-
-.report-basis .grounded-claims--compact .grounded-claim + .grounded-claim {
-  margin-top: 2px;
-}
-
-.report-basis .grounded-claims--compact .grounded-claim__text {
-  line-height: 1.55;
-}
-
-.report-basis .grounded-claims--compact .grounded-claim__refs {
-  margin-top: 0;
-  margin-left: calc(1.15rem + 8px);
-}
-
-.report-section__intro,
 .report-disclosure__intro {
   margin: 0;
   max-width: 70ch;
   color: var(--color-foreground-muted);
   font-size: 0.88rem;
   line-height: 1.65;
-}
-
-.review-boundaries .warning-list {
-  margin-top: 14px;
 }
 
 .review-followup-summary + .review-recommendations {
@@ -1699,18 +1280,6 @@ details.card.report-disclosure > summary > svg {
 
 .review-next-steps .review-recommendations__list {
   margin-top: 16px;
-}
-
-.review-next-steps .remediation-summary {
-  margin-top: 24px;
-  padding: 20px 0;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  background: transparent;
-}
-
-.review-next-steps .remediation-summary__copy h2 {
-  font-size: 1rem;
 }
 
 .report-record-group {
@@ -1729,7 +1298,6 @@ details.card.report-disclosure > summary > svg {
   margin-bottom: 18px;
 }
 
-.report-record-group .case-field + .case-field,
 .report-record-group .enterprise-materials,
 .report-record-group .pipeline,
 .report-record-group .report-record-subsection {
@@ -1751,16 +1319,11 @@ details.card.report-disclosure > summary > svg {
 }
 
 @media (max-width: 767px) {
-  .review-next-steps .remediation-summary {
-    padding-block: 16px;
-  }
-
   .report-record-group + .report-record-group {
     margin-top: 22px;
     padding-top: 22px;
   }
 }
-
 
 @media (max-width: 1279px) {
   .review-report-layout {
@@ -1768,7 +1331,6 @@ details.card.report-disclosure > summary > svg {
     gap: 0;
   }
 }
-
 
 .issue-excerpt__highlight,
 .revision-workspace__highlight {
@@ -1785,13 +1347,11 @@ details.card.report-disclosure > summary > svg {
 .case-detail-views button.is-active { border-bottom-color: var(--color-primary); color: var(--color-primary); }
 .case-detail-views button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
 
-
 @media (max-width: 767px) {
   .case-detail .case-header__actions { flex-wrap: wrap; }
   .case-detail .case-header__actions > .case-header__action-btn { flex: 0 1 auto; }
   .case-detail .case-header__meta-item { display: none; }
 }
-
 
 .issue-excerpt__action {
   margin-top: 10px;
@@ -1887,7 +1447,6 @@ details.card.report-disclosure > summary > svg {
   .revision-workspace__decision input { flex-basis: 100%; }
 }
 
-
 /* ============================================================
  * 审查失败摘要
  * ============================================================ */
@@ -1926,10 +1485,10 @@ details.card.report-disclosure > summary > svg {
 .case-facts-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 6px; background: var(--color-warning-bg); color: var(--color-warning); font-size: var(--text-xs); }
 .case-module-kicker { display: block; color: var(--color-foreground-muted); font-size: var(--text-xs); font-weight: 600; margin-bottom: 6px; }
 .case-workspace h2 { font-size: 1.2rem; line-height: 1.5; }
-.case-workspace .case-facts, .case-workspace .case-fact-question, .case-workspace .matter-conversation { margin: 0; }
+.case-workspace .case-facts, .case-workspace .case-fact-question { margin: 0; }
 .case-answer-area { min-width: 0; scroll-margin-top: 24px; }
 .case-answer-area:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 4px; border-radius: var(--radius-lg); }
-.case-answer-area__error, .matter-conversation .matter-conversation__error { color: var(--color-danger); font-size: var(--text-md); line-height: 1.6; padding-top: 10px; }
+.case-answer-area__error { color: var(--color-danger); font-size: var(--text-md); line-height: 1.6; padding-top: 10px; }
 .case-fact-question { padding: 24px; border-top: 3px solid var(--color-accent); }
 .case-fact-question__heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .case-fact-question__heading .case-module-kicker { color: var(--color-accent); }
@@ -1939,18 +1498,18 @@ details.card.report-disclosure > summary > svg {
 .case-fact-question__steps .is-current { color: var(--color-primary); font-weight: 600; }
 .case-fact-question__steps .is-current > span { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
 .case-fact-question__steps .is-done { color: var(--color-success); }
-.case-fact-question p, .case-facts p, .matter-conversation p { font-size: var(--text-md); line-height: 1.75; color: var(--color-foreground-muted); }
+.case-fact-question p, .case-facts p { font-size: var(--text-md); line-height: 1.75; color: var(--color-foreground-muted); }
 .case-fact-question .case-fact-question__prompt { margin: 20px 0 12px; padding: 14px 16px; background: var(--color-background); border-radius: var(--radius-md); color: var(--color-foreground); font-size: 0.95rem; }
 .case-fact-question__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
 .case-fact-question label { display: grid; align-content: start; gap: 8px; font-size: var(--text-md); font-weight: 600; margin-top: 16px; }
 .case-fact-question__fields label { margin: 0; }
 .case-fact-question label small, .case-facts__values small { display: block; font-size: var(--text-xs); color: var(--color-foreground-muted); font-weight: 400; line-height: 1.6; }
-.case-fact-question select, .case-fact-question textarea, .matter-conversation textarea { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font: 400 0.9rem/1.6 var(--font-body); background: var(--color-surface); color: var(--color-foreground);  }
-.case-fact-question textarea:focus-visible, .case-fact-question select:focus-visible, .matter-conversation textarea:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
-.case-fact-question textarea::placeholder, .matter-conversation textarea::placeholder { color: var(--color-foreground-muted); }
+.case-fact-question select, .case-fact-question textarea { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font: 400 0.9rem/1.6 var(--font-body); background: var(--color-surface); color: var(--color-foreground);  }
+.case-fact-question textarea:focus-visible, .case-fact-question select:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
+.case-fact-question textarea::placeholder { color: var(--color-foreground-muted); }
 .case-fact-question__footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 20px; }
 .case-fact-question__footer small { font-size: var(--text-xs); color: var(--color-foreground-muted); }
-.case-fact-question .btn-primary, .matter-conversation .btn-primary { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; font-size: var(--text-md); }
+.case-fact-question .btn-primary { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; font-size: var(--text-md); }
 .case-fact-question__materials { display: flex; align-items: center; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--color-border); font-size: var(--text-sm); color: var(--color-foreground-muted); }
 .case-fact-question__materials button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: inherit; }
 .case-fact-question__alternative { margin-top: 18px; font-size: var(--text-md); }
@@ -1966,8 +1525,7 @@ details.card.report-disclosure > summary > svg {
 .case-detail--reviewed .case-facts { position: relative; }
 .case-facts__toolbar { position: absolute; top: clamp(32px, 5vw, 56px); right: clamp(32px, 5vw, 56px); line-height: 1.5; }
 .case-facts__toolbar .btn-link { min-height: 27px; }
-.matter-conversation > summary { display: flex; align-items: center; gap: 12px; list-style: none; cursor: pointer; }
-.matter-conversation > summary::-webkit-details-marker { display: none; }
+
 .case-facts__count { font-size: var(--text-xs); color: var(--color-foreground-muted); white-space: nowrap; }
 .case-disclosure-chevron { color: var(--color-foreground-muted); transition: transform 150ms ease; flex-shrink: 0; }
 details[open] > summary > .case-disclosure-chevron { transform: rotate(180deg); }
@@ -2129,7 +1687,6 @@ details[open] > summary > .case-disclosure-chevron { transform: rotate(180deg); 
 @media (max-width: 1179px) {
   .case-detail .case-workspace { grid-template-columns: minmax(0, 1fr); }
   .case-workspace__aside { position: static; }
-  .matter-conversation__history { max-height: 360px; }
 }
 @media (max-width: 600px) {
   .case-workspace__main { gap: 16px; }
@@ -2141,10 +1698,7 @@ details[open] > summary > .case-disclosure-chevron { transform: rotate(180deg); 
   .case-fact-question__materials { align-items: flex-start; flex-direction: column; gap: 0; }
   .case-facts__values > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .case-workspace .case-detail-views button { padding-inline: 10px; font-size: var(--text-md); }
-  .matter-conversation__help summary { min-height: 44px; }
-  .matter-conversation__suggestions .case-header__action-btn { min-height: 44px; }
 }
-
 
 /* ============================================================
  * 原文审阅（原 DocumentReview.css）
@@ -2292,7 +1846,6 @@ details[open] > summary > .case-disclosure-chevron { transform: rotate(180deg); 
   .case-facts__value .case-facts__source { max-width: 88px; }
   .document-review__paper-header { display: flex; padding: 12px 16px; }
 }
-
 
 /* ============================================================
  * 案件分享弹窗（原 ShareCaseDialog.css）
@@ -2470,7 +2023,6 @@ dialog.share-dialog {
 .workflow-actions__error { grid-column: 1 / -1; padding: 8px 10px; border-left: 3px solid var(--color-danger); background: var(--color-danger-bg); color: var(--color-danger-strong); font-size: var(--text-sm); }
 
 .enterprise-materials,
-.enterprise-paths,
 .enterprise-record__facts,
 .approval-ledger { margin-top: 14px; }
 
@@ -2493,15 +2045,6 @@ dialog.share-dialog {
 .enterprise-materials small { color: var(--color-foreground-muted); font-size: var(--text-xs); }
 .enterprise-materials code { color: var(--color-foreground-secondary); font-size: var(--text-xs); }
 
-.enterprise-paths { display: grid; gap: 8px; }
-.enterprise-paths > div { padding: 10px 12px; border: 1px solid var(--color-border); border-left-width: 3px; border-radius: var(--radius-sm); }
-.enterprise-paths > .is-determined { border-left-color: var(--color-success); background: var(--color-success-bg); }
-.enterprise-paths > .is-possible { border-left-color: var(--color-accent); background: var(--color-warning-bg); }
-.enterprise-paths strong,
-.enterprise-paths span { display: block; }
-.enterprise-paths strong { font-size: var(--text-sm); }
-.enterprise-paths span { margin-top: 2px; color: var(--color-foreground-muted); font-size: var(--text-xs); }
-
 .enterprise-callout {
   display: flex;
   flex-direction: column;
@@ -2516,26 +2059,6 @@ dialog.share-dialog {
 .enterprise-callout--warning { border-left-color: var(--color-warning); background: var(--color-warning-bg); }
 .enterprise-callout--danger { border-left-color: var(--color-danger); background: var(--color-danger-bg); }
 .enterprise-callout ul { margin: 4px 0 0 18px; }
-
-.enterprise-bases {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 12px;
-}
-
-.enterprise-bases a {
-  padding: 6px 9px;
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-sm);
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-.enterprise-bases a:hover { border-color: var(--color-primary); background: var(--color-background); }
-.enterprise-bases strong,
-.enterprise-bases span { display: block; font-size: var(--text-xs); }
-.enterprise-bases span { color: var(--color-foreground-muted); }
 
 .task-state {
   display: inline-flex;
@@ -2798,7 +2321,6 @@ dialog.share-dialog {
 @media (prefers-reduced-motion: reduce) {
   .basis-clause__body { animation: none; }
 }
-
 
 .report-approval {
   display: flex;

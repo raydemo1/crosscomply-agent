@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { ArrowRight, Menu } from 'lucide-react';
 import type { WorkbenchUser } from './types/api';
@@ -77,7 +76,7 @@ export default function App(): JSX.Element {
     <Routes>
       <Route element={<Shell user={user} onLogout={logout} onUserChanged={() => setUser(null)} />}>
         <Route path="/qa/:conversationId?" element={<QaRoute user={user} />} />
-        <Route path="/workbench" element={<WorkbenchRoute user={user} />} />
+        <Route path="/workbench" element={<WorkbenchRoute />} />
         <Route path="/templates" element={<TemplateRoute user={user} />} />
         <Route path="/reviews" element={<WorkInboxPage />} />
         <Route path="/reviews/remediation" element={<MyRemediationsRoute user={user} />} />
@@ -88,7 +87,7 @@ export default function App(): JSX.Element {
         <Route path="/cases/:caseId" element={<CaseDetailRoute user={user} />} />
         <Route path="/knowledge" element={<Navigate to="/knowledge/legal" replace />} />
         <Route path="/knowledge/:kind" element={<KnowledgeRoute user={user} />} />
-        <Route path="/governance" element={<GovernanceRoute user={user} />} />
+        <Route path="/governance" element={<GovernanceConsolePage />} />
         <Route path="/index.html" element={<LegacyRedirect />} />
         <Route path="*" element={<LegacyRedirect />} />
       </Route>
@@ -222,7 +221,7 @@ function QaRoute({ user }: { user: WorkbenchUser }): JSX.Element {
   />;
 }
 
-function WorkbenchRoute({ user }: { user: WorkbenchUser }): JSX.Element {
+function WorkbenchRoute(): JSX.Element {
   const location = useLocation();
   const caseId = new URLSearchParams(location.search).get('case');
   const cases = useCaseStore();
@@ -372,6 +371,3 @@ function KnowledgeRoute({ user }: { user: WorkbenchUser }): JSX.Element {
   return <KnowledgeBasePage user={user} initialLibraryKind={kind === 'internal_policy' ? 'internal_policy' : 'legal'} />;
 }
 
-function GovernanceRoute({ user }: { user: WorkbenchUser }): JSX.Element {
-  return <GovernanceConsolePage user={user} />;
-}

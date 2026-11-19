@@ -71,8 +71,8 @@
 .knowledge-list, .knowledge-detail { min-width: 0; padding: 0; overflow: hidden; }
 .knowledge-list.card { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .knowledge-detail.card { border-radius: var(--radius-lg); box-shadow: none; }
-.knowledge-list__header, .knowledge-detail__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 26px 28px 20px; border-bottom: 1px solid var(--color-hairline); }
-.knowledge-list__header h2, .knowledge-detail__header h2 { margin: 2px 0 0; color: var(--color-foreground); font-size: 1.25rem; font-weight: 600; line-height: 1.6; }
+.knowledge-detail__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 26px 28px 20px; border-bottom: 1px solid var(--color-hairline); }
+.knowledge-detail__header h2 { margin: 2px 0 0; color: var(--color-foreground); font-size: 1.25rem; font-weight: 600; line-height: 1.6; }
 .knowledge-bulkbar { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-bottom: 1px solid var(--color-muted); background: var(--color-background); color: var(--color-foreground-muted); font-size: 0.8125rem; }
 .knowledge-bulkbar label { display: inline-flex; align-items: center; gap: 7px; color: var(--color-primary); font-size: var(--text-md); }
 .knowledge-bulkbar > span { flex: 1; }
@@ -167,10 +167,7 @@ dialog.knowledge-modal::backdrop { background: rgba(15, 23, 42, 0.48); }
 .knowledge-preview__row strong { color: var(--color-primary); font-size: 0.8125rem; }
 .knowledge-preview__row small { margin-top: 2px; color: var(--color-foreground-muted); font-size: var(--text-xs); }
 .knowledge-preview__row em { grid-column: 2 / -1; color: var(--color-danger-strong); font-size: var(--text-xs); font-style: normal; }
-.knowledge-enrichment-review { margin-top: 16px; padding: 0 20px; overflow: hidden; }
-.knowledge-enrichment-review .knowledge-list__header { padding-inline: 0; }
-.knowledge-enrichment-review .knowledge-preview__row { grid-template-columns: minmax(0, 1fr) auto; }
-.knowledge-enrichment-review .knowledge-form { margin: 16px 0 0; }
+
 .knowledge-preview__text { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background); font-size: 0.8125rem; line-height: 1.6; }
 .knowledge-action { padding: 3px 7px; border-radius: var(--radius-pill); font-size: var(--text-xs); }
 .knowledge-action--add { background: var(--color-success-bg); color: var(--color-success); }
@@ -282,9 +279,6 @@ dialog.knowledge-modal::backdrop { background: rgba(15, 23, 42, 0.48); }
 .review-recommendations__list li { padding-left: var(--space-xs); }
 .review-recommendations__list li + li { margin-top: var(--space-md); }
 .review-recommendations__list .markdown-body--note { font-size: inherit; line-height: inherit; }
-
-.grounded-claims--compact .grounded-claim { grid-template-columns: minmax(0, 1fr); }
-.grounded-claims--compact .grounded-claim__refs { justify-content: flex-start; }
 
 .review-gaps__heading p {
   margin: var(--space-xs) 0 var(--space-md);
@@ -413,12 +407,6 @@ dialog.knowledge-modal::backdrop { background: rgba(15, 23, 42, 0.48); }
 .review-issue__citation:hover { border-color: var(--color-primary); background: var(--color-background); }
 .review-issue__citation:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
 
-.review-issue__citation-ref {
-  color: var(--color-foreground-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
 .review-issue__unknowns {
   margin: var(--space-sm) 0 0 18px;
   line-height: 1.8;
@@ -441,15 +429,8 @@ dialog.knowledge-modal::backdrop { background: rgba(15, 23, 42, 0.48); }
 .case-header__meta-item code { font-size: 0.8125rem; }
 .case-header__workflow-error { font-size: 0.8125rem; }
 
-.evidence-sidebar__subtitle { font-size: var(--text-sm); }
-.evidence-sidebar__close,
-.evidence-sidebar__count { font-size: 0.8125rem; }
-.evidence-card__index,
-.evidence-card__relation { font-size: 0.8125rem; }
-
 /* 用户管理行内按钮（统一使用 .btn-* 后的尺寸对齐） */
 .user-admin__row-btn, .user-admin__confirm { min-height: 44px; padding: 6px 11px; font-size: var(--text-sm); }
-
 
 /* 搜索命中文字：金色标示 */
 .search-hit { background: none; color: var(--color-accent); font-weight: var(--weight-semibold); }

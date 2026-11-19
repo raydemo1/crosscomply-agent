@@ -5,7 +5,6 @@ import type { CaseKnowledgeRecheckApi, CaseStatus, ReviewApiResponse, ReviewFact
 import { isReviewFailedResponse } from '../types/api';
 import type { CitationVerdict, SavedCase } from '../types/case';
 import { setCitationVerdict } from '../store/caseStore';
-import { openCase } from '../store/caseStore';
 import { caseReportDownloadUrl, getCaseKnowledgeRechecks } from '../api/client';
 import { IssueMix, SegmentProgress, SourceBars, issueKindChartClass } from './ReportFigures';
 import CaseWorkflowActions from './CaseWorkflowActions';
@@ -41,7 +40,6 @@ import {
   renderBool,
   renderList,
   renderText,
-  shortId,
 } from '../utils/display';
 
 interface CaseDetailPageProps {

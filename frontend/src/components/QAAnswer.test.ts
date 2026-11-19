@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createServer } from 'vite';
+import { createSsrServer } from '../testing/ssrServer.ts';
 import type { ViteDevServer } from 'vite';
 import type { ComponentType } from 'react';
 
 let server: ViteDevServer;
 let QAAnswer: ComponentType<{ answer: string; result: null; streaming: boolean; incomplete?: boolean }>;
 before(async () => {
-  server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+  server = await createSsrServer();
   QAAnswer = (await server.ssrLoadModule('/src/components/QAAnswer.tsx')).default;
 });
 after(async () => { await server?.close(); });

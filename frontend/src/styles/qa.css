@@ -290,10 +290,7 @@
 .qa-file-chips button { display: grid; place-items: center; padding: 2px; border: 0; background: transparent; cursor: pointer; color: inherit; }
 .qa-attached-labels { margin-top: 12px; }
 .qa-attached-labels > span { background: var(--tint-navy-bg-active); }
-.qa-sidebar-history { flex: 0 0 auto; }
-.sidebar-history-group .history-item--button { padding-inline: var(--space-sm); }
-.sidebar-history-group .sidebar-history__empty { padding-inline: var(--space-sm); }
-.qa-history-more summary { font-size: var(--text-xs); cursor: pointer; padding: 6px 12px; color: inherit; }
+
 .qa-workbench-leads { border: 1px solid var(--color-hairline); background: var(--color-muted); border-radius: var(--radius-md); padding: 14px 20px; margin-bottom: 20px; font-size: var(--text-sm); }
 .qa-workbench-leads summary { cursor: pointer; color: var(--color-primary); }
 .qa-workbench-leads p { color: var(--color-foreground-muted); }

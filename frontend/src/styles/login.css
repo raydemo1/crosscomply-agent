@@ -147,9 +147,7 @@
   .review-report-layout {
     max-width: none;
   }
-.review-report > .remediation-summary {
-    padding: 1.25rem 1rem;
-  }
+
 .case-header__top {
     display: block;
   }
@@ -190,36 +188,4 @@
     padding: var(--space-md);
   }
 }
-@media (max-width: 640px) {
-.evidence-sidebar {
-    right: 8px;
-    bottom: max(8px, env(safe-area-inset-bottom));
-    left: 8px;
-    width: auto;
-    max-height: min(82svh, 720px);
-    border-radius: var(--radius-lg);
-  }
-.evidence-sidebar__head {
-    padding: 12px 14px;
-  }
-.evidence-sidebar__list {
-    max-height: calc(min(82svh, 720px) - 78px);
-    padding: 12px 14px max(var(--space-md), env(safe-area-inset-bottom));
-  }
-.evidence-card__meta-grid {
-    grid-template-columns: 1fr;
-    gap: var(--space-sm);
-  }
-.evidence-card__meta-grid strong {
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-.evidence-card__full-article {
-    max-height: 28rem;
-    font-size: 1rem;
-  }
-.evidence-card__footer {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
+

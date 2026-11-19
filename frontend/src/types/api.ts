@@ -3,7 +3,7 @@
  *
  * These interfaces mirror the Pydantic response models exposed by the
  * FastAPI backend in `law_agent/review/api.py` and its dependencies
- * (`law_agent/review/schemas.py`, `law_agent/review/evalset/schemas.py`,
+ * (`law_agent/review/schemas.py`,
  * `law_agent/data/schemas.py`).
  *
  * Field names and JSON shapes are kept in sync with the backend so that
@@ -66,15 +66,6 @@ export type RetrieverName =
   | 'hybrid'
   | 'elasticsearch'
   | 'pgvector';
-
-/** Evaluation retrieval backend under test. */
-export type EvalRetrievalMode = 'service' | 'local';
-
-/** Optional post-fusion reranker arm for A/B evaluation. */
-export type EvalRerankMode = 'off' | 'embedding';
-
-/** Evaluation scenario subset. */
-export type EvalSuite = 'quick' | 'base' | 'full';
 
 // ---------------------------------------------------------------------------
 // Review domain models
@@ -455,15 +446,6 @@ export function isReviewFailedResponse(
   response: ReviewApiResponse | null,
 ): response is ReviewFailedResponse {
   return Boolean(response && 'status' in response && response.status === 'review_failed');
-}
-
-/**
- * Response body for `GET /api/health`.
- *
- * Matches `HealthResponse` in `law_agent/review/api.py`.
- */
-export interface HealthResponse {
-  status: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1114,110 +1096,4 @@ export interface CaseDetailApi {
 export interface CaseListApi {
   items: CaseSummaryApi[];
   total: number;
-}
-
-export interface DashboardSummaryApi {
-  total_cases: number;
-  status_counts: Record<CaseStatus, number>;
-  risk_counts: Record<string, number>;
-  recent_cases: CaseSummaryApi[];
-}
-
-// ---------------------------------------------------------------------------
-// Evaluation suite models
-// ---------------------------------------------------------------------------
-
-/**
- * Metrics for a single evaluation scenario case.
- *
- * Matches `CaseMetricResult` in `law_agent/review/evalset/schemas.py`.
- */
-export interface CaseMetricResult {
-  case_id: string;
-  recall_at_3: number | null;
-  recall_at_5: number | null;
-  mrr_at_10: number | null;
-  candidate_recall_at_50: number | null;
-  distinct_source_recall_at_5: number | null;
-  duplicate_source_count_at_10: number;
-  citation_violation_count: number;
-  abstention_correct: boolean;
-  /** 是否触发了二次检索。 */
-  second_retrieval_triggered: boolean;
-  /** Source IDs actually retrieved by the system. */
-  actual_sources: string[];
-  /** Expected source IDs that were missing from the results. */
-  missing_sources: string[];
-  is_bad_case: boolean;
-  bad_reasons: string[];
-  risk_level: string;
-  /** Must-have Recall@5 — null for abstention/out-of-corpus cases. */
-  must_have_recall_at_5: number | null;
-  /** Optional coverage@5 — null when the case has no optional sources. */
-  optional_coverage_at_5: number | null;
-}
-
-/**
- * Aggregated metrics for one retrieval mode.
- *
- * Matches `ModeMetrics` in `law_agent/review/evalset/schemas.py`.
- */
-export interface ModeMetrics {
-  mode: string;
-  mean_recall_at_3: number;
-  mean_recall_at_5: number;
-  mean_mrr_at_10: number;
-  mean_candidate_recall_at_50: number;
-  mean_distinct_source_recall_at_5: number;
-  mean_duplicate_source_count_at_10: number;
-  abstention_accuracy: number;
-  /** 诊断指标：二次检索触发率（不计坏例）。 */
-  second_retrieval_trigger_rate: number;
-  total_citation_violations: number;
-  bad_case_count: number;
-  total_cases: number;
-  /** Must-have Recall@5 均值（仅含有 must-have 源的案例）。 */
-  mean_must_have_recall_at_5: number;
-  must_have_case_count: number;
-  /** Optional coverage@5 均值（仅含有 optional 源的案例）。 */
-  mean_optional_coverage_at_5: number;
-  optional_supporting_case_count: number;
-  source_bearing_case_count: number;
-}
-
-/**
- * Full evaluation summary output.
- *
- * Matches `EvalSummary` in `law_agent/review/evalset/schemas.py`. Returned
- * by both `POST /api/eval/run` and `GET /api/eval/latest`.
- */
-export interface EvalSummary {
-  generated_at: string;
-  chunks_path: string;
-  cases_path: string;
-  /** Aggregated metrics keyed by explicit eval axes. */
-  mode_metrics: Record<string, ModeMetrics>;
-  bad_cases: CaseMetricResult[];
-  /** Per-case results keyed by mode name. */
-  all_case_results: Record<string, CaseMetricResult[]>;
-}
-
-/** Request body for `POST /api/eval/run`. */
-export interface EvalRunOptions {
-  chunks_path?: string;
-  retrieval_mode?: EvalRetrievalMode;
-  top_k?: number;
-  max_workers?: number;
-  rerank_mode?: EvalRerankMode;
-  suite?: EvalSuite;
-}
-
-export type EvalJobStatus = 'idle' | 'running' | 'succeeded' | 'failed';
-
-export interface EvalJobResponse {
-  job_id: string | null;
-  status: EvalJobStatus;
-  message: string | null;
-  started_at: string | null;
-  finished_at: string | null;
 }

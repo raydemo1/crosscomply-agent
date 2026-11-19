@@ -8,19 +8,6 @@
 }
 
 /* Compact handoff link embedded on the case result page. */
-.remediation-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 18px;
-  align-items: center;
-  border-color: color-mix(in srgb, var(--color-primary) 16%, transparent);
-}
-.remediation-summary__copy h2 { margin: 0; color: var(--color-foreground); font-family: var(--font-heading, Georgia, serif); font-size: 1.45rem; font-weight: 600; line-height: 1.35; }
-.remediation-summary__copy p { margin: 5px 0 0; color: var(--color-foreground-muted); font-size: var(--text-md); line-height: 1.5; }
-.remediation-summary__stats { display: flex; align-items: baseline; gap: 9px; color: var(--color-foreground-muted); font-size: var(--text-sm); white-space: nowrap; }
-.remediation-summary__stats strong { color: var(--color-primary); font-family: var(--font-heading, Georgia, serif); font-size: 1.45rem; }
-.remediation-summary__next { display: flex; flex-direction: column; gap: 3px; margin-top: 9px; color: var(--color-foreground-muted); font-size: var(--text-sm); }
-.remediation-summary__next strong { color: var(--color-foreground); font-size: var(--text-md); line-height: 1.5; }
 
 .remediation-page__top {
   display: flex;
@@ -30,7 +17,6 @@
 }
 
 .remediation-page__top h1,
-.remediation-overview h2,
 .remediation-task-detail h2,
 .remediation-empty-plan h1,
 .remediation-builder h2 {
@@ -42,7 +28,6 @@
 }
 
 .remediation-page__top h1.page-title { margin: 0; font-size: var(--text-3xl); line-height: 1.4; }
-
 
 .remediation-close,
 .remediation-text-button {
@@ -72,20 +57,10 @@
   white-space: nowrap;
 }
 
-
 .remediation-plan-status--active { background: var(--tint-navy-bg-active); color: var(--color-secondary); }
 .remediation-plan-status--completed { border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border)); background: color-mix(in srgb, var(--color-success) 8%, transparent); color: var(--color-success); }
 .remediation-plan-status--cancelled { background: var(--color-background); color: var(--color-foreground-muted); }
 
-.remediation-overview {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
-  gap: 28px;
-  align-items: center;
-  border-color: color-mix(in srgb, var(--color-primary) 16%, transparent);
-}
-
-.remediation-overview__copy p,
 .remediation-builder__intro,
 .remediation-empty-plan p {
   max-width: 680px;
@@ -94,13 +69,6 @@
   line-height: 1.7;
 }
 
-.remediation-progress { padding: 4px 0; }
-.remediation-progress__value { display: flex; align-items: baseline; gap: 8px; }
-.remediation-progress__value strong { color: var(--color-primary); font-family: var(--font-heading, Georgia, serif); font-size: 2.3rem; }
-.remediation-progress__value span { color: var(--color-foreground-muted); font-size: var(--text-sm); }
-.remediation-progress__track { height: 7px; margin: 10px 0; overflow: hidden; border-radius: 99px; background: var(--color-muted); }
-.remediation-progress__track span { display: block; height: 100%; border-radius: inherit; background: var(--color-primary); transition: width 180ms ease; }
-.remediation-progress__stats { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--color-foreground-muted); font-size: var(--text-sm); }
 .is-danger { color: var(--color-danger) !important; }
 
 .remediation-workspace {
@@ -286,7 +254,6 @@
 .remediation-submission-status--agent_verified { background: color-mix(in srgb, var(--color-success) 10%, transparent); color: var(--color-success); }
 .remediation-submission-status--agent_feedback { background: color-mix(in srgb, var(--color-warning) 8%, transparent); color: var(--color-warning); }
 .remediation-submission__review { margin-top: 10px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--color-primary) 14%, transparent); color: var(--color-secondary); font-size: var(--text-sm); line-height: 1.5; }
-.remediation-no-submission,
 .remediation-detail-placeholder,
 .remediation-muted { color: var(--color-foreground-muted); font-size: var(--text-md); line-height: 1.7; }
 .remediation-archive { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--color-hairline); color: var(--color-foreground-muted); font-size: var(--text-sm); }
@@ -316,10 +283,6 @@
 .remediation-inbox-list { display: flex; flex-direction: column; gap: 0; max-height: min(70vh, 640px); overflow-y: auto; scrollbar-gutter: stable; }
 
 @media (max-width: 820px) {
-  .remediation-summary { grid-template-columns: minmax(0, 1fr) auto; }
-  .remediation-summary > .remediation-button { grid-column: 1 / -1; justify-self: start; }
-  .remediation-overview,
-  .remediation-next-step,
   .remediation-workspace,
   .remediation-workspace--inbox { grid-template-columns: 1fr; }
   .remediation-page__top { align-items: flex-start; }
@@ -329,13 +292,9 @@
 
 @media (max-width: 520px) {
   .remediation-choice-group { grid-template-columns: 1fr; }
-  .remediation-summary { grid-template-columns: 1fr; gap: 10px; }
-  .remediation-summary__stats { flex-wrap: wrap; white-space: normal; }
-  .remediation-summary > .remediation-button { grid-column: auto; justify-self: stretch; text-align: center; }
+
   .remediation-page__top { display: flex; flex-wrap: wrap; gap: 10px; }
   .remediation-page__top-meta { margin: 0 0 0 auto; }
-  .remediation-overview,
-  .remediation-next-step,
   .remediation-task-list,
   .remediation-inbox-list,
   .remediation-task-detail,
@@ -346,7 +305,7 @@
   .remediation-form-grid { grid-template-columns: 1fr; }
   .remediation-form-grid__wide { grid-column: auto; }
   .remediation-inbox-list { max-height: 42vh; }
-  .remediation-next-step > .remediation-button { width: 100%; }
+
   .remediation-builder__footer { align-items: flex-start; flex-direction: column; }
   .remediation-builder__footer > div { width: 100%; }
   .remediation-builder__footer .remediation-button { flex: 1; }

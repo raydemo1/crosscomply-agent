@@ -14,7 +14,7 @@ import { partitionReportContent } from './reportContent';
  * standalone or attached to an email.
  */
 
-import type { CaseIntake, ReviewFacts, CitationGroup, RetrievalHit, RetrievalQuery } from '../types/api';
+import type { CaseIntake, ReviewFacts, CitationGroup, RetrievalQuery } from '../types/api';
 import { isReviewFailedResponse } from '../types/api';
 import type { SavedCase } from '../types/case';
 import { CASE_STATUS_LABELS } from './workflow';
@@ -72,16 +72,7 @@ function queriesToMarkdown(queries: RetrievalQuery[] | undefined): string {
   return `${header}\n${body}`;
 }
 
-function chunksById(hits: RetrievalHit[] | undefined): Map<string, RetrievalHit> {
-  const map = new Map<string, RetrievalHit>();
-  if (hits) for (const h of hits) map.set(h.chunk_id, h);
-  return map;
-}
-
-function citationsToMarkdown(
-  groups: CitationGroup[],
-  chunks: Map<string, RetrievalHit>,
-): string {
+function citationsToMarkdown(groups: CitationGroup[]): string {
   if (groups.length === 0) return '_无可引用证据_';
   const labels = new Map(
     groups.flatMap((group) => group.citations).map((citation) => [citation.citation_ref, citationDisplayLabel(citation)]),
@@ -250,7 +241,6 @@ export function buildMarkdownReport(saved: SavedCase): string {
   const result = response.review_result;
   const facts = response.review_facts;
   const selfCheck = response.evidence_self_check;
-  const chunks = chunksById(response.evidence_chunks);
 
   lines.push('## 三、人工确认事实');
   lines.push('');
@@ -350,7 +340,7 @@ export function buildMarkdownReport(saved: SavedCase): string {
   lines.push('');
   lines.push('## 十四、可引用证据');
   lines.push('');
-  lines.push(citationsToMarkdown(response.citation_groups, chunks));
+  lines.push(citationsToMarkdown(response.citation_groups));
   lines.push('');
 
   if (feedback) {
@@ -487,10 +477,7 @@ function queriesToHtml(queries: RetrievalQuery[] | undefined): string {
   return `<table><thead><tr><th>#</th><th>类型</th><th>查询文本</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function citationsToHtml(
-  groups: CitationGroup[],
-  chunks: Map<string, RetrievalHit>,
-): string {
+function citationsToHtml(groups: CitationGroup[]): string {
   if (groups.length === 0) return '<p class="muted">无可引用证据</p>';
   const ordered = [...groups].sort(
     (a, b) => USAGE_ORDER.indexOf(a.usage) - USAGE_ORDER.indexOf(b.usage),
@@ -587,7 +574,6 @@ export function buildHtmlReport(saved: SavedCase): string {
   const result = response.review_result;
   const facts = response.review_facts;
   const selfCheck = response.evidence_self_check;
-  const chunks = chunksById(response.evidence_chunks);
 
   parts.push('<h2>三、人工确认事实</h2>');
   parts.push(intakeToHtml(saved.intake));
@@ -681,7 +667,7 @@ export function buildHtmlReport(saved: SavedCase): string {
   }
   parts.push('</ul>');
   parts.push('<h2>十四、可引用证据</h2>');
-  parts.push(citationsToHtml(response.citation_groups, chunks));
+  parts.push(citationsToHtml(response.citation_groups));
 
   if (feedback) {
     parts.push('<h2>人工反馈</h2><div class="meta">');

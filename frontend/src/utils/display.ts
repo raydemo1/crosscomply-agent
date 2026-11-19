@@ -28,14 +28,6 @@ export const RISK_LABELS: Record<RiskLevel | 'pending', string> = {
   pending: '待评估',
 };
 
-export const RISK_HISTORY_CLASS: Record<string, string> = {
-  high: 'history-item__risk history-item__risk--high',
-  medium: 'history-item__risk history-item__risk--medium',
-  low: 'history-item__risk history-item__risk--low',
-  insufficient_evidence: 'history-item__risk history-item__risk--insufficient',
-  pending: 'history-item__risk history-item__risk--pending',
-};
-
 export const RISK_BADGE_CLASS: Record<RiskLevel, string> = {
   high: 'badge badge-high',
   medium: 'badge badge-medium',
@@ -157,12 +149,6 @@ export function renderText(value: string | null | undefined): string {
 export function renderList(values: string[] | null | undefined): string {
   if (!values || values.length === 0) return '—';
   return values.join('、');
-}
-
-/** Truncate text to a max length, appending an ellipsis. */
-export function truncate(text: string, limit: number): string {
-  if (text.length <= limit) return text;
-  return text.slice(0, limit) + '…';
 }
 
 /** Format an ISO timestamp as a readable local string. */

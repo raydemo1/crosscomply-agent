@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react';
 import { assignManagedUserRole, createManagedUser, listManagedUsers, resetManagedUserPassword, setManagedUserState } from '../api/client';
-import type { ManagedUserApi, UserRole, WorkbenchUser } from '../types/api';
+import type { ManagedUserApi, UserRole } from '../types/api';
 import '../styles/knowledge.css';
 
-interface GovernanceConsolePageProps {
-  user: WorkbenchUser;
-}
-
-export default function GovernanceConsolePage({ user }: GovernanceConsolePageProps): JSX.Element {
+export default function GovernanceConsolePage(): JSX.Element {
   const [users, setUsers] = useState<ManagedUserApi[]>([]);
   const [form, setForm] = useState({ username: '', display_name: '', password: '', role: 'requester' as UserRole });
   const [resetFor, setResetFor] = useState<string | null>(null);

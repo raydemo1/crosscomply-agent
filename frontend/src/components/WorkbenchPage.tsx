@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, Paperclip, X } from 'lucide-react';
 import type { CaseIntake, CaseTemplateApi } from '../types/api';
 import {

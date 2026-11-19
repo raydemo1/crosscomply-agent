@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { createElement, Fragment } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createServer, type ViteDevServer } from 'vite';
+import type { ViteDevServer } from 'vite';
+import { createSsrServer } from '../testing/ssrServer.ts';
 import type { ReviewResult } from '../types/api.ts';
 import type { SavedCase } from '../types/case.ts';
 import { partitionReportContent } from '../utils/reportContent.ts';
@@ -12,7 +13,7 @@ let reportComponents: typeof import('./ReportConclusion.tsx');
 let buildHtmlReport: (saved: SavedCase) => string;
 let buildMarkdownReport: (saved: SavedCase) => string;
 before(async () => {
-  server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+  server = await createSsrServer();
   reportComponents = await server.ssrLoadModule('/src/components/ReportConclusion.tsx');
   ({ buildHtmlReport, buildMarkdownReport } = await server.ssrLoadModule('/src/utils/report.ts'));
 });

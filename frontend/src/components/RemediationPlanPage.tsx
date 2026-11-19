@@ -306,7 +306,7 @@ export default function RemediationPlanPage({ caseId, user, initialPlan = null, 
             : '请由审核人创建待办。'}</p>
           {canManage(user) ? <button type="button" className="remediation-button remediation-button--primary" onClick={() => setShowBuilder(true)}>建立待办事项清单</button> : <span className="remediation-muted">请联系审核人恢复待办事项清单</span>}
         </div>
-        {showBuilder ? <PlanBuilder caseId={caseId} user={user} recommendations={recommendations} issues={issues} assignableUsers={assignableUsers} caseOwnerId={caseOwnerId} onCreated={(created) => { setPlan(created); setShowBuilder(false); setSelectedTaskId(created.tasks[0]?.id ?? null); }} onCancel={() => setShowBuilder(false)} /> : null}
+        {showBuilder ? <PlanBuilder caseId={caseId} recommendations={recommendations} issues={issues} assignableUsers={assignableUsers} caseOwnerId={caseOwnerId} onCreated={(created) => { setPlan(created); setShowBuilder(false); setSelectedTaskId(created.tasks[0]?.id ?? null); }} onCancel={() => setShowBuilder(false)} /> : null}
         {error ? <div className="remediation-error" role="alert">{error}</div> : null}
       </section>
     );
@@ -363,7 +363,7 @@ function RemediationPageTop({ title, children, context = false }: { title: strin
   return <header className={'remediation-page__top' + (context ? ' remediation-page__top--case' : '')}><h1 className="page-title">{title}</h1><div className="remediation-page__top-meta">{children}</div></header>;
 }
 
-function PlanBuilder({ caseId, user, recommendations, issues, assignableUsers, caseOwnerId, onCreated, onCancel }: { caseId: string; user: WorkbenchUser; recommendations: string[]; issues: ReviewIssue[]; assignableUsers: RemediationAssigneeApi[]; caseOwnerId: string | null; onCreated: (plan: RemediationPlanApi) => void; onCancel: () => void }): JSX.Element {
+function PlanBuilder({ caseId, recommendations, issues, assignableUsers, caseOwnerId, onCreated, onCancel }: { caseId: string; recommendations: string[]; issues: ReviewIssue[]; assignableUsers: RemediationAssigneeApi[]; caseOwnerId: string | null; onCreated: (plan: RemediationPlanApi) => void; onCancel: () => void }): JSX.Element {
   const [drafts, setDrafts] = useState<DraftTask[]>([{ ...EMPTY_DRAFT }]);
   const [saving, setSaving] = useState(false);
   const [drafting, setDrafting] = useState(false);

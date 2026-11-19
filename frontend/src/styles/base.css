@@ -42,7 +42,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* 表格与计数的数字等宽对齐 */
-table, time, .tabular {
+table, time {
   font-variant-numeric: tabular-nums;
 }
 
