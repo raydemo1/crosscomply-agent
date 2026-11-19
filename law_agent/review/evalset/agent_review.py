@@ -13,7 +13,7 @@ from law_agent.review.evalset.agent_schemas import AgentCase
 from law_agent.review.http.schemas import IntakePayload
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-REVIEW_RECORD_PATH = REPOSITORY_ROOT / "docs" / "agent-case-review.json"
+REVIEW_RECORD_PATH = Path(__file__).with_name("agent_case_review.json")
 
 
 def review_groups() -> dict[str, list[AgentCase]]:

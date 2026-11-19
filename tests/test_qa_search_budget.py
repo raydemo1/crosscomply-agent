@@ -1,19 +1,35 @@
+
 import json
 
 import pytest
 
 from law_agent.review.agent import AgentDecision
 from law_agent.review.qa_agent import QADecision, execute_qa
-from law_agent.review.remediation import RemediationDecision
 from law_agent.review.qa_store import InMemoryQAStore
+from law_agent.review.remediation import RemediationDecision
 from law_agent.review.retrieval.neighbors import hit_from_chunk
 from law_agent.review.schemas import ReviewFacts
-from scripts.eval_qa_retrieval_chain import visible_texts
+from law_agent.review.tool_calling import CONTEXT_PROMPT, ToolCallingAgent, ToolSession
 from tests.test_qa import StreamingClient, Tools
 from tests.test_qa_retrieval import query
 from tests.test_review_agent import _chunk, _search_tools
 from tests.test_review_llm import tool_message
 from tests.test_review_result_builder import _hit
+
+
+def _seen_evidence(messages) -> dict[str, dict]:
+    """Evidence originals the model has seen across user and tool messages, by chunk id."""
+    seen: dict[str, dict] = {}
+    for message in messages:
+        if message["role"] not in {"user", "tool"}:
+            continue
+        try:
+            payload = json.loads(message.get("content") or "")
+        except ValueError:
+            continue
+        for hit in ((payload.get("state") or {}).get("evidence") or []) if isinstance(payload, dict) else []:
+            seen.setdefault(hit["chunk_id"], hit)
+    return seen
 
 
 @pytest.mark.parametrize("decision_type", [QADecision, AgentDecision, RemediationDecision])
@@ -63,8 +79,27 @@ def test_qa_forwards_each_budget_and_keeps_previous_originals():
                client=client, tools=BudgetTools())
     assert updates[-1]["status"] == "completed"
     assert calls == [2, 1]
-    local, _, _ = visible_texts({"messages": [{"role": m.role, "content": m.content} for m in client.answer_messages]})
+    local = _seen_evidence([{"role": m.role, "content": m.content} for m in client.answer_messages])
     assert set(local) == {"c0", "c1", "c2"}
     schema = next(t["function"]["parameters"] for t in client.kwargs[0]["tools"] if t["function"]["name"] == "search_evidence")
     assert schema["properties"]["max_chunks"]["maximum"] == 10
     assert "max_results" not in schema["properties"]
+
+
+def test_two_searches_keep_all_unique_originals_in_native_messages():
+    hits = [{"chunk_id": str(i), "source_id": "law", "text": f"原文第{i}段"} for i in range(15)]
+    hits[2]["article_no"] = "第十三条"
+    session = ToolSession()
+    first = session.context_delta({"state": {"evidence": hits[:10], "evidence_sources": {"law": {"title": "法律"}}}})
+    session.messages.append({"role": "user", "content": json.dumps(first, ensure_ascii=False)})
+    original = session.messages[0]["content"]
+    session.complete({"chunk_ids": [h["chunk_id"] for h in hits[5:]]},
+                     {"state": {"evidence": hits, "evidence_sources": {"law": {"title": "法律"}}}})
+    messages = ToolCallingAgent.messages(None, session, prompt="调查提示词")
+    assert messages[0].content == "调查提示词" + CONTEXT_PROMPT
+    assert messages[1].content == original
+    assert len(json.loads(messages[-1].content)["state"]["evidence"]) == 5
+    local = _seen_evidence([{"role": m.role, "content": m.content} for m in messages])
+    assert len(local) == 15
+    assert local["2"]["article_no"] == "第十三条"
+    assert local["2"]["text"] == hits[2]["text"]

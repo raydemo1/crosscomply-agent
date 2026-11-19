@@ -808,7 +808,6 @@ def test_unknown_suite_rejected() -> None:
 
 def test_controlled_source_is_unavailable_to_reads_and_service_hits(tmp_path) -> None:
     from law_agent.data.schemas import Chunk
-    from law_agent.review.agent_tools import ComplianceAgentTools
     from law_agent.review.evalset.agent_cases import get_agent_cases
     from law_agent.review.evalset.agent_runner import FixedWebClient, prepare_controlled_corpus
     from law_agent.review.retrieval.corpus import load_corpus
