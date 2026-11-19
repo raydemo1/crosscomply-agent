@@ -3,7 +3,6 @@ name: crosscomply
 x-backend-environment: &backend-environment
   ES_URL: http://elasticsearch:9200
   ES_INDEX: ${ES_INDEX:-lawagent_chunks}
-  ES_INDEX_NAME: ${ES_INDEX_NAME:-lawagent_chunks}
   ES_VERIFY_CERTS: "false"
   PG_DSN: postgresql://${POSTGRES_USER:-lawagent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lawagent}
   PG_TABLE: ${PG_TABLE:-lawagent_chunks}
@@ -116,7 +115,7 @@ services:
       context: .
       dockerfile: docker/backend.Dockerfile
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - path: ${CROSSCOMPLY_ENV_FILE:-.env}
         required: false

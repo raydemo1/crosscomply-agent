@@ -3,7 +3,7 @@ FROM node:22.14-alpine AS build
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 ARG NPM_REGISTRY=https://registry.npmjs.org
-RUN sed -i "s#https://registry.npmmirror.com#${NPM_REGISTRY}#g" package-lock.json \
+RUN sed -i "s#https://registry.npmjs.org#${NPM_REGISTRY}#g" package-lock.json \
     && npm ci --no-audit --no-fund
 
 COPY frontend .

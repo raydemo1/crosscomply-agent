@@ -13,13 +13,7 @@ COPY alembic ./alembic
 COPY docker/fonts/NotoSansSC-Regular.ttf /usr/local/share/fonts/NotoSansSC-Regular.ttf
 COPY docker/fonts/NotoSansSC-SemiBold.ttf /usr/local/share/fonts/NotoSansSC-SemiBold.ttf
 
-RUN python -m pip install --no-cache-dir \
-      ".[service]" \
-      "alembic>=1.13" \
-      "SQLAlchemy>=2.0" \
-      "minio>=7.2" \
-      "reportlab>=4.0" \
-      "httpx>=0.27"
+RUN python -m pip install --no-cache-dir ".[service]"
 
 RUN useradd --create-home --uid 10001 crosscomply \
     && mkdir -p /app/data/corpus/legal_docs_20260702 \

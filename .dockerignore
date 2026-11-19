@@ -19,7 +19,9 @@ frontend/node_modules
 frontend/dist
 frontend/.vercel
 output
-data/models
-data/review_runs
+data
+tmp
+scripts
+.claude
 docs
 tests
