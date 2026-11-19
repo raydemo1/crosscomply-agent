@@ -96,9 +96,11 @@ class LLMConfig:
     reasoning_effort: ReasoningEffort
     read_timeout_seconds: float = 60
     total_timeout_seconds: float = 120
+    # 连接阶段一次网络中断最多等待多久（秒），见 law_agent/llm/retry_budget.py。
+    connect_retry_seconds: float = 45
 
     def __post_init__(self):
-        for name in ("timeout_seconds", "read_timeout_seconds", "total_timeout_seconds"):
+        for name in ("timeout_seconds", "read_timeout_seconds", "total_timeout_seconds", "connect_retry_seconds"):
             if not math.isfinite(getattr(self, name)) or getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be finite and positive")
 
@@ -125,6 +127,7 @@ def load_llm_config() -> LLMConfig:
         timeout_seconds=int(timeout),
         read_timeout_seconds=float(os.getenv("OPENAI_COMPATIBLE_READ_TIMEOUT_SECONDS", "60")),
         total_timeout_seconds=float(os.getenv("OPENAI_COMPATIBLE_TOTAL_TIMEOUT_SECONDS", "120")),
+        connect_retry_seconds=float(os.getenv("OPENAI_COMPATIBLE_CONNECT_RETRY_SECONDS", "45")),
         structured_output_mode=structured_output_mode,  # type: ignore[arg-type]
         reasoning_effort=reasoning_effort,
     )
@@ -183,6 +186,8 @@ class EmbeddingConfig:
     model: str
     dimension: int
     timeout_seconds: int
+    # 一次网络中断或限流最多等待多久（秒），见 law_agent/llm/retry_budget.py。
+    retry_seconds: float = 30
 
 
 @dataclass(frozen=True)
@@ -240,6 +245,7 @@ def _load_embedding_config() -> EmbeddingConfig:
         model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
         dimension=int(os.getenv("EMBEDDING_DIM", "1536")),
         timeout_seconds=int(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "60")),
+        retry_seconds=float(os.getenv("EMBEDDING_RETRY_SECONDS", "30")),
     )
 
 

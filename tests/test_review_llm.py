@@ -68,6 +68,19 @@ def tool_message(*calls, reasoning="private reasoning"):
     ]}
 
 
+def sse_stream(message, finish_reason="tool_calls"):
+    """Encode an assistant message as the SSE lines a streamed tool call returns."""
+    delta = {"role": "assistant"}
+    if message.get("reasoning_content"):
+        delta["reasoning_content"] = message["reasoning_content"]
+    if message.get("content"):
+        delta["content"] = message["content"]
+    if message.get("tool_calls"):
+        delta["tool_calls"] = [{"index": index, **call} for index, call in enumerate(message["tool_calls"])]
+    events = [{"choices": [{"delta": delta}]}, {"choices": [{"delta": {}, "finish_reason": finish_reason}]}]
+    return [f"data: {json.dumps(event, ensure_ascii=False)}\n".encode() for event in events] + [b"data: [DONE]\n"]
+
+
 def _valid_facts_payload() -> dict:
     return {
         "business_activity": "移动 App 个性化推荐",

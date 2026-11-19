@@ -1,6 +1,7 @@
 """Claims 定向修复与工具参数宽松解析的单元测试。"""
 
 import json
+from contextlib import contextmanager
 
 import pytest
 
@@ -16,7 +17,7 @@ from law_agent.review.llm import ReviewWorkflowFailed
 from law_agent.review.schemas import GroundedClaimDraft
 from law_agent.review.semantic_grounding import SemanticGroundingRejected, SemanticVerdict
 from law_agent.review.tool_calling import InvalidToolCall
-from tests.test_review_llm import FakeClient, tool_message
+from tests.test_review_llm import FakeClient, sse_stream, tool_message
 from tests.test_review_result_builder import _hit
 from tests.test_semantic_grounding import _draft
 
@@ -188,9 +189,11 @@ def test_chat_tools_rejects_truncated_tool_response(monkeypatch):
         api_key="test", base_url="https://example.test/v1", beta_base_url="https://example.test/beta",
         model="test", timeout_seconds=10, structured_output_mode="json_object", reasoning_effort="none",
     ))
-    monkeypatch.setattr(client, "_post_chat", lambda payload, url: {
-        "choices": [{"finish_reason": "length", "message": {"role": "assistant", "content": None}}],
-    })
+    @contextmanager
+    def open_stream(payload, url):
+        yield sse_stream({"role": "assistant", "content": None}, finish_reason="length")
+
+    monkeypatch.setattr(client, "_open_stream", open_stream)
     with pytest.raises(RuntimeError, match="truncated"):
         client.chat_tools([ChatMessage(role="user", content="hi")], tools=[{"type": "function"}])
 

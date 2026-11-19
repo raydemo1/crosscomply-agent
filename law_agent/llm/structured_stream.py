@@ -11,6 +11,7 @@ import httpx
 from anyio.from_thread import start_blocking_portal
 
 from law_agent.config import LLMConfig
+from law_agent.llm.retry_budget import RetryBudget
 from law_agent.llm.usage import UsageRequest
 
 
@@ -136,7 +137,17 @@ async def _receive(payload: dict, config: LLMConfig, accounting: UsageRequest, o
                     "POST", f"{config.base_url}/chat/completions", json=payload,
                     headers={"Authorization": f"Bearer {config.api_key}", "Accept": "text/event-stream"},
                 )
-                response = await client.send(request, stream=True)
+                retry = RetryBudget(config.connect_retry_seconds, label="LLM JSON stream connect")
+                while True:
+                    try:
+                        response = await client.send(request, stream=True)
+                        break
+                    except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+                        # 连接未建立、请求尚未发出，重发安全；总时限仍由 fail_after 约束。
+                        delay = retry.next_delay(exc)
+                        if delay is None:
+                            raise
+                        await anyio.sleep(delay)
                 try:
                     accounting.headers()
                     response.raise_for_status()

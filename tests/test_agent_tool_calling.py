@@ -1,6 +1,7 @@
 """Native tool envelopes, continuation, execution limits and public boundaries."""
 
 import json
+from contextlib import contextmanager
 from copy import deepcopy
 from io import BytesIO
 
@@ -23,7 +24,7 @@ from law_agent.review.qa_store import InMemoryQAStore
 from law_agent.review.tool_calling import InvalidToolCall
 from tests.test_qa import Tools
 from tests.test_qa import api as qa_api_fixture
-from tests.test_review_llm import FakeClient, tool_message
+from tests.test_review_llm import FakeClient, sse_stream, tool_message
 from tests.test_semantic_grounding import _draft
 
 api = qa_api_fixture
@@ -46,14 +47,16 @@ def test_client_uses_auto_native_tools_and_preserves_reasoning(effort, monkeypat
     requests = []
     result = tool_message(("b", "finish", {"summary": "完成"}))
 
-    def post(payload, url):
+    @contextmanager
+    def open_stream(payload, url):
         requests.append((payload, url))
-        return {"choices": [{"finish_reason": "tool_calls", "message": result}]}
+        yield sse_stream(result)
 
-    monkeypatch.setattr(client, "_post_chat", post)
+    monkeypatch.setattr(client, "_open_stream", open_stream)
     assert client.chat_tools(messages, tools=[{"type": "function"}]) == result
     payload, url = requests[0]
     assert url == "https://example.test/v1"
+    assert payload["stream"] is True
     assert payload["tool_choice"] == "auto" and "response_format" not in payload
     assert payload["messages"][0]["reasoning_content"] == "earlier reasoning"
     assert payload["messages"][1]["tool_call_id"] == "a"

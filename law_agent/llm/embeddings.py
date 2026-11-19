@@ -20,6 +20,7 @@ import urllib.request
 from collections.abc import Sequence
 
 from law_agent.config import EmbeddingConfig
+from law_agent.llm.retry_budget import RetryBudget
 
 
 class EmbeddingsProvider:
@@ -34,6 +35,8 @@ class EmbeddingsProvider:
 
 class OpenAICompatibleEmbeddings(EmbeddingsProvider):
     """Embeddings client for an OpenAI-compatible ``/embeddings`` endpoint."""
+
+    _sleep = staticmethod(time.sleep)
 
     def __init__(self, config: EmbeddingConfig) -> None:
         self.config = config
@@ -57,8 +60,10 @@ class OpenAICompatibleEmbeddings(EmbeddingsProvider):
             raise RuntimeError("EMBEDDING_API_KEY is not configured")
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
-        max_retries = 4
-        for attempt in range(max_retries):
+        # 向量请求是幂等的：网络中断、读超时、限流（429）和服务端错误（5xx）
+        # 都在预算时间内退避重试；400 等参数错误立即抛出。
+        retry = RetryBudget(self.config.retry_seconds, label="embedding request")
+        while True:
             request = urllib.request.Request(
                 self._endpoint,
                 data=body,
@@ -75,24 +80,21 @@ class OpenAICompatibleEmbeddings(EmbeddingsProvider):
                     return json.loads(response.read().decode("utf-8"))
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode("utf-8", errors="replace")
-                # Retry on rate limit (429) and server errors (500+) only.
-                # 400 is a real parameter error (e.g. oversized input) and
-                # should surface immediately rather than waste retry budget.
                 retryable = exc.code == 429 or exc.code >= 500
-                if not retryable or attempt == max_retries - 1:
+                delay = retry.next_delay(exc) if retryable else None
+                if delay is None:
                     raise RuntimeError(
                         f"embedding request failed with HTTP {exc.code}: {detail}"
                     ) from exc
-                backoff = min(2**attempt, 8)
-                time.sleep(backoff)
+                self._sleep(delay)
             except (urllib.error.URLError, TimeoutError) as exc:
                 # Python 3.12 surfaces socket read timeouts during
                 # getresponse() as a bare TimeoutError instead of wrapping
                 # it in URLError, so it must be retried explicitly.
-                if attempt == max_retries - 1:
+                delay = retry.next_delay(exc)
+                if delay is None:
                     raise RuntimeError(f"embedding request failed: {exc}") from exc
-                time.sleep(min(2**attempt, 8))
-        raise RuntimeError("embedding request exhausted retries")
+                self._sleep(delay)
 
 
 class LocalSentenceTransformerEmbeddings(EmbeddingsProvider):

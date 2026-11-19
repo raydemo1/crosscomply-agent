@@ -7,9 +7,11 @@ file pipeline can run with only the standard library plus pydantic.
 from __future__ import annotations
 
 import json
+import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,7 +20,40 @@ from pydantic import BaseModel
 
 from law_agent.config import LLMConfig
 from law_agent.llm.structured_stream import receive_json_response
+from law_agent.llm.retry_budget import RetryBudget
 from law_agent.llm.usage import UsageRequest
+
+def _is_connect_failure(exc: BaseException) -> bool:
+    """连接建立阶段的瞬时失败（TLS 握手被断开、连接被重置），请求尚未得到任何响应。
+
+    超时不算：urllib 在发出请求后等待响应头时也会超时，此时重发可能重复计费。
+    """
+    if isinstance(exc, urllib.error.HTTPError) or not isinstance(exc, urllib.error.URLError):
+        return False
+    reason = exc.reason
+    return isinstance(reason, OSError) and not isinstance(reason, TimeoutError)
+
+
+def urlopen_with_retry(
+    request: urllib.request.Request,
+    timeout: float,
+    *,
+    budget_seconds: float,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+):
+    """打开连接；连接阶段的瞬时失败在预算时间内退避重试，超时和 HTTP 错误照常抛出。"""
+    retry = RetryBudget(budget_seconds, label="LLM connect", clock=clock)
+    while True:
+        try:
+            return urllib.request.urlopen(request, timeout=timeout)
+        except urllib.error.URLError as exc:
+            if not _is_connect_failure(exc):
+                raise
+            delay = retry.next_delay(exc.reason)
+            if delay is None:
+                raise
+            sleep(delay)
 
 
 @dataclass(frozen=True)
@@ -67,7 +102,7 @@ class OpenAICompatibleClient:
         accounting = UsageRequest(payload)
         status, error = "failed", None
         try:
-            with urllib.request.urlopen(request, timeout=self.config.timeout_seconds) as response:
+            with urlopen_with_retry(request, self.config.timeout_seconds, budget_seconds=self.config.connect_retry_seconds) as response:
                 for raw_line in response:
                     line = raw_line.decode("utf-8").strip()
                     if not line.startswith("data:"):
@@ -179,17 +214,9 @@ class OpenAICompatibleClient:
             payload.update(thinking={"type": "enabled"}, reasoning_effort=self.config.reasoning_effort)
         else:
             payload.update(thinking={"type": "disabled"}, temperature=0)
-        if on_text is not None:
-            return self._stream_tools(payload, on_text)
-        choice = self._post_chat(payload, self._tool_base_url(tools))["choices"][0]
-        if choice.get("finish_reason") == "length":
-            # 截断是确定性的：tool arguments 必然不完整，不得交由 json_repair 猜测补全
-            raise RuntimeError(
-                "LLM tool response truncated by max output tokens (finish_reason=length)"
-            )
-        if choice.get("finish_reason") not in {"tool_calls", "stop"}:
-            raise RuntimeError(f"LLM tool response ended with {choice.get('finish_reason')}")
-        return choice["message"]
+        # 流式返回让推理期间持续有数据到达，避免长时间静默的连接被中途断开；
+        # beta 接口的 strict 工具调用同样支持流式。
+        return self._stream_tools(payload, on_text or (lambda _delta: None))
 
     def _tool_base_url(self, tools: list[dict]) -> str:
         strict = [tool.get("function", {}).get("strict") is True for tool in tools]
@@ -199,19 +226,24 @@ class OpenAICompatibleClient:
             return self.config.beta_base_url
         return self.config.base_url
 
-    def _stream_tools(self, payload: dict, on_text) -> dict:
-        payload.update(stream=True, stream_options={"include_usage": True})
+    @contextmanager
+    def _open_stream(self, payload: dict, base_url: str) -> Iterator[Iterable[bytes]]:
         request = urllib.request.Request(
-            f"{self._tool_base_url(payload['tools'])}/chat/completions",
+            f"{base_url}/chat/completions",
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
             headers={"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json"},
             method="POST",
         )
+        with urlopen_with_retry(request, self.config.timeout_seconds, budget_seconds=self.config.connect_retry_seconds) as response:
+            yield response
+
+    def _stream_tools(self, payload: dict, on_text) -> dict:
+        payload.update(stream=True, stream_options={"include_usage": True})
         accounting = UsageRequest(payload)
         status, error, finish_reason = "failed", None, None
         content, reasoning, calls = [], [], {}
         try:
-            with urllib.request.urlopen(request, timeout=self.config.timeout_seconds) as response:
+            with self._open_stream(payload, self._tool_base_url(payload["tools"])) as response:
                 for raw_line in response:
                     line = raw_line.decode("utf-8").strip()
                     if not line.startswith("data:"):
@@ -254,6 +286,11 @@ class OpenAICompatibleClient:
                             on_text(delta["content"])
                         if choice.get("finish_reason"):
                             finish_reason = choice["finish_reason"]
+                            if finish_reason == "length":
+                                # 截断是确定性的：tool arguments 必然不完整，不得交由 json_repair 猜测补全
+                                raise RuntimeError(
+                                    "LLM tool response truncated by max output tokens (finish_reason=length)"
+                                )
                             if finish_reason not in {"tool_calls", "stop"}:
                                 raise RuntimeError(f"LLM tool stream ended with {finish_reason}")
                 raise RuntimeError("LLM tool stream interrupted before completion")
@@ -328,7 +365,7 @@ class OpenAICompatibleClient:
         accounting = UsageRequest(payload)
         status, error = "failed", None
         try:
-            with urllib.request.urlopen(request, timeout=self.config.timeout_seconds) as response:
+            with urlopen_with_retry(request, self.config.timeout_seconds, budget_seconds=self.config.connect_retry_seconds) as response:
                 data = json.loads(response.read().decode("utf-8"))
             accounting.observe(data)
             status = "completed"

@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 
 import pytest
 
@@ -16,7 +17,7 @@ from law_agent.review.qa_citations import (
 from law_agent.review.qa_context import qa_state_context
 from tests.test_qa import Tools
 from tests.test_qa_native_answers import run_qa
-from tests.test_review_llm import FakeClient, tool_message
+from tests.test_review_llm import FakeClient, sse_stream, tool_message
 from tests.test_review_result_builder import _hit
 
 
@@ -150,10 +151,11 @@ def test_strict_native_call_uses_beta_with_auto_choice_and_same_thinking(effort,
         beta_base_url="https://example.test/beta", model="test", timeout_seconds=10,
         structured_output_mode="json_object", reasoning_effort=effort))
     requests = []
-    def post(payload, url):
+    @contextmanager
+    def open_stream(payload, url):
         requests.append((payload, url))
-        return {"choices": [{"finish_reason": "tool_calls", "message": tool_message(("a", "repair_citations", {}))}]}
-    monkeypatch.setattr(client, "_post_chat", post)
+        yield sse_stream(tool_message(("a", "repair_citations", {})))
+    monkeypatch.setattr(client, "_open_stream", open_stream)
     client.chat_tools([ChatMessage(role="user", content="校正引用")], tools=[{
         "type": "function", "function": {"name": "repair_citations", "strict": True}}])
     payload, url = requests[0]
