@@ -1,4 +1,6 @@
 import { useEffect, useId, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ApiError, createEvalDraft, listEvalSignals } from '../api/client';
 import type { SavedCase } from '../types/case';
 import type { UserRole } from '../types/api';
 import { setConclusionUseful, setFeedbackText } from '../store/caseStore';
@@ -10,15 +12,43 @@ interface FeedbackPanelProps {
 
 export default function FeedbackPanel({ saved, viewerRole }: FeedbackPanelProps): JSX.Element {
   const fieldId = useId();
+  const navigate = useNavigate();
   const feedback = saved.feedback;
   const [missingDraft, setMissingDraft] = useState(feedback?.missingSources ?? '');
   const [notesDraft, setNotesDraft] = useState(feedback?.notes ?? '');
   const conclusionUseful = feedback?.conclusionUseful ?? null;
+  const [candidate, setCandidate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [draftError, setDraftError] = useState('');
 
   useEffect(() => {
     setMissingDraft(feedback?.missingSources ?? '');
     setNotesDraft(feedback?.notes ?? '');
   }, [saved.id, feedback?.missingSources, feedback?.notes]);
+
+  useEffect(() => {
+    let active = true;
+    if (viewerRole !== 'requester' && saved.reviewTask?.status === 'succeeded') {
+      void listEvalSignals(saved.id).then(({ items }) => { if (active) setCandidate(items.length > 0); })
+        .catch(() => { if (active) setCandidate(false); });
+    }
+    return () => { active = false; };
+  }, [saved.id, saved.reviewTask?.status, saved.signedDecision?.status, feedback?.updatedAt, viewerRole]);
+
+  async function createDraft() {
+    setCreating(true);
+    setDraftError('');
+    try {
+      const draft = await createEvalDraft(saved.id);
+      navigate(`/governance?tab=quality&draft=${draft.id}`);
+    } catch (reason) {
+      const existing = reason instanceof ApiError && reason.status === 409 ? (reason.detail as { draft_id?: string } | null)?.draft_id : null;
+      if (existing) navigate(`/governance?tab=quality&draft=${existing}`);
+      else setDraftError(reason instanceof Error ? reason.message : '无法创建评测草稿');
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <div className="feedback">
@@ -50,6 +80,10 @@ export default function FeedbackPanel({ saved, viewerRole }: FeedbackPanelProps)
         </div>)}
       </div> : null}
       {feedback?.updatedAt ? <div className="feedback__updated">已于 {feedback.updatedAt.replace('T', ' ').slice(0, 16)} 更新</div> : null}
+      {candidate && viewerRole !== 'requester' && saved.reviewTask?.status === 'succeeded' ? <div className="feedback__block">
+        <button type="button" className="btn-secondary" disabled={creating} onClick={() => void createDraft()}>转为评测用例</button>
+        {draftError ? <p className="ops-error" role="alert">{draftError}</p> : null}
+      </div> : null}
     </div>
   );
 }

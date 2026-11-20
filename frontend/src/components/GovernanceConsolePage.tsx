@@ -4,6 +4,7 @@ import { assignManagedUserRole, createManagedUser, listManagedUsers, resetManage
 import type { ManagedUserApi, UserRole, WorkbenchUser } from '../types/api';
 import '../styles/knowledge.css';
 import ImpactConsole from './ImpactConsole';
+import EvaluationConsole from './EvaluationConsole';
 
 interface GovernanceConsolePageProps {
   user: WorkbenchUser;
@@ -12,13 +13,15 @@ interface GovernanceConsolePageProps {
 export default function GovernanceConsolePage({ user }: GovernanceConsolePageProps): JSX.Element {
   const [params] = useSearchParams();
   if (user.role === 'requester') return <Navigate to="/cases" replace />;
-  const tab = params.get('tab') === 'impact' || user.role !== 'admin' ? 'impact' : 'users';
+  const tab = params.get('tab') === 'quality' ? 'quality' : params.get('tab') === 'impact' || user.role !== 'admin' ? 'impact' : 'users';
   return <section className="governance-main">
     <nav className="governance-tabs ops-actions" aria-label="治理视图">
       {user.role === 'admin' ? <Link className={tab === 'users' ? 'btn-primary' : 'btn-secondary'} to="/governance" aria-current={tab === 'users' ? 'page' : undefined}>用户管理</Link> : null}
       <Link className={tab === 'impact' ? 'btn-primary' : 'btn-secondary'} to="/governance?tab=impact" aria-current={tab === 'impact' ? 'page' : undefined}>法规变更影响</Link>
+      <Link className={tab === 'quality' ? 'btn-primary' : 'btn-secondary'} to="/governance?tab=quality" aria-current={tab === 'quality' ? 'page' : undefined}>质量与评测</Link>
     </nav>
-    {tab === 'impact' ? <ImpactConsole key={params.get('flag')} selected={params.get('flag')} /> : <UserManagement />}
+    {tab === 'impact' ? <ImpactConsole key={params.get('flag')} selected={params.get('flag')} />
+      : tab === 'quality' ? <EvaluationConsole key={params.get('draft')} selected={params.get('draft')} /> : <UserManagement />}
   </section>;
 }
 

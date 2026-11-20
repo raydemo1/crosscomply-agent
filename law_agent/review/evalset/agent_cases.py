@@ -101,4 +101,8 @@ def get_agent_cases(suite: str) -> list[AgentCase]:
         from law_agent.review.evalset.agent_cases_portfolio import build_portfolio_cases
 
         return build_portfolio_cases()
+    if suite == "field":
+        from law_agent.review.evalset.field_cases import load_field_cases
+
+        return load_field_cases()
     raise ValueError(f"unknown agent eval suite: {suite!r}")

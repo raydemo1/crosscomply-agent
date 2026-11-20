@@ -163,3 +163,5 @@
 }
 .impact-selected { background: var(--color-warning-bg); }
 .governance-tabs { margin-bottom: var(--space-md); }
+.eval-fields { display: grid; gap: var(--space-sm); min-width: 0; margin: 0; padding: 0; border: 0; }
+.eval-fields h3 { margin: 0; font-size: var(--text-base); }

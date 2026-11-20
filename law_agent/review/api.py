@@ -26,6 +26,7 @@ from law_agent.review.annotations import InMemoryAnnotationStore, PostgresAnnota
 from law_agent.review.approval_readiness import assess_approval_readiness
 from law_agent.review.case_store import CaseStore, InMemoryCaseStore, PostgresCaseStore, UserRecord
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore, PostgresEnterpriseStore
+from law_agent.review.eval_draft_store import InMemoryEvalDraftStore, PostgresEvalDraftStore
 from law_agent.review.feishu import (
     FeishuApprovalClient,
     FeishuApprovalConfig,
@@ -38,6 +39,7 @@ from law_agent.review.http.activity import register_activity_routes
 from law_agent.review.http.annotations import register_annotation_routes
 from law_agent.review.http.auth import SESSION_COOKIE, register_auth_routes
 from law_agent.review.http.cases import register_case_routes
+from law_agent.review.http.eval_drafts import register_eval_draft_routes
 from law_agent.review.http.impact import register_impact_routes
 from law_agent.review.http.integrations import register_integration_routes
 from law_agent.review.http.knowledge import (
@@ -403,6 +405,11 @@ def create_app(
     impact = app.state.impact = RegulationImpact(
         impact_records, app.state.case_store, app.state.enterprise_store, app.state.governance_store, transfers,
     )
+    app.state.eval_draft_store = (
+        InMemoryEvalDraftStore(app.state.case_store, app.state.governance_store, impact_records)
+        if isinstance(app.state.case_store, InMemoryCaseStore)
+        else PostgresEvalDraftStore(load_service_config().postgres.dsn)
+    )
     if template_store is None:
         template_store = (
             InMemoryTemplateStore()
@@ -719,6 +726,7 @@ def create_app(
     )
     register_portfolio_routes(app, current_user=current_user, portfolio=portfolio, reviewer_only=reviewer_only)
     register_impact_routes(app, current_user=current_user, reviewer_only=reviewer_only, admin_only=admin_only)
+    register_eval_draft_routes(app, current_user=current_user, reviewer_only=reviewer_only)
     register_activity_routes(
         app,
         current_user=current_user,

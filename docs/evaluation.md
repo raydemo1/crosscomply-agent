@@ -49,9 +49,14 @@ python -m law_agent.review agent-eval --suite core --judge-model <模型> \
 | `smoke` | `agent_cases.py` | 2 个框架自检案例 |
 | `core` | `agent_cases_core.py`、`agent_cases_second.py` | 17 个合成候选，已参与错误分析和修复，作为**回归集** |
 | `portfolio` | `agent_cases_portfolio.py` | 3 个合成候选，覆盖跨档、接近安全评估门槛和上年度记录 |
+| `field` | `agent_cases_field.json` | 线上审查人纠错经人工脱敏后导出的现场候选，独立审定和统计 |
 | holdout | `agent_cases_holdout.py` | 6 个未用于调优的合成候选，不随 `core` / `smoke` 运行，只能通过选择清单运行 |
 
-全部案例的 `review_status` 都是 `candidate`：它们是基于业务场景构造的合成题，没有经过独立专家的人工法律审定。逐案 AI 复核记录保存在 `law_agent/review/evalset/agent_case_review.json`。
+合成判断用例仍是 `candidate`，不是独立专家审定的基准。逐案 AI 复核记录保存在 `law_agent/review/evalset/agent_case_review.json`。
+
+在治理中心编辑现场候选，人工检查脱敏材料、问题、申报信息和判断标准后标为就绪。受控环境中先执行 `python -m law_agent.review.evalset.field_cases export --dry-run`，再不带 `--dry-run` 导出。用 `python -m law_agent.review.evalset.agent_review --group field --output-dir output/review-field` 生成审定包，现场审定记录写入 `law_agent/review/evalset/agent_case_review_field.json`。导出不会把候选置为已审定；禁止提交包含真实身份或业务秘密的导出文件。
+
+`agent-eval --suite field --no-judge` 仍会运行被测 Agent，不纳入 CI。线上质量面板以最近一次人工反馈的更新时间计入统计，不将缺少反馈的案件算作有用率或引用准确率分母。
 
 ### 指标
 

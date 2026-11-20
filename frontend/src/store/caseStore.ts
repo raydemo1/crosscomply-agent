@@ -165,7 +165,7 @@ async function persistFeedback(id: string, patch: Partial<CaseFeedback>): Promis
   if (!current) return;
   const feedback = current.feedback;
   const saved = await saveFeedback(id, {
-    conclusion_useful: patch.conclusionUseful ?? feedback?.conclusionUseful ?? null,
+    conclusion_useful: patch.conclusionUseful !== undefined ? patch.conclusionUseful : feedback?.conclusionUseful ?? null,
     missing_sources: patch.missingSources ?? feedback?.missingSources ?? '',
     notes: patch.notes ?? feedback?.notes ?? '',
     citation_verdicts: patch.citationVerdicts ?? feedback?.citationVerdicts ?? {},

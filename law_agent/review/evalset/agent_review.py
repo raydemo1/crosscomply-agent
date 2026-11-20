@@ -14,6 +14,28 @@ from law_agent.review.http.schemas import IntakePayload
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 REVIEW_RECORD_PATH = Path(__file__).with_name("agent_case_review.json")
+FIELD_REVIEW_RECORD_PATH = Path(__file__).with_name("agent_case_review_field.json")
+
+
+def review_case_errors(case: AgentCase) -> list[tuple[str, str]]:
+    from pydantic import ValidationError
+
+    errors = []
+    if set(case.intake) - IntakePayload.model_fields.keys():
+        errors.append(("intake", "申报信息包含未定义字段"))
+    try:
+        IntakePayload.model_validate(case.intake)
+    except ValidationError as exc:
+        errors.extend((f"intake.{error['loc'][0]}", "申报值类型或选项无效") for error in exc.errors(include_input=False))
+    for field, values in (
+        ("selection_reason", [case.selection_reason]),
+        ("reference_basis", case.reference_basis),
+        ("rubric.allowed_judgments", case.rubric.allowed_judgments),
+        ("rubric.forbidden_judgments", case.rubric.forbidden_judgments),
+    ):
+        if not values or not all(value.strip() for value in values):
+            errors.append((field, "请填写此项"))
+    return errors
 
 
 def review_groups() -> dict[str, list[AgentCase]]:
@@ -26,13 +48,8 @@ def review_groups() -> dict[str, list[AgentCase]]:
                 raise ValueError(f"duplicate review case: {case.case_id}")
             seen.add(case.case_id)
             inputs.add((case.question, case.material_text))
-            unknown = set(case.intake) - IntakePayload.model_fields.keys()
-            if unknown:
-                raise ValueError(f"unknown intake fields in {case.case_id}: {sorted(unknown)}")
-            IntakePayload.model_validate(case.intake)
-            if not all((case.selection_reason, case.reference_basis,
-                        case.rubric.allowed_judgments, case.rubric.forbidden_judgments)):
-                raise ValueError(f"incomplete review rubric: {case.case_id}")
+            if errors := review_case_errors(case):
+                raise ValueError(f"incomplete review case {case.case_id}: {errors}")
     return groups
 
 
@@ -45,10 +62,19 @@ def case_hash(case: AgentCase) -> str:
     return _json_hash(case.model_dump(mode="json", exclude={"portfolio"} if case.portfolio is None else None))
 
 
-def reviewed_selection(groups: dict[str, list[AgentCase]]) -> tuple[dict, dict]:
-    record = json.loads(REVIEW_RECORD_PATH.read_text(encoding="utf-8"))
+def reviewed_selection(groups: dict[str, list[AgentCase]], *, group: str = "synthetic") -> tuple[dict, dict]:
+    path = FIELD_REVIEW_RECORD_PATH if group == "field" else REVIEW_RECORD_PATH
+    record = json.loads(path.read_text(encoding="utf-8"))
     cases = {case.case_id: case for group in groups.values() for case in group}
     entries = record["cases"]
+    if group == "field":
+        recorded = {entry["case_id"] for entry in entries}
+        entries = [*entries, *[
+            {"case_id": case.case_id, "case_sha256": case_hash(case),
+             "next_run_reason": "新增待审定用例", "legal_review": "待人工审定", "findings_and_resolutions": []}
+            for case in cases.values() if case.case_id not in recorded
+        ]]
+        record = {**record, "cases": entries}
     if len(entries) != len(cases) or {entry["case_id"] for entry in entries} != set(cases):
         raise ValueError("review record must cover every case exactly once")
     selected, skipped = [], []
@@ -71,26 +97,43 @@ def reviewed_selection(groups: dict[str, list[AgentCase]]) -> tuple[dict, dict]:
         "skipped": skipped,
         "boundary": "只运行历史失败/执行异常、修正后案例及新增候选；不是全仓当前版本的完整基线。",
     }
+    if group == "field":
+        plan["group"] = "field"
+        plan["boundary"] = "现场纠错候选单独运行和报告；未通过独立审定的用例不是正式基准。"
     return record, plan
 
 
 def cases_from_selection(plan: dict) -> list[AgentCase]:
     if plan["purpose"] != "incremental_candidate_eval":
         raise ValueError("not an incremental candidate selection")
-    expected_hash = _json_hash(json.loads(REVIEW_RECORD_PATH.read_text(encoding="utf-8")))
-    if plan["review_record_sha256"] != expected_hash:
+    group = plan.get("group", "synthetic")
+    groups = _package_groups(group)
+    _record, expected = reviewed_selection(groups, group=group)
+    if plan["review_record_sha256"] != expected["review_record_sha256"]:
         raise ValueError("review record changed; export a new selection")
-    groups = review_groups()
-    _record, expected = reviewed_selection(groups)
     if plan["selected"] != expected["selected"] or plan["skipped"] != expected["skipped"]:
         raise ValueError("selection differs from the reviewed case list")
     cases = {case.case_id: case for group in groups.values() for case in group}
     return [cases[item["case_id"]] for item in plan["selected"]]
 
 
-def export_review_package(output_dir: Path) -> dict:
-    groups = review_groups()
-    record, selection = reviewed_selection(groups)
+def _package_groups(group):
+    if group == "synthetic":
+        return review_groups()
+    if group != "field":
+        raise ValueError(f"unknown review group: {group}")
+    cases = get_agent_cases("field")
+    if len({case.case_id for case in cases}) != len(cases):
+        raise ValueError("duplicate field review case")
+    for case in cases:
+        if errors := review_case_errors(case):
+            raise ValueError(f"incomplete review case {case.case_id}: {errors}")
+    return {"field": cases}
+
+
+def export_review_package(output_dir: Path, *, group: str = "synthetic") -> dict:
+    groups = _package_groups(group)
+    record, selection = reviewed_selection(groups, group=group)
     cases = [case for group in groups.values() for case in group]
     manifest = {
         "purpose": "offline_human_review",
@@ -106,7 +149,8 @@ def export_review_package(output_dir: Path) -> dict:
             for path in sorted((REPOSITORY_ROOT / "law_agent").rglob("*.py"))
             if "evalset" not in path.parts
         },
-        "holdout_limitations": "自建合成、未实跑、待审定；选题参考历史失败，非独立盲测。用于调优后转入回归集。",
+        "holdout_limitations": ("线上复核信号经脱敏形成的候选；与合成回归和留出集分开报告。"
+                                if group == "field" else "自建合成、未实跑、待审定；选题参考历史失败，非独立盲测。用于调优后转入回归集。"),
     }
     reviews = [
         {
@@ -130,9 +174,9 @@ def export_review_package(output_dir: Path) -> dict:
         f"AI逐案复核见ai_review.json；增量选择{selection['selected_count']}案、暂不重跑{selection['skipped_count']}案。",
         "selection.json只冻结本次选题，不把历史PASS合并为当前版本的新总体分数。", "",
     ]
-    for name, group in groups.items():
+    for name, group_cases in groups.items():
         lines.extend([f"## {name}", ""])
-        for case in group:
+        for case in group_cases:
             review = next(entry for entry in record["cases"] if entry["case_id"] == case.case_id)
             lines.extend([
                 f"### {case.case_id}", "", f"状态：{case.review_status}；SHA256：{case_hash(case)}", "",
@@ -176,8 +220,9 @@ def export_review_package(output_dir: Path) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--group", choices=["synthetic", "field"], default="synthetic")
     args = parser.parse_args()
-    manifest = export_review_package(args.output_dir)
+    manifest = export_review_package(args.output_dir, group=args.group)
     print(json.dumps({"output_dir": str(args.output_dir.resolve()),
                       "case_counts": manifest["case_counts"], "model_calls": 0,
                       "evaluation_performed": False}, ensure_ascii=False))

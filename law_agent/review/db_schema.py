@@ -1,1 +1,1 @@
-EXPECTED_SCHEMA_REVISION = "0022_regulation_impact"
+EXPECTED_SCHEMA_REVISION = "0023_eval_case_drafts"

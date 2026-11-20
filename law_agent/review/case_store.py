@@ -882,7 +882,11 @@ class PostgresCaseStore:
 
     def list_feedback(self, identifier: str) -> list[dict[str, Any]]:
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT f.actor_id, f.conclusion_useful, f.missing_sources, f.notes, f.updated_at, u.role AS actor_role, u.display_name AS actor_name FROM case_feedback f JOIN users u ON u.id = f.actor_id WHERE f.case_id = %s ORDER BY f.updated_at DESC", (identifier,))
+            cur.execute("""SELECT f.actor_id, f.conclusion_useful, f.missing_sources, f.notes, f.updated_at,
+                           COALESCE(f.citation_verdicts_json, '{}'::jsonb) AS citation_verdicts,
+                           u.role AS actor_role, u.display_name AS actor_name
+                           FROM case_feedback f JOIN users u ON u.id = f.actor_id
+                           WHERE f.case_id = %s ORDER BY f.updated_at DESC""", (identifier,))
             rows = cur.fetchall()
         return [{**dict(row), "updated_at": _json_value(row["updated_at"])} for row in rows]
 
@@ -1330,7 +1334,7 @@ class InMemoryCaseStore:
     def list_feedback(self, identifier: str) -> list[dict[str, Any]]:
         users = {record[0].id: record[0] for record in self.users.values()}
         return [
-            {"actor_id": item["actor_id"], "actor_role": users[item["actor_id"]].role, "actor_name": users[item["actor_id"]].display_name, "conclusion_useful": item["conclusion_useful"], "missing_sources": item["missing_sources"], "notes": item["notes"], "updated_at": item["updated_at"]}
+            {"actor_id": item["actor_id"], "actor_role": users[item["actor_id"]].role, "actor_name": users[item["actor_id"]].display_name, "conclusion_useful": item["conclusion_useful"], "missing_sources": item["missing_sources"], "notes": item["notes"], "updated_at": item["updated_at"], "citation_verdicts": item["citation_verdicts"]}
             for (case_id, _), item in self.feedback.items() if case_id == identifier and item["actor_id"] in users
         ]
 

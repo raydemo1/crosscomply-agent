@@ -501,6 +501,8 @@ function eventLabel(event: string): string {
     regulation_impact_dismissed: '忽略法规变更提示',
     regulation_impact_rereview_started: '因法规变更发起复审',
     regulation_impact_resolved: '法规变更影响已结案',
+    eval_draft_created: '建立评测草稿',
+    eval_draft_exported: '导出评测候选',
     action_created: '创建整改任务',
     action_updated: '更新整改任务',
     remediation_plan_created: '建立待办事项清单',

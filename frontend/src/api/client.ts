@@ -1,6 +1,7 @@
 /** Client for the CrossComply persisted case workbench API. */
 import { PUBLIC_DEMO } from '../runtime';
 import { readMatterStream, type MatterStreamEvent } from '../utils/matterStream';
+import type { EvalDraft, EvalDraftInput, EvalDraftSummary, EvalSignal, QualityMetrics } from '../types/evaluation';
 import type {
   EligibleTransferCase, ImpactOutcome, ImpactSeverity, ImpactStatus, KnowledgeChange, KnowledgeImpactResult,
   PortfolioBand, PortfolioSnapshot, PortfolioSummary, RegulationFlag, TransferActivity, TransferDetail, WorkItem,
@@ -553,6 +554,34 @@ export function listTransferActivities(): Promise<{ items: TransferActivity[] }>
 
 export function listPortfolios(): Promise<{ items: PortfolioSummary[] }> {
   return request('/api/entities/portfolio');
+}
+
+export function listEvalSignals(caseId: string): Promise<{ items: EvalSignal[] }> {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/eval-signals`);
+}
+
+export function createEvalDraft(caseId: string): Promise<EvalDraft> {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/eval-drafts`, { method: 'POST' });
+}
+
+export function listEvalDrafts(): Promise<{ items: EvalDraftSummary[] }> {
+  return request('/api/eval-drafts');
+}
+
+export function getEvalDraft(id: string): Promise<EvalDraft> {
+  return request(`/api/eval-drafts/${encodeURIComponent(id)}`);
+}
+
+export function saveEvalDraft(id: string, draft: EvalDraftInput): Promise<EvalDraft> {
+  return request(`/api/eval-drafts/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(draft) });
+}
+
+export function transitionEvalDraft(id: string, action: 'ready' | 'reopen' | 'discard'): Promise<EvalDraft> {
+  return request(`/api/eval-drafts/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
+}
+
+export function getQualityMetrics(since?: string): Promise<QualityMetrics> {
+  return request(`/api/governance/quality${since ? `?since=${encodeURIComponent(since)}` : ''}`);
 }
 
 export function listRegulationImpacts(status: ImpactStatus, severity: ImpactSeverity | ''): Promise<{ items: RegulationFlag[] }> {
