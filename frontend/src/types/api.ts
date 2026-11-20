@@ -1,3 +1,5 @@
+import type { KnowledgeImpactResult, RegulationFlag } from './operations';
+
 /**
  * TypeScript type definitions for the LawAgent review API.
  *
@@ -522,7 +524,7 @@ export interface KnowledgeJobApi {
   id?: string;
   job_type?: 'import' | 'delete' | 'restore' | 'metadata';
   status: 'queued' | 'running' | 'succeeded' | 'partially_succeeded' | 'failed';
-  result?: { items?: Array<Record<string, unknown>> };
+  result?: { items?: Array<Record<string, unknown> & { source_id?: string; impact?: KnowledgeImpactResult }> };
   error?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -1072,7 +1074,7 @@ export interface CaseRecordApi extends CaseSummaryApi {
 
 export interface ApprovalReadinessApi {
   code: 'ready' | 'submitted' | 'decided' | 'review_pending' | 'review_failed'
-    | 'source_review' | 'fact_review' | 'evidence_review' | 'actions_open' | 'stale_review' | 'transfer_impact';
+    | 'source_review' | 'fact_review' | 'evidence_review' | 'actions_open' | 'stale_review' | 'transfer_impact' | 'regulation_impact';
   detail: string;
   action_ids: string[];
 }
@@ -1082,6 +1084,7 @@ export interface CaseDetailApi {
   approval_readiness?: ApprovalReadinessApi;
   transfer_activity_id?: string | null;
   transfer_impact_required?: boolean;
+  regulation_impacts?: RegulationFlag[];
   /** Legacy field may be absent; current remediation data lives in remediation_plan. */
   events: CaseEvent[];
   feedback: CaseFeedbackApi | null;

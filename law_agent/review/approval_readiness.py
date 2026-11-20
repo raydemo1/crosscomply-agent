@@ -13,7 +13,7 @@ from law_agent.review.workflow import (
 
 ApprovalReadinessCode = Literal[
     "ready", "submitted", "decided", "review_pending", "review_failed", "source_review",
-    "fact_review", "evidence_review", "actions_open", "stale_review", "transfer_impact",
+    "fact_review", "evidence_review", "actions_open", "stale_review", "transfer_impact", "regulation_impact",
 ]
 
 
@@ -27,11 +27,13 @@ class ApprovalReadiness:
 def assess_approval_readiness(
     *, case: dict[str, Any], task: ReviewTask | None, plan: dict[str, Any] | None,
     material_snapshot_id: str | None, intake_snapshot_id: str | None,
-    approval_exists: bool, transfer_impact_required: bool,
+    approval_exists: bool, transfer_impact_required: bool, open_blocking_impacts: int = 0,
 ) -> ApprovalReadiness:
     status = case["status"]
     if status in {"approved", "conditionally_approved", "rejected"}:
         return ApprovalReadiness("decided")
+    if status == "pending_feishu_approval" and open_blocking_impacts:
+        return ApprovalReadiness("regulation_impact", "引用的法规已变更，请先处理影响提示。")
     if status == "run_failed":
         return ApprovalReadiness("review_failed", "审查运行失败，请查看流程记录。")
     payloads = [case.get("response") or {}, (task.result or {}) if task else {}]

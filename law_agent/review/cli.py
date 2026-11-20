@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 
 from law_agent.review.materials import material_from_file, material_from_text
@@ -344,10 +345,51 @@ def _cmd_backfill_entity_keys(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_backfill_citation_index(args: argparse.Namespace) -> int:
+    import psycopg
+
+    from law_agent.config import load_service_config
+    from law_agent.data.io import read_jsonl
+    from law_agent.data.schemas import Chunk
+    from law_agent.review.impact import citation_rows
+    from law_agent.review.impact_store import PostgresImpactStore
+
+    dsn = load_service_config().postgres.dsn
+    records = PostgresImpactStore(dsn)
+    chunks = {row.chunk_id: row for row in read_jsonl(Path(args.chunks), Chunk)}
+    count = 0
+    with psycopg.connect(dsn) as conn, conn.cursor(name="citation_backfill") as cur:
+        cur.execute("SELECT id, case_id, result_json FROM review_tasks WHERE status = 'succeeded'")
+        for task_id, case_id, result in cur:
+            rows = list(citation_rows(task_id, case_id, result or {}, chunks))
+            if not args.dry_run:
+                records.index_citations(task_id, rows)
+            count += len(rows)
+    print(f"{'Would process' if args.dry_run else 'Processed'} {count} citations")
+    return 0
+
+
+def _cmd_impact_scan(args: argparse.Namespace) -> int:
+    from law_agent.config import load_service_config
+    from law_agent.review.dates import business_today
+    from law_agent.review.impact_store import PostgresImpactStore
+
+    count = PostgresImpactStore(load_service_config().postgres.dsn).promote(args.as_of or business_today())
+    print(f"Promoted {count} regulation impact flags")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m law_agent.review")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("backfill-entity-keys").set_defaults(func=_cmd_backfill_entity_keys)
+    citations = subparsers.add_parser("backfill-citation-index")
+    citations.add_argument("--dry-run", action="store_true")
+    citations.add_argument("--chunks", default=str(DEFAULT_CHUNKS_PATH))
+    citations.set_defaults(func=_cmd_backfill_citation_index)
+    impact_scan = subparsers.add_parser("impact-scan")
+    impact_scan.add_argument("--as-of", type=date.fromisoformat)
+    impact_scan.set_defaults(func=_cmd_impact_scan)
 
     run = subparsers.add_parser("run", help="Create a material review case skeleton")
     run.add_argument("--question", required=True)

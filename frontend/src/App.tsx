@@ -87,7 +87,7 @@ export default function App(): JSX.Element {
         <Route path="/cases/:caseId" element={<CaseDetailRoute user={user} />} />
         <Route path="/knowledge" element={<Navigate to="/knowledge/legal" replace />} />
         <Route path="/knowledge/:kind" element={<KnowledgeRoute user={user} />} />
-        <Route path="/governance" element={<GovernanceConsolePage />} />
+        <Route path="/governance" element={<GovernanceConsolePage user={user} />} />
         <Route path="/index.html" element={<LegacyRedirect />} />
         <Route path="*" element={<LegacyRedirect />} />
       </Route>

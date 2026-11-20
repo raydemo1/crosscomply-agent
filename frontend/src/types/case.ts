@@ -3,6 +3,7 @@
  */
 
 import type { ReviewApiResponse, RiskLevel } from './api';
+import type { RegulationFlag } from './operations';
 import type {
   ApprovalReadinessApi,
   CaseEvent,
@@ -40,6 +41,7 @@ export interface CaseFeedback {
 export interface SavedCase {
   ownerId?: string | null;
   transferActivityId?: string | null;
+  regulationImpacts?: RegulationFlag[];
   transferImpactRequired?: boolean;
   approvalReadiness?: ApprovalReadinessApi;
   /** Stable case id from the backend. */

@@ -99,7 +99,7 @@ def create_transfer_review(row, baseline_id, *, business_entity, change_note, us
 
 def register_transfer_routes(
     app: FastAPI, *, current_user: Any, cases: Any, enterprise: Any, governance: Any,
-    transfers: Any, can_view_case: Any, reviewer_only: Any,
+    transfers: Any, can_view_case: Any, reviewer_only: Any, impacts: Any,
 ) -> None:
     router = APIRouter(prefix="/api/transfer-activities")
 
@@ -122,6 +122,10 @@ def register_transfer_routes(
         current = next((review for review in reviews if review["case_id"] == current_id), None)
         owner = cases().get_user(row["owner_id"])
         active = next((review for review in reviews if review["status"] not in CLOSED), None)
+        has_impact = bool(impacts.flags(status="open", case_id=current_id, task_id=approval.task_id))
+        if not has_impact and active and active["status"] == "pending_feishu_approval":
+            task = enterprise().get_latest_task(active["case_id"])
+            has_impact = bool(task and impacts.flags(status="open", case_id=active["case_id"], task_id=task.id))
         return {
             "id": row["id"], "title": row["title"],
             "owner_name": owner.display_name if owner else "负责人不可用",
@@ -133,6 +137,7 @@ def register_transfer_routes(
             "approval": {"case_id": current_id, "title": case["title"], "status": approval.status,
                          "decided_at": approval.decided_at},
             "active_status": active["status"] if active else None,
+            "regulation_impact_open": has_impact,
         }
 
     @router.get("")

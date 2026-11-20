@@ -13,6 +13,8 @@ from law_agent.review.case_store import PostgresCaseStore
 from law_agent.review.enterprise_store import PostgresEnterpriseStore
 from law_agent.review.feishu import FeishuApprovalClient
 from law_agent.review.governance_store import PostgresGovernanceStore
+from law_agent.review.impact import RegulationImpact
+from law_agent.review.impact_store import PostgresImpactStore
 from law_agent.review.portfolio import Portfolio
 from law_agent.review.transfer_store import PostgresTransferStore
 from law_agent.review.work_inbox import WorkInbox
@@ -31,7 +33,8 @@ class WorkReminderWorker:
         governance = PostgresGovernanceStore(dsn)
         transfers = PostgresTransferStore(dsn)
         self.inbox = WorkInbox(self.cases, enterprise, governance, transfers,
-                               Portfolio(transfers, self.cases, enterprise, governance))
+                               Portfolio(transfers, self.cases, enterprise, governance),
+                               RegulationImpact(PostgresImpactStore(dsn), self.cases, enterprise, governance, transfers))
 
     def _claim(self, key: UUID) -> bool:
         with psycopg.connect(self.dsn) as conn, conn.cursor() as cur:

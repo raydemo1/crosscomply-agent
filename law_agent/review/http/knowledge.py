@@ -20,6 +20,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -224,6 +225,12 @@ def register_knowledge_routes(
         service = KnowledgeBaseAdminService(app.state.knowledge_corpus, read_only=False)
         results: list[dict[str, Any]] = []
         failures = 0
+
+        def publish(source_id, mutation):
+            return app.state.impact.track_publication(
+                service, source_id, mutation, job_id=job.id, actor_id=job.created_by, restoring=job.job_type == "restore",
+            )
+
         try:
             entries = list(job.payload.get("entries") or [])
             if job.job_type in {"import", "metadata"}:
@@ -233,9 +240,9 @@ def register_knowledge_routes(
                         source = SourceRecord.model_validate(entry["source"])
                         if job.job_type == "metadata":
                             # A metadata edit never re-parses the stored body.
-                            result = service.update_source_metadata(source)
+                            result = publish(source.source_id, partial(service.update_source_metadata, source))
                         else:
-                            result = service.ingest_file(source, Path(entry["temp_path"]))
+                            result = publish(source.source_id, partial(service.ingest_file, source, Path(entry["temp_path"])))
                         results.append({"source_id": source.source_id, "status": "succeeded", **result})
                     except Exception as exc:  # noqa: BLE001 - persist per-source failure
                         failures += 1
@@ -249,12 +256,16 @@ def register_knowledge_routes(
             elif job.job_type == "delete":
                 for source_id in entries:
                     try:
-                        record = service.trash_source(safe_source_id(str(source_id)))
+                        safe_id = safe_source_id(str(source_id))
+                        def trash(safe_id=safe_id):
+                            return {"trashed_at": service.trash_source(safe_id).trashed_at}
+
+                        result = publish(safe_id, trash)
                         results.append(
                             {
                                 "source_id": source_id,
                                 "status": "succeeded",
-                                "trashed_at": record.trashed_at,
+                                **result,
                             }
                         )
                     except Exception as exc:  # noqa: BLE001 - persist per-source failure
@@ -264,7 +275,7 @@ def register_knowledge_routes(
                         )
             elif job.job_type == "restore":
                 source_id = safe_source_id(str(job.payload["source_id"]))
-                result = service.restore_source(source_id)
+                result = publish(source_id, lambda: service.restore_source(source_id))
                 results.append({"source_id": source_id, "status": "succeeded", **result})
             status: JobStatus = (
                 "failed"

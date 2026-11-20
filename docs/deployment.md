@@ -57,9 +57,11 @@
 docker compose build migrate api
 docker compose run --rm migrate alembic upgrade head
 docker compose run --rm --no-deps api python -m law_agent.review backfill-entity-keys
+docker compose run --rm --no-deps api python -m law_agent.review backfill-citation-index --dry-run
+docker compose run --rm --no-deps api python -m law_agent.review backfill-citation-index
 ```
 
-回填会统一主体的全角字符、空白及大小写，可重复执行；完成后再启动新版本服务。没有新增生产环境变量。
+主体键和引用索引回填均可重复执行，不改写审查报告或审批。引用索引读取当前启用的语料；非默认目录用 `--chunks` 指定。完成后再启动新版本服务。知识库 Worker 每日提升已生效的新版本提示，也可用 `impact-scan --as-of YYYY-MM-DD` 运维触发。没有新增生产环境变量。
 
 ## 飞书集成（可选）
 

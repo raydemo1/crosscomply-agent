@@ -84,7 +84,10 @@ export default function Sidebar({ user, onLogout, isMobileOpen, onCloseMobile }:
       </Link>)}
     </section> : null}
     <div className="sidebar-bottom">
-      {user.role === 'admin' ? <nav className="sidebar-section sidebar-nav sidebar-admin" aria-label="管理导航">{nav('/knowledge', '知识库', <Database size={18} />)}{location.pathname.startsWith('/knowledge') ? <div className="sidebar-nav-submenu">{nav('/knowledge/legal', '法律法规', <BookOpen size={16} />)}{nav('/knowledge/internal_policy', '规章制度', <BookOpen size={16} />)}</div> : null}{nav('/governance', '用户管理', <ShieldCheck size={18} />)}</nav> : null}
+      {user.role !== 'requester' ? <nav className="sidebar-section sidebar-nav sidebar-admin" aria-label="管理导航">
+        {user.role === 'admin' ? <>{nav('/knowledge', '知识库', <Database size={18} />)}{location.pathname.startsWith('/knowledge') ? <div className="sidebar-nav-submenu">{nav('/knowledge/legal', '法律法规', <BookOpen size={16} />)}{nav('/knowledge/internal_policy', '规章制度', <BookOpen size={16} />)}</div> : null}</> : null}
+        {nav('/governance', '治理中心', <ShieldCheck size={18} />)}
+      </nav> : null}
       <div className="sidebar-user-card sidebar-user-card--bottom">
         <div className="sidebar-user-card__avatar" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="presentation">

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any
@@ -40,6 +41,7 @@ def register_integration_routes(
     deliver_feishu_approval: Callable[..., dict[str, Any]],
     remediation_event: Callable[..., None],
     transfer_review: Callable[[str], dict[str, Any] | None],
+    impacts: Any,
 ) -> None:
     router = APIRouter()
 
@@ -55,6 +57,7 @@ def register_integration_routes(
             intake_snapshot_id=intake.id if intake else None,
             approval_exists=approval_exists,
             transfer_impact_required=bool(transfer and task and (transfer.get("impact") or {}).get("task_id") != task.id),
+            open_blocking_impacts=impacts.open_blocking_count(identifier, task.id) if task else 0,
         )
 
     def require_ready(readiness: ApprovalReadiness) -> None:
@@ -69,6 +72,8 @@ def register_integration_routes(
             )
         if readiness.code in {"fact_review", "evidence_review", "source_review"}:
             raise HTTPException(status_code=409, detail="审查仍有事实或证据缺口，不能发起飞书审批")
+        if readiness.code == "regulation_impact":
+            raise HTTPException(status_code=409, detail={"code": readiness.code, "message": readiness.detail})
         if readiness.code != "ready":
             raise HTTPException(status_code=409, detail=readiness.detail or "当前案件状态不能发起飞书审批")
 
@@ -196,6 +201,10 @@ def register_integration_routes(
                 payload={"approval_event_id": receipt.event.id},
             )
         if target in {"approved", "conditionally_approved"}:
+            try:
+                impacts.resolve(approval.case_id)
+            except Exception:
+                logging.getLogger(__name__).exception("复审已审批但影响标记未结案：%s", approval.case_id)
             remediation_plan = store().get_remediation_plan(approval.case_id)
             if remediation_plan is not None and remediation_plan["status"] == "draft":
                 try:

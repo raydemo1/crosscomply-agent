@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.dates import business_today
+from law_agent.review.impact import REASON_LABELS, RegulationImpact
 from law_agent.review.portfolio import Portfolio, crosses_threshold
 from law_agent.review.transfer_store import APPROVED, CLOSED
 from law_agent.review.workflow import review_has_missing_information
@@ -27,12 +28,13 @@ def configured_reviewer(users: list[UserRecord]) -> UserRecord | None:
 
 class WorkInbox:
     def __init__(self, cases: CaseStore, enterprise: Any, governance: Any, transfers: Any,
-                 portfolio: Portfolio) -> None:
+                 portfolio: Portfolio, impact: RegulationImpact) -> None:
         self.cases = cases
         self.enterprise = enterprise
         self.governance = governance
         self.transfers = transfers
         self.portfolio = portfolio
+        self.impact = impact
 
     def list(self, user: UserRecord, *, today: date | None = None) -> list[dict[str, Any]]:
         today = today or business_today()
@@ -43,6 +45,8 @@ class WorkInbox:
         cases = {row["id"]: row for row in self.cases.list_cases(user, statuses=CASE_WORK_STATES)}
         plans: dict[str, dict[str, Any] | None] = {}
         items: list[dict[str, Any]] = []
+        impacts = self.impact.visible_flags(status="open") if can_review else []
+        blocked = {(row["case_id"], row["task_id"]) for row in impacts if row["severity"] == "blocking"}
 
         def plan_for(case_id: str) -> dict[str, Any] | None:
             if case_id not in plans:
@@ -143,7 +147,7 @@ class WorkInbox:
                     continue
                 if (not can_review or task is None or task.status != "succeeded"
                         or review_has_missing_information(task.result or {})
-                        or self.governance.get_latest_approval(identifier)):
+                        or self.governance.get_latest_approval(identifier) or (identifier, task_id) in blocked):
                     continue
                 transfer = self.transfers.review_for_case(identifier)
                 if transfer and (transfer.get("impact") or {}).get("task_id") != task_id:
@@ -164,6 +168,12 @@ class WorkInbox:
                     assignee_id=user.id, due_on=due_on, on_ready=False)
 
         if can_review:
+            for flag in impacts:
+                due = flag["effective_on"]
+                add("regulation_impact", flag["case_title"], flag["title"], REASON_LABELS[flag["reason"]],
+                    "处理法规变更提示", f"/governance?tab=impact&flag={flag['id']}", key=flag["id"], team=True,
+                    due_on=due.isoformat() if due and flag["severity"] == "upcoming" else None,
+                    on_ready=flag["severity"] != "upcoming")
             for summary in self.portfolio.summaries(user, today.year):
                 if not crosses_threshold(summary) or self.portfolio.acked(summary.entity_key, today.year, summary.band_upper):
                     continue

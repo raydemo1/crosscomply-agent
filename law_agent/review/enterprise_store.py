@@ -512,9 +512,9 @@ class InMemoryEnterpriseStore:
         with self._lock:
             return self.tasks.get(task_id)
 
-    def get_latest_task(self, case_id: str) -> ReviewTask | None:
+    def get_latest_task(self, case_id: str, *, status: TaskStatus | None = None) -> ReviewTask | None:
         with self._lock:
-            matches = [item for item in self.tasks.values() if item.case_id == case_id]
+            matches = [item for item in self.tasks.values() if item.case_id == case_id and (status is None or item.status == status)]
             return max(matches, key=lambda item: (item.created_at, item.id), default=None)
 
     def supersede_waiting_tasks(self, case_id: str) -> list[str]:
@@ -1070,16 +1070,16 @@ class PostgresEnterpriseStore:
             attempts = self._load_attempts(cur, task_id)
         return self._review_task(row, attempts)
 
-    def get_latest_task(self, case_id: str) -> ReviewTask | None:
+    def get_latest_task(self, case_id: str, *, status: TaskStatus | None = None) -> ReviewTask | None:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT * FROM review_tasks
-                WHERE case_id = %s
+                WHERE case_id = %s AND (%s::text IS NULL OR status = %s)
                 ORDER BY created_at DESC, id DESC
                 LIMIT 1
                 """,
-                (case_id,),
+                (case_id, status, status),
             )
             row = cur.fetchone()
             if row is None:

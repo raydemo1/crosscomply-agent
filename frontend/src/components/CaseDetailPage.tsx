@@ -180,6 +180,11 @@ function CaseDetailContent({
         onRerun={() => { if (leaveDocumentView()) onRerun(completedSaved.question, completedSaved.materialText); }}
         onOpenProgress={failed ? undefined : () => openRecord('record-progress')}
       />
+      {saved.regulationImpacts?.map((flag) => <p key={flag.id} className={flag.severity === 'blocking' ? 'ops-error' : 'ops-impact'}>
+        相关法规《{flag.title}》{flag.article_nos.join('、')}{flag.severity === 'upcoming'
+          ? `相关新版本将于 ${flag.effective_on} 生效` : `存在法规变更提示（${flag.created_at.slice(0, 10)}）`}。
+        {viewerRole !== 'requester' ? <> <Link className="ops-link" to={`/governance?tab=impact&flag=${flag.id}`}>处理提示</Link></> : null}
+      </p>)}
       {failed ? progress : null}
       <div className={'case-workspace' + (detailView === 'document' ? ' case-workspace--document' : '')}>
         <div className="case-workspace__main">
@@ -491,6 +496,11 @@ function eventLabel(event: string): string {
     transfer_review_created: '创建出境活动复审',
     transfer_impact_confirmed: '确认出境变更影响',
     portfolio_threshold_acknowledged: '确认主体累计跨档提示',
+    regulation_impact_flagged: '新增法规变更提示',
+    regulation_impact_promoted: '法规新版本生效',
+    regulation_impact_dismissed: '忽略法规变更提示',
+    regulation_impact_rereview_started: '因法规变更发起复审',
+    regulation_impact_resolved: '法规变更影响已结案',
     action_created: '创建整改任务',
     action_updated: '更新整改任务',
     remediation_plan_created: '建立待办事项清单',
@@ -701,6 +711,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
     review_failed: { label: '查看审查流程', run: () => onOpenRecord('record-progress') },
     stale_review: { label: '查看送审版本', run: () => onOpenRecord('record-materials') },
     transfer_impact: null,
+    regulation_impact: null,
   }[readiness.code];
 
   useEffect(() => {
@@ -852,7 +863,7 @@ function ReviewChain({ saved, view, onVerdictChange, viewerRole, canManageAction
 
               {!PUBLIC_DEMO || citations.length ? <details className="report-record-group" open>
                 <summary><ShieldCheck size={17} aria-hidden="true" /><span>{PUBLIC_DEMO ? '法规来源' : canManageActions ? '引用核查与复核意见' : '法规来源与审查反馈'}</span><ChevronDown className="case-disclosure-chevron" size={16} aria-hidden="true" /></summary>
-                {citations.length ? <CitationList groups={response.citation_groups} evidenceChunks={evidenceChunks} claims={result.claims} verdicts={verdicts} onVerdictChange={onVerdictChange} viewerRole={viewerRole} readOnly={!canManageActions} /> : null}
+                {citations.length ? <CitationList groups={response.citation_groups} evidenceChunks={evidenceChunks} claims={result.claims} verdicts={verdicts} onVerdictChange={onVerdictChange} viewerRole={viewerRole} readOnly={!canManageActions} changedChunks={new Set(saved.regulationImpacts?.flatMap((flag) => flag.chunk_ids))} /> : null}
                 {!PUBLIC_DEMO ? <FeedbackPanel saved={saved} viewerRole={viewerRole} /> : null}
               </details> : null}
 

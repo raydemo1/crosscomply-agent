@@ -362,7 +362,7 @@ def _has_clause_structure(prepared: PreparedSource) -> bool:
 
 def process_enrichment_job(
     job: dict[str, Any], *, store: PostgresEnrichmentStore,
-    service: KnowledgeBaseAdminService,
+    service: KnowledgeBaseAdminService, impact=None,
 ) -> None:
     try:
         suffix = Path(urlsplit(job["url"]).path).suffix.lower()
@@ -447,7 +447,10 @@ def process_enrichment_job(
         if source.citation_role == "primary_legal_basis" and not _has_clause_structure(prepared):
             raise ValueError("正式法源缺少可核对的条款结构")
         source = source.model_copy(update={"file_format": path.suffix.lstrip(".")})
-        service.ingest_file(source, path)
+        if impact is None:
+            service.ingest_file(source, path)
+        else:
+            impact.track_publication(service, source.source_id, lambda: service.ingest_file(source, path), job_id=job["id"])
         store.transition(job["id"], status="published", source=source)
     except Exception as exc:  # noqa: BLE001 - persist every worker failure
         transient = isinstance(exc, (urllib.error.URLError, TimeoutError, ConnectionError))

@@ -21,6 +21,7 @@ const KIND_LABEL: Record<WorkKind, string> = {
   transfer_due: '业务复核',
   impact_review: '影响确认',
   portfolio_threshold: '主体累计',
+  regulation_impact: '法规变更',
 };
 
 function getGroup(kind: WorkKind): string {

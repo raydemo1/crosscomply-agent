@@ -38,6 +38,7 @@ from law_agent.review.http.activity import register_activity_routes
 from law_agent.review.http.annotations import register_annotation_routes
 from law_agent.review.http.auth import SESSION_COOKIE, register_auth_routes
 from law_agent.review.http.cases import register_case_routes
+from law_agent.review.http.impact import register_impact_routes
 from law_agent.review.http.integrations import register_integration_routes
 from law_agent.review.http.knowledge import (
     configure_knowledge_state,
@@ -58,6 +59,8 @@ from law_agent.review.http.system import register_system_routes
 from law_agent.review.http.templates import register_template_routes
 from law_agent.review.http.transfers import register_transfer_routes
 from law_agent.review.http.users import register_user_routes
+from law_agent.review.impact import RegulationImpact
+from law_agent.review.impact_store import InMemoryImpactStore, PostgresImpactStore
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
 from law_agent.review.portfolio import Portfolio
 from law_agent.review.qa_store import InMemoryQAStore, PostgresQAStore
@@ -392,6 +395,14 @@ def create_app(
     app.state.governance_store = governance_store or PostgresGovernanceStore(
         load_service_config().postgres.dsn
     )
+    impact_records = (
+        InMemoryImpactStore(app.state.case_store, transfers)
+        if isinstance(app.state.case_store, InMemoryCaseStore)
+        else PostgresImpactStore(load_service_config().postgres.dsn)
+    )
+    impact = app.state.impact = RegulationImpact(
+        impact_records, app.state.case_store, app.state.enterprise_store, app.state.governance_store, transfers,
+    )
     if template_store is None:
         template_store = (
             InMemoryTemplateStore()
@@ -549,12 +560,21 @@ def create_app(
             intake_snapshot_id=intake_snapshot.id if intake_snapshot else None,
             approval_exists=approval is not None,
             transfer_impact_required=transfer_impact_required,
+            open_blocking_impacts=impact_records.open_blocking_count(case["id"], task.id) if task and case["status"] == "pending_feishu_approval" else 0,
         )
+        regulation_impacts = impact_records.flags(
+            status="open", case_id=case["id"], task_id=task.id,
+            owner_id=user.id if user.role == "requester" else None,
+        ) if task else []
+        if user.role == "requester":
+            for item in regulation_impacts:
+                item.update(activity_id=None, activity_title=None)
         payload.update(
             {
                 "material_snapshot": asdict(snapshot) if snapshot else None,
                 "intake_snapshot": asdict(intake_snapshot) if intake_snapshot else None,
                 "review_task": asdict(task) if task else None,
+                "regulation_impacts": regulation_impacts,
                 "feishu_approval": asdict(approval) if approval else None,
                 "signed_decision": (
                     asdict(approval) if approval and approval.status != "pending" else None
@@ -681,6 +701,7 @@ def create_app(
         deliver_feishu_approval=deliver_feishu_approval,
         remediation_event=record_remediation_event,
         transfer_review=transfers.review_for_case,
+        impacts=impact_records,
     )
     register_report_routes(
         app,
@@ -694,14 +715,16 @@ def create_app(
     register_transfer_routes(
         app, current_user=current_user, cases=store, enterprise=enterprise, governance=governance,
         transfers=transfers, can_view_case=_can_view, reviewer_only=reviewer_only,
+        impacts=impact_records,
     )
     register_portfolio_routes(app, current_user=current_user, portfolio=portfolio, reviewer_only=reviewer_only)
+    register_impact_routes(app, current_user=current_user, reviewer_only=reviewer_only, admin_only=admin_only)
     register_activity_routes(
         app,
         current_user=current_user,
         store=store,
         can_view=_can_view,
-        inbox=lambda: WorkInbox(store(), enterprise(), governance(), transfers, portfolio()),
+        inbox=lambda: WorkInbox(store(), enterprise(), governance(), transfers, portfolio(), impact),
     )
 
     return app

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Archive,
   ArrowDownToLine,
@@ -27,6 +28,7 @@ import {
   previewKnowledgeDelete,
   previewKnowledgeImport,
   restoreKnowledgeSource,
+  recomputeKnowledgeChange,
   updateKnowledgeMetadata,
   waitForKnowledgeJob,
 } from '../api/client';
@@ -178,6 +180,7 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
   const [deletePreview, setDeletePreview] = useState<KnowledgeDeletePreviewApi | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [job, setJob] = useState<KnowledgeJobApi | null>(null);
+  const [recomputing, setRecomputing] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const detailRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -265,6 +268,20 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
     setMessage(success);
     await refresh();
   };
+
+  async function recomputeImpact(id: string) {
+    setRecomputing(id);
+    setError(null);
+    try {
+      const impact = await recomputeKnowledgeChange(id);
+      setJob((current) => current ? { ...current, result: { items: current.result?.items?.map((row) =>
+        row.impact?.change_event_id === id ? { ...row, impact } : row) } } : null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '无法重算法规变更影响');
+    } finally {
+      setRecomputing(null);
+    }
+  }
 
   const openSource = async (sourceId: string): Promise<void> => {
     setSelectedId(sourceId);
@@ -444,6 +461,15 @@ export default function KnowledgeBasePage({ user, initialLibraryKind }: Knowledg
 
       {error ? <div className="knowledge-alert knowledge-alert--error" role="alert"><X size={16} />{error}</div> : null}
       {message ? <div className="knowledge-alert knowledge-alert--success" role="status"><CheckCircle2 size={16} />{message}{job ? <span className="knowledge-alert__job">{job.status === 'succeeded' ? '任务已完成' : job.status === 'failed' ? '任务失败' : '任务进行中'}</span> : null}</div> : null}
+      {job?.result?.items?.map((item) => item.impact?.status === 'failed'
+        ? <div className="knowledge-alert knowledge-alert--error" key={item.impact.change_event_id ?? item.source_id}>
+          {item.source_id} · 影响计算失败
+          {user.role === 'admin' && item.impact.change_event_id ? <button className="btn-secondary" type="button" disabled={recomputing !== null}
+            onClick={() => void recomputeImpact(item.impact!.change_event_id!)}>重算</button> : null}
+        </div> : item.impact?.flagged_cases
+          ? <div className="knowledge-alert" key={item.impact.change_event_id ?? item.source_id}>
+            <Link to="/governance?tab=impact">影响 {item.impact.flagged_cases} 个案件</Link>
+          </div> : null)}
 
       <section className="knowledge-layout">
         <div className="knowledge-list card" ref={listRef} tabIndex={-1}>

@@ -161,3 +161,5 @@
   .ops-work-group__title { padding: 18px 13px 4px; font-size: var(--text-lg); }
   .ops-diff th, .ops-diff td { padding: 6px; }
 }
+.impact-selected { background: var(--color-warning-bg); }
+.governance-tabs { margin-bottom: var(--space-md); }

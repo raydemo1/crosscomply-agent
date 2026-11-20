@@ -171,11 +171,28 @@ class ReviewWorker:
         return failed
 
 
-def build_production_review_worker(*, case_store, queue, enrichment_store, chunks_path, worker_id: str) -> ReviewWorker:
+def build_production_review_worker(
+    *, case_store, queue, enrichment_store, chunks_path, worker_id: str, impact_store=None,
+) -> ReviewWorker:
     """Create the worker with the production runtime and persistence callbacks."""
     from law_agent.review.agent_runtime import execute_agent_task
+    from law_agent.review.impact import citation_rows
     from law_agent.review.material_search import format_frozen_material
     from law_agent.review.remediation import reconcile_guided_action_list
+    from law_agent.review.retrieval.corpus import load_corpus
+
+    def index_result(task: ReviewTask) -> None:
+        if impact_store is None:
+            return
+        try:
+            result = task.result or {}
+            citations = (result.get("review_result") or {}).get("citations")
+            chunks = {row.chunk_id: row for row in load_corpus(chunks_path)} if citations else {}
+            impact_store.index_citations(task.id, list(citation_rows(task.id, task.case_id, result, chunks)))
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("引用索引补写失败：%s", task.id)
 
     def execute(task: ReviewTask) -> AgentState:
         case = case_store.get_case(task.case_id)
@@ -222,6 +239,7 @@ def build_production_review_worker(*, case_store, queue, enrichment_store, chunk
         )
 
     def on_succeeded(task: ReviewTask) -> None:
+        index_result(task)
         case = case_store.get_case(task.case_id)
         if case is None or task.result is None:
             return
@@ -350,6 +368,7 @@ def main() -> None:
     from law_agent.kb.enrichment import PostgresEnrichmentStore
     from law_agent.review.case_store import PostgresCaseStore
     from law_agent.review.enterprise_store import PostgresEnterpriseStore
+    from law_agent.review.impact_store import PostgresImpactStore
     from law_agent.review.qa_agent import QAWorker
     from law_agent.review.qa_store import PostgresQAStore
     from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
@@ -364,6 +383,7 @@ def main() -> None:
         case_store=case_store, queue=PostgresEnterpriseStore(config.postgres.dsn),
         enrichment_store=PostgresEnrichmentStore(config.postgres.dsn),
         chunks_path=chunks_path, worker_id=worker_id,
+        impact_store=PostgresImpactStore(config.postgres.dsn),
     )
     qa_worker = QAWorker(PostgresQAStore(config.postgres.dsn), chunks_path=chunks_path)
     logger = logging.getLogger(__name__)

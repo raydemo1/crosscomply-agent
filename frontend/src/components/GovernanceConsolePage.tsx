@@ -1,9 +1,28 @@
 import { useEffect, useState } from 'react';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { assignManagedUserRole, createManagedUser, listManagedUsers, resetManagedUserPassword, setManagedUserState } from '../api/client';
-import type { ManagedUserApi, UserRole } from '../types/api';
+import type { ManagedUserApi, UserRole, WorkbenchUser } from '../types/api';
 import '../styles/knowledge.css';
+import ImpactConsole from './ImpactConsole';
 
-export default function GovernanceConsolePage(): JSX.Element {
+interface GovernanceConsolePageProps {
+  user: WorkbenchUser;
+}
+
+export default function GovernanceConsolePage({ user }: GovernanceConsolePageProps): JSX.Element {
+  const [params] = useSearchParams();
+  if (user.role === 'requester') return <Navigate to="/cases" replace />;
+  const tab = params.get('tab') === 'impact' || user.role !== 'admin' ? 'impact' : 'users';
+  return <section className="governance-main">
+    <nav className="governance-tabs ops-actions" aria-label="治理视图">
+      {user.role === 'admin' ? <Link className={tab === 'users' ? 'btn-primary' : 'btn-secondary'} to="/governance" aria-current={tab === 'users' ? 'page' : undefined}>用户管理</Link> : null}
+      <Link className={tab === 'impact' ? 'btn-primary' : 'btn-secondary'} to="/governance?tab=impact" aria-current={tab === 'impact' ? 'page' : undefined}>法规变更影响</Link>
+    </nav>
+    {tab === 'impact' ? <ImpactConsole key={params.get('flag')} selected={params.get('flag')} /> : <UserManagement />}
+  </section>;
+}
+
+function UserManagement(): JSX.Element {
   const [users, setUsers] = useState<ManagedUserApi[]>([]);
   const [form, setForm] = useState({ username: '', display_name: '', password: '', role: 'requester' as UserRole });
   const [resetFor, setResetFor] = useState<string | null>(null);
@@ -52,7 +71,7 @@ export default function GovernanceConsolePage(): JSX.Element {
   };
 
   return (
-    <section className="governance-main">
+    <section>
       <section className="governance-intro" aria-labelledby="governance-title">
         <div className="governance-intro__title">
           <h1 id="governance-title" className="page-title">用户管理</h1>

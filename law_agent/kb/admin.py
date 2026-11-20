@@ -12,6 +12,7 @@ import json
 import shutil
 import threading
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -34,16 +35,24 @@ from law_agent.llm.embeddings import build_embeddings_provider
 
 LibraryKind = Literal["legal", "internal_policy"]
 JobStatus = Literal["queued", "running", "succeeded", "partially_succeeded", "failed"]
+_corpus_lock_held: ContextVar[bool] = ContextVar("corpus_lock_held", default=False)
 
 
 @contextmanager
 def corpus_mutation_lock():
     """Serialize corpus generation changes across API and worker processes."""
+    if _corpus_lock_held.get():
+        yield
+        return
     config = require_service_config()
     with psycopg.connect(config.postgres.dsn) as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT pg_advisory_xact_lock(7574902603)")
-        yield
+        token = _corpus_lock_held.set(True)
+        try:
+            yield
+        finally:
+            _corpus_lock_held.reset(token)
 
 
 def utc_now() -> str:
@@ -129,6 +138,14 @@ class KnowledgeBaseAdminService:
 
     def _read_kb(self) -> KnowledgeBase:
         return KnowledgeBase(self.corpus, index=InMemoryIndex())
+
+    def source_snapshot(self, source_id: str) -> tuple[SourceRecord | None, list[Chunk]]:
+        from law_agent.data.io import read_jsonl, read_manifest
+
+        kb = self._read_kb()
+        sources = read_manifest(kb.manifest_path) if kb.manifest_path.exists() else []
+        source = next((row for row in sources if row.source_id == source_id), None)
+        return source, [row for row in read_jsonl(kb.chunks_path, Chunk) if row.source_id == source_id] if source else []
 
     def list_sources(
         self,

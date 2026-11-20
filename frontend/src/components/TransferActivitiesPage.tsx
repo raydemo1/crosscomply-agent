@@ -74,7 +74,8 @@ function ActivityList({ user }: { user: WorkbenchUser }): JSX.Element {
           <div className="ops-list-head ops-transfer-grid" aria-hidden="true"><span>业务名称</span><span>境外接收方</span><span>下次复核</span><span>状态</span></div>
           <ul className="ops-transfer-list">{visible.map((item) => <li key={item.id}>
             <Link className="ops-transfer-grid ops-transfer-row" to={`/cases/business/${item.id}`}>
-              <div className="ops-item-main"><strong>{item.title}</strong><small>{item.business_entity} · {item.owner_name}</small></div>
+              <div className="ops-item-main"><strong>{item.title}</strong><small>{item.business_entity} · {item.owner_name}</small>
+                {item.regulation_impact_open ? <span className="ops-tag ops-tag--pending">法规变更待处理</span> : null}</div>
               <div className="ops-item-main"><span>{[item.recipient, item.destination].filter(Boolean).join(' · ') || '未填写'}</span>
                 {item.data_types.length ? <small>{item.data_types.join('、')}</small> : null}</div>
               <time dateTime={item.next_review_on}>{item.next_review_on}</time>

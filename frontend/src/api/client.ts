@@ -2,8 +2,8 @@
 import { PUBLIC_DEMO } from '../runtime';
 import { readMatterStream, type MatterStreamEvent } from '../utils/matterStream';
 import type {
-  EligibleTransferCase, ImpactOutcome,
-  PortfolioBand, PortfolioSnapshot, PortfolioSummary, TransferActivity, TransferDetail, WorkItem,
+  EligibleTransferCase, ImpactOutcome, ImpactSeverity, ImpactStatus, KnowledgeChange, KnowledgeImpactResult,
+  PortfolioBand, PortfolioSnapshot, PortfolioSummary, RegulationFlag, TransferActivity, TransferDetail, WorkItem,
 } from '../types/operations';
 
 import type {
@@ -553,6 +553,28 @@ export function listTransferActivities(): Promise<{ items: TransferActivity[] }>
 
 export function listPortfolios(): Promise<{ items: PortfolioSummary[] }> {
   return request('/api/entities/portfolio');
+}
+
+export function listRegulationImpacts(status: ImpactStatus, severity: ImpactSeverity | ''): Promise<{ items: RegulationFlag[] }> {
+  const params = new URLSearchParams({ status });
+  if (severity) params.set('severity', severity);
+  return request(`/api/impact-flags?${params}`);
+}
+
+export function listKnowledgeChanges(): Promise<{ items: KnowledgeChange[] }> {
+  return request('/api/knowledge/change-events');
+}
+
+export function dismissRegulationImpact(id: string, note: string): Promise<RegulationFlag> {
+  return request(`/api/impact-flags/${encodeURIComponent(id)}/dismiss`, { method: 'POST', body: JSON.stringify({ note }) });
+}
+
+export function startRegulationRereview(id: string): Promise<RegulationFlag> {
+  return request(`/api/impact-flags/${encodeURIComponent(id)}/rereview`, { method: 'POST', body: '{}' });
+}
+
+export function recomputeKnowledgeChange(id: string): Promise<KnowledgeImpactResult> {
+  return request(`/api/knowledge/change-events/${encodeURIComponent(id)}/recompute`, { method: 'POST' });
 }
 
 export function acknowledgePortfolio(key: string, payload: { year: number; band: PortfolioBand; note: string }): Promise<{ confirmed: boolean }> {

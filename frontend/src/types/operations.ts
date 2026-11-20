@@ -1,7 +1,45 @@
 import type { CaseStatus } from './api';
 
 export type WorkKind = 'supplement' | 'review' | 'source_review' | 'remediation' | 'remediation_review'
-  | 'approval' | 'transfer_draft' | 'transfer_due' | 'impact_review' | 'portfolio_threshold';
+  | 'approval' | 'transfer_draft' | 'transfer_due' | 'impact_review' | 'portfolio_threshold' | 'regulation_impact';
+
+export type ImpactStatus = 'open' | 'dismissed' | 'rereview_started' | 'resolved';
+export type ImpactSeverity = 'blocking' | 'upcoming' | 'informational';
+export type ImpactReason = 'cited_text_changed' | 'source_removed' | 'source_repealed' | 'superseded' | 'superseded_upcoming';
+
+export interface RegulationFlag {
+  id: string;
+  case_id: string;
+  case_title: string;
+  task_id: string;
+  activity_id: string | null;
+  activity_title: string | null;
+  title: string;
+  article_nos: string[];
+  chunk_ids: string[];
+  reason: ImpactReason;
+  severity: ImpactSeverity;
+  status: ImpactStatus;
+  effective_on: string | null;
+  created_at: string;
+  resolution_note: string | null;
+  rereview_case_id: string | null;
+}
+
+export interface KnowledgeChange {
+  id: string;
+  change_type: 'added' | 'body_changed' | 'metadata_changed' | 'removed' | 'restored';
+  detail: { title: string; changed_articles: Array<{ article_no: string | null }> };
+  impact_status: 'pending' | 'computed' | 'failed';
+  flagged_cases: number;
+  created_at: string;
+}
+
+export interface KnowledgeImpactResult {
+  status: 'failed' | 'computed';
+  flagged_cases?: number;
+  change_event_id?: string;
+}
 
 export type PortfolioBand = 'exempt' | 'contract_or_cert' | 'assessment';
 export interface PortfolioContribution {
@@ -59,6 +97,7 @@ export interface WorkItem {
 }
 
 export interface TransferActivity {
+  regulation_impact_open?: boolean;
   id: string;
   title: string;
   business_entity: string;

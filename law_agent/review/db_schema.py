@@ -1,1 +1,1 @@
-EXPECTED_SCHEMA_REVISION = "0021_entity_portfolio"
+EXPECTED_SCHEMA_REVISION = "0022_regulation_impact"

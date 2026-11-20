@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import date
 
-from law_agent.data.schemas import Chunk
+from law_agent.data.schemas import Chunk, SourceRecord
 from law_agent.review.schemas import RetrievalHit
 
 
@@ -18,23 +18,30 @@ def _parsed(value: str | None) -> date | None:
         return None
 
 
+def instrument_identity(item: Chunk | SourceRecord) -> str:
+    return item.instrument_key or item.title.strip()
+
+
+def version_effective_as_of(item: Chunk | SourceRecord, as_of: date) -> date | None:
+    effective = _parsed(item.effective_date)
+    published = _parsed(item.publish_date)
+    expires = _parsed(item.valid_to)
+    if (item.authority == "simulated_internal_policy" or effective is None or effective > as_of
+            or (published and published > as_of) or (expires and expires <= as_of)):
+        return None
+    return effective
+
+
 def filter_hits_as_of(
     hits: Sequence[RetrievalHit], chunks_by_id: Mapping[str, Chunk],
     *, as_of: date,
 ) -> list[RetrievalHit]:
     latest: dict[str, date] = {}
     for chunk in chunks_by_id.values():
-        if chunk.authority == "simulated_internal_policy":
+        effective = version_effective_as_of(chunk, as_of)
+        if effective is None:
             continue
-        published = _parsed(chunk.publish_date)
-        if published and published > as_of:
-            continue
-        effective = _parsed(chunk.effective_date)
-        if effective is None or effective > as_of:
-            continue
-        if _parsed(chunk.valid_to) and _parsed(chunk.valid_to) <= as_of:
-            continue
-        key = chunk.instrument_key or chunk.title.strip()
+        key = instrument_identity(chunk)
         if key:
             latest[key] = max(latest.get(key, date.min), effective)
 
@@ -58,7 +65,7 @@ def filter_hits_as_of(
             continue
         if chunk.law_status == "amended" and expires is None:
             continue
-        key = chunk.instrument_key or chunk.title.strip()
+        key = instrument_identity(chunk)
         if effective and key and effective < latest.get(key, effective):
             continue
         # 仅在能确证存在更新版本（同 key 有更晚 effective）时降级引用；

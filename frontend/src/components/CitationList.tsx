@@ -26,6 +26,7 @@ interface CitationListProps {
   readOnly?: boolean;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
   viewerRole: UserRole;
+  changedChunks?: Set<string>;
 }
 
 export default function CitationList({
@@ -36,6 +37,7 @@ export default function CitationList({
   readOnly = false,
   onVerdictChange,
   viewerRole,
+  changedChunks,
 }: CitationListProps): JSX.Element {
   const chunkMap = useMemo(
     () => new Map((evidenceChunks ?? []).map((chunk) => [chunk.chunk_id, chunk])),
@@ -80,6 +82,7 @@ export default function CitationList({
                 readOnly={readOnly}
                 onVerdictChange={onVerdictChange}
                 viewerRole={viewerRole}
+                changed={changedChunks?.has(citation.chunk_id) ?? false}
               />
             ))}
           </div>
@@ -97,6 +100,7 @@ function GovernanceRow({
   readOnly,
   onVerdictChange,
   viewerRole,
+  changed,
 }: {
   citation: CitationGroup['citations'][number];
   claimIndices?: number[];
@@ -105,6 +109,7 @@ function GovernanceRow({
   readOnly: boolean;
   onVerdictChange: (chunkId: string, verdict: CitationVerdict | null) => void;
   viewerRole: UserRole;
+  changed: boolean;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const label = citationDisplayLabel(citation);
@@ -113,6 +118,7 @@ function GovernanceRow({
       <button type="button" className="cite-row__head" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <span className="cite-row__chevron" aria-hidden="true">{open ? '▾' : '▸'}</span>
         <span className="cite-row__label">{label}</span>
+        {changed ? <span className="ops-tag ops-tag--pending">法规变更</span> : null}
       </button>
       {open ? (
         <div className="cite-row__body">

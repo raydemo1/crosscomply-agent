@@ -23,6 +23,9 @@ class _BorrowedConnection:
     def cursor(self):
         return self.connection.cursor()
 
+    def execute(self, *args, **kwargs):
+        return self.connection.execute(*args, **kwargs)
+
     def commit(self):
         return None
 
