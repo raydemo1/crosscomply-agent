@@ -1,0 +1,18 @@
+[
+  {
+    "persona_id": "ota_shanghai",
+    "name": "澜程旅行网络科技（上海）有限公司",
+    "profile": "虚构主体。在线旅游平台，提供国内外机票、酒店预订；境外母公司为新加坡控股公司，集团数据中心位于新加坡。员工约3200人，注册会员数百万。",
+    "region": "上海市长宁区",
+    "in_free_trade_zone": false,
+    "industry": "在线旅游"
+  },
+  {
+    "persona_id": "hospital_beijing",
+    "name": "京华大学附属第三医院",
+    "profile": "虚构主体。北京三级甲等综合医院，普外科参与多项国际多中心临床研究；信息科负责院内信息系统与网络安全。",
+    "region": "北京市西城区",
+    "in_free_trade_zone": false,
+    "industry": "医疗卫生"
+  }
+]

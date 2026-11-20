@@ -470,10 +470,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agent_eval.add_argument(
         "--suite",
-        choices=["smoke", "core", "portfolio", "field"],
+        choices=["smoke", "portfolio", "field"],
         default="smoke",
         help="Agent eval suite. smoke is the 2-case framework self-check; "
-        "core contains legal-judgment candidates; review_status records human approval.",
+        "portfolio and field are separate candidate suites; legal-judgment suites are being rebuilt.",
     )
     agent_eval.add_argument("--case", action="append", dest="case_ids", default=None)
     agent_eval.add_argument("--without-portfolio", action="store_true")

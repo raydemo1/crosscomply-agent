@@ -93,10 +93,6 @@ def _build_cases(
 def get_agent_cases(suite: str) -> list[AgentCase]:
     if suite == "smoke":
         return _build_cases(_SMOKE_RUBRICS, _SMOKE_ANSWERS)
-    if suite == "core":
-        from law_agent.review.evalset.agent_cases_core import build_core_cases
-
-        return build_core_cases()
     if suite == "portfolio":
         from law_agent.review.evalset.agent_cases_portfolio import build_portfolio_cases
 

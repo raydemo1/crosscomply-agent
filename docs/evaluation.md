@@ -22,13 +22,7 @@ python -m law_agent.review eval --suite full --max-workers 8 \
   --output data/review_runs/eval_full.json --report data/review_runs/eval_full.md
 ```
 
-最近一次对外指标（DeepSeek-V4-Flash，82 场景）：
-
-| 指标 | LLM | LLM + rerank |
-| --- | ---: | ---: |
-| Recall@5 | 87.06% | 87.72% |
-| Must-have Recall@5（76 个含核心法源的场景） | 89.04% | 89.91% |
-| Optional coverage@5（28 个需辅助材料的场景） | 82.14% | 75.00% |
+旧一轮指标已作废：场景的法源标签正在按现行语料重新核对，核对完成后重跑并在此发布。
 
 Recall@5 是前 5 条命中中的来源覆盖率，逐案计算后取平均。它不代表法条适用是否正确、整案结论是否正确或生产 Agent 的完成率。
 
@@ -38,8 +32,6 @@ Recall@5 是前 5 条命中中的来源覆盖率，逐案计算后取平均。�
 
 ```bash
 python -m law_agent.review agent-eval --suite smoke --no-judge
-python -m law_agent.review agent-eval --suite core --judge-model <模型> \
-  --output data/review_runs/agent_eval_core.json --report data/review_runs/agent_eval_core.md
 ```
 
 ### 案例集
@@ -47,12 +39,10 @@ python -m law_agent.review agent-eval --suite core --judge-model <模型> \
 | 集合 | 位置 | 用途 |
 | --- | --- | --- |
 | `smoke` | `agent_cases.py` | 2 个框架自检案例 |
-| `core` | `agent_cases_core.py`、`agent_cases_second.py` | 17 个合成候选，已参与错误分析和修复，作为**回归集** |
 | `portfolio` | `agent_cases_portfolio.py` | 3 个合成候选，覆盖跨档、接近安全评估门槛和上年度记录 |
 | `field` | `agent_cases_field.json` | 线上审查人纠错经人工脱敏后导出的现场候选，独立审定和统计 |
-| holdout | `agent_cases_holdout.py` | 6 个未用于调优的合成候选，不随 `core` / `smoke` 运行，只能通过选择清单运行 |
 
-合成判断用例仍是 `candidate`，不是独立专家审定的基准。逐案 AI 复核记录保存在 `law_agent/review/evalset/agent_case_review.json`。
+上一轮的 25 个合成候选（`core` 回归集与 holdout 留出集）及其 AI 复核记录、增量选择清单已移除，结果作废。法律判断用例正在以场景库（`law_agent/review/evalset/bank/`）重建，回归集与留出集分开维护。
 
 在治理中心编辑现场候选，人工检查脱敏材料、问题、申报信息和判断标准后标为就绪。受控环境中先执行 `python -m law_agent.review.evalset.field_cases export --dry-run`，再不带 `--dry-run` 导出。用 `python -m law_agent.review.evalset.agent_review --group field --output-dir output/review-field` 生成审定包，现场审定记录写入 `law_agent/review/evalset/agent_case_review_field.json`。导出不会把候选置为已审定；禁止提交包含真实身份或业务秘密的导出文件。
 
@@ -79,18 +69,14 @@ python -m law_agent.review agent-eval --suite core --judge-model <模型> \
 
 题目优先通过 `source_case_id` 复用检索 benchmark 的问题与材料，但不复用其法源标签。
 
-### 人工审定包
-
-不调用模型的审定包，包含题目、材料、确认事实、预设回答、rubric、法源依据和逐案散列：
+### 实跑留证
 
 ```bash
-python -m law_agent.review.evalset.agent_review --output-dir data/review_runs/agent_review_package
-python scripts/run_agent_baseline.py --selection-plan data/review_runs/agent_review_package/selection.json --dry-run
+python scripts/run_agent_baseline.py --suite smoke --dry-run
+python scripts/run_agent_baseline.py --suite <套件> --output-dir data/review_runs/<新目录> --workers 1
 ```
 
-已存在的输出目录不会被覆盖。审定者逐案记录 `approved / revise / rejected`；审定记录绑定案例散列，题目或 rubric 修改后必须重新审定。程序不会代填审定身份或自动把案例升级为 `approved`。
-
-实跑时去掉 `--dry-run`，使用新的 `--output-dir` 和 `--workers 1`。运行目录逐案即时落盘（`manifest.json` 记录模型、配置、代码与语料散列；每个案例保存事件、状态、最终交付和 judge 输入），遇到认证、余额或限流阻断时停止启动后续案例。
+运行目录不会覆盖已有目录，逐案即时落盘（`manifest.json` 记录模型、配置、代码与语料散列；每个案例保存事件、状态、最终交付和 judge 输入），遇到认证、余额或限流阻断时停止启动后续案例。程序不会代填审定身份或自动把案例升级为 `approved`。
 
 ## 报告口径
 

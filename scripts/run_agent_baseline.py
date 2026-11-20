@@ -21,7 +21,6 @@ from law_agent.config import (
 )
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
 from law_agent.review.evalset.agent_cases import get_agent_cases
-from law_agent.review.evalset.agent_review import cases_from_selection
 from law_agent.review.evalset.agent_runner import (
     StructuredAgentJudge,
     infrastructure_http_status,
@@ -187,24 +186,17 @@ def run_one(case: AgentCase, directory: Path, *, model: str, judge_model: str, b
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    selection = parser.add_mutually_exclusive_group(required=True)
-    selection.add_argument("--round", type=int, choices=[1, 2])
-    selection.add_argument("--selection-plan", type=Path)
+    parser.add_argument("--suite", required=True, help="agent eval suite name (see agent_cases.get_agent_cases)")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--dry-run", action="store_true", help="validate selection without model calls")
     parser.add_argument("--workers", type=int, default=2, choices=[1, 2])
     parser.add_argument("--judge-model", default=None)
     parser.add_argument("--case", action="append", dest="case_ids", default=None)
     args = parser.parse_args()
-    plan = None
-    if args.selection_plan:
-        try:
-            plan = json.loads(args.selection_plan.read_text(encoding="utf-8"))
-            cases = cases_from_selection(plan)
-        except (OSError, ValueError, KeyError, TypeError) as exc:
-            parser.error(str(exc))
-    else:
-        cases = [c for c in get_agent_cases("core") if c.construction_round == args.round]
+    try:
+        cases = get_agent_cases(args.suite)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.case_ids:
         unknown = set(args.case_ids) - {c.case_id for c in cases}
         if unknown:
@@ -223,13 +215,11 @@ def main() -> int:
         parser.error("--output-dir is required for a model run")
     config = require_llm_config()
     args.output_dir.mkdir(parents=True, exist_ok=False)
-    if plan is not None:
-        write_json(args.output_dir / "selection.json", plan)
     production_files = sorted(p for p in Path("law_agent").rglob("*.py") if "evalset" not in p.parts)
     production_hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in production_files}
     service_config = load_service_config()
     write_json(args.output_dir / "manifest.json", {
-        "started_at": utc_now_iso(), "round": args.round,
+        "started_at": utc_now_iso(), "suite": args.suite,
         "agent_model": config.model, "judge_model": args.judge_model or config.model,
         "reasoning_effort": {
             "agent": require_agent_llm_config().reasoning_effort,
@@ -279,7 +269,7 @@ def main() -> int:
                 write_report(args.output_dir, cases, records)
             print(json.dumps({"case_id": case.case_id, "overall_pass": record["overall_pass"], "categories": record["failure_categories"]}, ensure_ascii=False), flush=True)
     changed_files = [str(p) for p in production_files if not p.exists() or hashlib.sha256(p.read_bytes()).hexdigest() != production_hashes[str(p)]]
-    write_json(args.output_dir / "summary.json", {"finished_at": utc_now_iso(), "round": args.round, "candidate_count": sum(c.review_status == "candidate" for c in cases), "production_changed_during_run": changed_files, "results": [records[c.case_id] for c in cases]})
+    write_json(args.output_dir / "summary.json", {"finished_at": utc_now_iso(), "suite": args.suite, "candidate_count": sum(c.review_status == "candidate" for c in cases), "production_changed_during_run": changed_files, "results": [records[c.case_id] for c in cases]})
     return 0
 
 

@@ -34,6 +34,25 @@ def _case(**rubric_overrides) -> AgentCase:
     )
 
 
+def _controlled_web_case() -> AgentCase:
+    from law_agent.review.evalset.agent_schemas import ControlledWebFixture, ControlledWebResult
+
+    return AgentCase(
+        case_id="controlled_web_t001",
+        question="汽车数据出境是否受新版指引影响？",
+        material_text="车企拟向境外研发中心提供车辆传感数据。",
+        rubric=AgentRubric(expect_freshness_hold=True),
+        controlled_web=ControlledWebFixture(
+            held_out_source_ids=["cac_automotive_data_export_security_guide_2026"],
+            results=[ControlledWebResult(
+                url="https://www.miit.gov.cn/jgsj/waj/wjfb/art/2026/art_test.html",
+                title="汽车数据出境安全指引（2026版）", published_date="2026-02-03",
+                text="工业和信息化部等部门印发汽车数据出境安全指引（2026版）。",
+            )],
+        ),
+    )
+
+
 def _citation(
     source_id: str,
     *,
@@ -619,7 +638,7 @@ def test_cli_unknown_case_id_returns_error(monkeypatch) -> None:
     assert code == 2
 
 
-def test_cli_empty_core_suite_returns_error(monkeypatch) -> None:
+def test_cli_empty_suite_returns_error(monkeypatch) -> None:
     from law_agent.review import cli as review_cli
     from law_agent.review.evalset import agent_cases, agent_runner
 
@@ -631,7 +650,7 @@ def test_cli_empty_core_suite_returns_error(monkeypatch) -> None:
         agent_runner, "run_agent_evaluation", lambda **kwargs: None
     )
 
-    code = review_cli._cmd_agent_eval(_cli_args(suite="core"))
+    code = review_cli._cmd_agent_eval(_cli_args(suite="smoke"))
 
     assert code == 2
 
@@ -692,22 +711,6 @@ def test_judge_defaults_to_agent_model(monkeypatch) -> None:
     assert constructed == ["model-A", "model-J"]
     assert default_summary.judge_model == "model-A"
     assert explicit_summary.judge_model == "model-J"
-
-
-def test_core_candidates_have_review_boundary_and_valid_intake() -> None:
-    from law_agent.review.evalset.agent_cases import get_agent_cases
-    from law_agent.review.http.schemas import IntakePayload
-
-    cases = get_agent_cases("core")
-    assert 8 <= len(cases) <= 20
-    assert len({c.case_id for c in cases}) == len(cases)
-    assert all(c.review_status == "candidate" for c in cases)
-    for case in cases:
-        IntakePayload.model_validate(case.intake)
-        assert case.selection_reason
-        assert case.rubric.allowed_judgments
-        assert case.rubric.forbidden_judgments
-        assert case.reference_basis
 
 
 def test_provider_balance_failure_is_unevaluated_with_checkpoint_counters() -> None:
@@ -809,7 +812,6 @@ def test_unknown_suite_rejected() -> None:
 
 def test_controlled_source_is_unavailable_to_reads_and_service_hits(tmp_path) -> None:
     from law_agent.data.schemas import Chunk
-    from law_agent.review.evalset.agent_cases import get_agent_cases
     from law_agent.review.evalset.agent_runner import FixedWebClient, prepare_controlled_corpus
     from law_agent.review.retrieval.corpus import load_corpus
     from law_agent.review.retrieval.neighbors import hit_from_chunk
@@ -817,7 +819,7 @@ def test_controlled_source_is_unavailable_to_reads_and_service_hits(tmp_path) ->
     from law_agent.review.schemas import ReviewFacts
     from law_agent.review.web_research import WebResearch
 
-    case = next(c for c in get_agent_cases("core") if c.controlled_web)
+    case = _controlled_web_case()
     held = Chunk(
         chunk_id="held-1", doc_id="held-doc", source_id=case.controlled_web.held_out_source_ids[0],
         title="留出的测试法源", text="第一条 测试文本。", article_no="第一条",
@@ -852,10 +854,9 @@ def test_controlled_source_is_unavailable_to_reads_and_service_hits(tmp_path) ->
 
 
 def test_controlled_web_rejects_nonofficial_results_before_model_call(tmp_path) -> None:
-    from law_agent.review.evalset.agent_cases import get_agent_cases
     from law_agent.review.evalset.agent_runner import prepare_controlled_corpus
 
-    case = next(c for c in get_agent_cases("core") if c.controlled_web).model_copy(deep=True)
+    case = _controlled_web_case()
     case.controlled_web.results[0].url = "https://untrusted.example/new-law"
     with pytest.raises(ValueError, match="trusted official"):
         prepare_controlled_corpus(case, tmp_path / "absent.jsonl", tmp_path / "chunks.jsonl")
