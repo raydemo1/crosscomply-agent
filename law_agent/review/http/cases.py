@@ -176,6 +176,7 @@ def register_case_routes(
     case_payload: Callable[[dict[str, Any], UserRecord], dict[str, Any]],
     case_summary: Callable[[dict[str, Any]], dict[str, Any]],
     can_view: Callable[[UserRecord, dict[str, Any]], bool],
+    portfolio: Callable[[], Any],
 ) -> None:
     router = APIRouter()
 
@@ -193,6 +194,7 @@ def register_case_routes(
             return enqueue_review(
                 cases=store(), enterprise=enterprise(), case=case, user=user,
                 material_snapshot=material_snapshot, intake_snapshot=intake_snapshot,
+                portfolio=portfolio(),
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc

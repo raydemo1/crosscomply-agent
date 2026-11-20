@@ -49,6 +49,18 @@
 
 入口为 `http://<主机>:8080`。
 
+## 持续审查升级
+
+升级已有实例前先备份数据库，停止 API、审查 Worker 和知识库 Worker。使用新版本镜像运行迁移和主体键回填：
+
+```bash
+docker compose build migrate api
+docker compose run --rm migrate alembic upgrade head
+docker compose run --rm --no-deps api python -m law_agent.review backfill-entity-keys
+```
+
+回填会统一主体的全角字符、空白及大小写，可重复执行；完成后再启动新版本服务。没有新增生产环境变量。
+
 ## 飞书集成（可选）
 
 **审批**：配置 `CROSSCOMPLY_FEISHU_APP_ID`、`APP_SECRET`、`APPROVAL_CODE`、`INITIATOR_OPEN_ID`、`VERIFICATION_TOKEN`、`ENCRYPT_KEY`，并把 `CROSSCOMPLY_PUBLIC_BASE_URL` 设为审批人能访问的工作台地址。审批定义中按顺序创建六个单行文本控件，ID 为 `case_number`、`title`、`decision_summary`、`key_actions`、`case_url`、`task_id`。审批人在飞书完成通过或拒绝，事件验签后写回案件终态，正式 PDF 在此之后生成。

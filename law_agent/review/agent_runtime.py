@@ -17,6 +17,7 @@ from law_agent.review.agent_tools import ComplianceAgentTools
 from law_agent.review.claim_repair import make_claim_repairer
 from law_agent.review.enterprise_store import MaterialVersion, ReviewTask
 from law_agent.review.fact_provenance import confirmed_intake_ledger
+from law_agent.review.portfolio import portfolio_ledger
 from law_agent.review.python_sandbox import sandbox_from_env
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
 from law_agent.review.schemas import ReviewFacts
@@ -32,6 +33,8 @@ class AgentRuntimeStore(Protocol):
     ) -> ReviewTask: ...
 
     def get_intake_snapshot(self, intake_snapshot_id: str): ...
+
+    def get_portfolio_snapshot(self, identifier: str): ...
 
 
 def execute_agent_task(
@@ -52,6 +55,13 @@ def execute_agent_task(
         raise RuntimeError("审查任务绑定的事实快照不存在")
     if intake_snapshot.material_snapshot_id != task.material_snapshot_id:
         raise RuntimeError("审查任务的事实快照与材料快照不匹配")
+    intake = {"id": intake_snapshot.id, "facts": intake_snapshot.intake}
+    portfolio = None
+    if task.portfolio_snapshot_id is not None:
+        portfolio = store.get_portfolio_snapshot(task.portfolio_snapshot_id)
+        if portfolio is None or portfolio.case_id != task.case_id:
+            raise RuntimeError("审查任务绑定的主体台账快照不存在")
+        intake["portfolio"] = portfolio.payload
     state = (
         AgentState.model_validate(task.agent_state)
         if task.agent_state is not None
@@ -61,7 +71,10 @@ def execute_agent_task(
                 key: value for key, value in intake_snapshot.intake.items()
                 if key in ReviewFacts.model_fields
             }),
-            fact_ledger=confirmed_intake_ledger(intake_snapshot.intake, intake_snapshot.id),
+            fact_ledger=[
+                *confirmed_intake_ledger(intake_snapshot.intake, intake_snapshot.id),
+                *(portfolio_ledger(portfolio) if portfolio else ()),
+            ],
         )
     )
     sandbox = sandbox_from_env()
@@ -78,7 +91,7 @@ def execute_agent_task(
         return run_agent(
             state,
             material=material,
-            intake={"id": intake_snapshot.id, "facts": intake_snapshot.intake},
+            intake=intake,
             decide=AgentModel(model_id=task.model_id, python_enabled=sandbox is not None),
             material_versions=material_versions,
             execute_python=sandbox.run if sandbox is not None else None,
@@ -92,13 +105,13 @@ def execute_agent_task(
                 draft,
                 current,
                 case_id=task.case_id,
-                intake_snapshot={"id": intake_snapshot.id, "facts": intake_snapshot.intake},
+                intake_snapshot=intake,
             ),
             abstain=lambda draft, current: tools.finalize(
                 draft,
                 current,
                 case_id=task.case_id,
-                intake_snapshot={"id": intake_snapshot.id, "facts": intake_snapshot.intake},
+                intake_snapshot=intake,
                 system_abstention=True,
             ),
             checkpoint=lambda current: store.checkpoint_agent(

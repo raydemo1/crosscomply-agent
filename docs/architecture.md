@@ -75,6 +75,8 @@ flowchart LR
 
 ## 程序保证
 
+- **主体累计冻结**：`review.portfolio` 按主体和自然年汇总持续业务的已签署审批基线，展示单项最大值和未去重合计。不把过期、无法解析或被人工排除的记录计作零。入队时排除本案所属业务，恢复时读取原快照。跨档提示由法务确认并写入案件事件。
+
 - **冻结输入不可变**：快照只能新增版本，Agent 无法修改；补充材料改变事实时必须重新冻结。
 - **引用门禁**（`agent_tools.ComplianceAgentTools.finalize`）：法律主张只能由 `can_cite_clause=true` 的 chunk 支持；材料引用必须属于本次快照且原文唯一精确命中；非证据不足的结论至少有一条可引用法条；引用只来自实际返回给 Agent、且在审查时点已发布生效的证据。
 - **独立语义校验**（`semantic_grounding.SemanticGroundingVerifier`）：独立模型对照冻结事实、材料原文、事实账本和被引法条，核验每条主张、主结论、路径、问题分类、建议和风险边界。地域/行业不适用判 unsupported，必要事实不足判 uncertain；任何逐项不通过都不能被总体通过掩盖。正式核验模型由 `LAWAGENT_SEMANTIC_MODEL` 指定。

@@ -14,6 +14,7 @@ let snapshot: SavedCase[] = [];
 
 export const EMPTY_INTAKE: CaseIntake = {
   business_activity: '',
+  business_entity: '',
   data_types: [],
   contains_personal_information: null,
   sensitive_personal_info: null,

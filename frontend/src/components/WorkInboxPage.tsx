@@ -20,6 +20,7 @@ const KIND_LABEL: Record<WorkKind, string> = {
   transfer_draft: '变更申报',
   transfer_due: '业务复核',
   impact_review: '影响确认',
+  portfolio_threshold: '主体累计',
 };
 
 function getGroup(kind: WorkKind): string {

@@ -45,8 +45,9 @@ def pooled_connection(dsn: str):
     pool = _get_pool(dsn)
     if pool is None:
         import psycopg
+        from psycopg.rows import dict_row
 
-        with psycopg.connect(dsn) as conn:
+        with psycopg.connect(dsn, row_factory=dict_row) as conn:
             yield conn
         return
     with pool.connection() as conn:

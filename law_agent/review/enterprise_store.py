@@ -6,7 +6,7 @@ import hashlib
 import json
 import threading
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
@@ -14,6 +14,7 @@ from uuid import uuid4
 from psycopg.types.json import Jsonb
 
 from law_agent.review.case_store import utc_now
+from law_agent.review.portfolio import PortfolioSnapshot
 from law_agent.review.workflow import review_requires_retry
 
 ParseStatus = Literal["pending", "parsing", "ready", "failed"]
@@ -113,6 +114,7 @@ class ReviewTask:
     idempotency_key: str
     model_id: str
     data_boundary_summary: dict[str, Any]
+    portfolio_snapshot_id: str | None = None
     status: TaskStatus = "queued"
     current_node: str | None = None
     error_category: str | None = None
@@ -137,6 +139,7 @@ class InMemoryEnterpriseStore:
         self.snapshots: dict[str, MaterialSnapshot] = {}
         self.snapshot_by_fingerprint: dict[tuple[str, str], str] = {}
         self.intake_snapshots: dict[str, IntakeSnapshot] = {}
+        self.portfolio_snapshots: dict[str, PortfolioSnapshot] = {}
         self.tasks: dict[str, ReviewTask] = {}
         self.task_by_key: dict[str, str] = {}
 
@@ -287,6 +290,27 @@ class InMemoryEnterpriseStore:
         with self._lock:
             return self.intake_snapshots.get(intake_snapshot_id)
 
+    def create_portfolio_snapshot(self, case_id, payload, excluded_activity_id=None):
+        with self._lock:
+            fingerprint = payload["fingerprint"]
+            existing = next((item for item in self.portfolio_snapshots.values()
+                             if item.case_id == case_id and item.fingerprint == fingerprint), None)
+            if existing:
+                return self.get_portfolio_snapshot(existing.id)
+            identifier = _identifier("portfolio_snapshot")
+            self.portfolio_snapshots[identifier] = PortfolioSnapshot(
+                identifier, case_id, payload["entity_key"], payload["year"], excluded_activity_id,
+                _json_copy(payload), fingerprint, utc_now(),
+            )
+            return self.get_portfolio_snapshot(identifier)
+
+    def get_portfolio_snapshot(self, identifier):
+        with self._lock:
+            item = self.portfolio_snapshots.get(identifier)
+            if item is None:
+                return None
+            return replace(item, payload=_json_copy(item.payload))
+
     def enqueue_review_task(
         self,
         *,
@@ -295,6 +319,7 @@ class InMemoryEnterpriseStore:
         intake_snapshot_id: str,
         model_id: str,
         data_boundary_summary: dict[str, Any],
+        portfolio_snapshot_id: str | None = None,
     ) -> ReviewTask:
         with self._lock:
             intake_snapshot = self.intake_snapshots.get(intake_snapshot_id)
@@ -304,11 +329,16 @@ class InMemoryEnterpriseStore:
                 or intake_snapshot.material_snapshot_id != material_snapshot_id
             ):
                 raise ValueError("审查任务的案件、材料快照与事实快照必须一致")
+            if portfolio_snapshot_id is not None:
+                portfolio = self.portfolio_snapshots.get(portfolio_snapshot_id)
+                if portfolio is None or portfolio.case_id != case_id:
+                    raise ValueError("审查任务的案件与主体台账快照必须一致")
             idempotency_key = _canonical_hash(
                 {
                     "case_id": case_id,
                     "material_snapshot_id": material_snapshot_id,
                     "intake_snapshot_id": intake_snapshot_id,
+                    **({"portfolio_snapshot_id": portfolio_snapshot_id} if portfolio_snapshot_id else {}),
                     "model_id": model_id,
                     "data_boundary_summary": data_boundary_summary,
                 }
@@ -326,6 +356,7 @@ class InMemoryEnterpriseStore:
                 case_id=case_id,
                 material_snapshot_id=material_snapshot_id,
                 intake_snapshot_id=intake_snapshot_id,
+                portfolio_snapshot_id=portfolio_snapshot_id,
                 idempotency_key=idempotency_key,
                 model_id=model_id,
                 data_boundary_summary=json.loads(json.dumps(data_boundary_summary)),
@@ -883,6 +914,28 @@ class PostgresEnterpriseStore:
             return None
         return self._intake_snapshot(row)
 
+    def create_portfolio_snapshot(self, case_id, payload, excluded_activity_id=None):
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO portfolio_snapshots (id, case_id, entity_key, year, excluded_activity_id, payload, fingerprint)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (case_id, fingerprint) DO NOTHING RETURNING *""",
+                (_identifier("portfolio_snapshot"), case_id, payload["entity_key"], payload["year"],
+                 excluded_activity_id, Jsonb(payload), payload["fingerprint"]),
+            )
+            row = cur.fetchone()
+            if row is None:
+                cur.execute("SELECT * FROM portfolio_snapshots WHERE case_id = %s AND fingerprint = %s",
+                            (case_id, payload["fingerprint"]))
+                row = cur.fetchone()
+            return PortfolioSnapshot(**{**row, "created_at": _timestamp(row["created_at"])})
+
+    def get_portfolio_snapshot(self, identifier):
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT * FROM portfolio_snapshots WHERE id = %s", (identifier,))
+            row = cur.fetchone()
+            return PortfolioSnapshot(**{**row, "created_at": _timestamp(row["created_at"])}) if row else None
+
     def enqueue_review_task(
         self,
         *,
@@ -891,12 +944,14 @@ class PostgresEnterpriseStore:
         intake_snapshot_id: str,
         model_id: str,
         data_boundary_summary: dict[str, Any],
+        portfolio_snapshot_id: str | None = None,
     ) -> ReviewTask:
         idempotency_key = _canonical_hash(
             {
                 "case_id": case_id,
                 "material_snapshot_id": material_snapshot_id,
                 "intake_snapshot_id": intake_snapshot_id,
+                **({"portfolio_snapshot_id": portfolio_snapshot_id} if portfolio_snapshot_id else {}),
                 "model_id": model_id,
                 "data_boundary_summary": data_boundary_summary,
             }
@@ -920,6 +975,11 @@ class PostgresEnterpriseStore:
                 or intake_snapshot["material_snapshot_id"] != material_snapshot_id
             ):
                 raise ValueError("审查任务的案件、材料快照与事实快照必须一致")
+            if portfolio_snapshot_id is not None:
+                cur.execute("SELECT 1 FROM portfolio_snapshots WHERE id = %s AND case_id = %s",
+                            (portfolio_snapshot_id, case_id))
+                if cur.fetchone() is None:
+                    raise ValueError("审查任务的案件与主体台账快照必须一致")
             cur.execute(
                 """
                 SELECT id FROM review_tasks
@@ -935,8 +995,8 @@ class PostgresEnterpriseStore:
                 """
                 INSERT INTO review_tasks (
                     id, case_id, material_snapshot_id, intake_snapshot_id,
-                    idempotency_key, model_id, data_boundary_summary_json
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    idempotency_key, model_id, data_boundary_summary_json, portfolio_snapshot_id
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (idempotency_key) DO UPDATE
                 SET idempotency_key = EXCLUDED.idempotency_key
                 RETURNING *
@@ -949,6 +1009,7 @@ class PostgresEnterpriseStore:
                     idempotency_key,
                     model_id,
                     Jsonb(data_boundary_summary),
+                    portfolio_snapshot_id,
                 ),
             )
             row = cur.fetchone()
@@ -1416,6 +1477,7 @@ class PostgresEnterpriseStore:
             case_id=row["case_id"],
             material_snapshot_id=row["material_snapshot_id"],
             intake_snapshot_id=row["intake_snapshot_id"],
+            portfolio_snapshot_id=row["portfolio_snapshot_id"],
             idempotency_key=row["idempotency_key"],
             model_id=row["model_id"],
             data_boundary_summary=_json_copy(row["data_boundary_summary_json"] or {}),

@@ -9,12 +9,12 @@ from law_agent.review.fact_confirmation import confirm_facts, stage_fact_answer
 from law_agent.review.http.schemas import FactAnswerRequest, FactConfirmRequest
 
 
-def register_fact_routes(app, *, current_user, store, enterprise):
+def register_fact_routes(app, *, current_user, store, enterprise, portfolio):
     router = APIRouter()
 
-    def invoke(action, case_id, payload, user):
+    def invoke(action, case_id, payload, user, **kwargs):
         try:
-            return action(cases=store(), enterprise=enterprise(), user=user, case_id=case_id, payload=payload)
+            return action(cases=store(), enterprise=enterprise(), user=user, case_id=case_id, payload=payload, **kwargs)
         except (PermissionError, KeyError) as exc:
             raise HTTPException(status_code=404, detail="案件不存在或无权确认事实") from exc
         except ValidationError as exc:
@@ -28,6 +28,6 @@ def register_fact_routes(app, *, current_user, store, enterprise):
 
     @router.post("/api/cases/{case_id}/confirm-facts")
     def confirm(case_id: str, payload: FactConfirmRequest, user=Depends(current_user)):
-        return JSONResponse(status_code=202, content=invoke(confirm_facts, case_id, payload, user))
+        return JSONResponse(status_code=202, content=invoke(confirm_facts, case_id, payload, user, portfolio=portfolio()))
 
     app.include_router(router)

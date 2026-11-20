@@ -529,6 +529,7 @@ def _cli_args(**overrides):
     defaults = {
         "suite": "smoke",
         "case_ids": None,
+        "without_portfolio": False,
         "chunks": "chunks.jsonl",
         "rerank_mode": "off",
         "agent_model": None,

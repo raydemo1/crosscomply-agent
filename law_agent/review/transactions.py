@@ -7,7 +7,6 @@ from contextvars import ContextVar
 from copy import deepcopy
 from typing import Any
 
-
 _active: ContextVar[tuple[str, Any] | None] = ContextVar("review_transaction", default=None)
 
 
@@ -64,10 +63,12 @@ def case_transaction(cases, enterprise, case_id):
     else:
         with enterprise._lock:
             case_backup = deepcopy((cases.cases, cases.events))
-            task_backup = deepcopy((enterprise.tasks, enterprise.intake_snapshots, enterprise.task_by_key))
+            task_backup = deepcopy((
+                enterprise.tasks, enterprise.intake_snapshots, enterprise.task_by_key, enterprise.portfolio_snapshots,
+            ))
             try:
                 yield
             except BaseException:
                 cases.cases, cases.events = case_backup
-                enterprise.tasks, enterprise.intake_snapshots, enterprise.task_by_key = task_backup
+                enterprise.tasks, enterprise.intake_snapshots, enterprise.task_by_key, enterprise.portfolio_snapshots = task_backup
                 raise

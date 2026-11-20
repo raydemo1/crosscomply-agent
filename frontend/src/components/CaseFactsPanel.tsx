@@ -2,6 +2,7 @@ import type { FactLedgerEntryApi, UserRole } from '../types/api';
 import { ArrowRight, CheckCircle2, Files, TriangleAlert, MessageCircle } from 'lucide-react';
 import type { SavedCase } from '../types/case';
 import { FACT_FIELDS, caseFactLedger, factLabel, factValue } from '../utils/factFields';
+import { FrozenPortfolio } from './PortfolioPanel';
 
 // 阅读顺序：接收地紧随境外接收方，其余沿用字段定义顺序。
 const FIELD_ORDER: string[] = Object.keys(FACT_FIELDS).filter((field) => field !== 'destination_region')
@@ -25,7 +26,9 @@ export default function CaseFactsPanel({ saved, viewerRole, onOpenDocument }: { 
     { title: '材料中的其他信息', kind: 'material', icon: Files, entries: ledger.filter((e) => e.source_type === 'material' && e.status !== 'conflicted' && (viewerRole !== 'requester' || !confirmedDisplay.some((c) => c.field === e.field && JSON.stringify(c.value) === JSON.stringify(e.value)))) },
   ];
   const populatedSections = sections.filter((section) => section.entries.length);
-  if (!populatedSections.length && !onOpenDocument) return null;
+  const portfolioId = task?.portfolio_snapshot_id;
+  const noEntity = !!task && !saved.transferActivityId && !(intake?.intake.business_entity ?? saved.intake.business_entity)?.trim();
+  if (!populatedSections.length && !onOpenDocument && !portfolioId && !noEntity) return null;
   return <section className="card case-facts" aria-label="案件事实">
     {onOpenDocument ? <div className="case-facts__toolbar"><button type="button" className="btn-link case-view-link" onClick={onOpenDocument}>核对原文 <ArrowRight size={14} aria-hidden="true" /></button></div> : null}
     {populatedSections.length === 0 ? <p className="case-facts__empty">{aligned ? '本次审查暂无可展示的结构化事实。' : '当前审查与送审版本未匹配，暂无法展示事实。'}</p> : null}
@@ -34,6 +37,8 @@ export default function CaseFactsPanel({ saved, viewerRole, onOpenDocument }: { 
       <FactValues entries={section.entries} viewerRole={viewerRole} />
       {section.kind === 'statement' && statementHistory.length > 0 ? <details className="case-facts__history"><summary>此前的补充说明 · {statementHistory.length} 条</summary><FactValues entries={statementHistory} viewerRole={viewerRole} /></details> : null}
     </section>)}
+    {portfolioId ? <FrozenPortfolio key={portfolioId} caseId={saved.id} snapshotId={portfolioId} />
+      : noEntity ? <p className="case-facts__empty">未填写申报主体，无法与同主体其他业务合并计算。</p> : null}
   </section>;
 }
 
@@ -41,6 +46,7 @@ const FACT_SOURCE_LABELS = {
   confirmed_intake: '已确认的申报信息',
   material: '送审材料',
   applicant_statement: '申报人补充说明',
+  transfer_register: '主体累计台账',
 };
 
 function FactValues({ entries, viewerRole }: { entries: FactLedgerEntryApi[]; viewerRole: UserRole }) {

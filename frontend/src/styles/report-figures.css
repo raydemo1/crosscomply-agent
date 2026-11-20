@@ -77,6 +77,8 @@
 .threshold-zone--3 { background: var(--chart-scale-3); color: var(--chart-scale-ink-strong); }
 .chart-swatch.threshold-zone--1, .chart-swatch.threshold-zone--2, .chart-swatch.threshold-zone--3 { position: static; padding: 0; }
 .threshold-row__marker { position: absolute; top: -6px; bottom: -6px; width: 2px; margin-left: -1px; background: var(--chart-marker); }
+.portfolio-marker { position: absolute; top: -4px; width: 8px; height: 8px; border-radius: 50%; transform: translateX(-50%); background: var(--chart-marker); }
+.portfolio-marker--upper { top: auto; bottom: -4px; border: 2px solid var(--chart-marker); background: var(--color-surface); }
 .threshold-row__ticks { position: relative; height: 16px; margin-top: 8px; }
 .threshold-row__ticks span { position: absolute; top: 0; transform: translateX(-50%); color: var(--color-foreground-muted); font: 400 11px/1 var(--font-mono); }
 .threshold-row__caption { margin: 4px 0 0; color: var(--color-foreground-secondary); font-size: var(--text-sm); line-height: 1.7; }

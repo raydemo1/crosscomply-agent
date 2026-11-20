@@ -97,4 +97,8 @@ def get_agent_cases(suite: str) -> list[AgentCase]:
         from law_agent.review.evalset.agent_cases_core import build_core_cases
 
         return build_core_cases()
+    if suite == "portfolio":
+        from law_agent.review.evalset.agent_cases_portfolio import build_portfolio_cases
+
+        return build_portfolio_cases()
     raise ValueError(f"unknown agent eval suite: {suite!r}")

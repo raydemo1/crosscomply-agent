@@ -46,11 +46,14 @@ python -m law_agent.review agent-eval --suite core --judge-model <模型> \
 | --- | --- | --- |
 | `smoke` | `agent_cases.py` | 2 个框架自检案例 |
 | `core` | `agent_cases_core.py`、`agent_cases_second.py` | 17 个合成候选，已参与错误分析和修复，作为**回归集** |
+| `portfolio` | `agent_cases_portfolio.py` | 3 个合成候选，覆盖跨档、接近安全评估门槛和上年度记录 |
 | holdout | `agent_cases_holdout.py` | 6 个未用于调优的合成候选，不随 `core` / `smoke` 运行，只能通过选择清单运行 |
 
 全部案例的 `review_status` 都是 `candidate`：它们是基于业务场景构造的合成题，没有经过独立专家的人工法律审定。逐案 AI 复核记录保存在 `law_agent/review/evalset/agent_case_review.json`。
 
 ### 指标
+
+主体累计诊断使用相同模型、语料与 rubric，分别运行 `agent-eval --suite portfolio` 和带 `--without-portfolio` 的同套用例。单独报告漏提示累计风险、把未去重合计当作确定人数，以及把上年度记录当作零人的情况；该结果不代表线上质量。
 
 - **确定性指标**（不需要 judge）：是否完成、abstain 是否正确、必须法源是否覆盖、是否把标准/指南当条款引用、freshness hold、轮数/检索/读取/Web 次数、追问次数、预算耗尽、运行失败。
 - **语义 judge**（仅用于评测，不进生产链路）：`legal_correctness`、`exception_coverage`、`fact_grounding`、`clarification_quality`、`overall_pass`。默认与受测 Agent 同模型，用 `--judge-model` 指定其他模型；`--no-judge` 只跑确定性检查。judge 把明确违反 rubric 的内容记入 `rubric_violations`，任何维度 fail 或存在违规时总评不能为 PASS。

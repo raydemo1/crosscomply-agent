@@ -2,13 +2,14 @@ import type { CaseIntake, FactLedgerEntryApi } from '../types/api';
 import type { SavedCase } from '../types/case';
 
 export type FactField = keyof Pick<CaseIntake,
-  'business_activity' | 'data_types' | 'contains_personal_information' |
+  'business_entity' | 'business_activity' | 'data_types' | 'contains_personal_information' |
   'sensitive_personal_info' | 'cross_border_transfer' | 'overseas_recipient' |
   'processing_purpose' | 'legal_basis_or_consent' | 'important_data_status' | 'ciio_status' |
   'annual_non_sensitive_count' | 'annual_sensitive_count' | 'count_period' |
   'destination_region' | 'exemption_facts'>;
 
 export const FACT_FIELDS: Record<FactField, { label: string; options?: Array<[string, string]>; kind?: 'boolean' | 'list' }> = {
+  business_entity: { label: '申报主体（法人全称）' },
   business_activity: { label: '业务活动' },
   data_types: { label: '涉及的数据', kind: 'list' },
   contains_personal_information: { label: '包含个人信息', kind: 'boolean' },

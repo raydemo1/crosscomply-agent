@@ -82,6 +82,7 @@ class HealthResponse(BaseModel):
 
 
 class IntakePayload(BaseModel):
+    business_entity: str = Field(default="", max_length=160)
     business_activity: str = ""
     data_types: list[str] = Field(default_factory=list)
     contains_personal_information: bool | None = None

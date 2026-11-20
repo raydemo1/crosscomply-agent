@@ -1,7 +1,49 @@
 import type { CaseStatus } from './api';
 
 export type WorkKind = 'supplement' | 'review' | 'source_review' | 'remediation' | 'remediation_review'
-  | 'approval' | 'transfer_draft' | 'transfer_due' | 'impact_review';
+  | 'approval' | 'transfer_draft' | 'transfer_due' | 'impact_review' | 'portfolio_threshold';
+
+export type PortfolioBand = 'exempt' | 'contract_or_cert' | 'assessment';
+export interface PortfolioContribution {
+  activity_id: string;
+  activity_title: string;
+  baseline_case_id: string;
+  intake_snapshot_id: string;
+  snapshot_year: number;
+  non_sensitive: number | null;
+  sensitive: number | null;
+  count_period: string;
+  counts_toward_total: boolean;
+  status: 'counted' | 'stale_year' | 'unparsed' | 'excluded';
+  exclusion_note: string;
+}
+
+export interface PortfolioSummary {
+  entity_key: string;
+  entity_name: string;
+  year: number;
+  ciio_any: boolean;
+  contributions: PortfolioContribution[];
+  non_sensitive_sum: number;
+  non_sensitive_max: number;
+  sensitive_sum: number;
+  sensitive_max: number;
+  band_upper: PortfolioBand;
+  band_lower: PortfolioBand;
+  other_activity_count: number;
+  counted_other_count: number;
+  incomplete_other_count: number;
+  scope_limited: boolean;
+  fingerprint: string;
+  threshold_alert?: boolean;
+}
+
+export interface PortfolioSnapshot {
+  id: string;
+  case_id: string;
+  payload: PortfolioSummary;
+  created_at: string;
+}
 
 export interface WorkItem {
   id: string;

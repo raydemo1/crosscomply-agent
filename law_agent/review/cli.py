@@ -201,12 +201,14 @@ def _cmd_agent_eval(args: argparse.Namespace) -> int:
             raise ValueError(
                 f"agent eval suite {args.suite!r} has no cases"
             )
-        if args.case_ids:
-            wanted = set(args.case_ids)
+        if args.case_ids or args.without_portfolio:
+            wanted = set(args.case_ids or (case.case_id for case in suite_cases))
             selected = [case for case in suite_cases if case.case_id in wanted]
             unknown = wanted - {case.case_id for case in selected}
             if unknown:
                 raise ValueError(f"unknown case ids in suite {args.suite}: {sorted(unknown)}")
+            if args.without_portfolio:
+                selected = [case.model_copy(update={"portfolio": None}) for case in selected]
         else:
             # No explicit filter: let the runner resolve the named suite so the
             # report keeps the real suite label instead of "custom".
@@ -333,9 +335,19 @@ def _cmd_service_doctor(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _cmd_backfill_entity_keys(_args: argparse.Namespace) -> int:
+    from law_agent.config import load_service_config
+    from law_agent.review.transfer_store import PostgresTransferStore
+
+    count = PostgresTransferStore(load_service_config().postgres.dsn).backfill_entity_keys()
+    print(f"Updated {count} entity keys")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m law_agent.review")
     subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser("backfill-entity-keys").set_defaults(func=_cmd_backfill_entity_keys)
 
     run = subparsers.add_parser("run", help="Create a material review case skeleton")
     run.add_argument("--question", required=True)
@@ -416,12 +428,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agent_eval.add_argument(
         "--suite",
-        choices=["smoke", "core"],
+        choices=["smoke", "core", "portfolio"],
         default="smoke",
         help="Agent eval suite. smoke is the 2-case framework self-check; "
         "core contains legal-judgment candidates; review_status records human approval.",
     )
     agent_eval.add_argument("--case", action="append", dest="case_ids", default=None)
+    agent_eval.add_argument("--without-portfolio", action="store_true")
     agent_eval.add_argument(
         "--chunks",
         default=str(DEFAULT_CHUNKS_PATH),

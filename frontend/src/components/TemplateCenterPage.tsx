@@ -12,7 +12,7 @@ import type { CaseIntake, CaseTemplateApi, CaseTemplatePayload, WorkbenchUser } 
 import './TemplateCenterPage.css';
 
 const EMPTY_INTAKE: CaseIntake = {
-  business_activity: '', data_types: [], contains_personal_information: null, sensitive_personal_info: null, cross_border_transfer: null,
+  business_entity: '', business_activity: '', data_types: [], contains_personal_information: null, sensitive_personal_info: null, cross_border_transfer: null,
   important_data_status: 'unknown', ciio_status: 'unknown', annual_non_sensitive_count: '',
   count_period: 'unknown',
   annual_sensitive_count: '', overseas_recipient: '', destination_region: '', processing_purpose: '',

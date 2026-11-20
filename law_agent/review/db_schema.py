@@ -1,1 +1,1 @@
-EXPECTED_SCHEMA_REVISION = "0020_transfer_work_inbox"
+EXPECTED_SCHEMA_REVISION = "0021_entity_portfolio"

@@ -80,9 +80,9 @@ export type RetrieverName =
 export interface FactLedgerEntryApi {
   field: string;
   value: unknown;
-  source_type: 'confirmed_intake' | 'material' | 'applicant_statement';
+  source_type: 'confirmed_intake' | 'material' | 'applicant_statement' | 'transfer_register';
   source_ref: string;
-  status: 'confirmed' | 'extracted' | 'unverified' | 'conflicted';
+  status: 'confirmed' | 'extracted' | 'unverified' | 'conflicted' | 'derived';
 }
 
 export type MatterSelection = (
@@ -884,6 +884,7 @@ export interface ReviewTaskAttemptApi {
 }
 
 export interface ReviewTaskApi {
+  portfolio_snapshot_id?: string | null;
   id: string;
   case_id: string;
   material_snapshot_id: string;
@@ -964,6 +965,7 @@ export interface ManagedUserApi extends WorkbenchUser {
 }
 
 export interface CaseIntake {
+  business_entity: string;
   business_activity: string;
   data_types: string[];
   /** Applicant confirmed fact; never inferred from the free-text data_types field. */

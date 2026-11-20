@@ -90,6 +90,7 @@ class AgentCase(StrictModel):
     rubric: AgentRubric
     # Overrides merged onto the default empty IntakePayload (confirmed facts).
     intake: dict[str, object] = Field(default_factory=dict)
+    portfolio: dict | None = None
     scripted_answers: list[ScriptedAnswer] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     review_status: Literal["framework_check", "candidate", "approved"] = "candidate"

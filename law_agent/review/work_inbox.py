@@ -5,9 +5,11 @@ from __future__ import annotations
 import os
 from datetime import date, timedelta
 from typing import Any
+from urllib.parse import urlencode
 
 from law_agent.review.case_store import CaseStore, UserRecord
 from law_agent.review.dates import business_today
+from law_agent.review.portfolio import Portfolio, crosses_threshold
 from law_agent.review.transfer_store import APPROVED, CLOSED
 from law_agent.review.workflow import review_has_missing_information
 
@@ -24,11 +26,13 @@ def configured_reviewer(users: list[UserRecord]) -> UserRecord | None:
 
 
 class WorkInbox:
-    def __init__(self, cases: CaseStore, enterprise: Any, governance: Any, transfers: Any) -> None:
+    def __init__(self, cases: CaseStore, enterprise: Any, governance: Any, transfers: Any,
+                 portfolio: Portfolio) -> None:
         self.cases = cases
         self.enterprise = enterprise
         self.governance = governance
         self.transfers = transfers
+        self.portfolio = portfolio
 
     def list(self, user: UserRecord, *, today: date | None = None) -> list[dict[str, Any]]:
         today = today or business_today()
@@ -158,5 +162,18 @@ class WorkInbox:
                 add("transfer_due", activity["title"], "", "请核对当前业务和上次审批范围",
                     "查看出境业务", f"/cases/business/{activity['id']}", key=f"{activity['id']}:{due_on}",
                     assignee_id=user.id, due_on=due_on, on_ready=False)
+
+        if can_review:
+            for summary in self.portfolio.summaries(user, today.year):
+                if not crosses_threshold(summary) or self.portfolio.acked(summary.entity_key, today.year, summary.band_upper):
+                    continue
+                count = sum(row.status == "counted" for row in summary.contributions)
+                reason = (
+                    f"{count} 项业务合计（未去重）：非敏感 {summary.non_sensitive_sum:,}、敏感 {summary.sensitive_sum:,}；"
+                    f"单项最高：非敏感 {summary.non_sensitive_max:,}、敏感 {summary.sensitive_max:,}"
+                )
+                add("portfolio_threshold", f"{summary.entity_name} 当年累计可能跨档", "", reason,
+                    "核对主体累计", f"/cases/business?{urlencode({'entity': summary.entity_key})}",
+                    key=f"{summary.entity_key}:{today.year}:{summary.band_upper}", team=True)
 
         return sorted(items, key=lambda item: (item["due_on"] or "9999-12-31", item["kind"], item["title"]))

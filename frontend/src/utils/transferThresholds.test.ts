@@ -1,6 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { formatHeadcount, parseHeadcount, transferThresholds } from './transferThresholds.ts';
+import { buildRangeScale, formatHeadcount, parseHeadcount, transferThresholds } from './transferThresholds.ts';
+
+test('range shows both bounds in the same or different bands', () => {
+  const same = buildRangeScale(50_000, 90_000, 0, 0);
+  assert.equal(same.lowerBand, same.upperBand);
+  const cross = buildRangeScale(60_000, 110_000, 0, 0);
+  assert.notEqual(cross.lowerBand, cross.upperBand);
+  assert.ok(cross.scales[0].lowerMarker < cross.scales[0].marker);
+  assert.equal(buildRangeScale(0, 0, 9_999, 10_000).upperBand, '安全评估');
+});
+
+test('CIIO retains the range but warns that it may not apply', () => {
+  const range = buildRangeScale(60_000, 110_000, 0, 0, true);
+  assert.match(range.warning ?? '', /CIIO/);
+  assert.equal(range.scales.length, 1);
+});
 
 test('headcounts parse plain numbers, separators and 万', () => {
   assert.equal(parseHeadcount('350000'), 350_000);

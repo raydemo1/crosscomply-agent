@@ -6,20 +6,23 @@ from uuid import uuid4
 
 from law_agent.config import load_llm_config
 from law_agent.review.agent import AgentState
+from law_agent.review.dates import business_today
 from law_agent.review.fact_provenance import append_fact
 from law_agent.review.http.schemas import IntakePayload
 from law_agent.review.schemas import FactLedgerEntry
 from law_agent.review.transactions import case_transaction
 
 
-def queue_review(*, cases, enterprise, case, user, material_snapshot, intake_snapshot):
+def queue_review(*, cases, enterprise, case, user, material_snapshot, intake_snapshot, portfolio):
     versions = [enterprise.get_material_version(v) for v in material_snapshot.version_ids]
     if any(v is None or v.parse_status != "ready" or not (v.parsed_text or "").strip() for v in versions):
         raise ValueError("快照中存在尚未完成通用解析的材料")
     config = load_llm_config()
+    frozen = portfolio.freeze(case, intake_snapshot, business_today()) if portfolio else None
     task = enterprise.enqueue_review_task(
         case_id=case["id"], material_snapshot_id=material_snapshot.id,
         intake_snapshot_id=intake_snapshot.id, model_id=config.model or "not-configured",
+        portfolio_snapshot_id=frozen.id if frozen else None,
         data_boundary_summary={
             "base_url": config.base_url,
             "deployment": os.getenv("CROSSCOMPLY_MODEL_BOUNDARY", "enterprise-approved-api"),
@@ -87,7 +90,7 @@ def stage_fact_answer(*, cases, enterprise, user, case_id, payload):
         return asdict(task)
 
 
-def confirm_facts(*, cases, enterprise, user, case_id, payload):
+def confirm_facts(*, cases, enterprise, user, case_id, payload, portfolio=None):
     with case_transaction(cases, enterprise, case_id):
         case, task, material, intake = _current(
             cases, enterprise, user, case_id, payload.task_id,
@@ -113,9 +116,10 @@ def confirm_facts(*, cases, enterprise, user, case_id, payload):
         else:
             raise ValueError("审查正在运行或已结束，不能更改冻结事实")
         updated_intake = IntakePayload.model_validate({**intake.intake, **payload.values}, strict=True).model_dump(mode="json")
-        if updated_intake == intake.intake:
+        previous_intake = IntakePayload.model_validate(intake.intake).model_dump(mode="json")
+        if updated_intake == previous_intake:
             raise ValueError("确认内容未改变事实；可直接回答并继续当前审查")
-        if IntakePayload.model_validate(case.get("intake") or {}).model_dump(mode="json") != intake.intake:
+        if IntakePayload.model_validate(case.get("intake") or {}).model_dump(mode="json") != previous_intake:
             raise ValueError("案件填报事实已变化，请刷新并重新冻结")
         snapshot = enterprise.create_intake_snapshot(
             case_id=case_id, material_snapshot_id=material.id,
@@ -126,7 +130,7 @@ def confirm_facts(*, cases, enterprise, user, case_id, payload):
         cases.update_case(case_id, intake_json=updated_intake, facts_confirmed=True)
         queued = queue_review(
             cases=cases, enterprise=enterprise, case=case, user=user,
-            material_snapshot=material, intake_snapshot=snapshot,
+            material_snapshot=material, intake_snapshot=snapshot, portfolio=portfolio,
         )
         cases.add_event(case_id, user.id, event_type="facts_confirmed_for_review", payload={
             "previous_task_id": task.id, "task_id": queued["task_id"],

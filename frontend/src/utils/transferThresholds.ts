@@ -110,6 +110,28 @@ function scaleFor(
   };
 }
 
+const generalScale = (value: number) => scaleFor('general', '非敏感个人信息', value,
+  [{ at: 100_000, label: '10万' }, { at: 1_000_000, label: '100万' }],
+  [EXEMPT, CONTRACT, ASSESSMENT], [1, 2, 3], 1_200_000, 100_000);
+const sensitiveScale = (value: number) => scaleFor('sensitive', '敏感个人信息', value,
+  [{ at: 10_000, label: '1万' }],
+  [CONTRACT, ASSESSMENT], [2, 3], 15_000, 1_000);
+
+export function buildRangeScale(lower: number, upper: number, sensitiveLower: number, sensitiveUpper: number, ciioAny = false) {
+  const band = (general: number, sensitive: number) => general >= 1_000_000 || sensitive >= 10_000
+    ? ASSESSMENT : general >= 100_000 || sensitive > 0 ? CONTRACT : EXEMPT;
+  const withLower = (scale: ThresholdScale, minimum: number) => {
+    const zone = scale.zones.find(({ to }) => minimum < to) ?? scale.zones[scale.zones.length - 1];
+    return { ...scale, lower: minimum, lowerMarker: zone.start + (zone.end - zone.start) * (minimum - zone.from) / (zone.to - zone.from) };
+  };
+  return {
+    lowerBand: band(lower, sensitiveLower),
+    upperBand: band(upper, sensitiveUpper),
+    scales: [withLower(generalScale(upper), lower), ...(sensitiveUpper > 0 ? [withLower(sensitiveScale(sensitiveUpper), sensitiveLower)] : [])],
+    warning: ciioAny ? '存在 CIIO 身份记录，人数门槛可能不适用。' : null,
+  };
+}
+
 export function transferThresholds(facts: Partial<ReviewFacts> | null | undefined): ThresholdView {
   const empty: ThresholdView = { scales: [], blockedReason: null, caveats: [] };
   if (!facts) return empty;
@@ -123,15 +145,11 @@ export function transferThresholds(facts: Partial<ReviewFacts> | null | undefine
   const sensitive = parseHeadcount(facts.annual_sensitive_count);
   const scales: ThresholdScale[] = [];
   if (general !== null) {
-    scales.push(scaleFor('general', '一般个人信息', general,
-      [{ at: 100_000, label: '10万' }, { at: 1_000_000, label: '100万' }],
-      [EXEMPT, CONTRACT, ASSESSMENT], [1, 2, 3], 1_200_000, 100_000));
+    scales.push({ ...generalScale(general), label: '一般个人信息' });
   }
   // 敏感个人信息为 0 时不触发「不满 1 万人」这一档，不画刻度。
   if (sensitive !== null && sensitive > 0) {
-    scales.push(scaleFor('sensitive', '敏感个人信息', sensitive,
-      [{ at: 10_000, label: '1万' }],
-      [CONTRACT, ASSESSMENT], [2, 3], 15_000, 1_000));
+    scales.push(sensitiveScale(sensitive));
   }
   const caveats: string[] = [];
   if (scales.length) {

@@ -8,10 +8,11 @@ from datetime import date
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 from law_agent.review.case_store import UserRecord, utc_now
 from law_agent.review.http.schemas import IntakePayload
+from law_agent.review.portfolio import approved_context
 from law_agent.review.transfer_store import APPROVED, CLOSED, latest_approved_case
 
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
@@ -42,6 +43,8 @@ class RegisterTransfer(BaseModel):
     title: ShortText
     business_entity: ShortText
     next_review_on: date
+    counts_toward_total: bool = True
+    exclusion_note: str = Field(default="", max_length=1600)
 
 
 class RescheduleTransfer(BaseModel):
@@ -77,6 +80,23 @@ def scope_diff(
     return changes
 
 
+def create_transfer_review(row, baseline_id, *, business_entity, change_note, user, transfers, cases, enterprise, governance):
+    _, _, snapshot = approved_context(baseline_id, cases=cases, enterprise=enterprise, governance=governance)
+    if cases.get_user(row["owner_id"]) is None:
+        raise ValueError("业务负责人账号不可用，请联系管理员")
+    prepared = IntakePayload.model_validate(snapshot.intake).model_dump(mode="json")
+    prepared.update(followup_answers={}, notes="", business_entity=business_entity)
+    return transfers.start_review(
+        row, baseline_id, business_entity=business_entity, note=change_note, actor_id=user.id,
+        case_values={
+            "title": f"{row['title']} · 变更复审",
+            "question": f"请审查「{row['title']}」的本次变化及其对出境合规的影响。\n"
+                        f"业务主体：{business_entity}\n复审原因：{change_note}",
+            "intake": prepared, "material_text": "", "created_by": row["owner_id"], "owner_id": row["owner_id"],
+        },
+    )
+
+
 def register_transfer_routes(
     app: FastAPI, *, current_user: Any, cases: Any, enterprise: Any, governance: Any,
     transfers: Any, can_view_case: Any, reviewer_only: Any,
@@ -89,20 +109,16 @@ def register_transfer_routes(
             raise HTTPException(status_code=404, detail="出境业务不存在或无权访问")
         return row
 
-    def approved_context(case_id: str) -> tuple[dict[str, Any], Any, dict[str, Any]]:
-        case = cases().get_case(case_id)
-        approval = governance().get_latest_approval(case_id)
-        task = enterprise().get_task(approval.task_id) if approval else None
-        snapshot = enterprise().get_intake_snapshot(task.intake_snapshot_id) if task else None
-        if (case is None or case["status"] not in APPROVED or approval is None
-                or approval.status not in APPROVED or task is None or task.status != "succeeded"
-                or snapshot is None or task.case_id != case_id or snapshot.case_id != case_id):
-            raise HTTPException(status_code=409, detail="此案件缺少已签署的审批结果或已确认的业务信息")
+    def baseline_context(case_id: str) -> tuple[dict[str, Any], Any, dict[str, Any]]:
+        try:
+            case, approval, snapshot = approved_context(case_id, cases=cases(), enterprise=enterprise(), governance=governance())
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         return case, approval, snapshot.intake
 
     def activity_payload(row: dict[str, Any], reviews: list[dict[str, Any]]) -> dict[str, Any]:
         current_id = latest_approved_case(row, reviews)
-        case, approval, intake = approved_context(current_id)
+        case, approval, intake = baseline_context(current_id)
         current = next((review for review in reviews if review["case_id"] == current_id), None)
         owner = cases().get_user(row["owner_id"])
         active = next((review for review in reviews if review["status"] not in CLOSED), None)
@@ -132,7 +148,7 @@ def register_transfer_routes(
             if (user.role == "requester" and owner_id != user.id) or transfers.for_case(case["id"]):
                 continue
             try:
-                _, approval, _ = approved_context(case["id"])
+                _, approval, _ = baseline_context(case["id"])
             except HTTPException as exc:
                 if exc.status_code == 409:
                     continue
@@ -148,13 +164,19 @@ def register_transfer_routes(
         owner_id = case.get("owner_id") or case["created_by"]
         if user.role == "requester" and user.id != owner_id:
             raise HTTPException(status_code=403, detail="请由当前业务负责人登记")
-        approved_context(payload.case_id)
+        if not payload.counts_toward_total:
+            reviewer_only(user)
+            if not payload.exclusion_note.strip():
+                raise HTTPException(status_code=422, detail="请填写不计入主体累计的原因")
+        baseline_context(payload.case_id)
         if transfers.for_case(payload.case_id):
             raise HTTPException(status_code=409, detail="这个案件已经登记过")
         try:
             identifier = transfers.register(
                 origin_case_id=payload.case_id, owner_id=owner_id, title=payload.title,
                 business_entity=payload.business_entity, next_review_on=payload.next_review_on,
+                counts_toward_total=payload.counts_toward_total,
+                exclusion_note="" if payload.counts_toward_total else payload.exclusion_note.strip(),
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -181,7 +203,7 @@ def register_transfer_routes(
             if task is None or (impact or {}).get("task_id") != task.id:
                 impact = None
             reviewer = cases().get_user(impact["reviewer_id"]) if impact else None
-            _, _, baseline = approved_context(review["baseline_case_id"])
+            _, _, baseline = baseline_context(review["baseline_case_id"])
             history.append({
                 **review, "impact": {**impact, "reviewer_name": reviewer.display_name if reviewer else None} if impact else None,
                 "changes": scope_diff(baseline, snapshot.intake if snapshot else case["intake"],
@@ -209,20 +231,10 @@ def register_transfer_routes(
         baseline_id = latest_approved_case(row, transfers.reviews(identifier))
         if baseline_id != payload.baseline_case_id:
             raise HTTPException(status_code=409, detail="最近一次审批已更新，请刷新后发起复审")
-        _, _, intake = approved_context(baseline_id)
-        if cases().get_user(row["owner_id"]) is None:
-            raise HTTPException(status_code=409, detail="业务负责人账号不可用，请联系管理员")
-        prepared = IntakePayload.model_validate(intake).model_dump(mode="json")
-        prepared.update(followup_answers={}, notes="")
         try:
-            case_id = transfers.start_review(
-                row, baseline_id, business_entity=payload.business_entity, note=payload.change_note,
-                actor_id=user.id, case_values={
-                    "title": f"{row['title']} · 变更复审",
-                    "question": f"请审查「{row['title']}」的本次变化及其对出境合规的影响。\n"
-                                f"业务主体：{payload.business_entity}\n复审原因：{payload.change_note}",
-                    "intake": prepared, "material_text": "", "created_by": row["owner_id"], "owner_id": row["owner_id"],
-                },
+            case_id = create_transfer_review(
+                row, baseline_id, business_entity=payload.business_entity, change_note=payload.change_note,
+                user=user, transfers=transfers, cases=cases(), enterprise=enterprise(), governance=governance(),
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc

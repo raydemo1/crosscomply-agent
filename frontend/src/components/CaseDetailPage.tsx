@@ -490,6 +490,7 @@ function eventLabel(event: string): string {
     knowledge_recheck_pending: '法规来源已核验，案件待复核',
     transfer_review_created: '创建出境活动复审',
     transfer_impact_confirmed: '确认出境变更影响',
+    portfolio_threshold_acknowledged: '确认主体累计跨档提示',
     action_created: '创建整改任务',
     action_updated: '更新整改任务',
     remediation_plan_created: '建立待办事项清单',

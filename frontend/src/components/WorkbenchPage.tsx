@@ -263,7 +263,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
         ))
         : result.intake;
       const parsed = { ...intake, ...extractedValues };
-      setIntake(parsed);
+      setIntake({ ...parsed, business_entity: intake.business_entity });
       setExtracted(structuredClone(parsed));
       setMissingFacts(result.missing);
       return true;
@@ -394,6 +394,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
   };
 
   const fields: Record<string, JSX.Element> = {
+    business_entity: <label className="form-field form-field--wide"><span>申报主体（法人全称）</span><input maxLength={160} value={intake.business_entity} readOnly={Boolean(transferReview)} onChange={(event) => updateIntake(intake, setIntake, 'business_entity', event.target.value)} /></label>,
     business_activity: <label className="form-field form-field--wide"><span>业务活动</span><input value={intake.business_activity} onChange={(event) => updateIntake(intake, setIntake, 'business_activity', event.target.value)} placeholder="例如：推荐系统、客服平台、人力资源管理" /></label>,
     data_types: <label className="form-field form-field--wide"><span>数据类型（业务描述）</span><input value={dataTypesDraft ?? intake.data_types.join('、')} onChange={(event) => {
       const text = event.target.value;
@@ -422,10 +423,10 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
     const original = fields[field];
     const value = intake[field];
     const missing = askedKeys.has(field) && (value == null || value === '' || value === 'unknown' || (Array.isArray(value) && !value.length));
-    const edited = extracted && JSON.stringify(value) !== JSON.stringify(extracted[field]);
+    const edited = field !== 'business_entity' && extracted && JSON.stringify(value) !== JSON.stringify(extracted[field]);
     fields[field] = <div className={'intake-field' + (missing ? ' is-unconfirmed' : '')} key={field}>{original}{edited ? <button type="button" className="btn-link intake-field-restore" onClick={() => setIntake((current) => ({ ...current, [field]: structuredClone(extracted![field]) }))}>恢复提取值</button> : null}</div>;
   }
-  const otherFields = Object.keys(fields).filter((key) => !askedKeys.has(key));
+  const otherFields = Object.keys(fields).filter((key) => key !== 'business_entity' && !askedKeys.has(key));
 
   return (
     <div className="workbench">
@@ -491,6 +492,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
             <button type="button" className="btn-link intake-inline-action" disabled={busy} onClick={() => { setError(null); setStep(1); }}><ArrowLeft size={16} aria-hidden="true" />返回材料</button>
           </div>
           <fieldset className="intake-review-fields" disabled={busy} aria-labelledby="intake-review-heading">
+            <div className="intake-group__grid">{fields.business_entity}</div>
             {askedFacts.length ? <div className="intake-review-priority">{askedFacts.map(renderFact)}</div> : null}
             {uniqueFacts.length > MAX_QUESTIONS ? <details className="intake-group--optional"><summary><ChevronDown size={16} aria-hidden="true" />还有 {uniqueFacts.length - MAX_QUESTIONS} 项待确认</summary>{uniqueFacts.slice(MAX_QUESTIONS).map(renderFact)}</details> : null}
             {askedFacts.length ? <details className="intake-group--optional"><summary><ChevronDown size={16} aria-hidden="true" />查看其他案件要素</summary>

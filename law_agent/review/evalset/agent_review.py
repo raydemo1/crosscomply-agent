@@ -42,7 +42,7 @@ def _json_hash(value: dict) -> str:
 
 
 def case_hash(case: AgentCase) -> str:
-    return _json_hash(case.model_dump(mode="json"))
+    return _json_hash(case.model_dump(mode="json", exclude={"portfolio"} if case.portfolio is None else None))
 
 
 def reviewed_selection(groups: dict[str, list[AgentCase]]) -> tuple[dict, dict]:

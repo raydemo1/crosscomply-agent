@@ -2,7 +2,8 @@
 import { PUBLIC_DEMO } from '../runtime';
 import { readMatterStream, type MatterStreamEvent } from '../utils/matterStream';
 import type {
-  EligibleTransferCase, ImpactOutcome, TransferActivity, TransferDetail, WorkItem,
+  EligibleTransferCase, ImpactOutcome,
+  PortfolioBand, PortfolioSnapshot, PortfolioSummary, TransferActivity, TransferDetail, WorkItem,
 } from '../types/operations';
 
 import type {
@@ -550,6 +551,18 @@ export function listTransferActivities(): Promise<{ items: TransferActivity[] }>
   return request('/api/transfer-activities');
 }
 
+export function listPortfolios(): Promise<{ items: PortfolioSummary[] }> {
+  return request('/api/entities/portfolio');
+}
+
+export function acknowledgePortfolio(key: string, payload: { year: number; band: PortfolioBand; note: string }): Promise<{ confirmed: boolean }> {
+  return request(`/api/entities/${encodeURIComponent(key)}/portfolio/ack`, { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function getPortfolioSnapshot(caseId: string): Promise<PortfolioSnapshot> {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/portfolio-snapshot`);
+}
+
 export function listEligibleTransferCases(): Promise<{ items: EligibleTransferCase[] }> {
   return request('/api/transfer-activities/eligible-cases');
 }
@@ -559,6 +572,7 @@ export function getTransferActivity(id: string): Promise<TransferDetail> {
 }
 
 export function registerTransferActivity(payload: {
+  counts_toward_total?: boolean; exclusion_note?: string;
   case_id: string; title: string; business_entity: string; next_review_on: string;
 }): Promise<{ id: string }> {
   return request('/api/transfer-activities', { method: 'POST', body: JSON.stringify(payload) });

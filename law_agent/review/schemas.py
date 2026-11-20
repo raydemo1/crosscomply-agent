@@ -92,11 +92,12 @@ class FactQuestion(StrictModel):
 class FactLedgerEntry(StrictModel):
     field: str = Field(min_length=1)
     value: JsonValue
-    source_type: Literal["confirmed_intake", "material", "applicant_statement"]
+    source_type: Literal["confirmed_intake", "material", "applicant_statement", "transfer_register"]
     source_ref: str = Field(min_length=1)
-    status: Literal["confirmed", "extracted", "unverified", "conflicted"] = Field(description=(
+    status: Literal["confirmed", "extracted", "unverified", "conflicted", "derived"] = Field(description=(
         "confirmed为申请人已确认的陈述，不等于独立核实；extracted为材料抽取；"
-        "unverified为尚未确认的陈述；conflicted为来源表述存在尚未解决的冲突，保留各方记录"
+        "unverified为尚未确认的陈述；conflicted为来源表述存在尚未解决的冲突，保留各方记录；"
+        "derived为系统按已审批业务台账计算的派生值，不是申请人陈述，也未跨业务去重"
     ))
 
 

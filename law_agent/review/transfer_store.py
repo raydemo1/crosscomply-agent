@@ -18,8 +18,9 @@ from law_agent.review.case_store import (
     event_id,
     utc_now,
 )
+from law_agent.review.portfolio import APPROVED, entity_key
+from law_agent.review.transactions import store_connection
 
-APPROVED = ("approved", "conditionally_approved")
 CLOSED = (*APPROVED, "rejected")
 
 
@@ -31,15 +32,19 @@ class PostgresTransferStore:
     def __init__(self, dsn: str) -> None:
         self.dsn = dsn
 
-    def _connect(self) -> psycopg.Connection[Any]:
-        return psycopg.connect(self.dsn, row_factory=dict_row)
+    def _connect(self):
+        return store_connection(self.dsn, lambda: psycopg.connect(self.dsn, row_factory=dict_row))
 
     def list(self, user: UserRecord) -> list[dict[str, Any]]:
+        if user.role != "requester":
+            return self.list_all()
         with self._connect() as conn, conn.cursor() as cur:
-            if user.role == "requester":
-                cur.execute("SELECT * FROM transfer_activities WHERE owner_id = %s ORDER BY next_review_on, title", (user.id,))
-            else:
-                cur.execute("SELECT * FROM transfer_activities ORDER BY next_review_on, title")
+            cur.execute("SELECT * FROM transfer_activities WHERE owner_id = %s ORDER BY next_review_on, title", (user.id,))
+            return cur.fetchall()
+
+    def list_all(self) -> list[dict[str, Any]]:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT * FROM transfer_activities ORDER BY next_review_on, title")
             return cur.fetchall()
 
     def get(self, activity_id: str) -> dict[str, Any] | None:
@@ -71,13 +76,16 @@ class PostgresTransferStore:
         with self._connect() as conn, conn.cursor() as cur:
             return self._reviews(cur, activity_id)
 
-    def register(self, **values: Any) -> str:
+    def register(self, *, counts_toward_total: bool = True, exclusion_note: str = "", **values: Any) -> str:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO transfer_activities (id, origin_case_id, owner_id, title, business_entity, next_review_on)
-                   VALUES (%(id)s, %(origin_case_id)s, %(owner_id)s, %(title)s, %(business_entity)s, %(next_review_on)s)
+                """INSERT INTO transfer_activities (id, origin_case_id, owner_id, title, business_entity,
+                       next_review_on, entity_key, counts_toward_total, exclusion_note)
+                   VALUES (%(id)s, %(origin_case_id)s, %(owner_id)s, %(title)s, %(business_entity)s,
+                       %(next_review_on)s, %(entity_key)s, %(counts_toward_total)s, %(exclusion_note)s)
                    ON CONFLICT (origin_case_id) DO NOTHING RETURNING id""",
-                {"id": _activity_id(), **values},
+                {"id": _activity_id(), **values, "entity_key": entity_key(values["business_entity"]),
+                 "counts_toward_total": counts_toward_total, "exclusion_note": exclusion_note},
             )
             row = cur.fetchone()
             if row is None:
@@ -97,9 +105,9 @@ class PostgresTransferStore:
             _check_review_start(activity, self._reviews(cur, activity["id"]), baseline_id)
             case = PostgresCaseStore.insert_case(cur, **case_values)
             cur.execute(
-                """INSERT INTO transfer_activity_reviews (case_id, activity_id, baseline_case_id, business_entity, change_note)
-                   VALUES (%s, %s, %s, %s, %s)""",
-                (case["id"], activity["id"], baseline_id, business_entity, note),
+                """INSERT INTO transfer_activity_reviews (case_id, activity_id, baseline_case_id, business_entity, entity_key, change_note)
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                (case["id"], activity["id"], baseline_id, business_entity, entity_key(business_entity), note),
             )
             self._record(cur, case["id"], actor_id, "transfer_review_created", {"activity_id": activity["id"]})
             return case["id"]
@@ -128,16 +136,52 @@ class PostgresTransferStore:
             (event_id(), case_id, actor_id, event, Jsonb(payload)),
         )
 
+    def portfolio_acked(self, key, year, band):
+        with self._connect() as conn:
+            return conn.execute(
+                "SELECT 1 FROM portfolio_alert_acks WHERE entity_key = %s AND year = %s AND band = %s",
+                (key, year, band),
+            ).fetchone() is not None
+
+    def ack_portfolio(self, key, year, band, actor_id, note, baseline_ids):
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO portfolio_alert_acks (entity_key, year, band, acked_by, note)
+                   VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING entity_key""",
+                (key, year, band, actor_id, note),
+            )
+            if cur.fetchone() is not None:
+                for case_id in baseline_ids:
+                    self._record(cur, case_id, actor_id, "portfolio_threshold_acknowledged",
+                                 {"entity_key": key, "year": year, "band": band, "note": note})
+
+    def backfill_entity_keys(self) -> int:
+        changed = 0
+        with self._connect() as conn:
+            for table, identifier in (("transfer_activities", "id"), ("transfer_activity_reviews", "case_id")):
+                rows = conn.execute(f"SELECT {identifier}, business_entity, entity_key FROM {table} FOR UPDATE").fetchall()
+                for row in rows:
+                    key = entity_key(row["business_entity"])
+                    if key != row["entity_key"]:
+                        conn.execute(f"UPDATE {table} SET entity_key = %s WHERE {identifier} = %s", (key, row[identifier]))
+                        changed += 1
+        return changed
+
 
 class InMemoryTransferStore:
     def __init__(self, cases: InMemoryCaseStore) -> None:
         self.cases = cases
         self.activities: dict[str, dict[str, Any]] = {}
         self.links: dict[str, dict[str, Any]] = {}
+        self.portfolio_acks: dict[tuple[str, int, str], dict[str, Any]] = {}
         self.lock = Lock()
 
     def list(self, user: UserRecord) -> list[dict[str, Any]]:
-        rows = [dict(row) for row in self.activities.values() if user.role != "requester" or row["owner_id"] == user.id]
+        return [row for row in self.list_all() if user.role != "requester" or row["owner_id"] == user.id]
+
+    def list_all(self) -> list[dict[str, Any]]:
+        with self.lock:
+            rows = [dict(row) for row in self.activities.values()]
         return sorted(rows, key=lambda row: (row["next_review_on"], row["title"]))
 
     def get(self, activity_id: str) -> dict[str, Any] | None:
@@ -158,12 +202,15 @@ class InMemoryTransferStore:
                 rows.append({**row, "title": case["title"], "status": case["status"]})
         return rows
 
-    def register(self, **values: Any) -> str:
+    def register(self, *, counts_toward_total: bool = True, exclusion_note: str = "", **values: Any) -> str:
         with self.lock:
             if self.for_case(values["origin_case_id"]):
                 raise ValueError("这个案件已经登记过")
             identifier = _activity_id()
-            self.activities[identifier] = {"id": identifier, "created_at": utc_now(), **values}
+            self.activities[identifier] = {
+                "id": identifier, "created_at": utc_now(), **values, "entity_key": entity_key(values["business_entity"]),
+                "counts_toward_total": counts_toward_total, "exclusion_note": exclusion_note,
+            }
             return identifier
 
     def reschedule(self, activity_id: str, next_review_on: date) -> None:
@@ -179,7 +226,8 @@ class InMemoryTransferStore:
             case = self.cases.create_case(**case_values)
             self.links[case["id"]] = {
                 "case_id": case["id"], "activity_id": activity["id"], "baseline_case_id": baseline_id,
-                "business_entity": business_entity, "change_note": note, "impact": None, "created_at": utc_now(),
+                "business_entity": business_entity, "entity_key": entity_key(business_entity),
+                "change_note": note, "impact": None, "created_at": utc_now(),
             }
             self.cases.add_event(case["id"], actor_id, event_type="transfer_review_created", payload={"activity_id": activity["id"]})
             return case["id"]
@@ -195,6 +243,19 @@ class InMemoryTransferStore:
                 raise ValueError("此版本已有法务影响确认")
             row["impact"] = impact
             self.cases.add_event(case_id, impact["reviewer_id"], event_type="transfer_impact_confirmed", payload=impact)
+
+    def portfolio_acked(self, key, year, band):
+        with self.lock:
+            return (key, year, band) in self.portfolio_acks
+
+    def ack_portfolio(self, key, year, band, actor_id, note, baseline_ids):
+        with self.lock:
+            if (key, year, band) in self.portfolio_acks:
+                return
+            self.portfolio_acks[key, year, band] = {"acked_by": actor_id, "note": note, "acked_at": utc_now()}
+            for case_id in baseline_ids:
+                self.cases.add_event(case_id, actor_id, event_type="portfolio_threshold_acknowledged",
+                                     payload={"entity_key": key, "year": year, "band": band, "note": note})
 
 
 def latest_approved_case(activity: dict[str, Any], reviews: list[dict[str, Any]]) -> str:

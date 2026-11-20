@@ -45,6 +45,7 @@ from law_agent.review.http.knowledge import (
     register_knowledge_routes,
     shutdown_knowledge_state,
 )
+from law_agent.review.http.portfolio import register_portfolio_routes
 from law_agent.review.http.remediation import (
     RereviewRunner,
     TaskDrafter,
@@ -58,6 +59,7 @@ from law_agent.review.http.templates import register_template_routes
 from law_agent.review.http.transfers import register_transfer_routes
 from law_agent.review.http.users import register_user_routes
 from law_agent.review.object_store import MaterialObjectStore, material_object_store_from_env
+from law_agent.review.portfolio import Portfolio
 from law_agent.review.qa_store import InMemoryQAStore, PostgresQAStore
 from law_agent.review.remediation import (
     InMemoryRemediationAssessmentStore,
@@ -356,7 +358,7 @@ def create_app(
     app.state.chunks_path = Path(chunks_path)
     knowledge_corpus_path = Path(knowledge_corpus) if knowledge_corpus else Path(chunks_path).parent
     app.state.case_store = case_store or PostgresCaseStore(load_service_config().postgres.dsn)
-    transfers = (
+    transfers = app.state.transfer_store = (
         InMemoryTransferStore(app.state.case_store)
         if isinstance(app.state.case_store, InMemoryCaseStore)
         else PostgresTransferStore(load_service_config().postgres.dsn)
@@ -599,6 +601,9 @@ def create_app(
         admin_only=admin_only,
         user_admin=user_admin,
     )
+    def portfolio() -> Portfolio:
+        return Portfolio(transfers, store(), enterprise(), governance())
+
     register_case_routes(
         app,
         current_user=current_user,
@@ -609,10 +614,11 @@ def create_app(
         case_payload=case_payload,
         case_summary=_case_summary,
         can_view=_can_view,
+        portfolio=portfolio,
     )
     from law_agent.review.http.facts import register_fact_routes
 
-    register_fact_routes(app, current_user=current_user, store=store, enterprise=enterprise)
+    register_fact_routes(app, current_user=current_user, store=store, enterprise=enterprise, portfolio=portfolio)
     from law_agent.review.http.matter import register_matter_routes
 
     register_matter_routes(app, current_user=current_user, store=store, enterprise=enterprise, can_view=_can_view)
@@ -689,12 +695,13 @@ def create_app(
         app, current_user=current_user, cases=store, enterprise=enterprise, governance=governance,
         transfers=transfers, can_view_case=_can_view, reviewer_only=reviewer_only,
     )
+    register_portfolio_routes(app, current_user=current_user, portfolio=portfolio, reviewer_only=reviewer_only)
     register_activity_routes(
         app,
         current_user=current_user,
         store=store,
         can_view=_can_view,
-        inbox=lambda: WorkInbox(store(), enterprise(), governance(), transfers),
+        inbox=lambda: WorkInbox(store(), enterprise(), governance(), transfers, portfolio()),
     )
 
     return app

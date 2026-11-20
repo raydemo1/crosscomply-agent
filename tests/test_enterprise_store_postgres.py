@@ -62,6 +62,7 @@ def _task_row(*, status: str = "queued", attempt_count: int = 0) -> dict[str, An
         "case_id": "case_1",
         "material_snapshot_id": "material_snapshot_1",
         "intake_snapshot_id": "intake_snapshot_1",
+        "portfolio_snapshot_id": None,
         "idempotency_key": "e" * 64,
         "model_id": "approved-model-v1",
         "data_boundary_summary_json": {"deployment": "intranet"},

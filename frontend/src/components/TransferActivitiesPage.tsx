@@ -10,6 +10,7 @@ import type { WorkbenchUser } from '../types/api';
 import type { EligibleTransferCase, ImpactOutcome, ScopeValue, TransferActivity, TransferDetail, TransferReview } from '../types/operations';
 import { CASE_STATUS_LABELS } from '../utils/workflow';
 import CaseCenterHeader from './CaseCenterHeader';
+import { PortfolioDirectory } from './PortfolioPanel';
 
 const IMPACT_LABELS: Record<ImpactOutcome, string> = {
   scope_changed: '影响原审批范围',
@@ -29,16 +30,17 @@ function valueText(value: ScopeValue): string {
 
 export default function TransferActivitiesPage({ user }: { user: WorkbenchUser }): JSX.Element {
   const { activityId } = useParams();
-  return activityId ? <ActivityDetail key={activityId} id={activityId} user={user} /> : <ActivityList />;
+  return activityId ? <ActivityDetail key={activityId} id={activityId} user={user} /> : <ActivityList user={user} />;
 }
 
-function ActivityList(): JSX.Element {
+function ActivityList({ user }: { user: WorkbenchUser }): JSX.Element {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [items, setItems] = useState<TransferActivity[] | null>(null);
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
   const registering = params.has('register');
+  const byEntity = params.get('view') === 'entity' || params.has('entity');
   const sourceCaseId = params.get('register') ?? '';
   const openRegistration = () => setParams({ register: '' });
   useEffect(() => {
@@ -55,9 +57,13 @@ function ActivityList(): JSX.Element {
 
   return <section className="ops-page">
     <CaseCenterHeader action={!registering ? <button type="button" className="btn-primary ops-button" onClick={openRegistration}><Plus size={17} />登记业务</button> : null} />
-    {registering ? <RegisterForm key={sourceCaseId} sourceCaseId={sourceCaseId} onCancel={() => setParams({}, { replace: true })}
+    {registering ? <RegisterForm key={sourceCaseId} sourceCaseId={sourceCaseId} canExclude={user.role !== 'requester'} onCancel={() => setParams({}, { replace: true })}
       onCreated={(id) => navigate(`/cases/business/${id}`, { replace: true })} /> : null}
-    <section className="ops-panel" aria-label="出境业务列表">
+    {!registering ? <div className="ops-actions" aria-label="台账视图">
+      <button type="button" className={byEntity ? 'btn-secondary' : 'btn-primary'} aria-pressed={!byEntity} onClick={() => setParams({})}>按业务查看</button>
+      <button type="button" className={byEntity ? 'btn-primary' : 'btn-secondary'} aria-pressed={byEntity} onClick={() => setParams({ view: 'entity' })}>按主体查看</button>
+    </div> : null}
+    {byEntity ? <PortfolioDirectory key={params.get('entity')} selected={params.get('entity')} /> : <section className="ops-panel" aria-label="出境业务列表">
       <div className="ops-toolbar">
         <label className="ops-search"><Search size={17} aria-hidden="true" /><input type="search" placeholder="搜索业务、主体或接收方" aria-label="搜索出境业务" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
         {items && <small className="ops-secondary">{visible.length} 项业务</small>}
@@ -81,18 +87,20 @@ function ActivityList(): JSX.Element {
       ) : <div className="ops-empty"><Globe2 size={28} /><p>{items.length ? '没有匹配的业务' : '尚未登记出境业务'}</p>
         {!items.length && !registering ? <button className="btn-secondary" type="button" onClick={openRegistration}>从已审批案件登记</button> : null}
       </div>}
-    </section>
+    </section>}
   </section>;
 }
 
-function RegisterForm({ sourceCaseId, onCancel, onCreated }: {
-  sourceCaseId: string; onCancel: () => void; onCreated: (id: string) => void;
+function RegisterForm({ sourceCaseId, canExclude, onCancel, onCreated }: {
+  sourceCaseId: string; canExclude: boolean; onCancel: () => void; onCreated: (id: string) => void;
 }): JSX.Element {
   const [eligible, setEligible] = useState<EligibleTransferCase[] | null>(null);
   const [caseId, setCaseId] = useState('');
   const [title, setTitle] = useState('');
   const [entity, setEntity] = useState('');
   const [date, setDate] = useState('');
+  const [included, setIncluded] = useState(true);
+  const [exclusionNote, setExclusionNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -111,7 +119,8 @@ function RegisterForm({ sourceCaseId, onCancel, onCreated }: {
     event.preventDefault();
     setBusy(true); setError('');
     try {
-      const result = await registerTransferActivity({ case_id: caseId, title: title.trim(), business_entity: entity.trim(), next_review_on: date });
+      const result = await registerTransferActivity({ case_id: caseId, title: title.trim(), business_entity: entity.trim(), next_review_on: date,
+        counts_toward_total: included, exclusion_note: included ? '' : exclusionNote.trim() });
       onCreated(result.id);
     } catch (reason) { setError(errorMessage(reason)); }
     finally { setBusy(false); }
@@ -133,6 +142,8 @@ function RegisterForm({ sourceCaseId, onCancel, onCreated }: {
       <label className="ops-field">业务名称<input required maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} /></label>
       <label className="ops-field">业务主体<input required maxLength={160} placeholder="填写开展该业务的公司或机构" value={entity} onChange={(event) => setEntity(event.target.value)} /></label>
       <label className="ops-field">下次复核日期<input type="date" required value={date} onChange={(event) => setDate(event.target.value)} /></label>
+      {canExclude ? <label className="ops-field--wide"><input type="checkbox" checked={included} onChange={(event) => setIncluded(event.target.checked)} /> 计入主体累计</label> : null}
+      {canExclude && !included ? <label className="ops-field ops-field--wide">排除说明<textarea required maxLength={1600} value={exclusionNote} onChange={(event) => setExclusionNote(event.target.value)} /></label> : null}
     </div> : error ? null : <p className="ops-secondary">{eligible ? '目前没有可登记的已审批案件。' : '正在查找已审批案件…'}</p>}
     <div className="ops-actions"><button type="button" className="btn-secondary" onClick={onCancel} disabled={busy}>取消</button>
       {eligible?.length ? <button type="submit" className="btn-primary" disabled={busy || !caseId || !title.trim() || !entity.trim() || !date}>{busy ? '正在登记…' : '登记业务'}</button> : null}

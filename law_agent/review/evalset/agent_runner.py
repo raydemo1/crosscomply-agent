@@ -100,10 +100,12 @@ def build_case_task(
         intake=intake,
         created_by="agent_eval",
     )
+    portfolio = store.create_portfolio_snapshot(case.case_id, case.portfolio) if case.portfolio is not None else None
     return store.enqueue_review_task(
         case_id=case.case_id,
         material_snapshot_id=snapshot.id,
         intake_snapshot_id=intake_snapshot.id,
+        portfolio_snapshot_id=portfolio.id if portfolio else None,
         model_id=model_id,
         data_boundary_summary={"evaluation": "production_agent_eval"},
     )
