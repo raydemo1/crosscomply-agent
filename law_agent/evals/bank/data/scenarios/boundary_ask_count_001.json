@@ -1,0 +1,100 @@
+{
+  "scenario_id": "boundary_ask_count_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "hospital_wuhan",
+  "as_of_date": "2026-10-15",
+  "question": "国际病理会诊要把切片报告发给美国病理中心，人数还没统计，请先帮我们判断需要什么程序。",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "",
+    "annual_sensitive_count": "",
+    "overseas_recipient": "美国病理会诊中心",
+    "destination_region": "美国",
+    "processing_purpose": "病理第二意见"
+  },
+  "materials": [
+    {
+      "filename": "病理科说明.txt",
+      "kind": "business_memo",
+      "text": "病理科说明\n\n疑难病例经患者同意后，把病理切片数字图像和报告发给美国病理会诊中心出具第二意见。今年已经发了一批，具体人数病理科还在统计。"
+    }
+  ],
+  "judgment_points": [
+    "boundary.missing_fact",
+    "mechanism.sensitive"
+  ],
+  "noise_types": [
+    "missing_fact"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验关键人数缺失时应追问，获得回答后再判断。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验关键人数缺失时应追问，获得回答后再判断。",
+  "reference_basis": [
+    "2024规定第七、八条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "不满1万人敏感个人信息 标准合同",
+      "1万人以上敏感个人信息 申报安全评估"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "不满1万人敏感"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "1万人以上敏感"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [
+      "询问当年累计去重的患者人数。"
+    ],
+    "allowed_judgments": [
+      "先确认当年累计去重患者人数；按申请人陈述2300人（未核实），属于不满1万人敏感个人信息，应订立标准合同或通过认证，或论证患者本人申请会诊的合同履行豁免是否成立，并取得单独同意、开展影响评估。"
+    ],
+    "forbidden_judgments": [
+      "人数未知时直接认定须申报安全评估。",
+      "把申请人陈述的人数当作已核实事实。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [
+    {
+      "answer": "今年1月1日至今累计发送了2300名患者（按身份证去重）。",
+      "provenance": "applicant_statement",
+      "gate_id": null
+    }
+  ],
+  "controlled_web": null,
+  "tags": []
+}

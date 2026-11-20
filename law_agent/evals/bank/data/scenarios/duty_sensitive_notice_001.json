@@ -1,0 +1,107 @@
+{
+  "scenario_id": "duty_sensitive_notice_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "pharma_nanchang",
+  "as_of_date": "2026-10-15",
+  "question": "药物警戒要把不良反应报告里的患者健康信息发给瑞士总部，今年约3000人，告知时要注意什么？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "0",
+    "annual_sensitive_count": "3000",
+    "overseas_recipient": "瑞士总部药物警戒部门",
+    "destination_region": "瑞士",
+    "processing_purpose": "药物警戒"
+  },
+  "materials": [
+    {
+      "filename": "药物警戒流程.txt",
+      "kind": "business_memo",
+      "text": "药物警戒数据流程\n\n患者或医生报告的不良反应事件，需录入全球药物警戒数据库（服务器在瑞士），包含年龄、性别、用药记录、不良反应描述和病史。今年约3000名患者。目前热线告知话术只说明“信息将用于药品安全监测”。"
+    }
+  ],
+  "judgment_points": [
+    "duty.notice_consent",
+    "mechanism.sensitive"
+  ],
+  "noise_types": [
+    "missing_fact"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验敏感个人信息出境须告知必要性及对个人权益的影响，并走标准合同或认证。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验敏感个人信息出境须告知必要性及对个人权益的影响，并走标准合同或认证。",
+  "reference_basis": [
+    "个人信息保护法第三十、三十九条；2024规定第八条；2026年7月问答第1问。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2026_07"
+  ],
+  "retrieval": {
+    "queries": [
+      "敏感个人信息 告知 必要性以及对个人权益的影响",
+      "不满1万人敏感个人信息 标准合同 认证"
+    ],
+    "must_cite": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十条",
+        "note": "告知处理敏感信息的必要性与影响"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十九条",
+        "note": "出境告知与单独同意"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "不满1万人敏感走标准合同或认证"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2026_07",
+        "article_no": null,
+        "note": "敏感个人信息出境还应告知必要性与影响"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "flk_npc_ff8081817b6472a3017b656cc2040044",
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2026_07"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "患者健康信息属于敏感个人信息，3000人应订立标准合同或通过认证；告知除境外接收方等事项外，还须说明出境敏感个人信息的必要性和对个人权益的影响，并取得单独同意（法律另有规定的除外），开展影响评估。"
+    ],
+    "forbidden_judgments": [
+      "认定只说明“用于药品安全监测”即满足告知要求。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

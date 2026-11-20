@@ -1,0 +1,139 @@
+{
+  "scenario_id": "mech_portfolio_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "新上线的日本客服项目今年只会出境3万人，单看人数应该可以免予吧？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "30000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "日本客服外包公司",
+    "destination_region": "日本",
+    "processing_purpose": "日服玩家客服",
+    "business_entity": "杭州星屿互动网络科技有限公司"
+  },
+  "materials": [
+    {
+      "filename": "项目说明.txt",
+      "kind": "business_memo",
+      "text": "日服客服项目说明\n\n日服上线后，由日本客服外包公司处理日服玩家（中国境内注册账号）的工单，预计今年涉及约3万名玩家的账号ID、昵称和工单内容。项目组认为单个项目人数不到10万，可以免予申报。"
+    }
+  ],
+  "judgment_points": [
+    "mechanism.portfolio",
+    "mechanism.threshold",
+    "exemption.counting"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验同一处理者当年各出境业务须合并计算门槛，单个项目不满10万人不能单独适用免予。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验同一处理者当年各出境业务须合并计算门槛，单个项目不满10万人不能单独适用免予。",
+  "reference_basis": [
+    "2024规定第五条第一款第四项、第七、八条（自当年1月1日起累计）。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "数据处理者 自当年1月1日起累计向境外提供 不满10万人",
+      "累计100万人以上 申报安全评估"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "不满10万免予按处理者累计"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "10万至100万"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "100万以上"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [
+      "要求确认同一主体当年跨业务去重后的累计人数。"
+    ],
+    "allowed_judgments": [
+      "不能只看本项目3万人：同一主体当年其他已审批出境业务合计约104.6万人（未去重，单项最高96万），加上本项目后累计很可能达到或超过100万人，需要确认跨业务去重人数；去重后达到100万人应申报安全评估，否则至少需要标准合同或认证。"
+    ],
+    "forbidden_judgments": [
+      "仅凭本项目3万人认定免予。",
+      "把104.6万人当作已去重的确定人数。"
+    ],
+    "notes": "冻结台账以 transfer_register/derived 条目注入，合计未去重，是上限；单项最大值是下限。"
+  },
+  "portfolio": {
+    "entity_key": "杭州星屿互动网络科技有限公司",
+    "entity_name": "杭州星屿互动网络科技有限公司",
+    "year": 2026,
+    "ciio_any": false,
+    "contributions": [
+      {
+        "activity_id": "transfer_a",
+        "activity_title": "日本发行合作方联运",
+        "baseline_case_id": "case_a",
+        "intake_snapshot_id": "intake_a",
+        "snapshot_year": 2026,
+        "non_sensitive": 960000,
+        "sensitive": 0,
+        "count_period": "current_year_cumulative",
+        "counts_toward_total": true,
+        "status": "counted"
+      },
+      {
+        "activity_id": "transfer_b",
+        "activity_title": "新加坡数据分析服务",
+        "baseline_case_id": "case_b",
+        "intake_snapshot_id": "intake_b",
+        "snapshot_year": 2026,
+        "non_sensitive": 86000,
+        "sensitive": 0,
+        "count_period": "current_year_cumulative",
+        "counts_toward_total": true,
+        "status": "counted"
+      }
+    ],
+    "non_sensitive_sum": 1046000,
+    "non_sensitive_max": 960000,
+    "sensitive_sum": 0,
+    "sensitive_max": 0,
+    "band_upper": "assessment",
+    "band_lower": "contract_or_cert",
+    "fingerprint": "eval-portfolio-game-001"
+  },
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

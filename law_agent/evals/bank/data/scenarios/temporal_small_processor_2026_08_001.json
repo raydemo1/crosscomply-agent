@@ -1,0 +1,103 @@
+{
+  "scenario_id": "temporal_small_processor_2026_08_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "studyabroad_lanzhou",
+  "as_of_date": "2026-08-15",
+  "question": "我们是8个人的留学中介，要把学生申请材料发给英国大学，影响评估能用简化表格吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "600",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "英国多所大学",
+    "destination_region": "英国",
+    "processing_purpose": "留学申请递交"
+  },
+  "materials": [
+    {
+      "filename": "业务说明.txt",
+      "kind": "business_memo",
+      "text": "本机构今年服务约600名学生，受学生委托向英国大学递交成绩单、护照信息页和推荐信。听说有针对小企业的简化规定。"
+    }
+  ],
+  "judgment_points": [
+    "temporal.version",
+    "duty.pia",
+    "exemption.contract"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：小型处理者简化措施2026年9月1日施行前后，影响评估要求不同。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "小型处理者简化措施2026年9月1日施行前后，影响评估要求不同。",
+  "reference_basis": [
+    "小型个人信息处理者个人信息保护简化措施规定（2026年9月1日施行）；个人信息保护法第五十五、五十六条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "个人信息保护影响评估 向境外提供",
+      "小型个人信息处理者 影响评估表"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "合同履行免予"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第五十五条",
+        "note": "向境外提供须影响评估"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第五十六条",
+        "note": "影响评估内容"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": [
+      {
+        "source_id": "cac_small_pip_processor_simplified_measures_2026",
+        "article_no": "第十四条",
+        "reason": "not_applicable",
+        "note": "2026年9月1日才施行"
+      }
+    ]
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "审查时点简化措施规定尚未施行；受学生委托递交申请可依2024规定第五条免予三种机制，但影响评估仍须按个人信息保护法第五十五、五十六条的完整要求开展。"
+    ],
+    "forbidden_judgments": [
+      "引用尚未施行的小型处理者简化措施，认定可以使用简易评估表。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

@@ -1,0 +1,97 @@
+{
+  "scenario_id": "region_zj_outside_ftz_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "听说浙江自贸区有负面清单可以放宽，我们在杭州，能不能直接用？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "300000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡数据分析服务商",
+    "destination_region": "新加坡",
+    "processing_purpose": "玩家行为分析"
+  },
+  "materials": [
+    {
+      "filename": "咨询邮件.txt",
+      "kind": "email",
+      "text": "主题：浙江自贸区负面清单\n\n我们注册在杭州西湖区（不在自贸区片区内），业务是网络游戏。今年要给新加坡服务商提供30万名玩家数据。有同事说浙江自贸区有负面清单，清单外的数据可以免予，我们能不能用？"
+    }
+  ],
+  "judgment_points": [
+    "region.ftz",
+    "mechanism.threshold"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验负面清单只适用于在自贸区内注册且属于清单适用行业的数据处理者。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验负面清单只适用于在自贸区内注册且属于清单适用行业的数据处理者。",
+  "reference_basis": [
+    "2024规定第六、八条；浙江自贸区数据出境负面清单（2024版）适用范围（电子商务企业对企业）。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "自由贸易试验区内数据处理者 负面清单 适用范围",
+      "浙江自贸区 负面清单 电子商务 企业对企业"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第六条",
+        "note": "仅自贸区内数据处理者"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "30万人走标准合同或认证"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "zhejiang_free_trade_zone_data_export_negative_list_2024",
+        "article_no": null,
+        "note": "清单仅适用于电子商务（企业对企业）行业"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "公司不在自贸区内注册，且网络游戏不属于浙江清单适用的企业对企业电子商务，不能使用该负面清单；30万人应订立标准合同或通过认证。"
+    ],
+    "forbidden_judgments": [
+      "认定可以使用浙江自贸区负面清单免予。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

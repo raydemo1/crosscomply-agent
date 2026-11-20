@@ -1,0 +1,149 @@
+{
+  "scenario_id": "mech_dedup_multi_recipient_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "三个境外服务商各收到一部分会员信息，人数加起来是15万，是不是要签标准合同？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "日本短信服务商、泰国呼叫中心、新加坡问卷服务商",
+    "destination_region": "日本、泰国、新加坡",
+    "processing_purpose": "营销短信、电话回访、满意度调研"
+  },
+  "materials": [
+    {
+      "filename": "接收方人数统计.xlsx",
+      "kind": "data_inventory",
+      "sheets": [
+        {
+          "name": "按接收方",
+          "rows": [
+            [
+              "接收方",
+              "国家",
+              "2026年出境人数",
+              "口径"
+            ],
+            [
+              "短信服务商",
+              "日本",
+              60000,
+              "去重手机号"
+            ],
+            [
+              "呼叫中心",
+              "泰国",
+              50000,
+              "去重手机号"
+            ],
+            [
+              "问卷服务商",
+              "新加坡",
+              40000,
+              "去重手机号"
+            ]
+          ]
+        },
+        {
+          "name": "交叉核对",
+          "rows": [
+            [
+              "说明"
+            ],
+            [
+              "数据组抽样发现三个名单重合度较高，同一会员常同时收到短信和回访电话。"
+            ],
+            [
+              "跨接收方去重后的人数尚未统计。"
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "judgment_points": [
+    "mechanism.threshold",
+    "exemption.counting"
+  ],
+  "noise_types": [
+    "count_unit_mismatch",
+    "missing_fact"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验累计人数以自然人去重为准，不能把各接收方人数简单相加。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验累计人数以自然人去重为准，不能把各接收方人数简单相加。",
+  "reference_basis": [
+    "2024规定第五条第一款第四项、第八条；2024年答记者问问11（按自然人去重）。"
+  ],
+  "answer_leak_sources": [
+    "cac_cross_border_flow_rules_qna_2024"
+  ],
+  "retrieval": {
+    "queries": [
+      "累计数量 以自然人为单位去重后的统计结果为准",
+      "累计向境外提供10万人以上 标准合同"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "不满10万人免予"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "10万以上走标准合同或认证"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_cross_border_flow_rules_qna_2024",
+        "article_no": null,
+        "note": "问11：按自然人去重计算"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_cross_border_flow_rules_qna_2024"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [
+      "要求统计三个接收方合并去重后的自然人数。"
+    ],
+    "allowed_judgments": [
+      "累计人数应跨接收方按自然人去重；去重后不满10万人可免予三种机制，达到10万人则需标准合同或认证。需先完成跨接收方去重统计。"
+    ],
+    "forbidden_judgments": [
+      "把三个接收方的人数直接相加认定为15万人。",
+      "未去重即认定可以免予。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

@@ -1,0 +1,92 @@
+{
+  "scenario_id": "region_sz_art82_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "saas_shenzhen",
+  "as_of_date": "2026-10-15",
+  "question": "深圳数据条例第八十二条写着向境外提供个人数据要申请安全评估，我们给新加坡供应商2万人数据，是不是也必须评估？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "20000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡客服供应商",
+    "destination_region": "新加坡",
+    "processing_purpose": "客户支持"
+  },
+  "materials": [
+    {
+      "filename": "法务问题.txt",
+      "kind": "email",
+      "text": "主题：深圳条例第82条\n\n公司注册在深圳前海，不是关键信息基础设施运营者。今年需向新加坡客服供应商提供2万名用户的姓名和工单。有人援引《深圳经济特区数据条例》第八十二条，认为只要向境外提供个人数据都必须申请安全评估。"
+    }
+  ],
+  "judgment_points": [
+    "region.shenzhen",
+    "mechanism.threshold"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验地方条例“按照有关规定”申请评估的表述，应结合现行国家规定确定是否需要评估。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验地方条例“按照有关规定”申请评估的表述，应结合现行国家规定确定是否需要评估。",
+  "reference_basis": [
+    "深圳经济特区数据条例第八十二条；2024规定第五条第一款第四项、第十三条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "深圳经济特区数据条例 向境外提供个人数据 按照有关规定 数据出境安全评估",
+      "累计不满10万人个人信息 免予申报"
+    ],
+    "must_cite": [
+      {
+        "source_id": "shenzhen_data_regulation_2021",
+        "article_no": "第八十二条",
+        "note": "按照有关规定申请评估"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "不满10万人免予"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024",
+      "shenzhen_data_regulation_2021"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "深圳条例第八十二条要求“按照有关规定”申请评估，现行有关规定为国家的数据出境规则；2万人非敏感个人信息可依第五条第一款第四项免予三种机制，仍须告知、单独同意和影响评估。"
+    ],
+    "forbidden_judgments": [
+      "仅依深圳条例字面认定所有个人数据出境都必须申报安全评估。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

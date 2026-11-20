@@ -1,0 +1,89 @@
+{
+  "scenario_id": "temporal_validity_2023_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2023-06-01",
+  "question": "我们通过的数据出境安全评估结果有效期是多久？什么时候要重新申报或续期？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "新加坡母公司数据中心",
+    "destination_region": "新加坡",
+    "processing_purpose": "集团会员运营"
+  },
+  "materials": [
+    {
+      "filename": "评估结果.txt",
+      "kind": "business_memo",
+      "text": "公司向新加坡母公司数据中心提供会员数据的出境场景已通过数据出境安全评估，评估结果出具日期为2022年12月20日，出境场景和接收方至今未变化。"
+    }
+  ],
+  "judgment_points": [
+    "temporal.version",
+    "procedure.assessment"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：安全评估结果有效期在2024年由2年延长为3年并增加延期机制。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "安全评估结果有效期在2024年由2年延长为3年并增加延期机制。",
+  "reference_basis": [
+    "数据出境安全评估办法第十四条（2022）；2024规定第九、十三条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "数据出境安全评估结果有效期",
+      "有效期届满 重新申报 延长评估结果有效期"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_data_export_security_assessment_measures_2022",
+        "article_no": "第十四条",
+        "note": "有效期2年，届满60个工作日前重新申报"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第九条",
+        "reason": "not_applicable",
+        "note": "2024年3月才施行"
+      }
+    ]
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_data_export_security_assessment_measures_2022"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "按审查时点的评估办法，结果有效期2年，自2022年12月20日起算；需要继续出境的，应在届满60个工作日前重新申报评估。"
+    ],
+    "forbidden_judgments": [
+      "认定有效期为3年或可以申请延期。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

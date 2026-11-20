@@ -1,0 +1,100 @@
+{
+  "scenario_id": "duty_bundled_consent_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "隐私政策里已经写了“同意即授权向境外合作方提供信息”，用户注册时勾选同意，这算单独同意吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "250000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "日本发行合作方",
+    "destination_region": "日本",
+    "processing_purpose": "日服联运"
+  },
+  "materials": [
+    {
+      "filename": "隐私政策节选.txt",
+      "kind": "privacy_policy",
+      "text": "《星屿物语》隐私政策（节选）\n\n……您同意本政策即表示您同意我们为提供服务需要，将您的账号信息、设备信息和游戏数据提供给我们的境外合作方。……\n注册页面：□ 我已阅读并同意《用户协议》和《隐私政策》（不勾选无法注册）"
+    }
+  ],
+  "judgment_points": [
+    "duty.notice_consent"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验出境单独同意不得捆绑、不得一揽子授权，告知须列明境外接收方名称、联系方式等。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验出境单独同意不得捆绑、不得一揽子授权，告知须列明境外接收方名称、联系方式等。",
+  "reference_basis": [
+    "个人信息保护法第三十九条；2026年7月问答第1问；网络数据安全管理条例第六十二条（单独同意定义）。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2026_07"
+  ],
+  "retrieval": {
+    "queries": [
+      "向境外提供个人信息 单独同意 不得捆绑 一揽子授权",
+      "告知境外接收方的名称 联系方式 处理目的"
+    ],
+    "must_cite": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十九条",
+        "note": "告知境外接收方信息并取得单独同意"
+      },
+      {
+        "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+        "article_no": "第六十二条",
+        "note": "单独同意的定义"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2026_07",
+        "article_no": null,
+        "note": "单独同意应具体明确，不得一揽子授权"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2026_07"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "注册时一并勾选用户协议和隐私政策属于捆绑的一揽子授权，不构成出境单独同意；应单独告知境外接收方名称、联系方式、处理目的、方式、信息种类和行权方式，并通过弹窗等方式取得单独同意。25万人另需订立标准合同或通过认证。"
+    ],
+    "forbidden_judgments": [
+      "认定注册时勾选隐私政策即构成单独同意。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

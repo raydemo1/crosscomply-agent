@@ -1,0 +1,91 @@
+{
+  "scenario_id": "crossborder_ecommerce_shipping_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ecommerce_guangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "消费者在我们平台买进口商品，海外仓直接发货，需要把收件人信息给境外仓库和国际快递，要签标准合同吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "300000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "日本海外仓、国际快递公司",
+    "destination_region": "日本",
+    "processing_purpose": "跨境商品配送"
+  },
+  "materials": [
+    {
+      "filename": "物流流程.txt",
+      "kind": "business_memo",
+      "text": "跨境直邮流程\n\n消费者下单后，订单的收件人姓名、电话、收货地址和商品信息发给日本海外仓打包，并交国际快递运输清关。今年约30万名消费者。运营部另外想把消费者的浏览记录也发给海外仓做选品分析。"
+    }
+  ],
+  "judgment_points": [
+    "exemption.contract"
+  ],
+  "noise_types": [
+    "mixed_population"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验跨境购物、跨境寄递属于合同履行豁免，而额外的选品分析数据不在豁免内。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验跨境购物、跨境寄递属于合同履行豁免，而额外的选品分析数据不在豁免内。",
+  "reference_basis": [
+    "2024规定第五条第一款第一项、第八条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "跨境购物 跨境寄递 确需向境外提供个人信息 免予",
+      "累计10万人以上 标准合同"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "跨境购物、寄递属合同履行豁免"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "非必需部分按门槛"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "向海外仓和国际快递提供完成配送所需的收件信息属于合同履行豁免，免予三种机制；浏览记录用于选品分析不属于确需，不适用豁免，若涉及10万人以上需订立标准合同或通过认证并取得单独同意。"
+    ],
+    "forbidden_judgments": [
+      "认定浏览记录也可按跨境购物豁免提供。",
+      "要求为配送所需信息订立标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

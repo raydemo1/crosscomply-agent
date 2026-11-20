@@ -1,0 +1,100 @@
+{
+  "scenario_id": "exempt_hr_assignment_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "公司要派15名员工去新加坡区域总部工作半年，需要把他们的人事信息发过去，适用人力资源豁免吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "15",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡区域总部",
+    "destination_region": "新加坡",
+    "processing_purpose": "员工外派管理",
+    "exemption_facts": "员工手册经职工代表大会讨论通过，规定了跨境调派时的人事信息处理。"
+  },
+  "materials": [
+    {
+      "filename": "外派方案.txt",
+      "kind": "business_memo",
+      "text": "员工外派方案（人力资源部）\n\n15名顾问外派新加坡区域总部6个月，需提供姓名、工号、职级、护照信息、学历和外派期间薪资结构，用于办理工作准证与项目排期。\n员工手册（2025版）经职工代表大会讨论通过并已公示，第七章规定员工跨境调派时，公司可向境外关联公司提供办理调派所必需的人事信息。公司没有签订集体合同。"
+    }
+  ],
+  "judgment_points": [
+    "exemption.hr"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验依法制定的劳动规章制度下跨境调派确需的员工信息可适用人力资源豁免。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验依法制定的劳动规章制度下跨境调派确需的员工信息可适用人力资源豁免。",
+  "reference_basis": [
+    "2024规定第五条第一款第二项；江苏省委网信办2024年7月答复（规章或集体合同二选一，三项条件逐一研判）；2025年10月问答第3问。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2025_10"
+  ],
+  "retrieval": {
+    "queries": [
+      "劳动规章制度 集体合同 跨境人力资源管理 确需 员工个人信息",
+      "员工护照 是否属于确需 跨境人力资源管理"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "跨境人力资源管理豁免"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第十三条",
+        "note": "人力资源管理所必需的合法性基础"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_10",
+        "article_no": null,
+        "note": "员工身份证、护照是否确需须具体判断"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_10"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "员工手册经职代会通过，可作为依法制定的劳动规章制度；为办理外派所必需的人事信息可适用跨境人力资源管理豁免，免予三种机制，但需论证每项信息确需，并向员工告知。"
+    ],
+    "forbidden_judgments": [
+      "仅因没有集体合同就认定豁免不成立。",
+      "认定可以把员工全部人事档案一并提供。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

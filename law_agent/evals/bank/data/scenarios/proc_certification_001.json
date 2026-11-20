@@ -1,0 +1,118 @@
+{
+  "scenario_id": "proc_certification_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "相比标准合同，我们想走个人信息出境认证，需要满足什么条件、按什么标准认证？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "250000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "日本发行合作方",
+    "destination_region": "日本",
+    "processing_purpose": "日服联运"
+  },
+  "materials": [
+    {
+      "filename": "合规规划.txt",
+      "kind": "business_memo",
+      "text": "2027年合规规划（草稿）\n\n公司明年预计向日本发行合作方提供约25万名玩家信息（非敏感）。考虑到未来可能与多个国家合作方开展业务，希望改为申请个人信息出境认证。规划草稿写着“认证依据为《网络安全标准实践指南—个人信息跨境处理活动安全认证规范》”，请合规部核实。"
+    }
+  ],
+  "judgment_points": [
+    "procedure.certification",
+    "temporal.version"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验2026年起施行的个人信息出境认证办法的适用条件，以及认证依据标准已变更为GB/T 35273、GB/T 46068。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验2026年起施行的个人信息出境认证办法的适用条件，以及认证依据标准已变更为GB/T 35273、GB/T 46068。",
+  "reference_basis": [
+    "个人信息出境认证办法第五、六、七条；2025年第53号公告（认证依据标准变更）；2026年9月问答。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2026_09"
+  ],
+  "retrieval": {
+    "queries": [
+      "个人信息出境认证 适用条件 非关键信息基础设施运营者 10万人以上不满100万人",
+      "个人信息出境认证 依据标准 GB/T 46068 GB/T 35273"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_personal_info_export_certification_measures_2025",
+        "article_no": "第五条",
+        "note": "认证适用条件"
+      },
+      {
+        "source_id": "cac_personal_info_export_certification_measures_2025",
+        "article_no": "第六条",
+        "note": "申请前履行告知、单独同意、影响评估"
+      },
+      {
+        "source_id": "cac_personal_info_export_certification_measures_2025",
+        "article_no": "第七条",
+        "note": "向专业认证机构申请"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_personal_info_export_certification_basis_change_2025",
+        "article_no": null,
+        "note": "认证依据标准变更"
+      },
+      {
+        "source_id": "cac_data_export_policy_qna_2026_09",
+        "article_no": null,
+        "note": "认证适用情形与申请方式"
+      }
+    ],
+    "optional": [
+      {
+        "source_id": "samr_gbt_46068_2025_cross_border_personal_info_certification",
+        "article_no": null,
+        "note": "认证要求标准"
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_personal_info_export_certification_measures_2025"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2026_09"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "非CIIO、25万人非敏感个人信息且不含重要数据，可以选择个人信息出境认证；申请前须履行告知、单独同意和影响评估，向已备案的专业认证机构申请；认证依据已变更为GB/T 35273和GB/T 46068，规划中引用的旧实践指南需要更新。"
+    ],
+    "forbidden_judgments": [
+      "认定认证依据仍是旧的网络安全标准实践指南。",
+      "认定选择认证就不需要单独同意或影响评估。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

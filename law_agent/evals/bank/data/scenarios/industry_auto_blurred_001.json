@@ -1,0 +1,93 @@
+{
+  "scenario_id": "industry_auto_blurred_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "auto_shiyan",
+  "as_of_date": "2026-10-15",
+  "question": "车外视频已经做了人脸和车牌模糊，只有300小时，还算重要数据吗？想发给德国做目标检测训练。",
+  "intake": {
+    "contains_personal_information": false,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "德国研发合作伙伴",
+    "destination_region": "德国",
+    "processing_purpose": "目标检测训练"
+  },
+  "materials": [
+    {
+      "filename": "处理说明.txt",
+      "kind": "business_memo",
+      "text": "车外视频处理说明\n\n300小时城市道路视频已统一做人脸和车牌模糊，抽检未发现可识别人脸；采集车辆12台，路线不涉及军事管理区、党政机关等敏感区域，未被告知为重要数据。视频画面不含经纬度等空间坐标。"
+    }
+  ],
+  "judgment_points": [
+    "industry.automotive",
+    "mechanism.important_data"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验处理后的车外影像在未触发判定规则且不含个人信息时，可按一般数据出境。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验处理后的车外影像在未触发判定规则且不含个人信息时，可按一般数据出境。",
+  "reference_basis": [
+    "汽车数据出境安全指引（2026版）重要数据判定规则；2024规定第二、三条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "汽车数据 车外影像 重要数据判定 人脸 车牌",
+      "不包含个人信息或者重要数据 免予"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第三条",
+        "note": "不含个人信息或重要数据的免予"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第二条",
+        "note": "未被告知的不作为重要数据申报"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_automotive_data_export_security_guide_2026",
+        "article_no": null,
+        "note": "重要数据判定规则"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "经模糊处理、未触发汽车指引判定规则（时长、车辆数、人脸车牌像素、敏感区域等）且未被告知为重要数据的车外视频，不属于重要数据，不含个人信息时可免予三种机制；需保留处理和抽检记录，并确认未包含测绘地理信息。"
+    ],
+    "forbidden_judgments": [
+      "认定所有车外视频都必须申报安全评估。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

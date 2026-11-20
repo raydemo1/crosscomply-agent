@@ -1,0 +1,97 @@
+{
+  "scenario_id": "mech_ciio_notified_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "hospital_wuhan",
+  "as_of_date": "2026-10-15",
+  "question": "医院只给德国合作方传了200名患者的随访数据，人数很少，是不是不用申报？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "0",
+    "annual_sensitive_count": "200",
+    "overseas_recipient": "德国合作研究机构",
+    "destination_region": "德国",
+    "processing_purpose": "随访研究"
+  },
+  "materials": [
+    {
+      "filename": "信息科说明.txt",
+      "kind": "business_memo",
+      "text": "信息科说明（2026年9月）\n\n2025年12月，医院收到省卫生健康委转发的关键信息基础设施认定结果通知，医院的核心诊疗系统被认定为关键信息基础设施。\n\n科研处近期与德国合作研究机构开展随访研究，已传输200名患者的随访数据（去标识化后），后续不再增加。科研处认为人数远低于门槛，无需办理任何出境手续。"
+    }
+  ],
+  "judgment_points": [
+    "mechanism.ciio"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验关键信息基础设施运营者向境外提供个人信息不受人数门槛限制。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验关键信息基础设施运营者向境外提供个人信息不受人数门槛限制。",
+  "reference_basis": [
+    "2024规定第七条第一款第一项；关基条例第十条；个人信息保护法第四十条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "关键信息基础设施运营者 向境外提供个人信息 申报数据出境安全评估",
+      "关键信息基础设施认定结果通知运营者"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "CIIO向境外提供个人信息须申报安全评估"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第四十条",
+        "note": "CIIO个人信息境内存储，确需出境须安全评估"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b63b935017b7bcc49877e0b",
+        "article_no": "第十条",
+        "note": "认定结果通知运营者"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "医院已收到关键信息基础设施认定通知，向境外提供个人信息不论人数都应申报数据出境安全评估；已发生的传输需尽快整改并申报。"
+    ],
+    "forbidden_judgments": [
+      "以200人低于门槛为由认定免予。",
+      "认定可以订立标准合同代替安全评估。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

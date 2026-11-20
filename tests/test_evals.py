@@ -21,7 +21,7 @@ from law_agent.evals.bank.schema import (
 )
 from law_agent.evals.delivery import CitedSource, Delivery, FreeTextAnswer
 from law_agent.evals.grading import JudgeVerdict, classify, deterministic_grade, resolve_citations
-from law_agent.evals.report import agent_report, retrieval_report, verifier_report
+from law_agent.evals.report import agent_report, retrieval_report
 from law_agent.evals.retrieval import aggregate, score_scenario
 from law_agent.evals.review import (
     export_review_package,
@@ -30,7 +30,6 @@ from law_agent.evals.review import (
     review_errors,
 )
 from law_agent.evals.runs import RunStore, wilson_interval
-from law_agent.evals.verifier import Mutation, VerifierCase, apply_mutation, run_verifier_suite
 from law_agent.review.agent import AgentState, AgentStep
 from law_agent.review.materials import material_from_file
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
@@ -69,7 +68,7 @@ def scenario(**overrides) -> Scenario:
 def test_bank_loads_and_samples_are_complete() -> None:
     personas = load_personas()
     scenarios = load_scenarios(field_dir=None)
-    assert scenarios and all(s.persona_id in personas for s in scenarios)
+    assert scenarios and all(s.persona_id is None or s.persona_id in personas for s in scenarios)
     assert all(not completeness_errors(s) for s in scenarios)
     assert check_bank(scenarios, None, set(personas)) == []
 
@@ -268,7 +267,7 @@ def test_grade_delivery_resolves_titles_against_sources() -> None:
     assert grade.deterministic.passed and grade.legal == "unevaluated"
 
 
-# --------------------------------------------------------------------------- retrieval and verifier
+# --------------------------------------------------------------------------- retrieval
 
 
 def test_retrieval_scoring_counts_articles_and_excluded_hits() -> None:
@@ -289,28 +288,6 @@ def test_retrieval_scoring_counts_articles_and_excluded_hits() -> None:
     summary = aggregate([row])
     assert summary["overall"]["must_cite_recall@10"] == 1.0
     assert "条款召回" in retrieval_report(summary, {})
-
-
-def test_verifier_mutations_and_metrics() -> None:
-    draft = {"risk_boundaries": ["累计10万人以上需标准合同"], "claims": [{"text": "a"}]}
-    case = VerifierCase(case_id="v1", review_goal="g", as_of_date=date(2026, 10, 1), material="m",
-                        evidence_chunk_ids=["c1"], draft=draft, mutations=[
-                            Mutation(mutation_id="m1", kind="threshold", description="门槛改错",
-                                     path="risk_boundaries.0", find="10万", replace="100万",
-                                     expected_target="risk_boundaries:0"),
-                            Mutation(mutation_id="m2", kind="dropped_exception", description="删去",
-                                     path="claims.0", drop=True, expected_target="claims:0")])
-    assert apply_mutation(draft, case.mutations[0])["risk_boundaries"][0].startswith("累计100万")
-    assert apply_mutation(draft, case.mutations[1])["claims"] == [] and draft["claims"]
-
-    def verify(_case, candidate):
-        if candidate == draft:
-            return "supported", set()
-        return "unsupported", {"risk_boundaries:0"}
-
-    summary = run_verifier_suite([case], verify)
-    assert (summary["false_rejections"], summary["caught"], summary["caught_and_located"]) == (0, 2, 1)
-    assert "变异拦截" in verifier_report(summary)
 
 
 def test_wilson_interval_is_honest_for_small_samples() -> None:

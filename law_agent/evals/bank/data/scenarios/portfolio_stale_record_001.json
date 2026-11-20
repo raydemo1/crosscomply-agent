@@ -1,0 +1,133 @@
+{
+  "scenario_id": "portfolio_stale_record_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "系统显示同主体其他业务的人数里有一项是去年的记录，这次新项目还能按台账合计判断吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "40000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "韩国客服外包公司",
+    "destination_region": "韩国",
+    "processing_purpose": "韩服客服",
+    "business_entity": "杭州星屿互动网络科技有限公司"
+  },
+  "materials": [
+    {
+      "filename": "项目说明.txt",
+      "kind": "business_memo",
+      "text": "韩服客服项目预计今年涉及4万名玩家。项目组想知道加上公司其他出境业务后是否超过门槛。"
+    }
+  ],
+  "judgment_points": [
+    "mechanism.portfolio",
+    "boundary.missing_fact"
+  ],
+  "noise_types": [
+    "missing_fact"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验累计台账中上年度记录不能当作本年度人数，也不能当作零。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验累计台账中上年度记录不能当作本年度人数，也不能当作零。",
+  "reference_basis": [
+    "2024规定第五、八条（自当年1月1日起累计）。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "自当年1月1日起累计向境外提供 不满10万人",
+      "累计10万人以上不满100万人 标准合同"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "当年累计"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "10万以上"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [
+      "要求更新日本联运业务的当年出境人数。"
+    ],
+    "allowed_judgments": [
+      "台账中“日本发行合作方联运”是2025年的记录，不能作为今年人数，也不能当作零；需要更新该业务今年的出境人数。仅按已计入的5万人加本项目4万人仍不满10万，但若日本业务今年继续出境，合计很可能超过10万甚至更高，需要按更新后的去重人数确定路径。"
+    ],
+    "forbidden_judgments": [
+      "把上年度记录当作零，直接认定合计不满10万人免予。",
+      "把上年度90万人直接计入今年累计。"
+    ],
+    "notes": ""
+  },
+  "portfolio": {
+    "entity_key": "杭州星屿互动网络科技有限公司",
+    "entity_name": "杭州星屿互动网络科技有限公司",
+    "year": 2026,
+    "ciio_any": false,
+    "contributions": [
+      {
+        "activity_id": "transfer_c",
+        "activity_title": "新加坡数据分析服务",
+        "baseline_case_id": "case_c",
+        "intake_snapshot_id": "intake_c",
+        "snapshot_year": 2026,
+        "non_sensitive": 50000,
+        "sensitive": 0,
+        "count_period": "current_year_cumulative",
+        "counts_toward_total": true,
+        "status": "counted"
+      },
+      {
+        "activity_id": "transfer_d",
+        "activity_title": "日本发行合作方联运",
+        "baseline_case_id": "case_d",
+        "intake_snapshot_id": "intake_d",
+        "snapshot_year": 2025,
+        "non_sensitive": 900000,
+        "sensitive": 0,
+        "count_period": "current_year_cumulative",
+        "counts_toward_total": true,
+        "status": "stale_year"
+      }
+    ],
+    "non_sensitive_sum": 50000,
+    "non_sensitive_max": 50000,
+    "sensitive_sum": 0,
+    "sensitive_max": 0,
+    "band_upper": "exempt",
+    "band_lower": "exempt",
+    "fingerprint": "eval-portfolio-game-002"
+  },
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

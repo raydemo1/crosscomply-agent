@@ -1,0 +1,96 @@
+{
+  "scenario_id": "temporal_threshold_2026_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "向新加坡区域总部提供客户联系人信息，应走哪种出境路径？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "150000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡区域总部",
+    "destination_region": "新加坡",
+    "processing_purpose": "区域客户关系管理"
+  },
+  "materials": [
+    {
+      "filename": "业务说明.txt",
+      "kind": "business_memo",
+      "text": "宁瀚咨询自2022年1月1日起累计向新加坡区域总部提供约15万名客户联系人的姓名、职务和联系方式（去重，非敏感），用于区域客户关系管理。公司不是关键信息基础设施运营者，没有重要数据。"
+    }
+  ],
+  "judgment_points": [
+    "temporal.version",
+    "mechanism.threshold"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：同一事实在不同审查时点适用不同的出境门槛。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "同一事实在不同审查时点适用不同的出境门槛。",
+  "reference_basis": [
+    "数据出境安全评估办法第四条（2022）；个人信息出境标准合同办法第四条（2023）；2024规定第八、十三条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "累计向境外提供10万人个人信息 申报数据出境安全评估",
+      "个人信息出境 标准合同 适用条件 人数"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "现行门槛"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第十三条",
+        "note": "与2022年办法不一致的适用本规定"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": [
+      {
+        "source_id": "cac_data_export_security_assessment_measures_2022",
+        "article_no": "第四条",
+        "reason": "conflict_rule_overridden",
+        "note": "已被2024规定确立的门槛取代"
+      }
+    ]
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "按现行规定，非CIIO自当年1月1日起累计10万以上不满100万人非敏感个人信息，应订立标准合同或通过认证；需按当年口径重新统计人数。"
+    ],
+    "forbidden_judgments": [
+      "沿用2022年办法“自上年1月1日起累计10万人”的标准认定须申报安全评估。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

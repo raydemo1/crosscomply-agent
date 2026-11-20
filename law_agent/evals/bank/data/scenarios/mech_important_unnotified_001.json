@@ -1,0 +1,104 @@
+{
+  "scenario_id": "mech_important_unnotified_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "数据安全部自评认为一份统计数据“可能属于重要数据”，但没有收到任何部门告知，出境时要按重要数据申报吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "under_review",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "新加坡母公司数据中心",
+    "destination_region": "新加坡",
+    "processing_purpose": "集团经营分析"
+  },
+  "materials": [
+    {
+      "filename": "数据分类分级自评结论.txt",
+      "kind": "business_memo",
+      "text": "数据分类分级自评结论（2026年8月）\n\n依据GB/T 43697-2024附录G，自评认为“全国主要城市酒店预订量日度统计”达到一定规模和精度，可能属于重要数据，已于8月向省网信办报送识别结果，尚未收到任何反馈或告知。该数据为汇总统计，不含个人信息。\n\n集团要求本月起每月同步到新加坡。业务部门问：既然自己认定可能是重要数据，是不是必须先申报安全评估？"
+    }
+  ],
+  "judgment_points": [
+    "mechanism.important_data"
+  ],
+  "noise_types": [
+    "missing_fact"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验未被告知或公开发布为重要数据时，不需要作为重要数据申报安全评估，但仍应识别申报。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验未被告知或公开发布为重要数据时，不需要作为重要数据申报安全评估，但仍应识别申报。",
+  "reference_basis": [
+    "2024规定第二、三条；网络数据安全管理条例第二十九、三十七条；2025年4月、5月问答。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2025_05"
+  ],
+  "retrieval": {
+    "queries": [
+      "未被相关部门告知或者公开发布为重要数据 不需要作为重要数据申报",
+      "数据处理者识别申报重要数据"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第二条",
+        "note": "未被告知或公开发布的不需作为重要数据申报"
+      },
+      {
+        "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+        "article_no": "第二十九条",
+        "note": "识别、申报重要数据，确认后告知或公开"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第三条",
+        "note": "不含个人信息或重要数据的免予"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_05",
+        "article_no": null,
+        "note": "未被告知不会被认定违法出境重要数据"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_05"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "未被告知或公开发布为重要数据前，不需要作为重要数据申报安全评估；该统计数据不含个人信息，可依第三条免予三种机制，同时应跟进识别申报结果，一旦被告知应在规定期限内申报。"
+    ],
+    "forbidden_judgments": [
+      "认定自评“可能属于重要数据”就必须先申报安全评估。",
+      "认定可以不再关注识别申报结果。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

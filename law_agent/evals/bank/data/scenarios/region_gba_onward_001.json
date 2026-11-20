@@ -1,0 +1,92 @@
+{
+  "scenario_id": "region_gba_onward_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "saas_shenzhen",
+  "as_of_date": "2026-10-15",
+  "question": "我们和香港客户签了大湾区标准合同并备案，现在客户想把数据再转给新加坡的分公司，原来的合同够吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "3000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "香港客户及其新加坡分公司",
+    "destination_region": "中国香港、新加坡",
+    "processing_purpose": "区域客户服务"
+  },
+  "materials": [
+    {
+      "filename": "客户邮件.txt",
+      "kind": "email",
+      "text": "主题：数据共享范围扩大\n\n根据已备案的大湾区标准合同，我们已收到深圳传来的3000名用户资料。明年起希望把这些资料共享给新加坡分公司做东南亚客服。请确认是否可以直接共享。"
+    }
+  ],
+  "judgment_points": [
+    "region.gba"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验大湾区标准合同只覆盖大湾区内流动，向大湾区以外提供须按国家规定履行出境义务。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验大湾区标准合同只覆盖大湾区内流动，向大湾区以外提供须按国家规定履行出境义务。",
+  "reference_basis": [
+    "粤港澳大湾区（内地、香港）标准合同实施指引第四、七条；2026年1月问答第2问。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2026_01"
+  ],
+  "retrieval": {
+    "queries": [
+      "粤港澳大湾区标准合同 不得向粤港澳大湾区以外的组织 个人提供",
+      "大湾区标准合同 出境情形变化 合规义务"
+    ],
+    "must_cite": [],
+    "must_retrieve": [
+      {
+        "source_id": "cac_gba_hk_standard_contract_guide_2023",
+        "article_no": null,
+        "note": "不得向大湾区以外提供；情形变化须重新评估"
+      },
+      {
+        "source_id": "cac_data_export_policy_qna_2026_01",
+        "article_no": null,
+        "note": "向大湾区以外提供须履行国家出境义务"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2026_01"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "大湾区标准合同不允许向大湾区以外提供，新加坡分公司不在适用范围内；如需向新加坡提供，应按国家数据出境规定重新判断路径（3000人非敏感可依不满10万人免予，但须重新告知、取得同意并评估），并按指引重新评估、变更合同。"
+    ],
+    "forbidden_judgments": [
+      "认定已备案的大湾区标准合同可以覆盖向新加坡的再提供。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

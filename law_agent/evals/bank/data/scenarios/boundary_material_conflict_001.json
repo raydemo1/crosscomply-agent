@@ -1,0 +1,100 @@
+{
+  "scenario_id": "boundary_material_conflict_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "运营部和技术部给的出境数据说明不一样，到底要不要签标准合同？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "",
+    "annual_sensitive_count": "",
+    "overseas_recipient": "新加坡数据分析服务商",
+    "destination_region": "新加坡",
+    "processing_purpose": "玩家行为分析"
+  },
+  "materials": [
+    {
+      "filename": "运营部说明.txt",
+      "kind": "business_memo",
+      "text": "运营部：今年给新加坡服务商的数据只有玩家ID、等级和登录日志，约9万名玩家，不含实名信息。"
+    },
+    {
+      "filename": "技术部接口文档.txt",
+      "kind": "business_memo",
+      "text": "技术部：数据同步接口字段包括player_id、level、login_log、real_name、id_card_no（实名认证信息）。今年接口调用覆盖约12万名玩家。"
+    }
+  ],
+  "judgment_points": [
+    "boundary.material_conflict",
+    "mechanism.threshold",
+    "mechanism.sensitive"
+  ],
+  "noise_types": [
+    "material_conflict"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验材料对人数和字段矛盾时，保留冲突并给出条件分支，不擅自取其一。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验材料对人数和字段矛盾时，保留冲突并给出条件分支，不擅自取其一。",
+  "reference_basis": [
+    "2024规定第五、八条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "累计不满10万人 免予",
+      "累计10万人以上不满100万人 标准合同"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "不满10万人免予"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "10万以上走标准合同或认证"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [
+      "要求核实接口实际传输的字段和跨接口去重人数。"
+    ],
+    "allowed_judgments": [
+      "两份材料在人数（9万与12万）和是否含实名身份证信息上矛盾，应要求核实实际接口字段和去重人数；若按技术部口径达到12万人，应订立标准合同或通过认证，若确为9万人且不含实名信息可免予；实名信息不是分析所必需的，应停止传输。"
+    ],
+    "forbidden_judgments": [
+      "直接采信运营部口径认定免予。",
+      "不提示矛盾就给出确定结论。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

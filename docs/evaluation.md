@@ -1,14 +1,13 @@
 # 评测
 
-评测系统在 `law_agent/evals/`，不属于生产代码。它回答三个问题，指标不能混用：
+评测系统在 `law_agent/evals/`，不属于生产代码。它回答两个问题，指标不能混用：
 
 | 问题 | 怎么测 | 命令 |
 | --- | --- | --- |
 | 给定合理的查询，生产检索能不能找出**对的条款**？时效或地域不对的条文会不会混进来？ | 固定查询直接调用 `ComplianceAgentTools.search`，按（来源，条号）计分 | `retrieval` |
 | 同样的材料，CrossComply 的结论比通用模型、通用联网 Agent 更可靠吗？ | 多个被测系统跑同一批场景，用同一套与系统无关的评分 | `agent` |
-| 独立语义校验器能拦住报告里的错误吗？会不会误拒正确报告？ | 对人工确认无误的报告逐个注入错误 | `verifier` |
 
-只有 `check`、`review-package`、`record-review`、`lock-test`、`export-prompts`、`report` 不调用模型；`retrieval` 调用 embedding；`agent`、`verifier` 调用付费模型，日常开发不要跑。
+只有 `check`、`review-package`、`record-review`、`lock-test`、`export-prompts`、`report` 不调用模型；`retrieval` 调用 embedding；`agent` 调用付费模型，日常开发不要跑。
 
 ## 结构
 
@@ -19,7 +18,6 @@
 | `delivery.py` | 各系统统一的最终交付格式 |
 | `grading.py` | 引用解析、确定性检查、评测专用 judge、结果分类 |
 | `retrieval.py` | 检索评测 |
-| `verifier.py` | 语义校验器变异测试 |
 | `runs.py` | 运行留证（manifest、逐案落盘、阻断即停）与 Wilson 区间 |
 | `review.py` | 人工审定包、审定记录、test 集锁定 |
 | `report.py` | 报告 |
@@ -40,7 +38,7 @@
 - 可选的 `portfolio`（冻结的同主体累计台账，注入方式与生产相同）、`scripted_answers`（Agent 暂停追问时的预设回答）、`controlled_web`（把来源从语料中留出，并提供固定的官方 Web 结果）；
 - `answer_leak_sources`：语料中直接给出答案的来源（如政策问答），报告中单独统计。
 
-`split` 取值为 `dev`（可以用于调优）、`test`（锁定后只在正式出报告时运行）、`field`（线上纠错，存放在 Git 之外的 `data/evals/field/`）、`framework`（框架自检）。
+`split` 取值为 `dev`（可以用于调优）、`test`（锁定后只在正式出报告时运行）、`field`（线上纠错，存放在 Git 之外的 `data/evals/field/`）。
 
 ```bash
 python -m law_agent.evals check            # 对照当前语料检查全部场景并输出覆盖统计
@@ -87,6 +85,7 @@ python -m law_agent.evals agent --split dev --without-portfolio --output-dir ...
 
 - 所有系统使用同一个底座模型（`--model`，默认为 `OPENAI_COMPATIBLE_MODEL`），差别只在系统设计；
 - 非 CrossComply 系统给出的法律名称会按标题解析回语料中的 `source_id`，解析不了的计入"无法解析的引用"；
+- CrossComply 默认跳过独立语义校验（`--verifier skip`），直接评 Agent 首次生成的报告；引用门禁仍然生效。`--verifier on` 走完整生产链路。
 - judge 只看交付内容，不知道交付来自哪个系统。它先判定结论形态（确定 / 附条件 / 不下结论），再按 rubric 逐维评分；默认与被测模型相同，建议用 `--judge-model` 换一个模型。
 
 **结果分类**：法律结果与执行结果分开统计。
@@ -101,16 +100,6 @@ python -m law_agent.evals agent --split dev --without-portfolio --output-dir ...
 执行结果分为 `delivered`、`budget_exhausted`（预算耗尽后的收口，即使安全也不算正常交付）、`runtime_failure`、`blocked`（认证、余额、限流等）、`unanswered_gate`（追问没有对应的预设回答）。
 
 **运行留证**：运行目录不会覆盖已有目录。`manifest.json` 记录代码提交、工作区是否有未提交改动、生产代码散列、语料散列、各系统配置和场景散列。每个系统 × 场景一个目录，保存 `delivery.json`、`grade.json` 和 `events.jsonl`（CrossComply 的每个检查点都会写入）。遇到 401/402/403/429 时，停止启动后续场景。`python -m law_agent.evals report <运行目录>` 可以重新生成报告。
-
-## 语义校验器变异测试
-
-用例放在 `bank/data/verifier/*.json`：一份人工确认无误的报告草稿、所引用的 chunk，以及若干变异。每个变异指定字段路径、替换内容或删除操作，以及校验器应定位到的目标（如 `risk_boundaries:0`）。
-
-```bash
-python -m law_agent.evals verifier --output-dir data/eval_runs/verifier_<日期>
-```
-
-指标为：干净草稿的误拒率、变异的拦截率、拦截且定位正确的比例，并按变异类型（门槛、遗漏例外、擅自认定事实、路径错误、扩大义务）拆分。
 
 ## 线上纠错回流
 

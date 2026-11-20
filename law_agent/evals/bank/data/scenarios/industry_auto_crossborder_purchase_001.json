@@ -1,0 +1,98 @@
+{
+  "scenario_id": "industry_auto_crossborder_purchase_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "auto_shiyan",
+  "as_of_date": "2026-10-15",
+  "question": "客户订购在德国工厂定制生产的进口车型，要把客户姓名和身份证号发给德国工厂打印铭牌和随车文件，可以吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "800",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "德国整车工厂",
+    "destination_region": "德国",
+    "processing_purpose": "定制车型生产及随车文件"
+  },
+  "materials": [
+    {
+      "filename": "销售说明.txt",
+      "kind": "business_memo",
+      "text": "定制车型销售说明\n\n客户在国内门店下单订购德国工厂定制生产的车型，德国工厂需根据订单打印车主铭牌和随车文件，今年约800单。销售部计划把客户姓名、身份证号、联系电话和家庭住址一起发过去。"
+    }
+  ],
+  "judgment_points": [
+    "industry.automotive",
+    "exemption.contract"
+  ],
+  "noise_types": [
+    "mixed_population"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验跨境购车属于合同履行豁免，但须限于确需字段。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验跨境购车属于合同履行豁免，但须限于确需字段。",
+  "reference_basis": [
+    "汽车数据出境安全指引（2026版）一、（三）3.第（2）项；2024规定第五条第一款第一项。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "跨境购车 为订立履行个人作为一方当事人的合同 确需 免予",
+      "确需 最小必要 字段"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "合同履行豁免"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_automotive_data_export_security_guide_2026",
+        "article_no": null,
+        "note": "跨境购车列为合同履行豁免情形"
+      }
+    ],
+    "optional": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第六条",
+        "note": "最小必要"
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "客户订购德国工厂定制车型，向工厂提供完成定制所需的信息属于合同履行豁免，可免予三种机制；但打印铭牌只需要姓名等必要信息，身份证号、家庭住址是否确需应逐项论证，不必要的不应提供。"
+    ],
+    "forbidden_judgments": [
+      "认定可以把身份证号、住址等全部信息一并提供而无需论证。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

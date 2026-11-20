@@ -1,18 +1,98 @@
 [
   {
-    "persona_id": "ota_shanghai",
-    "name": "澜程旅行网络科技（上海）有限公司",
-    "profile": "虚构主体。在线旅游平台，提供国内外机票、酒店预订；境外母公司为新加坡控股公司，集团数据中心位于新加坡。员工约3200人，注册会员数百万。",
-    "region": "上海市长宁区",
+    "persona_id": "ota_chengdu",
+    "name": "澜程旅行网络科技（成都）有限公司",
+    "profile": "虚构主体。在线旅游平台，提供国内外机票、酒店预订；境外母公司为新加坡控股公司，集团数据中心位于新加坡。员工约3200人，注册会员数百万。所在地没有适用于本企业的地方数据出境负面清单。",
+    "region": "四川省成都市锦江区（非自贸片区）",
     "in_free_trade_zone": false,
     "industry": "在线旅游"
   },
   {
-    "persona_id": "hospital_beijing",
-    "name": "京华大学附属第三医院",
-    "profile": "虚构主体。北京三级甲等综合医院，普外科参与多项国际多中心临床研究；信息科负责院内信息系统与网络安全。",
-    "region": "北京市西城区",
+    "persona_id": "hospital_wuhan",
+    "name": "江城大学附属第三医院",
+    "profile": "虚构主体。三级甲等综合医院，普外科参与多项国际多中心临床研究；信息科负责院内信息系统与网络安全。所在地没有适用于本院的地方数据出境负面清单。",
+    "region": "湖北省武汉市武昌区（非自贸片区）",
     "in_free_trade_zone": false,
     "industry": "医疗卫生"
+  },
+  {
+    "persona_id": "auto_shiyan",
+    "name": "鄂驰智能汽车有限公司",
+    "profile": "虚构主体。十堰的整车企业，生产销售智能网联乘用车，与德国研发伙伴合作开发驾驶辅助系统；车辆通过车载终端上传行驶、座舱和故障数据。所在地没有适用于本企业的地方数据出境负面清单。",
+    "region": "湖北省十堰市（非自贸片区）",
+    "in_free_trade_zone": false,
+    "industry": "汽车制造"
+  },
+  {
+    "persona_id": "retail_shanghai_ftz",
+    "name": "沪澜国际零售（上海）有限公司",
+    "profile": "虚构主体。外资连锁零售企业，注册在上海自贸试验区临港新片区，经营会员制门店与电商，境外母公司在法国。",
+    "region": "上海市（临港新片区）",
+    "in_free_trade_zone": true,
+    "industry": "零售"
+  },
+  {
+    "persona_id": "saas_shenzhen",
+    "name": "前海云衡科技（深圳）有限公司",
+    "profile": "虚构主体。注册在深圳前海的企业级SaaS服务商，客户包括香港、澳门企业，部分服务器部署在香港。",
+    "region": "广东省深圳市（前海）",
+    "in_free_trade_zone": true,
+    "industry": "软件和信息技术服务"
+  },
+  {
+    "persona_id": "ecommerce_guangzhou",
+    "name": "南沙跨境优选贸易有限公司",
+    "profile": "虚构主体。广州南沙的跨境电商企业，经营进口商品零售与海外仓发货，使用境外支付与物流服务商。",
+    "region": "广东省广州市（广东自贸试验区南沙片区）",
+    "in_free_trade_zone": true,
+    "industry": "跨境电商"
+  },
+  {
+    "persona_id": "game_hangzhou",
+    "name": "杭州星屿互动网络科技有限公司",
+    "profile": "虚构主体。杭州（非自贸片区）的网络游戏与社交应用开发商，用户数百万，计划在境外上市并使用境外云服务做数据分析。",
+    "region": "浙江省杭州市（非自贸片区）",
+    "in_free_trade_zone": false,
+    "industry": "互联网"
+  },
+  {
+    "persona_id": "logistics_tianjin",
+    "name": "津港通国际物流有限公司",
+    "profile": "虚构主体。天津自贸试验区的国际货运代理与报关企业，为进出口客户办理国际运输、报关与仓储。",
+    "region": "天津市（天津自贸试验区）",
+    "in_free_trade_zone": true,
+    "industry": "国际物流"
+  },
+  {
+    "persona_id": "consulting_nanjing",
+    "name": "宁瀚管理咨询（南京）有限公司",
+    "profile": "虚构主体。外资管理咨询公司，位于南京鼓楼区（非自贸片区），员工约600人，为境内外客户提供人力资源与组织咨询，区域总部在新加坡。",
+    "region": "江苏省南京市鼓楼区（非自贸片区）",
+    "in_free_trade_zone": false,
+    "industry": "商务咨询"
+  },
+  {
+    "persona_id": "pharma_nanchang",
+    "name": "赣研医药科技有限公司",
+    "profile": "虚构主体。南昌的药物研发与生产企业，与德国、瑞士合作方开展药品研发与质量合作。江西省没有自由贸易试验区。",
+    "region": "江西省南昌市",
+    "in_free_trade_zone": false,
+    "industry": "医药制造"
+  },
+  {
+    "persona_id": "cro_beijing",
+    "name": "京研临床医药研究有限公司",
+    "profile": "虚构主体。注册在北京经济技术开发区的合同研究组织（CRO），为跨国药企在中国开展药物临床试验，数据管理平台由境外申办方提供。",
+    "region": "北京市（北京经济技术开发区）",
+    "in_free_trade_zone": true,
+    "industry": "医药研发服务"
+  },
+  {
+    "persona_id": "studyabroad_lanzhou",
+    "name": "陇原远航留学咨询服务部",
+    "profile": "虚构主体。兰州的小型留学咨询服务机构，员工8人，今年服务学生约600人，为学生向境外院校递交申请材料。甘肃省没有自由贸易试验区。",
+    "region": "甘肃省兰州市",
+    "in_free_trade_zone": false,
+    "industry": "教育咨询"
   }
 ]

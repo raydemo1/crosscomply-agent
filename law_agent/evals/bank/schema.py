@@ -18,7 +18,7 @@ from pydantic import Field, model_validator
 
 from law_agent.data.schemas import StrictModel
 
-Split = Literal["dev", "test", "field", "framework"]
+Split = Literal["dev", "test", "field"]
 
 JudgmentPoint = Literal[
     # A 机制选择
@@ -90,7 +90,7 @@ class MaterialFile(StrictModel):
 
 
 class FactPatternSource(StrictModel):
-    kind: Literal["enforcement", "approved_case", "official_qna", "synthetic", "field_feedback", "framework"]
+    kind: Literal["enforcement", "approved_case", "official_qna", "synthetic", "field_feedback"]
     urls: list[str] = Field(default_factory=list)
     public_facts: str = Field(min_length=1, description="公开来源实际写明的事实；synthetic 时写模拟的常见错误")
     synthesized: str = Field(min_length=1, description="本场景在公开事实之外补充或改写的部分")

@@ -1,0 +1,90 @@
+{
+  "scenario_id": "region_sh_member_exempt_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "retail_shanghai_ftz",
+  "as_of_date": "2026-10-15",
+  "question": "会员数据今年只同步80万人，按国家规定要签标准合同，按上海的负面清单呢？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "800000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "法国母公司",
+    "destination_region": "法国",
+    "processing_purpose": "全球会员管理"
+  },
+  "materials": [
+    {
+      "filename": "同步方案.txt",
+      "kind": "business_memo",
+      "text": "会员数据同步方案（修订）\n\n同步字段：会员姓名、手机号、会员等级、积分余额、购买记录（商品、时间、金额）、偏好门店。今年计划同步约80万名会员（去重），不含敏感个人信息。"
+    }
+  ],
+  "judgment_points": [
+    "region.ftz",
+    "exemption.ftz_negative_list"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验负面清单外的数据可以免予三种机制。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验负面清单外的数据可以免予三种机制。",
+  "reference_basis": [
+    "2024规定第六条；上海数据出境负面清单（2025版）商贸领域。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "自由贸易试验区内数据处理者 向境外提供负面清单外的数据 免予",
+      "上海 负面清单 会员管理 100万人"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第六条",
+        "note": "负面清单外数据免予"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+        "article_no": null,
+        "note": "会员管理数据不满100万人不在清单内"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "会员管理字段的出境规模不满100万人，不在上海负面清单列明的范围内，可依第六条免予三种机制；仍须履行告知、单独同意和影响评估，规模接近或超过100万人时转为标准合同或认证。"
+    ],
+    "forbidden_judgments": [
+      "按国家规则认定必须订立标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

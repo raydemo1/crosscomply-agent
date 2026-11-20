@@ -1,0 +1,81 @@
+{
+  "scenario_id": "region_gba_macao_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "saas_shenzhen",
+  "as_of_date": "2026-10-15",
+  "question": "澳门的酒店客户要接入我们的会员系统，需要把深圳侧的会员数据同步过去，该签哪种合同？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "12000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "澳门酒店客户（注册于澳门）",
+    "destination_region": "中国澳门",
+    "processing_purpose": "会员系统对接"
+  },
+  "materials": [
+    {
+      "filename": "对接方案.txt",
+      "kind": "business_memo",
+      "text": "澳门客户对接方案\n\n澳门酒店客户（注册于澳门）使用我们的会员SaaS，需要把深圳服务器上为其管理的1.2万名会员资料同步到澳门本地系统。双方均不是关键信息基础设施运营者，数据未被告知为重要数据。"
+    }
+  ],
+  "judgment_points": [
+    "region.gba"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验内地与澳门之间可以使用粤港澳大湾区（内地、澳门）标准合同。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验内地与澳门之间可以使用粤港澳大湾区（内地、澳门）标准合同。",
+  "reference_basis": [
+    "粤港澳大湾区（内地、澳门）个人信息跨境流动标准合同实施指引第二、四条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "粤港澳大湾区 内地 澳门 个人信息跨境流动标准合同"
+    ],
+    "must_cite": [],
+    "must_retrieve": [
+      {
+        "source_id": "cac_gba_macao_standard_contract_guide_2024",
+        "article_no": null,
+        "note": "内地-澳门标准合同适用条件"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "双方分别注册于深圳和澳门，可订立粤港澳大湾区（内地、澳门）标准合同，完成影响评估、告知/同意并在规定期限内备案；也可说明按国家规则不满10万人可免予。"
+    ],
+    "forbidden_judgments": [
+      "认定应使用内地-香港版本的标准合同。",
+      "认定向澳门提供不属于出境。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

@@ -1,0 +1,104 @@
+{
+  "scenario_id": "hr_family_benefits_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "总部统一采购的全球医疗保险要员工家属信息，这也算人力资源管理豁免吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "900",
+    "annual_sensitive_count": "300",
+    "overseas_recipient": "新加坡区域总部及其保险经纪",
+    "destination_region": "新加坡",
+    "processing_purpose": "员工及家属医疗保险",
+    "exemption_facts": "员工手册经职代会通过，规定公司为员工提供商业医疗保险。"
+  },
+  "materials": [
+    {
+      "filename": "福利方案.txt",
+      "kind": "business_memo",
+      "text": "全球医疗保险方案\n\n区域总部统一投保，需要南京公司提供员工及其配偶、子女的姓名、出生日期和既往病史（部分险种需要）。涉及员工600人、家属约300人。HR认为都属于跨境人力资源管理，可以免予。"
+    }
+  ],
+  "judgment_points": [
+    "exemption.hr",
+    "mechanism.sensitive"
+  ],
+  "noise_types": [
+    "mixed_population",
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验人力资源豁免只覆盖员工本人信息，家属不是员工，既往病史属于敏感个人信息。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验人力资源豁免只覆盖员工本人信息，家属不是员工，既往病史属于敏感个人信息。",
+  "reference_basis": [
+    "2024规定第五条第一款第二项、第八条；个人信息保护法第二十八、二十九条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "跨境人力资源管理 确需向境外提供员工个人信息",
+      "敏感个人信息 不满1万人 标准合同 单独同意"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "人力资源豁免仅限员工信息"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "不满1万人敏感走标准合同"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第二十八条",
+        "note": "医疗健康信息敏感"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第二十九条",
+        "note": "敏感信息单独同意"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "为员工投保所需的员工本人信息可论证人力资源豁免；家属不是员工，其信息不适用该豁免，既往病史属于敏感个人信息，应订立标准合同或通过认证，并取得家属的单独同意，评估是否确需提供病史。"
+    ],
+    "forbidden_judgments": [
+      "认定员工家属信息也适用跨境人力资源管理豁免。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

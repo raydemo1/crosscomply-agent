@@ -2,14 +2,13 @@
 
 ``check``, ``review-package``, ``record-review``, ``lock-test``,
 ``export-prompts`` and ``report`` never call a model. ``retrieval`` calls the
-embedding service only; ``agent`` and ``verifier`` call paid models.
+embedding service only; ``agent`` calls paid models.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH
@@ -22,7 +21,7 @@ def _scenarios(args: argparse.Namespace):
 
 
 def _add_selection(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--split", action="append", choices=["dev", "test", "field", "framework"],
+    parser.add_argument("--split", action="append", choices=["dev", "test", "field"],
                         help="可重复；不指定时选择全部")
     parser.add_argument("--scenario", action="append", help="只运行指定场景，可重复")
 
@@ -68,7 +67,8 @@ def _arms(args: argparse.Namespace) -> list:
 
     model = args.model or require_llm_config().model
     factories = {
-        "crosscomply": lambda: CrossComplyArm(model_id=model, rerank_mode=args.rerank_mode),
+        "crosscomply": lambda: CrossComplyArm(model_id=model, rerank_mode=args.rerank_mode,
+                                              skip_verifier=args.verifier == "skip"),
         "direct": lambda: DirectArm(model_id=model),
         "web": lambda: WebAgentArm(model_id=model),
     }
@@ -114,28 +114,6 @@ def cmd_report(args: argparse.Namespace) -> int:
     _data, markdown = agent_report(grades, scenarios, manifest)
     write(args.run_dir / "report.md", markdown)
     print(markdown)
-    return 0
-
-
-def cmd_verifier(args: argparse.Namespace) -> int:
-    from law_agent.config import require_llm_config
-    from law_agent.evals.report import verifier_report, write
-    from law_agent.evals.runs import RunStore
-    from law_agent.evals.verifier import load_verifier_cases, production_verify, run_verifier_suite
-
-    cases = load_verifier_cases()
-    if not cases:
-        print("没有语义校验器变异用例（law_agent/evals/bank/data/verifier/）", file=sys.stderr)
-        return 2
-    model = args.model or require_llm_config().model
-    store = RunStore(args.output_dir)
-    store.save(store.root, "manifest.json", {"kind": "verifier", "model": model,
-                                              "cases": [c.case_id for c in cases]})
-    summary = run_verifier_suite(cases, production_verify(args.chunks, model_id=model),
-                                 on_result=lambda row: store.event(store.root, "result", row))
-    store.save(store.root, "summary.json", summary)
-    write(store.root / "report.md", verifier_report(summary))
-    print(verifier_report(summary))
     return 0
 
 
@@ -204,6 +182,8 @@ def build_parser() -> argparse.ArgumentParser:
     agent.add_argument("--judge-model")
     agent.add_argument("--no-judge", action="store_true")
     agent.add_argument("--without-portfolio", action="store_true", help="去掉同主体累计台账，做对照")
+    agent.add_argument("--verifier", choices=["skip", "on"], default="skip",
+                       help="skip（默认）：跳过独立语义校验，直接评 Agent 首次生成的报告；on：走完整生产链路")
     agent.add_argument("--workers", type=int, default=1)
     agent.add_argument("--output-dir", type=Path, required=True)
     agent.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_PATH)
@@ -213,12 +193,6 @@ def build_parser() -> argparse.ArgumentParser:
     report = sub.add_parser("report", help="从运行目录重新生成 Agent 报告")
     report.add_argument("run_dir", type=Path)
     report.set_defaults(func=cmd_report)
-
-    verifier = sub.add_parser("verifier", help="语义校验器变异测试（调用付费模型）")
-    verifier.add_argument("--output-dir", type=Path, required=True)
-    verifier.add_argument("--model")
-    verifier.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_PATH)
-    verifier.set_defaults(func=cmd_verifier)
 
     package = sub.add_parser("review-package", help="导出人工审定包")
     _add_selection(package)

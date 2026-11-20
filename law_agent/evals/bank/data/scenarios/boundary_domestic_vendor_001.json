@@ -1,0 +1,86 @@
+{
+  "scenario_id": "boundary_domestic_vendor_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "logistics_tianjin",
+  "as_of_date": "2026-10-15",
+  "question": "我们的仓储系统外包给一家外资企业，服务器在天津，对方境外总部看不到数据，这算数据出境吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": false,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "（无）",
+    "processing_purpose": "仓储管理系统运维"
+  },
+  "materials": [
+    {
+      "filename": "外包合同摘要.txt",
+      "kind": "contract_excerpt",
+      "text": "仓储管理系统外包合同摘要\n\n服务商为外资企业在天津设立的子公司，系统部署在天津机房，运维人员均在境内。合同约定服务商不得向其境外关联方提供或开放访问数据。"
+    }
+  ],
+  "judgment_points": [
+    "boundary.out_of_scope"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验境内委托处理、境外无法访问时不属于数据出境。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验境内委托处理、境外无法访问时不属于数据出境。",
+  "reference_basis": [
+    "2025年10月问答第5问；评估办法答记者问关于数据出境活动；个人信息保护法第二十一条（委托处理）。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "数据出境活动 传输至境外 境外可以访问",
+      "委托处理个人信息 约定 监督受托人"
+    ],
+    "must_cite": [],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_assessment_qna_2022",
+        "article_no": null,
+        "note": "数据出境活动的范围"
+      }
+    ],
+    "optional": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第二十一条",
+        "note": "委托处理的合同约定与监督"
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [],
+    "forbidden_clause_sources": [
+      "cac_data_export_assessment_qna_2022"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "服务商是境内设立的公司，数据存储在天津且境外无法访问，不属于数据出境，不需要出境程序；应按委托处理要求约定处理目的、方式和安全措施并进行监督，若日后开放境外访问则构成出境。"
+    ],
+    "forbidden_judgments": [
+      "仅因服务商是外资企业就认定属于数据出境。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

@@ -1,0 +1,146 @@
+{
+  "scenario_id": "mech_exempt_under100k_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "运营部想把玩家数据交给新加坡的数据分析服务商做留存分析，需要走什么出境手续？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "86000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡数据分析服务商",
+    "destination_region": "新加坡",
+    "processing_purpose": "玩家留存分析",
+    "exemption_facts": "不涉及合同履行、人力资源、紧急情况等情形。"
+  },
+  "materials": [
+    {
+      "filename": "需求说明.txt",
+      "kind": "business_memo",
+      "text": "运营部需求说明（2026年10月9日）\n\n《星屿物语》海外发行前，需要分析国内测试服玩家的留存与付费转化。计划把测试服玩家的玩家ID、昵称、设备型号、登录与付费日志同步给新加坡的数据分析服务商，对方按我们的需求出具分析报告。测试服今年累计约8.6万名玩家（按实名账号去重），日志共约2300万行。数据不含实名认证信息、支付账户和聊天内容。\n\n公司不是关键信息基础设施运营者，没有被告知存在重要数据。运营部理解：数据只是给服务商做分析，不算“出境”；就算算，人数也不多，应该不用管。"
+    },
+    {
+      "filename": "数据量统计.xlsx",
+      "kind": "data_inventory",
+      "sheets": [
+        {
+          "name": "统计",
+          "rows": [
+            [
+              "口径",
+              "数量",
+              "说明"
+            ],
+            [
+              "日志行数",
+              23000000,
+              "登录、付费、关卡事件"
+            ],
+            [
+              "设备数",
+              131000,
+              "同一玩家可能多台设备"
+            ],
+            [
+              "实名账号去重玩家数",
+              86000,
+              "2026年1月1日至今"
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "judgment_points": [
+    "mechanism.threshold"
+  ],
+  "noise_types": [
+    "count_unit_mismatch",
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：把服务商委托分析误认为不算出境，并混淆日志行数、设备数与自然人数。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "把服务商委托分析误认为不算出境，并混淆日志行数、设备数与自然人数。",
+  "reference_basis": [
+    "2024规定第五条第一款第四项、第十条；评估办法答记者问关于数据出境活动的说明。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "累计向境外提供不满10万人个人信息 免予申报",
+      "数据出境活动 传输至境外 存储至境外 定义"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "非CIIO累计不满10万人非敏感个人信息免予三种机制"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第十条",
+        "note": "免予不免除告知、单独同意、影响评估"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_assessment_qna_2022",
+        "article_no": null,
+        "note": "数据出境活动包括将数据传输、存储至境外"
+      }
+    ],
+    "optional": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十九条",
+        "note": "出境告知与单独同意"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第五十五条",
+        "note": "影响评估"
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_assessment_qna_2022"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [
+      "不得把2300万行日志或13.1万台设备当作出境人数。"
+    ],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "向境外服务商提供用于分析的数据属于数据出境；按8.6万名去重玩家判断，可免予三种出境机制，但仍须履行告知、单独同意和个人信息保护影响评估等义务。"
+    ],
+    "forbidden_judgments": [
+      "认定委托境外服务商分析不属于数据出境。",
+      "以日志行数或设备数认定已超过10万人。",
+      "认定免予机制即无须履行任何个人信息保护义务。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

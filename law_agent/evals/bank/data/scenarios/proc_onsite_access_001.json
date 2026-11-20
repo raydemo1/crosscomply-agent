@@ -1,0 +1,100 @@
+{
+  "scenario_id": "proc_onsite_access_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "新加坡总部审计组来南京办公室现场查看客户资料，还要求开通远程VPN账号回去后继续查，这两种情况都算出境吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "8000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡区域总部审计组",
+    "destination_region": "新加坡",
+    "processing_purpose": "内部审计"
+  },
+  "materials": [
+    {
+      "filename": "审计安排.txt",
+      "kind": "email",
+      "text": "审计安排\n\n10月20日至24日，新加坡区域总部审计组4人到南京办公室，在本地终端查阅客户合同和联系人数据（约8000人）。审计结束后，审计组要求开通VPN账号，回新加坡后继续远程查询和导出部分资料。"
+    }
+  ],
+  "judgment_points": [
+    "procedure.assessment",
+    "mechanism.threshold"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验境外人员在境内查询不属于出境，而从境外远程查询、导出属于出境。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验境外人员在境内查询不属于出境，而从境外远程查询、导出属于出境。",
+  "reference_basis": [
+    "2025年10月问答第5问；申报指南（第三版）关于数据出境行为；2024规定第五条第一款第四项。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2025_10"
+  ],
+  "retrieval": {
+    "queries": [
+      "境外机构工作人员在境内查询 调取 不属于数据出境活动",
+      "存储在境内 境外可以查询 调取 下载 导出 数据出境"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "不满10万人免予"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_10",
+        "article_no": null,
+        "note": "境外指访问行为发生在境外"
+      },
+      {
+        "source_id": "cac_data_export_security_assessment_filing_guide_v3_2025",
+        "article_no": null,
+        "note": "数据出境行为的三种情形"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_10"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "审计组在南京现场查阅、未将数据传输至境外，不属于数据出境；回新加坡后通过VPN查询、导出属于数据出境，约8000人非敏感个人信息可免予三种机制（需结合公司当年累计），但须履行告知和影响评估。"
+    ],
+    "forbidden_judgments": [
+      "认定现场查阅属于数据出境。",
+      "认定远程VPN访问不属于数据出境。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

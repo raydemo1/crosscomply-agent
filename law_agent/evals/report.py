@@ -107,16 +107,5 @@ def retrieval_report(aggregate: dict[str, Any], manifest: dict[str, Any]) -> str
     return "\n".join(lines) + "\n"
 
 
-def verifier_report(summary: dict[str, Any]) -> str:
-    lines = ["# 语义校验器变异测试报告", "",
-             f"- 干净草稿误拒：{_rate(summary['false_rejections'], summary['clean_n'])}",
-             f"- 变异拦截：{_rate(summary['caught'], summary['mutants_n'])}",
-             f"- 拦截且定位正确：{_rate(summary['caught_and_located'], summary['mutants_n'])}",
-             f"- 运行错误：{summary['errors']}", "",
-             "| 变异类型 | 数量 | 拦截 | 定位正确 |", "| --- | ---: | ---: | ---: |"]
-    lines += [f"| {kind} | {v['n']} | {v['caught']} | {v['located']} |" for kind, v in sorted(summary["by_kind"].items())]
-    return "\n".join(lines) + "\n"
-
-
 def write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")

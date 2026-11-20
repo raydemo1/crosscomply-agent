@@ -1,0 +1,98 @@
+{
+  "scenario_id": "proc_split_to_avoid_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "今年预计出境150万人，能不能由两家子公司各自通过认证，每家都不到100万？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "1500000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡数据分析服务商",
+    "destination_region": "新加坡",
+    "processing_purpose": "玩家行为分析"
+  },
+  "materials": [
+    {
+      "filename": "方案讨论纪要.txt",
+      "kind": "meeting_notes",
+      "text": "方案讨论纪要\n\n全部150万名玩家的数据由母公司统一收集和处理。财务建议成立两家子公司，各自与新加坡服务商签约并分别申请个人信息出境认证，每家约75万人，以避免申报安全评估。"
+    }
+  ],
+  "judgment_points": [
+    "procedure.certification",
+    "procedure.assessment"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验禁止以数量拆分规避安全评估。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验禁止以数量拆分规避安全评估。",
+  "reference_basis": [
+    "个人信息出境认证办法第五条；标准合同办法第四条；2024规定第七条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "不得采取数量拆分等手段 应当通过出境安全评估",
+      "累计100万人以上 申报数据出境安全评估"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_personal_info_export_certification_measures_2025",
+        "article_no": "第五条",
+        "note": "不得以数量拆分规避安全评估"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "100万人以上申报评估"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [
+      {
+        "source_id": "cac_personal_info_export_standard_contract_measures_2023",
+        "article_no": "第四条",
+        "note": "标准合同同样禁止拆分"
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_personal_info_export_certification_measures_2025",
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "数据由母公司统一收集处理，150万人已达到申报安全评估的门槛；通过拆分主体分别认证属于禁止的数量拆分，应申报数据出境安全评估。"
+    ],
+    "forbidden_judgments": [
+      "认可拆分为两家子公司分别认证的方案。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

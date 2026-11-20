@@ -1,0 +1,85 @@
+{
+  "scenario_id": "industry_geo_hdmap_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "auto_shiyan",
+  "as_of_date": "2026-10-15",
+  "question": "车队众包采集的道路要素更新数据，想交给德国图商做高精地图更新，需要什么手续？",
+  "intake": {
+    "contains_personal_information": false,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "德国地图服务商",
+    "destination_region": "德国",
+    "processing_purpose": "高精地图更新"
+  },
+  "materials": [
+    {
+      "filename": "合作方案.txt",
+      "kind": "business_memo",
+      "text": "高精地图众包更新合作方案\n\n量产车在国内道路采集车道线、交通标志和道路拓扑变化，回传公司服务器后，计划每周打包发给德国图商更新高精地图。数据不含个人信息。公司没有导航电子地图制作资质，德国图商在国内也没有资质单位。"
+    }
+  ],
+  "judgment_points": [
+    "industry.automotive",
+    "mechanism.important_data"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验智能网联汽车采集地理信息属于测绘活动，须由资质单位处理、境内存储，出境须审批。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验智能网联汽车采集地理信息属于测绘活动，须由资质单位处理、境内存储，出境须审批。",
+  "reference_basis": [
+    "自然资源部关于加强智能网联汽车有关测绘地理信息安全管理的通知（2024）第一、二、五点；汽车数据出境安全指引（2026版）注3。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "智能网联汽车 地理信息数据 测绘活动 导航电子地图制作资质",
+      "地理信息数据 存储于境内 向境外提供 审批"
+    ],
+    "must_cite": [],
+    "must_retrieve": [
+      {
+        "source_id": "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
+        "article_no": null,
+        "note": "测绘活动管理、资质单位、境内存储与出境审批"
+      },
+      {
+        "source_id": "cac_automotive_data_export_security_guide_2026",
+        "article_no": null,
+        "note": "测绘地理信息出境须先履行审批或地图审核"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "车辆采集的道路要素属于测绘活动产生的地理信息数据，应直接传输至具备导航电子地图制作资质的单位管理，并存储于境内；向德国图商提供须先履行对外提供审批或地图审核，并落实数据出境安全评估等要求，当前方案不能直接实施。"
+    ],
+    "forbidden_judgments": [
+      "以不含个人信息为由认定可以直接出境。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

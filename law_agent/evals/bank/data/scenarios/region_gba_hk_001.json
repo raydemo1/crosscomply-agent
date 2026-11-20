@@ -1,0 +1,88 @@
+{
+  "scenario_id": "region_gba_hk_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "saas_shenzhen",
+  "as_of_date": "2026-10-15",
+  "question": "香港客户要我们把为他们服务的3000名香港用户的联系资料从深圳传到香港，能用大湾区的标准合同吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "3000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "香港客户（注册于香港）",
+    "destination_region": "中国香港",
+    "processing_purpose": "客户服务数据回传"
+  },
+  "materials": [
+    {
+      "filename": "客户需求.txt",
+      "kind": "email",
+      "text": "主题：数据回传\n\n香港客户（注册于香港）希望我们把其在深圳服务器上的3000名用户联系人资料同步到其香港系统。我们注册在深圳前海，不是关键信息基础设施运营者，数据未被告知为重要数据。客户不会再把数据转给第三地。"
+    }
+  ],
+  "judgment_points": [
+    "region.gba"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验粤港澳大湾区（内地、香港）标准合同的适用条件与备案要求。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验粤港澳大湾区（内地、香港）标准合同的适用条件与备案要求。",
+  "reference_basis": [
+    "粤港澳大湾区（内地、香港）个人信息跨境流动标准合同实施指引第二、四、五、八条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "粤港澳大湾区 内地 香港 个人信息跨境流动标准合同 适用条件",
+      "大湾区标准合同 10个工作日内 备案 广东省互联网信息办公室"
+    ],
+    "must_cite": [],
+    "must_retrieve": [
+      {
+        "source_id": "cac_gba_hk_standard_contract_guide_2023",
+        "article_no": null,
+        "note": "双方注册于大湾区；不得向大湾区外提供；10个工作日内备案"
+      }
+    ],
+    "optional": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "国家规则下不满10万人免予（对比）"
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "双方分别注册于深圳和香港，数据不是重要数据，可以订立粤港澳大湾区（内地、香港）标准合同，传输前完成影响评估和告知/同意，合同生效后10个工作日内向广东省网信办备案，并约定不得向大湾区以外提供。也可说明按国家规则不满10万人可免予，但大湾区合同是可选的便利安排。"
+    ],
+    "forbidden_judgments": [
+      "认定向香港提供不属于数据出境。",
+      "认定大湾区标准合同允许接收方再向大湾区以外提供。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

@@ -1,0 +1,104 @@
+{
+  "scenario_id": "mech_important_notified_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "省网信办通知我们有一类数据被认定为重要数据，集团还想继续每月同步，怎么办？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "新加坡母公司数据中心",
+    "destination_region": "新加坡",
+    "processing_purpose": "集团经营分析"
+  },
+  "materials": [
+    {
+      "filename": "网信办告知函摘要.txt",
+      "kind": "business_memo",
+      "text": "数据安全部摘要（2026年9月20日）\n\n9月15日收到省网信办转来的告知：公司“全国主要城市航班与酒店预订量日度统计数据集”被认定为重要数据。该数据集是按城市、日期汇总的预订量统计，不含个人信息。\n\n集团财务每月把该数据集同步到新加坡数据中心用于经营分析。集团希望先继续同步，等年底再统一处理。"
+    }
+  ],
+  "judgment_points": [
+    "mechanism.important_data"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验被告知重要数据后必须申报安全评估及时间要求，且不因不含个人信息而免予。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验被告知重要数据后必须申报安全评估及时间要求，且不因不含个人信息而免予。",
+  "reference_basis": [
+    "2024规定第二、三、七条；网络数据安全管理条例第三十七条；2025年5月问答第2问（被告知后2个月内申报）。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2025_05"
+  ],
+  "retrieval": {
+    "queries": [
+      "被告知重要数据 2个月内 申报数据出境安全评估",
+      "重要数据确需向境外提供 安全评估"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "向境外提供重要数据申报安全评估"
+      },
+      {
+        "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+        "article_no": "第三十七条",
+        "note": "重要数据确需出境须通过安全评估"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第三条",
+        "note": "不含个人信息或重要数据的才免予"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_05",
+        "article_no": null,
+        "note": "被告知后2个月内申报安全评估"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_05"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "该数据集已被告知为重要数据，继续向境外提供必须申报数据出境安全评估；按官方口径应在被告知后2个月内申报，不能等到年底。"
+    ],
+    "forbidden_judgments": [
+      "以数据集不含个人信息为由认定可以免予。",
+      "认定可以先继续同步、年底再处理。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

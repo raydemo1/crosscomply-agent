@@ -1,0 +1,116 @@
+{
+  "scenario_id": "enforce_retail_hq_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "retail_shanghai_ftz",
+  "as_of_date": "2026-10-15",
+  "question": "我们按上海负面清单，会员数据不到100万人可以免予，那给法国总部传会员数据还有什么要做的？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "400000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "法国母公司",
+    "destination_region": "法国",
+    "processing_purpose": "全球会员管理"
+  },
+  "materials": [
+    {
+      "filename": "内部审计发现.txt",
+      "kind": "business_memo",
+      "text": "内部审计发现（2026年9月）\n\n1. 会员数据（姓名、手机号、等级、购买记录）每日以明文CSV通过邮件发给法国总部，今年约40万人。\n2. 会员注册协议中只有“同意本公司及其关联公司使用您的信息”，未说明境外接收方和出境事项，也未单独取得出境同意。\n3. 合规部认为既然负面清单外可以免予，就不需要再做任何处理。"
+    }
+  ],
+  "judgment_points": [
+    "exemption.ftz_negative_list",
+    "duty.notice_consent",
+    "region.ftz"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "enforcement",
+    "urls": [
+      "https://www.secrss.com/articles/87969"
+    ],
+    "public_facts": "公开报道：一家奢侈品企业上海公司向法国总部传输用户个人信息，被认定未履行出境程序、未充分告知并取得单独同意、未采取加密和去标识化等安全措施。",
+    "synthesized": "主体、数据规模和内部审计文本均为虚构；按2026年审查时点的上海负面清单重新设计。"
+  },
+  "selection_reason": "改编公开执法案例：免予出境机制不等于免除告知、单独同意和安全保护义务。",
+  "reference_basis": [
+    "2024规定第六、十、十一条；个人信息保护法第三十九、五十一条；上海负面清单（2025版）商贸领域。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "负面清单外的数据 免予",
+      "向境外提供个人信息 单独同意 加密 去标识化 安全措施"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第六条",
+        "note": "清单外免予"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第十条",
+        "note": "仍须告知、单独同意、影响评估"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第十一条",
+        "note": "履行数据安全保护义务"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十九条",
+        "note": "告知与单独同意"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第五十一条",
+        "note": "加密等安全技术措施"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+        "article_no": null,
+        "note": "会员管理数据不满100万人不在清单内"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "40万人会员数据在上海负面清单外，可免予三种机制，但仍须告知境外接收方等事项并取得单独同意、开展影响评估，并采取加密等安全措施；明文邮件传输和概括同意都需要整改。"
+    ],
+    "forbidden_judgments": [
+      "认定负面清单外免予后不需要任何处理。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

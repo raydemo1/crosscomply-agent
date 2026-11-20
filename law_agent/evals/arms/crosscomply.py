@@ -100,14 +100,38 @@ class FixedWebClient:
         return self.results[:max_results]
 
 
+class FirstDraftVerifier:
+    """Stand-in for the semantic verifier: accept the Agent's first report as is.
+
+    Evaluation-only. The citation gate still runs; only the independent model
+    check (and the revision loop it would trigger) is skipped.
+    """
+
+    def __init__(self, *, model_id: str | None = None, client=None) -> None:
+        self.model_id = model_id
+
+    def __call__(self, *, draft, **_kwargs):
+        from law_agent.review.semantic_grounding import ClaimCheck, SemanticVerdict
+
+        return SemanticVerdict(
+            status="supported",
+            claim_checks=[ClaimCheck(claim_index=i, status="supported", reason="评测跳过独立语义校验")
+                          for i in range(len(draft.claims))],
+            conclusion_reason="评测跳过独立语义校验，直接采用首次生成的报告",
+        )
+
+
 def production_executor(
     scenario: Scenario, *, chunks_path: Path, rerank_mode: RerankMode = "off", workdir: Path | None = None,
+    skip_verifier: bool = False,
 ) -> Executor:
     def execute(task: ReviewTask, store: InMemoryEnterpriseStore) -> AgentState:
         snapshot = store.get_material_snapshot(task.material_snapshot_id)
         versions = [v for v in (store.get_material_version(i) for i in snapshot.version_ids) if v]
         with ExitStack() as stack:
             effective = chunks_path
+            if skip_verifier:
+                stack.enter_context(patch("law_agent.review.agent_tools.SemanticGroundingVerifier", FirstDraftVerifier))
             if scenario.controlled_web:
                 directory = workdir or Path(stack.enter_context(TemporaryDirectory()))
                 effective = directory / "controlled_chunks.jsonl"
@@ -164,13 +188,16 @@ def delivery_from_result(scenario_id: str, payload: dict[str, Any], **extra: Any
 class CrossComplyArm:
     name = "crosscomply"
 
-    def __init__(self, *, model_id: str, rerank_mode: RerankMode = "off", executor_factory=None) -> None:
+    def __init__(self, *, model_id: str, rerank_mode: RerankMode = "off", skip_verifier: bool = False,
+                 executor_factory=None) -> None:
         self.model_id = model_id
         self.rerank_mode = rerank_mode
+        self.skip_verifier = skip_verifier
         self.executor_factory = executor_factory or production_executor
 
     def config(self) -> dict[str, Any]:
-        return {"model": self.model_id, "rerank_mode": self.rerank_mode}
+        return {"model": self.model_id, "rerank_mode": self.rerank_mode,
+                "semantic_verifier": "skipped_first_draft" if self.skip_verifier else "on"}
 
     def run(self, scenario: Scenario, ctx: ArmContext) -> Delivery:
         started = time.perf_counter()
@@ -179,8 +206,8 @@ class CrossComplyArm:
             files = parsed_files(scenario, Path(directory) / "materials")
             enqueue_eval_task(store, case_id=scenario.scenario_id, files=files, intake=scenario.intake,
                               model_id=self.model_id, portfolio=scenario.portfolio)
-            execute = self.executor_factory(scenario, chunks_path=ctx.chunks_path,
-                                            rerank_mode=self.rerank_mode, workdir=Path(directory))
+            execute = self.executor_factory(scenario, chunks_path=ctx.chunks_path, rerank_mode=self.rerank_mode,
+                                            workdir=Path(directory), skip_verifier=self.skip_verifier)
             delivery = self._loop(scenario, store, execute)
         delivery.latency_ms = int((time.perf_counter() - started) * 1000)
         return delivery

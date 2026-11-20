@@ -1,0 +1,100 @@
+{
+  "scenario_id": "exempt_contract_visa_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "签证代办业务要把客户护照和行程信息交给日本的签证受理机构，需要签标准合同吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "45000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "日本签证申请受理机构",
+    "destination_region": "日本",
+    "processing_purpose": "签证代办",
+    "exemption_facts": "客户本人委托办理签证。"
+  },
+  "materials": [
+    {
+      "filename": "签证业务说明.txt",
+      "kind": "business_memo",
+      "text": "签证代办业务说明\n\n客户在App下单委托办理日本旅游签证，我们把护照信息页、行程单、在职证明和银行流水按领事馆要求提交给日本的签证申请受理机构。今年办理约4.5万单（4.5万人）。产品经理问：是否需要和受理机构签个人信息出境标准合同？"
+    }
+  ],
+  "judgment_points": [
+    "exemption.contract"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验签证办理属于合同履行豁免的列举情形，但仍限于确需字段并须履行告知等义务。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验签证办理属于合同履行豁免的列举情形，但仍限于确需字段并须履行告知等义务。",
+  "reference_basis": [
+    "2024规定第五条第一款第一项、第十条；2025年10月问答第1问。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2025_10"
+  ],
+  "retrieval": {
+    "queries": [
+      "签证办理 为订立履行个人作为一方当事人的合同 确需向境外提供",
+      "免予申报 仍应履行告知 单独同意 影响评估"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "签证办理属合同履行豁免"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第十条",
+        "note": "豁免不免除告知、同意、评估义务"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_10",
+        "article_no": null,
+        "note": "豁免须同时满足合同与确需"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_10"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "客户委托办理签证，向签证受理机构提供办理所需的信息属于合同履行豁免，免予三种机制；提供范围以签证要求为限，并应告知、取得同意（或依合同必需履行告知）及开展影响评估。"
+    ],
+    "forbidden_judgments": [
+      "认定必须订立标准合同。",
+      "认定豁免后无须履行任何告知或影响评估义务。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

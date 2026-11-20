@@ -1,0 +1,114 @@
+{
+  "scenario_id": "mech_minor_sensitive_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "客服外包到菲律宾后，要把玩家工单和聊天记录同步过去，其中有一部分是未成年玩家，该怎么处理？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "42000",
+    "annual_sensitive_count": "3100",
+    "overseas_recipient": "菲律宾客服外包公司",
+    "destination_region": "菲律宾",
+    "processing_purpose": "玩家客服"
+  },
+  "materials": [
+    {
+      "filename": "客服外包方案.txt",
+      "kind": "business_memo",
+      "text": "客服中心外包方案（节选）\n\n自2026年11月起，二线客服由菲律宾外包公司承接。外包坐席需要查看玩家工单、历史聊天记录、充值记录和账号基础信息。今年以来提交工单的玩家约4.2万人；根据实名认证信息，其中约3100人在提交工单时不满十四周岁。\n\n法务初步意见里写着“未成年人数据也是普通个人信息，加起来不到10万人，可以免予”，请合规部确认。"
+    },
+    {
+      "filename": "家长同意流程说明.txt",
+      "kind": "internal_policy",
+      "text": "未成年人账号注册时，系统要求填写监护人手机号并发送短信确认，确认文本为“同意孩子注册并使用《星屿物语》”。注册流程中没有关于向境外提供信息的说明。"
+    }
+  ],
+  "judgment_points": [
+    "mechanism.sensitive",
+    "duty.notice_consent"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：忽视不满十四周岁未成年人信息属于敏感个人信息，把敏感与非敏感人数合并适用10万免予门槛。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "忽视不满十四周岁未成年人信息属于敏感个人信息，把敏感与非敏感人数合并适用10万免予门槛。",
+  "reference_basis": [
+    "个人信息保护法第二十八、三十一、三十九条；2024规定第五条第一款第四项、第八条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "不满十四周岁未成年人个人信息 敏感个人信息 监护人同意",
+      "敏感个人信息 不满1万人 标准合同 认证"
+    ],
+    "must_cite": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第二十八条",
+        "note": "不满十四周岁未成年人个人信息属于敏感个人信息"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十一条",
+        "note": "须取得父母或其他监护人同意"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "不满1万人敏感个人信息走标准合同或认证"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "第四项免予仅限不含敏感个人信息"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十九条",
+        "note": "出境告知与单独同意"
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "3100名未成年人信息属于敏感个人信息，不能适用不满10万人免予；应订立标准合同或通过认证，并就出境取得监护人同意、履行告知和影响评估。"
+    ],
+    "forbidden_judgments": [
+      "把未成年人信息当作一般个人信息，适用不满10万人免予。",
+      "认定注册时的监护人同意已覆盖向境外提供。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

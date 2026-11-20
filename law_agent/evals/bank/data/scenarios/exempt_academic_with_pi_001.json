@@ -1,0 +1,98 @@
+{
+  "scenario_id": "exempt_academic_with_pi_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "pharma_nanchang",
+  "as_of_date": "2026-10-15",
+  "question": "和瑞士大学的学术合作数据包里带了研究人员的姓名和邮箱，还能按学术合作免予吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "60",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "瑞士合作大学",
+    "destination_region": "瑞士",
+    "processing_purpose": "联合研究"
+  },
+  "materials": [
+    {
+      "filename": "数据包说明.txt",
+      "kind": "business_memo",
+      "text": "联合研究数据包说明\n\n数据包包括化合物筛选结果（不含个人信息），以及参与项目的60名研究人员的姓名、单位邮箱和分工，用于署名和联络。研发部认为属于学术合作，可以整体免予。"
+    }
+  ],
+  "judgment_points": [
+    "exemption.no_personal_info",
+    "mechanism.threshold"
+  ],
+  "noise_types": [
+    "mixed_population",
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验含个人信息时第三条不适用，但个人信息部分可按累计人数判断。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验含个人信息时第三条不适用，但个人信息部分可按累计人数判断。",
+  "reference_basis": [
+    "2024规定第三条、第五条第一款第四项、第十条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "学术合作 不包含个人信息 免予",
+      "累计不满10万人个人信息 免予"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第三条",
+        "note": "含个人信息不适用"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "不满10万人免予"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第十条",
+        "note": "仍须履行告知等义务"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "筛选结果不含个人信息可依第三条免予；研究人员信息使数据包不能整体适用第三条，但60人属于不满10万人非敏感个人信息，可依第五条第一款第四项免予，仍须告知、取得同意并做影响评估。"
+    ],
+    "forbidden_judgments": [
+      "认定含有研究人员信息的数据包可整体按第三条免予。",
+      "要求为60名研究人员信息订立标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

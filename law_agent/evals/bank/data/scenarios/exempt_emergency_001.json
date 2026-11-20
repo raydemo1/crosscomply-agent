@@ -1,0 +1,95 @@
+{
+  "scenario_id": "exempt_emergency_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "跟团游客户在泰国出车祸，当地医院要他的病史和过敏信息，我们能直接发过去吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "0",
+    "annual_sensitive_count": "1",
+    "overseas_recipient": "泰国当地医院",
+    "destination_region": "泰国",
+    "processing_purpose": "紧急救治"
+  },
+  "materials": [
+    {
+      "filename": "值班记录.txt",
+      "kind": "meeting_notes",
+      "text": "应急值班记录（2026年10月12日 21:40）\n\n跟团游客户在泰国清迈发生车祸，处于昏迷状态，当地医院急诊来电索要其既往病史、过敏史和血型。客户报名时填写过健康申报表。领队无法联系到家属。值班经理请示能否立即发送。"
+    }
+  ],
+  "judgment_points": [
+    "exemption.emergency"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验紧急情况下为保护生命健康可免予出境机制，事后仍应告知。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验紧急情况下为保护生命健康可免予出境机制，事后仍应告知。",
+  "reference_basis": [
+    "2024规定第五条第一款第三项；个人信息保护法第十三条第一款第四项、第十八条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "紧急情况下为保护自然人的生命健康 确需向境外提供个人信息",
+      "紧急情况 不需取得同意 事后告知"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "紧急情况豁免"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第十三条",
+        "note": "紧急情况下的合法性基础"
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第十八条",
+        "note": "紧急情况下无法及时告知的，应在紧急情况消除后告知"
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "属于紧急情况下为保护自然人生命健康确需向境外提供个人信息，可以立即提供急救所需的病史、过敏史和血型，免予三种机制；限于救治所需，并在紧急情况消除后及时告知本人。"
+    ],
+    "forbidden_judgments": [
+      "要求先订立标准合同或取得本人同意再提供。",
+      "认定可以提供与救治无关的其他信息。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

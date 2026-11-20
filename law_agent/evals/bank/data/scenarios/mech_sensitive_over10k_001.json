@@ -1,0 +1,109 @@
+{
+  "scenario_id": "mech_sensitive_over10k_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "hospital_wuhan",
+  "as_of_date": "2026-10-15",
+  "question": "国际远程会诊项目要把病历发给美国合作医院，今年人数已经比较多了，需要什么程序？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "0",
+    "annual_sensitive_count": "13400",
+    "overseas_recipient": "美国合作医院",
+    "destination_region": "美国",
+    "processing_purpose": "国际远程会诊第二诊疗意见"
+  },
+  "materials": [
+    {
+      "filename": "远程会诊运营报告.txt",
+      "kind": "business_memo",
+      "text": "国际远程会诊中心2026年前三季度运营报告（节选）\n\n本年度累计为13,400名患者提供美国合作医院的第二诊疗意见，均需上传病历摘要、影像和检验报告。患者在线签署会诊知情同意书，同意书中列明了美国合作医院名称和联系方式。\n\n目前与美国医院签订的是普通服务合同。医务处认为患者本人申请会诊，属于“为订立、履行个人作为一方当事人的合同”，可以免予申报。"
+    }
+  ],
+  "judgment_points": [
+    "mechanism.sensitive",
+    "exemption.contract"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验敏感个人信息达到1万人时的安全评估门槛，以及合同履行豁免的“确需”边界。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验敏感个人信息达到1万人时的安全评估门槛，以及合同履行豁免的“确需”边界。",
+  "reference_basis": [
+    "2024规定第五条第一款第一项、第七条；个人信息保护法第二十八条；2025年10月问答关于豁免两个条件。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2025_10"
+  ],
+  "retrieval": {
+    "queries": [
+      "累计向境外提供1万人以上敏感个人信息 申报数据出境安全评估",
+      "订立履行个人作为一方当事人的合同 确需 豁免条件"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "1万人以上敏感个人信息申报安全评估"
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "合同履行豁免须确需"
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第二十八条",
+        "note": "医疗健康信息属于敏感个人信息"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_10",
+        "article_no": null,
+        "note": "豁免须同时满足为订立履行合同和确需两个条件"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_10"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [
+      "合同履行豁免：为订立、履行个人作为一方当事人的合同确需向境外提供。"
+    ],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "患者本人申请国际会诊、向接诊的美国医院提供完成会诊所必需的病历，可以按合同履行豁免论证；豁免需逐项论证确需与最小必要。若豁免不成立，1.34万人敏感个人信息已达1万人门槛，应申报安全评估。"
+    ],
+    "forbidden_judgments": [
+      "在不论证确需的情况下直接认定全部病历出境免予。",
+      "按标准合同处理1万人以上敏感个人信息。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

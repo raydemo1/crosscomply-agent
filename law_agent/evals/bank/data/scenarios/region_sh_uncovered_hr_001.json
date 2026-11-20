@@ -1,0 +1,93 @@
+{
+  "scenario_id": "region_sh_uncovered_hr_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "retail_shanghai_ftz",
+  "as_of_date": "2026-10-15",
+  "question": "门店员工的绩效数据要发给法国总部，上海负面清单里没写员工数据，是不是就等于不在清单内、可以直接免予？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "3000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "法国母公司人力资源部",
+    "destination_region": "法国",
+    "processing_purpose": "全球人才盘点"
+  },
+  "materials": [
+    {
+      "filename": "人力资源部邮件.txt",
+      "kind": "email",
+      "text": "主题：员工绩效数据上报\n\n全球人才盘点需要中国区3000名员工的姓名、工号、岗位、绩效等级。HR理解：上海负面清单只列了会员数据，员工数据不在清单里，所以按第六条直接免予。"
+    }
+  ],
+  "judgment_points": [
+    "region.ftz",
+    "exemption.hr",
+    "mechanism.threshold"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验负面清单未涉及的行业、领域数据按国家规定执行，不能等同于清单外免予。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验负面清单未涉及的行业、领域数据按国家规定执行，不能等同于清单外免予。",
+  "reference_basis": [
+    "上海数据出境负面清单（2025版）说明第三点；2024规定第五条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      "负面清单未涉及的行业 领域数据 按相关法律法规执行",
+      "累计不满10万人 免予 跨境人力资源管理"
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "按国家规则：人力资源豁免或不满10万人免予"
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+        "article_no": null,
+        "note": "说明三：清单未涉及的行业、领域数据按国家规定执行"
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "上海负面清单只覆盖所列行业场景，员工数据属于清单未涉及的领域，应按国家规则判断；3000人非敏感个人信息可依第五条（跨境人力资源管理确需或不满10万人）免予三种机制，仍须告知和影响评估。"
+    ],
+    "forbidden_judgments": [
+      "以“清单里没写”为由直接依第六条认定免予。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}
