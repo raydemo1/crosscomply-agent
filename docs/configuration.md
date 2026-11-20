@@ -1,6 +1,6 @@
 # 配置参考
 
-后端从进程环境读取配置；`law_agent` 的命令启动时会把仓库根目录的 `.env` 补充进环境（已存在的环境变量优先）。Compose 通过 `env_file` 加载同一个 `.env`，并覆盖服务间地址（ES、PG、MinIO 的容器内地址）。模板见 [`.env.example`](../.env.example)。
+后端从进程环境读取配置；`law_agent` 的命令启动时会把仓库根目录的 `.env` 补充进环境（已存在的环境变量优先）。Compose 通过 `env_file` 加载同一个 `.env`，并覆盖服务间地址（ES、PG、对象存储的容器内地址）。模板见 [`.env.example`](../.env.example)。
 
 代理变量（`HTTP_PROXY` 等）不从 `.env` 读取；若继承的代理端口无人监听，启动时会自动移除，避免所有外部请求打到失效代理。
 
@@ -69,14 +69,15 @@
 | `CROSSCOMPLY_REPORT_FONT` / `_BOLD` | 仓库 `docker/fonts/` | PDF 报告字体 |
 | `LAWAGENT_WASI_PYTHON_ROOT` | — | `run_python` 沙箱的 CPython WASI 目录；Worker 镜像已内置 |
 
-## 对象存储（MinIO 或任意 S3 兼容服务）
+## 对象存储（SeaweedFS 或任意 S3 兼容服务）
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `CROSSCOMPLY_MINIO_ENDPOINT` | `minio:9000` | 宿主机开发用 `localhost:9000` |
-| `CROSSCOMPLY_MINIO_ACCESS_KEY` / `SECRET_KEY` | — | 必须与存储服务账户一致 |
-| `CROSSCOMPLY_MINIO_BUCKET` | `crosscomply-materials` | |
-| `CROSSCOMPLY_MINIO_SECURE` | `false` | |
+| `CROSSCOMPLY_S3_ENDPOINT` | `objectstore:8333` | 宿主机开发用 `localhost:9000` |
+| `CROSSCOMPLY_S3_ACCESS_KEY` / `SECRET_KEY` | — | 必须与存储服务账户一致 |
+| `CROSSCOMPLY_S3_BUCKET` | `crosscomply-materials` | 不存在时由应用创建 |
+| `CROSSCOMPLY_S3_SECURE` | `false` | |
+
 
 ## 飞书
 
@@ -88,10 +89,11 @@
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | 必填 | 宿主机开发时 `PG_DSN` 中的密码须与之相同 |
 | `POSTGRES_USER` / `POSTGRES_DB` | `lawagent` | |
-| `MINIO_ROOT_USER` | `crosscomply` | 容器内后端的 `CROSSCOMPLY_MINIO_ACCESS_KEY` 取自此值 |
-| `MINIO_ROOT_PASSWORD` | 必填 | |
-| `MINIO_BUCKET` | `crosscomply-materials` | |
-| `MINIO_IMAGE` / `MINIO_MC_IMAGE` | 固定版本 | 镜像不可拉取时替换 |
+| `S3_ACCESS_KEY` | `crosscomply` | SeaweedFS 的访问账户；容器内后端的 `CROSSCOMPLY_S3_ACCESS_KEY` 取自此值 |
+| `S3_SECRET_KEY` | 必填 | 不能含引号或反斜杠 |
+| `S3_BUCKET` | `crosscomply-materials` | |
+| `SEAWEEDFS_IMAGE` | `chrislusf/seaweedfs:3.80` | |
+| `SEAWEEDFS_VOLUME_SIZE_LIMIT_MB` / `SEAWEEDFS_VOLUME_MAX` | `64` / `20` | 总容量约为两者之积；不要去掉上限，否则可能占满磁盘 |
 | `CROSSCOMPLY_HTTP_PORT` | `8080` | nginx 对外端口 |
 | `CROSSCOMPLY_CORPUS_DIR` | `./data/corpus/legal_docs_20260702` | 挂载到后端的语料目录 |
 | `CROSSCOMPLY_ENV_FILE` | `.env` | |

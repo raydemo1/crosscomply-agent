@@ -13,17 +13,16 @@
 | `knowledge-worker` | 同上 | 补库核验、飞书待办提醒 | — |
 | `postgres` | `pgvector/pgvector:pg16` | 业务数据与向量索引 | `127.0.0.1:5432` |
 | `elasticsearch` | `docker/elasticsearch.Dockerfile`（8.13.0 + IK 分词） | 关键词检索 | `127.0.0.1:9200` |
-| `minio` | `MINIO_IMAGE` | 材料原件与 PDF 报告 | 仅内网 |
-| `minio-init` | `MINIO_MC_IMAGE`，一次性 | 创建 bucket | — |
+| `objectstore` | `SEAWEEDFS_IMAGE`（默认 `chrislusf/seaweedfs:3.80`），由 `docker/seaweedfs-start.sh` 启动 | S3 协议存储材料原件与 PDF 报告；bucket 由应用首次使用时创建 | 仅内网 |
 | `migrate` | 后端镜像，一次性 | `alembic upgrade head` | — |
 
-启动顺序：`migrate` 完成、ES healthy、bucket 创建完成后，`api` 与 `worker` 才启动。只有 nginx 同时在 `frontend`（内部网络）和 `backend` 两个网络中。
+启动顺序：`migrate` 完成、ES 与对象存储 healthy 后，`api` 与 `worker` 才启动。只有 nginx 同时在 `frontend`（内部网络）和 `backend` 两个网络中。
 
-数据卷：`pgdata`、`esdata`、`miniodata`。语料目录通过 `CROSSCOMPLY_CORPUS_DIR`（默认 `./data/corpus/legal_docs_20260702`）读写挂载到三个后端服务。
+数据卷：`pgdata`、`esdata`、`objectdata`。对象存储总容量约为 `SEAWEEDFS_VOLUME_MAX` × `SEAWEEDFS_VOLUME_SIZE_LIMIT_MB`（默认 20 × 64 MB），按需调大，但不要去掉上限。语料目录通过 `CROSSCOMPLY_CORPUS_DIR`（默认 `./data/corpus/legal_docs_20260702`）读写挂载到三个后端服务。
 
 ## 首次部署
 
-1. 准备 `.env`：复制 `.env.example`，至少填写 `POSTGRES_PASSWORD`、`MINIO_ROOT_PASSWORD`（Compose 强制要求）、`OPENAI_COMPATIBLE_API_KEY`、`EMBEDDING_API_KEY`。
+1. 准备 `.env`：复制 `.env.example`，至少填写 `POSTGRES_PASSWORD`、`S3_SECRET_KEY`（Compose 强制要求）、`OPENAI_COMPATIBLE_API_KEY`、`EMBEDDING_API_KEY`。
 2. 启动：
 
    ```bash
@@ -77,7 +76,7 @@ docker compose run --rm --no-deps api python -m law_agent.review backfill-citati
 - **更换 Embedding 模型或维度**：必须删除旧的 ES 索引和 pgvector 表后重新 `index-service --execute`。
 - **IK 分词**：索引用 `ik_max_word`，查询用 `ik_smart`；插件版本必须与 ES 8.13.0 一致。运行时按 IK → smartcn → standard 自动选择可用分析器。
 - **停止**：`docker compose stop` 或 `down` 保留数据；`down -v` 会删除所有数据卷，仅在确定要清空时使用。
-- **备份**：案件数据在 PostgreSQL 与 MinIO 两处，需同时备份；语料用 `transfer_corpus.py pack` 打包。
+- **备份**：案件数据在 PostgreSQL 与对象存储（`objectdata` 数据卷）两处，需同时备份；语料用 `transfer_corpus.py pack` 打包。
 
 ## 安全注意
 

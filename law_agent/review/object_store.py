@@ -48,7 +48,7 @@ class MaterialObjectStore:
 
     def __init__(self, *, client: S3CompatibleClient, bucket: str) -> None:
         if not bucket.strip():
-            raise ValueError("MinIO bucket 不能为空")
+            raise ValueError("对象存储 bucket 不能为空")
         self._client = client
         self._bucket = bucket
 
@@ -102,23 +102,23 @@ def _safe_segment(value: str) -> str:
     return normalized
 
 
+def _setting(name: str, default: str = "") -> str:
+    return os.getenv(f"CROSSCOMPLY_S3_{name}") or default
+
+
 def material_object_store_from_env() -> MaterialObjectStore:
-    """Build the production MinIO client from deployment-only environment values."""
+    """Build the S3 client (SeaweedFS or any S3-compatible service) from the environment."""
 
     from minio import Minio
 
-    endpoint = os.getenv("CROSSCOMPLY_MINIO_ENDPOINT", "minio:9000")
-    access_key = os.getenv("CROSSCOMPLY_MINIO_ACCESS_KEY", "").strip()
-    secret_key = os.getenv("CROSSCOMPLY_MINIO_SECRET_KEY", "").strip()
+    access_key = _setting("ACCESS_KEY").strip()
+    secret_key = _setting("SECRET_KEY").strip()
     if not access_key or not secret_key:
-        raise RuntimeError("MinIO 访问凭据尚未配置")
+        raise RuntimeError("对象存储访问凭据尚未配置")
     client = Minio(
-        endpoint,
+        _setting("ENDPOINT", "objectstore:8333"),
         access_key=access_key,
         secret_key=secret_key,
-        secure=os.getenv("CROSSCOMPLY_MINIO_SECURE", "false").lower() == "true",
+        secure=_setting("SECURE", "false").lower() == "true",
     )
-    return MaterialObjectStore(
-        client=client,
-        bucket=os.getenv("CROSSCOMPLY_MINIO_BUCKET", "crosscomply-materials"),
-    )
+    return MaterialObjectStore(client=client, bucket=_setting("BUCKET", "crosscomply-materials"))
