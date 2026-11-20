@@ -9,12 +9,11 @@ from time import perf_counter
 
 from law_agent.data.io import write_manifest
 from law_agent.data.schemas import SourceRecord
+from law_agent.evals.arms.crosscomply import enqueue_eval_task
 from law_agent.kb.admin import KnowledgeBaseAdminService
 from law_agent.kb.change_detection import diff_source
 from law_agent.review.case_store import InMemoryCaseStore
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
-from law_agent.review.evalset.agent_runner import build_case_task
-from law_agent.review.evalset.agent_schemas import AgentCase, AgentRubric
 from law_agent.review.governance_store import InMemoryGovernanceStore
 from law_agent.review.impact import RegulationImpact, citation_rows
 from law_agent.review.impact_store import InMemoryImpactStore
@@ -44,9 +43,8 @@ def run_demo(count: int) -> dict:
     })
     for number in range(count):
         row = cases.create_case(question=f"演示审查 {number + 1}", material_text="合成材料", created_by=owner.id)
-        queued = build_case_task(enterprise, AgentCase(
-            case_id=row["id"], question=row["question"], material_text="合成材料", rubric=AgentRubric(),
-        ), model_id="not-used")
+        queued = enqueue_eval_task(enterprise, case_id=row["id"], files=[("材料.txt", "合成材料")],
+                                   intake={}, model_id="not-used")
         enterprise.claim_next_task(worker_id="demo")
         result = {"review_result": {"citations": [{
             "chunk_id": f"{source.source_id}:demo", "source_id": source.source_id,

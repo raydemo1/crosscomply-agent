@@ -1,6 +1,6 @@
 # 开发指南
 
-本地开发时，PostgreSQL、Elasticsearch、MinIO 跑在 Docker 里，API、Worker 和前端直接在宿主机运行。全量容器部署见 [部署](deployment.md)，变量说明见 [配置参考](configuration.md)。
+本地开发时，PostgreSQL、Elasticsearch 和对象存储（SeaweedFS）跑在 Docker 里，API、Worker 和前端直接在宿主机运行。全量容器部署见 [部署](deployment.md)，变量说明见 [配置参考](configuration.md)。
 
 ## 1. 准备环境
 
@@ -15,8 +15,8 @@ cd frontend && npm ci && cd ..
 
 创建 `.env`：
 
-- Windows：`pwsh -File scripts/setup-dev.ps1`。它只在 `.env` 不存在时从 `.env.example` 生成，并写入随机的数据库和 MinIO 密码。
-- 其他系统：`cp .env.example .env`，把 `change-this-postgres-password`、`change-this-minio-password` 替换为同一组随机值（`PG_DSN` 中的密码必须和 `POSTGRES_PASSWORD` 一致）。
+- Windows：`pwsh -File scripts/setup-dev.ps1`。它只在 `.env` 不存在时从 `.env.example` 生成，并写入随机的数据库和对象存储密码。
+- 其他系统：`cp .env.example .env`，把 `change-this-postgres-password`、`change-this-s3-secret` 分别替换为随机值（`PG_DSN` 中的密码必须和 `POSTGRES_PASSWORD` 一致）。
 
 模型密钥可以先留空；真实检索需要 `EMBEDDING_API_KEY`，审查和问答需要 `OPENAI_COMPATIBLE_API_KEY`。
 
@@ -25,13 +25,13 @@ cd frontend && npm ci && cd ..
 ## 2. 启动依赖服务
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres elasticsearch minio minio-init
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres elasticsearch objectstore
 alembic upgrade head
 ```
 
-`docker-compose.dev.yml` 只额外把 MinIO 的 9000/9001 端口绑定到本机；PostgreSQL（5432）和 ES（9200）在主 compose 文件中就只绑定 127.0.0.1。
+`docker-compose.dev.yml` 只额外把对象存储的 S3 端口（容器内 8333）绑定到本机 `127.0.0.1:9000`；PostgreSQL（5432）和 ES（9200）在主 compose 文件中就只绑定 127.0.0.1。
 
-如果拉取 MinIO 镜像失败（例如镜像仓库返回 401），在 `.env` 中把 `MINIO_IMAGE` / `MINIO_MC_IMAGE` 指向可访问的固定版本镜像，或从已有机器 `docker save` / `docker load` 搬运镜像后加 `--pull never` 启动。任何兼容 S3 的服务都可以替代 MinIO，只要 `CROSSCOMPLY_MINIO_*` 指向它。
+对象存储使用 SeaweedFS（MinIO 已不再提供官方镜像）。任何兼容 S3 的服务都可以替代它，只要 `CROSSCOMPLY_S3_*` 指向它。
 
 ## 3. 恢复语料与检索索引
 
@@ -101,7 +101,7 @@ cd frontend && npm run build # tsc 类型检查 + Vite 构建
 - **HTTP 路由**：按业务放在 `law_agent/review/http/` 对应模块，只做认证、校验、错误映射；领域逻辑放在 store 或领域模块。路由函数中有阻塞 I/O（数据库、文件解析、模型调用）时，要么写成普通 `def`，要么用 `run_in_threadpool` 包装，不能在 `async def` 中直接调用。
 - **存储**：每个 store 都有内存实现供测试使用，新增方法时两边同时实现。
 - **前端类型**：`frontend/src/types/api.ts` 与后端 Pydantic 模型手工对应，改接口时同时更新。
-- **评测会花钱**：`eval`、`agent-eval` 会调用付费模型，日常开发不要跑全量评测，见 [评测](evaluation.md)。
+- **评测会花钱**：`python -m law_agent.evals agent` 与 `verifier` 调用付费模型，`retrieval` 调用 embedding；日常开发只跑 `check` 和 `pytest`，见 [评测](evaluation.md)。
 
 ## 常用 CLI
 
@@ -110,6 +110,6 @@ cd frontend && npm run build # tsc 类型检查 + Vite 构建
 | `python -m law_agent.review serve` | 启动 API |
 | `python -m law_agent.review index-service --execute` | 从 `chunks.jsonl` 重建 ES 与 pgvector 索引 |
 | `python -m law_agent.review service-doctor` | 检查 ES / PG / 索引计数 |
-| `python -m law_agent.review eval` / `agent-eval` | 检索 benchmark / 生产 Agent 评测 |
+| `python -m law_agent.evals <命令>` | 场景库检查、检索评测、被测系统对照、校验器变异测试 |
 | `python -m law_agent.kb ingest <文件>` / `list` / `remove` | 知识库入库与管理 |
 | `python -m law_agent.data pipeline run` | 离线数据治理流水线 |

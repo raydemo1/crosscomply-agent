@@ -15,7 +15,6 @@ Source Manifest（候选来源 CSV）
   → clean          确定性清洗（documents.cleaned.jsonl）
   → enrich         语义增强（documents.enriched.jsonl）
   → chunk          结构感知分块（chunks.jsonl）
-  → evalset build  生成检索评测候选（retrieval_cases.jsonl）
   → report governance  生成数据治理报告
 ```
 
@@ -31,7 +30,6 @@ python -m law_agent.data normalize
 python -m law_agent.data clean run
 python -m law_agent.data enrich
 python -m law_agent.data chunk
-python -m law_agent.data evalset build
 python -m law_agent.data report governance
 ```
 
@@ -43,7 +41,7 @@ python -m law_agent.data pipeline run
 
 ## 目录结构
 
-CLI 默认中间路径是 `data/manifests/`、`data/raw/`、`data/normalized/`、`data/cleaned/`、`data/enriched/`、`data/chunks/`、`data/eval/`。当前实际落地的语料包（2026-07-02 快照）在 `data/corpus/legal_docs_20260702/`：
+CLI 默认中间路径是 `data/manifests/`、`data/raw/`、`data/normalized/`、`data/cleaned/`、`data/enriched/`、`data/chunks/`。当前实际落地的语料包（2026-07-02 快照）在 `data/corpus/legal_docs_20260702/`：
 
 ```text
 data/corpus/legal_docs_20260702/
@@ -53,7 +51,6 @@ data/corpus/legal_docs_20260702/
   documents.cleaned.jsonl           # 清洗后文档
   documents.enriched.jsonl          # 语义增强后文档
   chunks.jsonl                      # 检索分块（含引用角色/引用资格）
-  retrieval_cases.jsonl             # 检索评测候选集
   citation_policy.review.csv        # 引用角色逐来源确认表
   fetch_status.csv                  # 采集状态
   collection_summary.json           # 语料统计
@@ -74,7 +71,6 @@ data/corpus/legal_docs_20260702/
 | `cleaners/` | 确定性清洗：`common.py`（通用规则与命中计数）、`pipeline.py`（`clean_document`） |
 | `enrichment/` | `generator.py`：通过 OpenAI-compatible LLM 生成摘要、关键词、可回答问题、主题标签、风险标签等语义字段 |
 | `chunking/` | 结构感知分块：`law.py`（法律法规按条/款拆分）、`structured.py`（问答、表格、指南按标题拆分）、`pipeline.py`（按文档类型路由 + tiny chunk 合并） |
-| `evalset/` | `build_cases.py`：从 chunks 自动构建检索评测候选 |
 | `reports/` | `governance_report.py`：数据治理统计报告 |
 | `citation_policy.py` | 引用资格三层模型：法律效力（`has_legal_effect`）、条款定位（`has_clause_locator`）与 `can_cite_clause` / `can_cite_clause_chunk` 判定；案件适用性不在这里硬过滤 |
 | `schemas.py` | `SourceRecord`、`Document`、`CleanedDocument`、`EnrichedDocument`、`Enrichment`、`Chunk` 等 Pydantic 模型 |
@@ -218,9 +214,9 @@ Docling 配置要点：
 5. 旧版法律、旧版指南、历史决定进入审计/版本对照数据集，回答层默认过滤。
 6. 条款级引用按“法律效力 + 条款定位”两个硬条件判定（见上文“引用资格三层模型”）：地方性/行业性条件角色不剥夺真实法规（law/regulation/judicial_interpretation）的条款效力，其适用边界由检索软加权、scope note 与在线语义校验约束；标准、指南、问答、内部制度可被检索或辅助解释，但不能作为“第 X 条/第 X 款”的最终引用来源。
 
-## 评测候选集
+## 评测
 
-`evalset build` 从 `chunks.jsonl` 自动构建检索评测候选（默认 60 条）。这是 ETL 层“出厂质检”：检查数据流水线和 chunk 是否可检索。端到端审查场景的黄金评测集（82 个场景、must-have/optional 人工标注）由 `law_agent/review/evalset/` 维护，不在数据治理流水线内。
+评测场景与标签由 `law_agent/evals/` 维护，不在数据治理流水线内；`python -m law_agent.evals check` 会对照当前 `chunks.jsonl` 检查标签中的来源、条号和时效，见 [评测](evaluation.md)。
 
 ## 在线补库入口（`law_agent.kb`）
 

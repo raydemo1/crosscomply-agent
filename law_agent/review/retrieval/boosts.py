@@ -106,7 +106,7 @@ def compute_boosts_summary(
 ) -> dict[str, float]:
     """Build a human-readable summary of active boost rules for the trace.
 
-    This is stored in ``RetrievalTrace.metadata_boosts`` so the trace
+    This is stored in the search debug payload so the trace
     records which boost rules were active, even if individual hits don't
     all trigger them.
     """

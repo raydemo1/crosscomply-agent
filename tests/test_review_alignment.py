@@ -6,13 +6,11 @@ from law_agent.review.agent import AgentDecision, AgentModel, AgentState, run_ag
 from law_agent.review.result_builder import (
     ReviewQuestionDraft,
     WebImpactDraft,
-    build_result_generation_messages,
-    build_review_result_with_deepseek,
     inject_citation_markers,
     report_evidence,
 )
 from law_agent.review.retrieval.neighbors import hit_from_chunk
-from law_agent.review.schemas import EvidenceSelfCheck, GroundedClaim, ReviewFacts
+from law_agent.review.schemas import GroundedClaim, ReviewFacts
 from law_agent.review.semantic_grounding import SemanticGroundingVerifier, SemanticVerdict
 from tests.test_review_agent import _chunk, _draft, _tools_with
 from tests.test_review_llm import FakeClient, tool_message
@@ -60,25 +58,6 @@ def test_review_first_decision_gets_original_material_window_without_freezing_in
                       search=lambda *_, **_kwargs: [], web_search=lambda *_: [],
                       finalize=lambda *_: {"ok": True}, checkpoint=lambda _: None)
     assert state.turns == 1 and state.reads == 0
-
-
-def test_report_generation_receives_full_original_text_and_source_qualification():
-    text = "一般要求。" * 300 + "但是本规则不适用于例外对象。"
-    material = "业务记录。" * 650 + "最后一项业务条件已明确。"
-    hit = hit_from_chunk(_chunk("law", "第一条", text, index=0), 0)
-    messages = build_result_generation_messages(
-        facts=ReviewFacts(), self_check=EvidenceSelfCheck(status="sufficient"),
-        evidence_hits=[hit], material_text=material,
-    )
-    payload = json.loads(messages[1].content)
-    assert payload["material_excerpt"] == material
-    passage = payload["evidence"][0]
-    restored = {**payload["evidence_sources"][passage["source_id"]], **passage}
-    assert restored["text"] == text
-    assert restored["can_cite_clause"] is True
-    assert restored["law_status"] == "effective"
-    assert "json_example" not in payload
-    assert "完整业务待确认清单写questions" in messages[0].content
 
 
 def test_verifier_receives_complete_report_and_both_target_groups():
@@ -179,49 +158,6 @@ def test_review_navigation_deduplicates_model_input_but_keeps_raw_audit_and_nati
     assert [m.reasoning_content for m in client.calls[-1] if m.role == "assistant"] == [
         "provider-thought-0", "provider-thought-1",
     ]
-
-
-def test_selected_legal_path_is_preserved_in_structured_report():
-    draft = _draft().model_copy(update={
-        "risk_level": "medium", "legal_path": "已由事实和法源支持的路径",
-        "decision_summary": "根据已提供的材料与适用原文，可以支持本次限定范围内的合规路径判断；本次结果不对范围外事项作出认定。",
-        "conclusion": "材料支持这一限定判断。", "questions": [],
-        "claims": [GroundedClaim(text="材料支持这一限定判断。", supporting_chunk_ids=["c1"])],
-    }).model_dump(mode="json")
-    result = build_review_result_with_deepseek(
-        review_result_id="r", review_case_id="c", trace_id="t", facts=ReviewFacts(),
-        self_check=EvidenceSelfCheck(status="sufficient"),
-        evidence_hits=[hit_from_chunk(_chunk("c1", "第一条", "第一条 测试规则。", index=0), 0)],
-        client=FakeClient(outputs=[draft]), max_retries=0,
-    )
-    assert result.legal_path == draft["legal_path"]
-
-
-def test_structured_report_cannot_deliver_a_determined_path_with_insufficient_evidence():
-    from law_agent.review.llm import ReviewWorkflowFailed
-
-    draft = _draft().model_copy(update={"legal_path": "尚未确定的分支"}).model_dump(mode="json")
-    with pytest.raises(ReviewWorkflowFailed):
-        build_review_result_with_deepseek(
-            review_result_id="r", review_case_id="c", trace_id="t", facts=ReviewFacts(),
-            self_check=EvidenceSelfCheck(status="insufficient"), evidence_hits=[],
-            client=FakeClient(outputs=[draft]), max_retries=0,
-        )
-
-
-def test_legal_basis_gaps_survive_report_generation_and_do_not_become_facts():
-    draft = _draft().model_dump(mode="json")
-    business_gaps = [q["text"] for q in draft["questions"]]
-    gap = "待取得规则修订后的适用范围原文"
-    draft["legal_basis_gaps"] = [gap]
-    result = build_review_result_with_deepseek(
-        review_result_id="r", review_case_id="c", trace_id="t", facts=ReviewFacts(),
-        self_check=EvidenceSelfCheck(status="insufficient"), evidence_hits=[],
-        client=FakeClient(outputs=[draft]), max_retries=0,
-    )
-    assert result.legal_basis_gaps == [gap]
-    assert result.missing_information == business_gaps
-    assert gap not in result.missing_information
 
 
 def test_agent_finalizer_preserves_legal_basis_gaps_and_actual_review_date():

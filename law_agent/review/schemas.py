@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import date
-from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, JsonValue, field_validator
@@ -402,66 +401,5 @@ class ReviewResult(StrictModel):
     citations: list[Citation] = Field(default_factory=list)
     applicable_evidence: list[CitationGroup] = Field(default_factory=list)
     issues: list[ReviewIssue] = Field(default_factory=list)
-
-
-class ReviewCase(StrictModel):
-    """A material-driven compliance review case."""
-
-    review_case_id: str
-    created_at: str
-    question: str
-    material: MaterialRecord
-    review_facts: ReviewFacts
-    trace_id: str
-    latest_result_id: str | None = None
-    user_feedback: dict[str, str] = Field(default_factory=dict)
-
-    @field_validator("question")
-    @classmethod
-    def question_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("question must not be blank")
-        return value
-
-
-class RetrievalTrace(StrictModel):
-    """Verbose retrieval and evidence trace for review debugging and eval."""
-
-    trace_id: str
-    review_case_id: str
-    created_at: str
-    evidence_self_check: EvidenceSelfCheck
-    queries: list[RetrievalQuery] = Field(default_factory=list)
-    filters: dict[str, object] = Field(default_factory=dict)
-    metadata_boosts: dict[str, float] = Field(default_factory=dict)
-    keyword_results: list[RetrievalHit] = Field(default_factory=list)
-    vector_results: list[RetrievalHit] = Field(default_factory=list)
-    hybrid_results: list[RetrievalHit] = Field(default_factory=list)
-    candidate_results: list[RetrievalHit] = Field(
-        default_factory=list,
-        description="Unique fused chunk candidates before final source allocation.",
-    )
-    neighbor_chunks: list[RetrievalHit] = Field(default_factory=list)
-    rerank: dict[str, object] = Field(default_factory=dict)
-    second_retrieval: dict[str, object] = Field(default_factory=dict)
-    final_evidence: list[RetrievalHit] = Field(default_factory=list)
-    source_evidence_packets: list[SourceEvidencePacket] = Field(default_factory=list)
-    citation_validation: dict[str, object] = Field(default_factory=dict)
-    latency_ms: int | None = None
-    total_latency_ms: int | None = None
-    retrieval_latency_ms: int | None = None
-    llm_call_count: int = 0
-    retry_count: int = 0
-
-
-class ReviewRunResponse(StrictModel):
-    """Response returned after creating a review skeleton."""
-
-    review_case: ReviewCase
-    trace: RetrievalTrace
-    result: ReviewResult
-    case_path: Path
-    trace_path: Path
-    result_path: Path
 
 

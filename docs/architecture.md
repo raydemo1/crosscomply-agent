@@ -22,7 +22,7 @@ flowchart LR
     AG -->|检索| PGV["pgvector<br/>向量"]
     AG -->|受限 Web 调查| EXA["Exa（仅官方来源）"]
     KW["knowledge-worker<br/>law_agent.kb.enrichment_worker"] -->|补库核验、飞书提醒| DB
-    API --> S3[("MinIO<br/>材料原件、PDF 报告")]
+    API --> S3[("SeaweedFS（S3）<br/>材料原件、PDF 报告")]
     API <-->|审批投递 / 验签事件| FS["飞书"]
 ```
 
@@ -77,7 +77,7 @@ flowchart LR
 
 - **主体累计冻结**：`review.portfolio` 按主体和自然年汇总持续业务的已签署审批基线，展示单项最大值和未去重合计。不把过期、无法解析或被人工排除的记录计作零。入队时排除本案所属业务，恢复时读取原快照。跨档提示由法务确认并写入案件事件。
 - **法规变更影响**：审查 Worker 完成任务后索引实际引用；知识库发布前后由 `kb.change_detection` 比较条文和日期元数据，`review.impact` 匹配当前审批基线和待审批报告。阻断级开放标记拦截飞书送审，法务可说明理由后忽略或发起业务复审；审批回写后独立结案，不改写原报告或原审批。
-- **纠错回流**：`review.eval_feedback` 从人工反馈和审批提取信号，`review.eval_draft_store` 保存与任务绑定的候选草稿。法务人工脱敏，规则校验通过后方可标为就绪；导出时复验、核对哈希并留痕，不自动批准候选。
+- **纠错回流**：`review.eval_feedback` 从人工反馈和审批提取信号，`review.eval_draft_store` 保存与任务绑定的候选草稿。法务人工脱敏，规则校验通过后方可标为就绪；`law_agent.evals.field` 导出为 field 评测场景（写在 Git 之外），导出时复验、核对哈希并留痕，不自动批准候选。
 
 - **冻结输入不可变**：快照只能新增版本，Agent 无法修改；补充材料改变事实时必须重新冻结。
 - **引用门禁**（`agent_tools.ComplianceAgentTools.finalize`）：法律主张只能由 `can_cite_clause=true` 的 chunk 支持；材料引用必须属于本次快照且原文唯一精确命中；非证据不足的结论至少有一条可引用法条；引用只来自实际返回给 Agent、且在审查时点已发布生效的证据。
@@ -144,6 +144,7 @@ run_failed → review_running | needs_info | pending_source_verification | pendi
 | `review/work_inbox.py`、`transfer_store.py`、`work_reminders.py` | 待办、持续出境业务、飞书提醒 |
 | `review/retrieval/` | 混合检索、融合、加权、时效过滤、来源定位 |
 | `review/api.py` + `review/http/` | 应用组装与按业务划分的路由（见 [http/README](../law_agent/review/http/README.md)） |
-| `review/service.py` | 检索 benchmark 使用的固定流水线，**不是**生产执行路径 |
+| `review/retrieval/packets.py` | 按来源组织证据包，补全条文全文与权威元数据 |
+| `evals/` | 评测系统（场景库、被测系统、评分、报告），见 [评测](evaluation.md) |
 | `kb/` | 知识库入库、版本切换、补库 Worker |
 | `data/` | 离线数据治理流水线，见 [数据治理](data-governance.md) |

@@ -1,8 +1,7 @@
 """Production review runtime: one persistent compliance Agent per ReviewTask.
 
-Invoked by the independent worker in ``review.worker``. The fixed pipeline in
-``review.service`` serves only the retrieval benchmark, CLI and offline eval;
-it is not a production entry point.
+Invoked by the independent worker in ``review.worker``; the evaluation
+harness in ``law_agent.evals`` drives the same entry point.
 """
 
 from __future__ import annotations

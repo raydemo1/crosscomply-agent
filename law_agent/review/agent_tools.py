@@ -39,6 +39,10 @@ from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
 from law_agent.review.retrieval.fusion import rrf_fuse, source_aware_fuse
 from law_agent.review.retrieval.locator import resolve_source_title
 from law_agent.review.retrieval.neighbors import hit_from_chunk
+from law_agent.review.retrieval.packets import (
+    build_source_evidence_packets,
+    enrich_hit_for_citation,
+)
 from law_agent.review.retrieval.rerank import rerank_hits
 from law_agent.review.retrieval.selection import select_evidence
 from law_agent.review.retrieval.service_backends import build_service_adapters
@@ -60,10 +64,6 @@ from law_agent.review.semantic_grounding import (
     SemanticGroundingRejected,
     SemanticGroundingVerifier,
     SemanticVerdict,
-)
-from law_agent.review.service import (
-    _enrich_hit_for_citation,
-    build_source_evidence_packets,
 )
 from law_agent.review.source_navigation import SourceNavigation
 from law_agent.review.web_research import (
@@ -304,7 +304,7 @@ class ComplianceAgentTools:
 
         try:
             return adapter.search_many(query_pairs, top_k=top_k, allowed_chunk_ids=allowed_chunk_ids)
-        except Exception as exc:  # noqa: BLE001 - retrieval outage degrades to a tool error
+        except Exception as exc:
             logging.getLogger(__name__).warning("retrieval adapter %s failed: %s", type(adapter).__name__, exc)
             raise RuntimeError(f"检索后端暂时不可用（{type(adapter).__name__}），请稍后重试或改用其他工具") from exc
 
@@ -369,7 +369,7 @@ class ComplianceAgentTools:
                 ).hits
             candidates.append(fused_query)
         query_candidates = [
-            _enrich_hit_for_citation(hit, self._chunks_by_id).model_copy(update={
+            enrich_hit_for_citation(hit, self._chunks_by_id).model_copy(update={
                 "source_has_articles": hit.source_id in self._sources_with_articles,
                 "matched_query_ids": [query.query_id],
             })

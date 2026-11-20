@@ -21,7 +21,7 @@ CrossComply 是面向企业数据出境合规的审查工作台。核心是一�
 
 ```bash
 pip install -e ".[dev,service]"
-cp .env.example .env        # 填入数据库/MinIO 密码与模型密钥，见 docs/configuration.md
+cp .env.example .env        # 填入数据库/对象存储密码与模型密钥，见 docs/configuration.md
 docker compose up -d --build
 ```
 
@@ -45,20 +45,21 @@ CI（`.github/workflows/ci.yml`）在每次推送和 PR 上运行同样的检查
 | [部署](docs/deployment.md) | Docker Compose 拓扑、首次初始化、飞书配置、日常运维、公开演示站 |
 | [配置参考](docs/configuration.md) | 全部环境变量及默认值 |
 | [数据治理](docs/data-governance.md) | 法律知识如何进入受控证据库、引用资格规则、分块与解析器 |
-| [评测](docs/evaluation.md) | 检索 benchmark 与生产 Agent 评测的入口、指标和报告口径 |
+| [评测](docs/evaluation.md) | 场景库、被测系统对照、检索与语义校验评测的入口、指标和报告口径 |
 
 ## 仓库结构
 
 | 路径 | 用途 |
 | --- | --- |
-| `law_agent/review/` | 生产 Agent runtime、Worker、FastAPI（`http/` 为路由）、检索、评测集 |
+| `law_agent/review/` | 生产 Agent runtime、Worker、FastAPI（`http/` 为路由）、检索 |
+| `law_agent/evals/` | 评测系统：场景库、被测系统、评分、报告（不属于生产代码） |
 | `law_agent/kb/` | 在线知识库入库、补库核验 Worker |
 | `law_agent/data/` | 离线数据治理流水线 |
 | `law_agent/llm/` | OpenAI 兼容客户端、Embedding、重试预算 |
 | `frontend/` | React + Vite 工作台；`src/demo/` 为公开演示站的虚构数据 |
 | `alembic/` | 数据库迁移 |
 | `docker/` | 镜像、nginx 配置、报告字体 |
-| `scripts/` | `transfer_corpus.py`（语料打包/恢复）、`setup-dev.ps1`（生成本地 `.env`）、`run_agent_baseline.py`（Agent 评测实跑） |
+| `scripts/` | `transfer_corpus.py`（语料打包/恢复）、`setup-dev.ps1`（生成本地 `.env`）、`demo_regulation_change.py`（法规影响离线演示） |
 | `tests/` | pytest 测试 |
 
 `data/`（语料、模型缓存、评测产物）、`output/`、`tmp/` 不进 Git。

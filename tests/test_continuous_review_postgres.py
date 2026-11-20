@@ -7,12 +7,12 @@ from uuid import uuid4
 
 import pytest
 
+from law_agent.evals.field import export_ready
 from law_agent.review.case_store import PostgresCaseStore
 from law_agent.review.dates import BUSINESS_TIMEZONE, business_today
 from law_agent.review.enterprise_store import PostgresEnterpriseStore
 from law_agent.review.eval_draft_store import DuplicateDraft, PostgresEvalDraftStore
 from law_agent.review.eval_feedback import draft_inputs, validate_draft
-from law_agent.review.evalset.field_cases import export_ready
 from law_agent.review.governance_store import PostgresGovernanceStore
 from law_agent.review.impact import RegulationImpact
 from law_agent.review.impact_store import PostgresImpactStore
@@ -81,7 +81,7 @@ def test_postgres_portfolio_impacts_and_draft_lifecycle(tmp_path):
     edited = drafts.change(draft["id"], "edit", user.id, values=sanitized())
     assert edited["deidentified"]
     drafts.change(draft["id"], "ready", user.id, validate=lambda row: validate_draft(row, set())[1])
-    assert export_ready(drafts, tmp_path / "field.json", set()) == 1
+    assert export_ready(drafts, tmp_path / "field", set()) == 1
     assert drafts.get(draft["id"])["status"] == "exported"
     metrics = drafts.quality(datetime(2020, 1, 1, tzinfo=BUSINESS_TIMEZONE))
     assert metrics["conclusion_useful_rate"] is None
