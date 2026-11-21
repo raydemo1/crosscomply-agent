@@ -77,18 +77,22 @@ def run_scenario(scenario: Scenario, *, chunks_path: Path, execute: Executor | N
                 if key in changes and changes[key] is not None:
                     _run[key] = changes[key]
 
+        failure = None
         try:
             execute(conversation, run, checkpoint=checkpoint, chunks_path=chunks_path,
                     current_date=scenario.as_of_date)
         except Exception as exc:  # noqa: BLE001 - one failed scenario must not stop the run
-            status, error = "failed", f"{type(exc).__name__}: {exc}"[:500]
-            break
-        state = run["state"] or {}
+            references = getattr(exc, "references", None)
+            failure = f"{type(exc).__name__}: {exc}" + (f" {references}" if references else "")
+        state = run["state"] or {}  # kept on failure too, so the gathered evidence still counts
         for hit in state.get("evidence", []):
             evidence.setdefault(hit["chunk_id"], hit)
         for key in totals:
             totals[key] += state.get(key, 0)
         queries += [q["text"] for q in state.get("queries", [])]
+        if failure is not None:
+            status, error = "failed", failure[:1000]
+            break
         result = run["result"] or {}
         run["status"] = "completed"
         if result.get("questions") and index + 1 < len(turns):

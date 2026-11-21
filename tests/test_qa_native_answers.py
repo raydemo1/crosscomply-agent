@@ -98,9 +98,10 @@ def test_direct_answer_cannot_bypass_reference_integrity(monkeypatch, reference)
         return sse({"delta": {"content": f"回答。[{reference}]"}, "finish_reason": "stop"})
 
     monkeypatch.setattr("urllib.request.urlopen", respond)
-    with pytest.raises(ValueError, match="引用编号"):
-        run_qa(client())
+    updates = run_qa(client())
     assert len(requests) == 1
+    # A hand-written reference cannot be verified, so it is not shown and nothing reaches the citation list.
+    assert updates[-1]["answer"] == "回答。" and updates[-1]["result"]["citations"] == []
 
 
 def test_stream_interruption_preserves_partial_answer_and_does_not_regenerate(monkeypatch):

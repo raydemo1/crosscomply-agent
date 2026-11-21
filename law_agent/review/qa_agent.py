@@ -41,6 +41,7 @@ from law_agent.review.qa_citations import (
     citation_repair_tool,
     register_citation_marker,
     render_qa_citations,
+    render_without_unverified,
 )
 from law_agent.review.qa_context import (
     conversation_context,
@@ -374,45 +375,57 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
         try:
             return render_qa_citations(text, citations)
         except CitationReferenceError as exc:
-            if not exc.references or not citations or remaining_budget(state)["turns"] == 0:
-                raise
-            state.turns += 1
-            checkpoint(answer="", result={"citations": [], "material_citations": [], "conditions": [],
-                                          **limitations, "generation_status": "streaming"}, progress="正在校正引用")
-            state.steps.append(AgentStep(number=state.turns, action="citation_error", summary="引用标记需要修正",
-                                         observation={"error": str(exc), "references": exc.references}))
-            request = {"instruction": "答复的引用标记未通过程序检查。仅调用repair_citations修复列出的标记，"
-                       "正文保持不动，不重新调查或审查。根据已有原文选择实际支持该段落的标记；无法确定则返回空数组。",
-                       "answer": text, "invalid_references": exc.references,
-                       "available_citations": [{key: c[key] for key in (
-                           "citation_marker", "title", "article_no", "chunk_id", "url", "kind", "can_cite_clause"
-                       ) if key in c} for c in citations]}
-            state.tool_session.messages.append({"role": "user", "content": json.dumps(request, ensure_ascii=False)})
-            save(state)
-            try:
-                record_llm_call()
-                with usage_scope("qa_citation_repair", account):
-                    message = client.chat_tools(protocol.messages(state.tool_session, prompt=PROMPT),
-                                                tools=[citation_repair_tool(exc, citations)])
-                state.tool_session.messages.append({"role": "assistant", **{key: message[key] for key in (
-                    "content", "reasoning_content", "tool_calls") if key in message}})
-                calls = message.get("tool_calls") or []
-                if (len(calls) != 1 or calls[0].get("function", {}).get("name") != "repair_citations"
-                        or not isinstance(calls[0].get("id"), str) or not calls[0]["id"]):
-                    raise CitationReferenceError("引用修复未返回有效补丁")
-                arguments = json.loads(calls[0]["function"]["arguments"])
-                if not isinstance(arguments, dict) or set(arguments) != {"replacements"}:
-                    raise CitationReferenceError("引用修复补丁无效")
-                repaired = apply_citation_repairs(text, exc, citations, arguments["replacements"])
-                rendered = render_qa_citations(repaired, citations)
-                observation = {"completed": True, "replacements": arguments["replacements"]}
-                state.tool_session.messages.append({"role": "tool", "tool_call_id": calls[0]["id"],
-                                                    "content": json.dumps(observation, ensure_ascii=False)})
-                state.steps.append(AgentStep(number=state.turns, action="citation_repair", summary="引用标记已修正",
-                                             observation=observation))
-                return rendered
-            finally:
+            repaired = text
+            if exc.references and citations and remaining_budget(state)["turns"] > 0:
+                try:
+                    repaired = repair_citations(text, exc, citations)
+                except (CitationReferenceError, ValueError) as repair_error:
+                    logging.getLogger(__name__).warning("Q&A citation repair rejected: %s", repair_error)
+            displayed, used, removed = render_without_unverified(repaired, citations)
+            if removed:
+                # 核实不了的引用不展示；留痕供审查与评测追溯
+                state.steps.append(AgentStep(number=state.turns, action="citation_dropped",
+                                             summary="未能核实的引用标记未展示", observation={"removed": removed}))
                 save(state)
+            return displayed, used
+
+    def repair_citations(text, exc, citations):
+        state.turns += 1
+        checkpoint(answer="", result={"citations": [], "material_citations": [], "conditions": [],
+                                      **limitations, "generation_status": "streaming"}, progress="正在校正引用")
+        state.steps.append(AgentStep(number=state.turns, action="citation_error", summary="引用标记需要修正",
+                                     observation={"error": str(exc), "references": exc.references}))
+        request = {"instruction": "答复的引用标记未通过程序检查。仅调用repair_citations修复列出的标记，"
+                   "正文保持不动，不重新调查或审查。根据已有原文选择实际支持该段落的标记；无法确定的标记不要列出，它们不会展示。",
+                   "answer": text, "invalid_references": exc.references,
+                   "available_citations": [{key: c[key] for key in (
+                       "citation_marker", "title", "article_no", "chunk_id", "url", "kind", "can_cite_clause"
+                   ) if key in c} for c in citations]}
+        state.tool_session.messages.append({"role": "user", "content": json.dumps(request, ensure_ascii=False)})
+        save(state)
+        try:
+            record_llm_call()
+            with usage_scope("qa_citation_repair", account):
+                message = client.chat_tools(protocol.messages(state.tool_session, prompt=PROMPT),
+                                            tools=[citation_repair_tool(exc, citations)])
+            state.tool_session.messages.append({"role": "assistant", **{key: message[key] for key in (
+                "content", "reasoning_content", "tool_calls") if key in message}})
+            calls = message.get("tool_calls") or []
+            if (len(calls) != 1 or calls[0].get("function", {}).get("name") != "repair_citations"
+                    or not isinstance(calls[0].get("id"), str) or not calls[0]["id"]):
+                raise CitationReferenceError("引用修复未返回有效补丁")
+            arguments = json.loads(calls[0]["function"]["arguments"])
+            if not isinstance(arguments, dict) or set(arguments) != {"replacements"}:
+                raise CitationReferenceError("引用修复补丁无效")
+            repaired = apply_citation_repairs(text, exc, citations, arguments["replacements"])
+            observation = {"completed": True, "replacements": arguments["replacements"]}
+            state.tool_session.messages.append({"role": "tool", "tool_call_id": calls[0]["id"],
+                                                "content": json.dumps(observation, ensure_ascii=False)})
+            state.steps.append(AgentStep(number=state.turns, action="citation_repair", summary="引用标记已修正",
+                                         observation=observation))
+            return repaired
+        finally:
+            save(state)
 
     try:
         while remaining_budget(state)["turns"] > 0:
