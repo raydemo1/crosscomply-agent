@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "新加坡母公司数据中心",
     "destination_region": "新加坡",
-    "processing_purpose": "集团会员运营"
+    "processing_purpose": "集团会员运营",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -45,8 +50,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "通过数据出境安全评估后 不得超出评估时明确的数据出境目的 范围和种类",
-      "个人信息出境必要性 评估要点"
+      {
+        "text": "通过数据出境安全评估后 不得超出评估时明确的数据出境目的 范围和种类",
+        "targets": [
+          "flk_npc_ff808181927f0e7b0192949a1da4355d 第三十八条"
+        ]
+      },
+      {
+        "text": "个人信息出境必要性 评估要点",
+        "targets": [
+          "cac_data_export_policy_qna_2025_04"
+        ]
+      }
     ],
     "must_cite": [
       {

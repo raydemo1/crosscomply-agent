@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "公司自有云账号（东京区域）",
     "destination_region": "日本",
-    "processing_purpose": "容灾备份"
+    "processing_purpose": "容灾备份",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -45,8 +50,19 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "境内运营中收集和产生的数据 存储至境外 数据出境活动",
-      "累计10万人以上不满100万人 标准合同 认证"
+      {
+        "text": "境内运营中收集和产生的数据 存储至境外 数据出境活动",
+        "targets": [
+          "cac_data_export_assessment_qna_2022",
+          "cac_data_export_security_assessment_filing_guide_v3_2025"
+        ]
+      },
+      {
+        "text": "累计10万人以上不满100万人 标准合同 认证",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from law_agent.config import (
     RerankMode,
-    load_rerank_config,
+    require_rerank_config,
     require_service_config,
 )
 from law_agent.data.chunking.law import article_ordinal
@@ -254,7 +254,7 @@ class ComplianceAgentTools:
         question: str = "",
         material_text: str = "",
         material_versions: Sequence[MaterialVersion] = (),
-        rerank_mode: RerankMode = "off",
+        rerank_mode: RerankMode | None = None,
         model_id: str | None = None,
     ):
         self._chunks = load_corpus(chunks_path)
@@ -267,10 +267,12 @@ class ComplianceAgentTools:
         self._question = question
         self._material_text = material_text
         self._material_versions_by_id = {version.id: version for version in material_versions}
-        self._rerank_mode = rerank_mode
-        self._rerank_config = load_rerank_config(mode=rerank_mode)
+        # Deployment setting (RERANK_MODE); ``rerank_mode`` only overrides it for evaluation A/B runs.
+        self._rerank_config = require_rerank_config(mode=rerank_mode)
+        self._rerank_mode = self._rerank_config.mode
         self._candidate_hits: dict[str, RetrievalHit] = {}
         self._search_navigation: list[dict[str, Any]] = []
+        self._last_query_candidates: list[list[RetrievalHit]] = []
         self._adapters = build_service_adapters(require_service_config())
         self._web_research: WebResearch | None = None
         self._semantic_verifier = SemanticGroundingVerifier(model_id=model_id) if model_id else None
@@ -356,17 +358,7 @@ class ComplianceAgentTools:
             )
             fused_query = rrf_fuse(keyword_hits, vector_hits, top_k=candidate_top_k)
             if self._rerank_mode != "off":
-                fused_query = rerank_hits(
-                    fused_query,
-                    question=self._question,
-                    material_text=self._material_text,
-                    facts=facts,
-                    queries=[query],
-                    top_k=candidate_top_k,
-                    mode=self._rerank_mode,
-                    config=self._rerank_config,
-                    query_text=query.text,
-                ).hits
+                fused_query = self._rerank_or_keep(fused_query, facts, query, candidate_top_k)
             candidates.append(fused_query)
         query_candidates = [
             enrich_hit_for_citation(hit, self._chunks_by_id).model_copy(update={
@@ -376,10 +368,26 @@ class ComplianceAgentTools:
             for query, hits in zip(queries, candidates, strict=True) for hit in hits
         ]
         self._candidate_hits.update({hit.chunk_id: hit for hit in query_candidates})
+        self._last_query_candidates = candidates
         results = select_evidence(query_candidates, max_chunks=max_chunks if max_chunks is not None else self._top_k)
         navigation = self._search_navigation_entries(queries, candidates, results)
         self._search_navigation = self._group_search_navigation(navigation)
         return results
+
+    def _rerank_or_keep(self, fused, facts, query, top_k):
+        """Rerank one query's fused list; on a reranker failure keep the fused order."""
+
+        import logging
+
+        try:
+            return rerank_hits(
+                fused, question=self._question, material_text=self._material_text, facts=facts,
+                queries=[query], top_k=top_k, mode=self._rerank_mode, config=self._rerank_config,
+                query_text=query.text,
+            ).hits
+        except Exception as exc:  # 重排只改善排序，不可用时不应让整次检索失败
+            logging.getLogger(__name__).warning("rerank failed, keeping fused order: %s", exc)
+            return fused
 
     def _search_navigation_entries(self, queries, candidates, results):
         returned_locations = {(hit.source_id, hit.article_no or hit.chunk_id) for hit in results}
@@ -414,6 +422,10 @@ class ComplianceAgentTools:
 
     def search_navigation(self) -> list[dict[str, Any]]:
         return [dict(entry) for entry in self._search_navigation]
+
+    def last_query_candidates(self) -> list[list[RetrievalHit]]:
+        """Each query's own fused ranking from the latest search, before evidence selection."""
+        return [list(hits) for hits in self._last_query_candidates]
 
     def read_evidence(
         self,

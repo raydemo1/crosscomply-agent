@@ -14,7 +14,7 @@ import json
 from datetime import date
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from law_agent.data.schemas import StrictModel
 
@@ -59,6 +59,10 @@ class Provision(StrictModel):
         default=None, description="条号，如 第五条；None 只允许用于整篇作为参考的不可引用来源",
     )
     note: str = Field(min_length=1, description="为什么需要它，一句话")
+
+    @property
+    def key(self) -> str:
+        return f"{self.source_id} {self.article_no}" if self.article_no else self.source_id
 
 
 class ExcludedProvision(Provision):
@@ -133,8 +137,19 @@ class ControlledWebFixture(StrictModel):
     results: list[ControlledWebResult] = Field(min_length=1, max_length=3)
 
 
+class LabeledQuery(StrictModel):
+    """A fixed search query and the labeled provisions it is written to find.
+
+    ``targets`` use ``Provision.key`` (``source_id`` or ``source_id 第X条``). An empty list
+    marks a query a careless reviewer would also run — the temptation in a temporal case.
+    """
+
+    text: str = Field(min_length=1)
+    targets: list[str] = Field(default_factory=list)
+
+
 class RetrievalLabels(StrictModel):
-    queries: list[str] = Field(min_length=1, max_length=4)
+    queries: list[LabeledQuery] = Field(min_length=1, max_length=4)
     must_cite: list[Provision] = Field(default_factory=list)
     must_retrieve: list[Provision] = Field(default_factory=list)
     optional: list[Provision] = Field(default_factory=list)
@@ -146,6 +161,12 @@ class RetrievalLabels(StrictModel):
             raise ValueError("must_cite 必须标到条号")
         if not (self.must_cite or self.must_retrieve):
             raise ValueError("检索标签至少需要一条 must_cite 或 must_retrieve")
+        labeled = {p.key for p in (*self.must_cite, *self.must_retrieve, *self.optional)}
+        targeted = {t for q in self.queries for t in q.targets}
+        if unknown := sorted(targeted - labeled):
+            raise ValueError(f"查询目标不在标签中：{unknown}")
+        if untargeted := sorted({p.key for p in (*self.must_cite, *self.must_retrieve)} - targeted):
+            raise ValueError(f"必引或必检来源没有对准它的查询：{untargeted}")
         return self
 
 
@@ -179,6 +200,16 @@ class Scenario(StrictModel):
     as_of_date: date
     question: str = Field(min_length=1)
     intake: dict[str, object] = Field(default_factory=dict, description="已确认填报，键同 IntakePayload")
+
+    @field_validator("intake")
+    @classmethod
+    def intake_is_a_valid_payload(cls, value: dict[str, object]) -> dict[str, object]:
+        from law_agent.review.http.schemas import IntakePayload
+
+        if unknown := sorted(set(value) - set(IntakePayload.model_fields)):
+            raise ValueError(f"intake 含未知字段：{unknown}")
+        IntakePayload.model_validate(value)
+        return value
     materials: list[MaterialFile] = Field(min_length=1)
     judgment_points: list[JudgmentPoint] = Field(default_factory=list)
     noise_types: list[NoiseType] = Field(default_factory=list)

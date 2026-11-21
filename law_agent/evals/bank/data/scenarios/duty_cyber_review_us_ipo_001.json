@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "（上市相关）",
     "destination_region": "美国",
-    "processing_purpose": "境外上市"
+    "processing_purpose": "境外上市",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -43,7 +48,12 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "掌握超过100万用户个人信息的网络平台运营者赴国外上市 申报网络安全审查"
+      {
+        "text": "掌握超过100万用户个人信息的网络平台运营者赴国外上市 申报网络安全审查",
+        "targets": [
+          "cac_cybersecurity_review_measures_2022 第七条"
+        ]
+      }
     ],
     "must_cite": [
       {

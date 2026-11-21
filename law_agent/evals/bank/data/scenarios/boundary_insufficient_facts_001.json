@@ -17,7 +17,12 @@
     "annual_sensitive_count": "",
     "overseas_recipient": "",
     "destination_region": "",
-    "processing_purpose": ""
+    "processing_purpose": "",
+    "regions": [
+      "江西"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -45,7 +50,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "数据出境 安全评估 标准合同 认证 免予 条件"
+      {
+        "text": "申报数据出境安全评估 情形 100万人 1万人敏感个人信息",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "标准合同 认证 10万人以上不满100万人 不满1万人敏感个人信息",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
     ],
     "must_cite": [
       {

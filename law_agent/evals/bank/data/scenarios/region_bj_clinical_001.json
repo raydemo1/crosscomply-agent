@@ -17,7 +17,12 @@
     "annual_sensitive_count": "30000",
     "overseas_recipient": "跨国药企申办方数据平台",
     "destination_region": "美国",
-    "processing_purpose": "药物临床试验数据管理"
+    "processing_purpose": "药物临床试验数据管理",
+    "regions": [
+      "北京"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -49,8 +54,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "北京 负面清单 医药行业 临床试验 受试者 个人信息 门槛",
-      "自由贸易试验区 负面清单 敏感个人信息 1万人"
+      {
+        "text": "北京 负面清单 医药行业 临床试验 受试者 个人信息 门槛",
+        "targets": [
+          "beijing_free_trade_zone_data_export_negative_list_2025"
+        ]
+      },
+      {
+        "text": "自由贸易试验区 负面清单 敏感个人信息 1万人",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      },
+      {
+        "text": "累计1万人以上敏感个人信息 申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      }
     ],
     "must_cite": [
       {

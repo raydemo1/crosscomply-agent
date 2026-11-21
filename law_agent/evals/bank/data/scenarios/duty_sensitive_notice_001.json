@@ -17,7 +17,12 @@
     "annual_sensitive_count": "3000",
     "overseas_recipient": "瑞士总部药物警戒部门",
     "destination_region": "瑞士",
-    "processing_purpose": "药物警戒"
+    "processing_purpose": "药物警戒",
+    "regions": [
+      "江西"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -48,8 +53,25 @@
   ],
   "retrieval": {
     "queries": [
-      "敏感个人信息 告知 必要性以及对个人权益的影响",
-      "不满1万人敏感个人信息 标准合同 认证"
+      {
+        "text": "敏感个人信息 告知 必要性以及对个人权益的影响",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十条"
+        ]
+      },
+      {
+        "text": "不满1万人敏感个人信息 标准合同 认证",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      },
+      {
+        "text": "敏感个人信息 向境外提供 单独同意 告知事项",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条",
+          "cac_data_export_policy_qna_2026_07"
+        ]
+      }
     ],
     "must_cite": [
       {

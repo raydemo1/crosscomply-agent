@@ -61,3 +61,20 @@ def test_limit_counts_all_queries_and_sources_together(limit):
 def test_invalid_limit_is_rejected(limit):
     with pytest.raises(ValueError):
         select_evidence([], max_chunks=limit)
+
+
+def test_chunks_of_one_reference_section_share_one_position():
+    rows = [hit(f"row{i}", score=1 - i / 10, can_cite_clause=False, citation_role="implementation_reference",
+                heading_path=["负面清单", "零售"]) for i in range(3)]
+    other = hit("other", score=0.1, article_no="第五条")
+    assert [h.chunk_id for h in select_evidence([*rows, other], max_chunks=2)] == ["row0", "other"]
+
+
+def test_each_query_keeps_its_best_locations_against_a_broad_query():
+    broad = [hit(f"broad{i}", score=0.9 - i / 100, rank=i, article_no=f"第{i}条", matched_query_ids=["q1"])
+             for i in range(5)]
+    narrow = [hit(f"narrow{i}", score=0.3 - i / 100, rank=i, article_no=f"第9{i}条", matched_query_ids=["q2"])
+              for i in range(3)]
+    selected = [h.chunk_id for h in select_evidence([*broad, *narrow], max_chunks=5)]
+    assert selected == ["broad0", "narrow0", "broad1", "narrow1", "broad2"]
+

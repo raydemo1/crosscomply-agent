@@ -283,14 +283,15 @@ def prepare_citations(state, decision, materials):
     return citations, material_citations
 
 
-def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools=None):
+def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools=None, current_date=None):
+    """Run one Q&A turn. ``current_date`` pins "today" for reproducible evaluation; production uses the real date."""
     client = client or OpenAICompatibleClient(require_agent_llm_config())
     materials = [m for m in conversation["materials"] if m["id"] in run["material_ids"]]
     files = [MaterialFile.from_qa(material) for material in materials]
     inventory = material_inventory(files)
     material_text = material_package(materials)
     history, inherited_passages = conversation_context(conversation, run)
-    state = QAState(goal=run["question"])
+    state = QAState(goal=run["question"], **({"current_date": current_date} if current_date else {}))
     scope_inputs = [run["question"], *(entry["user_statement"] for entry in history),
                     *(material["parsed_text"] for material in materials)]
     owned_tools = tools is None

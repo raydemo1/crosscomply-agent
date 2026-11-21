@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "法国母公司人力资源部",
     "destination_region": "法国",
-    "processing_purpose": "全球人才盘点"
+    "processing_purpose": "全球人才盘点",
+    "regions": [
+      "上海"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -47,8 +52,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "负面清单未涉及的行业 领域数据 按相关法律法规执行",
-      "累计不满10万人 免予 跨境人力资源管理"
+      {
+        "text": "负面清单未涉及的行业 领域数据 按相关法律法规执行",
+        "targets": [
+          "shanghai_free_trade_zone_data_export_negative_list_2025"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予 跨境人力资源管理",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
     ],
     "must_cite": [
       {

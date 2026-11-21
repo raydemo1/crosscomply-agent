@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "（上市相关）",
     "destination_region": "中国香港",
-    "processing_purpose": "香港上市"
+    "processing_purpose": "香港上市",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -43,8 +48,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "赴国外上市 申报网络安全审查",
-      "网络数据处理活动 影响或者可能影响国家安全 国家安全审查"
+      {
+        "text": "赴国外上市 申报网络安全审查",
+        "targets": [
+          "cac_cybersecurity_review_measures_2022 第七条"
+        ]
+      },
+      {
+        "text": "网络数据处理活动 影响或者可能影响国家安全 国家安全审查",
+        "targets": [
+          "flk_npc_ff808181927f0e7b0192949a1da4355d 第十三条"
+        ]
+      },
+      {
+        "text": "网络平台运营者开展数据处理活动 影响国家安全 网络安全审查 当事人",
+        "targets": [
+          "cac_cybersecurity_review_measures_2022 第二条"
+        ]
+      }
     ],
     "must_cite": [
       {

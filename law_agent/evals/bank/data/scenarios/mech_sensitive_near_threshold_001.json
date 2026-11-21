@@ -17,7 +17,12 @@
     "annual_sensitive_count": "9800",
     "overseas_recipient": "瑞士罕见病国际登记平台",
     "destination_region": "瑞士",
-    "processing_purpose": "罕见病国际登记研究"
+    "processing_purpose": "罕见病国际登记研究",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -48,8 +53,19 @@
   ],
   "retrieval": {
     "queries": [
-      "不满1万人敏感个人信息 标准合同",
-      "累计1万人以上敏感个人信息 申报安全评估 已订立标准合同"
+      {
+        "text": "不满1万人敏感个人信息 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      },
+      {
+        "text": "累计1万人以上敏感个人信息 申报安全评估 已订立标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条",
+          "cac_data_export_policy_qna_2026_01"
+        ]
+      }
     ],
     "must_cite": [
       {

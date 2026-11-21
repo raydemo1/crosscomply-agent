@@ -18,7 +18,12 @@
     "overseas_recipient": "新加坡客户",
     "destination_region": "新加坡",
     "processing_purpose": "员工敬业度分析回传",
-    "exemption_facts": "数据由客户在境外收集，境内只做分析。"
+    "exemption_facts": "数据由客户在境外收集，境内只做分析。",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -46,7 +51,13 @@
   ],
   "retrieval": {
     "queries": [
-      "境外收集和产生的个人信息 传输至境内处理后向境外提供 未引入境内个人信息 免予"
+      {
+        "text": "境外收集和产生的个人信息 传输至境内处理后向境外提供 未引入境内个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第四条",
+          "cac_cross_border_flow_rules_qna_2024"
+        ]
+      }
     ],
     "must_cite": [
       {

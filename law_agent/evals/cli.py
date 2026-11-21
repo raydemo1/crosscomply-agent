@@ -2,7 +2,7 @@
 
 ``check``, ``review-package``, ``record-review``, ``lock-test``,
 ``export-prompts`` and ``report`` never call a model. ``retrieval`` calls the
-embedding service only; ``agent`` calls paid models.
+embedding service only; ``qa`` and ``agent`` call paid models.
 """
 
 from __future__ import annotations
@@ -42,6 +42,13 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 1 if errors else 0
 
 
+def _rerank_manifest(mode: str | None) -> dict[str, object]:
+    from law_agent.config import load_rerank_config
+
+    config = load_rerank_config(mode=mode)
+    return {"rerank_mode": config.mode, "rerank_model": config.model, "rerank_blend_weight": config.blend_weight}
+
+
 def cmd_retrieval(args: argparse.Namespace) -> int:
     from law_agent.evals.report import retrieval_report, write
     from law_agent.evals.retrieval import production_search, run_retrieval
@@ -50,13 +57,34 @@ def cmd_retrieval(args: argparse.Namespace) -> int:
     scenarios = [s for s in _scenarios(args) if s.retrieval is not None]
     store = RunStore(args.output_dir)
     manifest = store.write_manifest(kind="retrieval", scenarios=scenarios, chunks_path=args.chunks,
-                                    config={"rerank_mode": args.rerank_mode})
+                                    config=_rerank_manifest(args.rerank_mode))
     results, aggregate = run_retrieval(scenarios, production_search(args.chunks, rerank_mode=args.rerank_mode))
     for row in results:
         store.save(store.case_dir("retrieval", row.scenario_id), "result.json", row.model_dump(mode="json"))
     store.save(store.root, "aggregate.json", aggregate)
     write(store.root / "report.md", retrieval_report(aggregate, manifest))
     store.finish({"kind": "retrieval", "scenarios": len(results)})
+    print(json.dumps(aggregate["overall"], ensure_ascii=False))
+    return 0
+
+
+def cmd_qa(args: argparse.Namespace) -> int:
+    from law_agent.evals.qa_eval import qa_report, run_qa_eval
+    from law_agent.evals.report import write
+    from law_agent.evals.runs import RunStore
+
+    scenarios = [s for s in _scenarios(args) if s.retrieval is not None]
+    store = RunStore(args.output_dir)
+    manifest = store.write_manifest(kind="qa", scenarios=scenarios, chunks_path=args.chunks,
+                                    config={**_rerank_manifest(None), "workers": args.workers})
+    runs, aggregate = run_qa_eval(
+        scenarios, chunks_path=args.chunks, workers=args.workers,
+        on_result=lambda run: store.save(store.case_dir("qa", run.scenario_id), "result.json",
+                                         run.model_dump(mode="json")),
+    )
+    store.save(store.root, "aggregate.json", aggregate)
+    write(store.root / "report.md", qa_report(aggregate, manifest))
+    store.finish({"kind": "qa", "scenarios": len(runs)})
     print(json.dumps(aggregate["overall"], ensure_ascii=False))
     return 0
 
@@ -170,8 +198,16 @@ def build_parser() -> argparse.ArgumentParser:
     _add_selection(retrieval)
     retrieval.add_argument("--output-dir", type=Path, required=True)
     retrieval.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_PATH)
-    retrieval.add_argument("--rerank-mode", choices=["off", "embedding"], default="off")
+    retrieval.add_argument("--rerank-mode", choices=["off", "cross_encoder"], default=None,
+                       help="覆盖部署配置 RERANK_MODE，用于对照实验")
     retrieval.set_defaults(func=cmd_retrieval)
+
+    qa = sub.add_parser("qa", help="生产问答 Agent 自主多轮检索并作答，按条款标签计证据召回与引用（调用付费模型）")
+    _add_selection(qa)
+    qa.add_argument("--output-dir", type=Path, required=True)
+    qa.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_PATH)
+    qa.add_argument("--workers", type=int, default=4)
+    qa.set_defaults(func=cmd_qa)
 
     agent = sub.add_parser("agent", help="被测系统 × 场景，统一评分（调用付费模型）")
     _add_selection(agent)
@@ -187,7 +223,8 @@ def build_parser() -> argparse.ArgumentParser:
     agent.add_argument("--workers", type=int, default=1)
     agent.add_argument("--output-dir", type=Path, required=True)
     agent.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_PATH)
-    agent.add_argument("--rerank-mode", choices=["off", "embedding"], default="off")
+    agent.add_argument("--rerank-mode", choices=["off", "cross_encoder"], default=None,
+                       help="覆盖部署配置 RERANK_MODE，用于对照实验")
     agent.set_defaults(func=cmd_agent)
 
     report = sub.add_parser("report", help="从运行目录重新生成 Agent 报告")

@@ -52,7 +52,6 @@ def register_template_routes(
                 description=payload.description,
                 question=payload.question,
                 intake=payload.intake,
-                rerank_mode=payload.rerank_mode,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

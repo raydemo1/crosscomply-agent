@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "日本发行合作方",
     "destination_region": "日本",
-    "processing_purpose": "日服联运"
+    "processing_purpose": "日服联运",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -48,8 +53,27 @@
   ],
   "retrieval": {
     "queries": [
-      "个人信息出境认证 适用条件 非关键信息基础设施运营者 10万人以上不满100万人",
-      "个人信息出境认证 依据标准 GB/T 46068 GB/T 35273"
+      {
+        "text": "个人信息出境认证 适用条件 非关键信息基础设施运营者 10万人以上不满100万人",
+        "targets": [
+          "cac_personal_info_export_certification_measures_2025 第五条"
+        ]
+      },
+      {
+        "text": "个人信息出境认证 依据标准 GB/T 46068 GB/T 35273",
+        "targets": [
+          "cac_personal_info_export_certification_basis_change_2025",
+          "cac_data_export_policy_qna_2026_09",
+          "samr_gbt_46068_2025_cross_border_personal_info_certification"
+        ]
+      },
+      {
+        "text": "申请个人信息出境认证 专业认证机构 履行告知 单独同意 影响评估",
+        "targets": [
+          "cac_personal_info_export_certification_measures_2025 第六条",
+          "cac_personal_info_export_certification_measures_2025 第七条"
+        ]
+      }
     ],
     "must_cite": [
       {

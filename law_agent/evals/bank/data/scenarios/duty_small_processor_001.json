@@ -18,7 +18,12 @@
     "overseas_recipient": "英国多所大学",
     "destination_region": "英国",
     "processing_purpose": "留学申请递交",
-    "exemption_facts": "学生委托递交申请。"
+    "exemption_facts": "学生委托递交申请。",
+    "regions": [
+      "甘肃"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "教育"
   },
   "materials": [
     {
@@ -45,8 +50,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "小型个人信息处理者 处理不满10万人个人信息 向境外提供 免予",
-      "小型个人信息处理者 个人信息保护影响评估表 简便方式"
+      {
+        "text": "小型个人信息处理者 定义 处理不满10万人个人信息",
+        "targets": [
+          "cac_small_pip_processor_simplified_measures_2026 第二条"
+        ]
+      },
+      {
+        "text": "小型个人信息处理者 向境外提供个人信息 免予申报",
+        "targets": [
+          "cac_small_pip_processor_simplified_measures_2026 第十条"
+        ]
+      },
+      {
+        "text": "小型个人信息处理者 个人信息保护影响评估表 简便方式",
+        "targets": [
+          "cac_small_pip_processor_simplified_measures_2026 第十四条"
+        ]
+      }
     ],
     "must_cite": [
       {

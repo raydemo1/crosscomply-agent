@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "新加坡区域总部审计组",
     "destination_region": "新加坡",
-    "processing_purpose": "内部审计"
+    "processing_purpose": "内部审计",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -46,8 +51,24 @@
   ],
   "retrieval": {
     "queries": [
-      "境外机构工作人员在境内查询 调取 不属于数据出境活动",
-      "存储在境内 境外可以查询 调取 下载 导出 数据出境"
+      {
+        "text": "境外机构工作人员在境内查询 调取 不属于数据出境活动",
+        "targets": [
+          "cac_data_export_policy_qna_2025_10"
+        ]
+      },
+      {
+        "text": "存储在境内 境外可以查询 调取 下载 导出 数据出境",
+        "targets": [
+          "cac_data_export_security_assessment_filing_guide_v3_2025"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
     ],
     "must_cite": [
       {

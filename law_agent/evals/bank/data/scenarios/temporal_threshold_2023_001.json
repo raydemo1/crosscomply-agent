@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "新加坡区域总部",
     "destination_region": "新加坡",
-    "processing_purpose": "区域客户关系管理"
+    "processing_purpose": "区域客户关系管理",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -44,8 +49,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "累计向境外提供10万人个人信息 申报数据出境安全评估",
-      "个人信息出境 标准合同 适用条件 人数"
+      {
+        "text": "累计向境外提供10万人个人信息 申报数据出境安全评估",
+        "targets": [
+          "cac_data_export_security_assessment_measures_2022 第四条"
+        ]
+      },
+      {
+        "text": "个人信息出境 标准合同 适用条件 人数",
+        "targets": [
+          "cac_personal_info_export_standard_contract_measures_2023 第四条"
+        ]
+      }
     ],
     "must_cite": [
       {

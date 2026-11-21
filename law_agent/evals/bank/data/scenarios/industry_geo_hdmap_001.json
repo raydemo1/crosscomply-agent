@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "德国地图服务商",
     "destination_region": "德国",
-    "processing_purpose": "高精地图更新"
+    "processing_purpose": "高精地图更新",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "汽车"
   },
   "materials": [
     {
@@ -42,8 +47,19 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "智能网联汽车 地理信息数据 测绘活动 导航电子地图制作资质",
-      "地理信息数据 存储于境内 向境外提供 审批"
+      {
+        "text": "智能网联汽车 地理信息数据 测绘活动 导航电子地图制作资质",
+        "targets": [
+          "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024"
+        ]
+      },
+      {
+        "text": "地理信息数据 存储于境内 向境外提供 审批",
+        "targets": [
+          "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
+          "cac_automotive_data_export_security_guide_2026"
+        ]
+      }
     ],
     "must_cite": [],
     "must_retrieve": [

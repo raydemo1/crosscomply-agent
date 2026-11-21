@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "新加坡母公司数据中心",
     "destination_region": "新加坡",
-    "processing_purpose": "集团会员运营"
+    "processing_purpose": "集团会员运营",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -45,8 +50,19 @@
   ],
   "retrieval": {
     "queries": [
-      "数据出境安全评估结果有效期3年 延长 有效期届满前60个工作日",
-      "延长评估结果有效期 条件 数量增幅不超过20%"
+      {
+        "text": "数据出境安全评估结果有效期3年 延长 有效期届满前60个工作日",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第九条",
+          "cac_data_export_security_assessment_filing_guide_v3_2025"
+        ]
+      },
+      {
+        "text": "延长评估结果有效期 条件 数量增幅不超过20%",
+        "targets": [
+          "cac_data_export_policy_qna_2026_07"
+        ]
+      }
     ],
     "must_cite": [
       {

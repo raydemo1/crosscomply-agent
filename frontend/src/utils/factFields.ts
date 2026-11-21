@@ -1,4 +1,4 @@
-import type { CaseIntake, FactLedgerEntryApi } from '../types/api';
+import { INTAKE_INDUSTRIES, type CaseIntake, type FactLedgerEntryApi } from '../types/api';
 import type { SavedCase } from '../types/case';
 
 export type FactField = keyof Pick<CaseIntake,
@@ -6,7 +6,7 @@ export type FactField = keyof Pick<CaseIntake,
   'sensitive_personal_info' | 'cross_border_transfer' | 'overseas_recipient' |
   'processing_purpose' | 'legal_basis_or_consent' | 'important_data_status' | 'ciio_status' |
   'annual_non_sensitive_count' | 'annual_sensitive_count' | 'count_period' |
-  'destination_region' | 'exemption_facts'>;
+  'destination_region' | 'exemption_facts' | 'regions' | 'in_free_trade_zone' | 'industry'>;
 
 export const FACT_FIELDS: Record<FactField, { label: string; options?: Array<[string, string]>; kind?: 'boolean' | 'list' }> = {
   business_entity: { label: '申报主体（法人全称）' },
@@ -25,11 +25,14 @@ export const FACT_FIELDS: Record<FactField, { label: string; options?: Array<[st
   count_period: { label: '人数统计期间', options: [['unknown', '尚未确认'], ['current_year_cumulative', '当年累计'], ['annual_estimate', '全年估算'], ['other', '其他统计口径']] },
   destination_region: { label: '数据接收地' },
   exemption_facts: { label: '相关业务情况' },
+  regions: { label: '注册地或经营地（境内）', kind: 'list' },
+  in_free_trade_zone: { label: '位于自由贸易试验区', kind: 'boolean' },
+  industry: { label: '所属行业', options: INTAKE_INDUSTRIES.map((industry) => [industry, industry]) },
 };
 
 export function factLabel(field: string): string {
   if (field === 'supplemental_statement') return '补充说明';
-  return FACT_FIELDS[field as FactField]?.label ?? ({ industry: '行业', regions: '境内地区', notes: '备注', followup_answers: '补充回答', transfer_mechanism: '申报人拟采用路径', vendor_name: '供应商', contract_status: '合同情况' } as Record<string, string>)[field] ?? '补充事实';
+  return FACT_FIELDS[field as FactField]?.label ?? ({ notes: '备注', followup_answers: '补充回答', transfer_mechanism: '申报人拟采用路径', vendor_name: '供应商', contract_status: '合同情况' } as Record<string, string>)[field] ?? '补充事实';
 }
 
 export function factValue(field: string, value: unknown): string {

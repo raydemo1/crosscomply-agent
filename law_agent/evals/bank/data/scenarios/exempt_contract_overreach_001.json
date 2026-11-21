@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "欧洲连锁酒店集团",
     "destination_region": "法国",
-    "processing_purpose": "境外酒店预订及会员营销"
+    "processing_purpose": "境外酒店预订及会员营销",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -48,8 +53,20 @@
   ],
   "retrieval": {
     "queries": [
-      "机票酒店预订 确需 最小必要 豁免",
-      "累计10万人以上 标准合同 认证"
+      {
+        "text": "机票酒店预订 确需 最小必要 豁免",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条",
+          "cac_data_export_policy_qna_2025_10",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第六条"
+        ]
+      },
+      {
+        "text": "累计10万人以上 标准合同 认证",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "新加坡区域总部",
     "destination_region": "新加坡、美国",
-    "processing_purpose": "客户关系管理"
+    "processing_purpose": "客户关系管理",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -43,7 +48,12 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "标准合同有效期内 保存地点发生变化 重新开展影响评估 重新订立 备案"
+      {
+        "text": "标准合同有效期内 保存地点发生变化 重新开展影响评估 重新订立 备案",
+        "targets": [
+          "cac_personal_info_export_standard_contract_measures_2023 第八条"
+        ]
+      }
     ],
     "must_cite": [
       {

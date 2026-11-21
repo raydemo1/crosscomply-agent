@@ -36,11 +36,11 @@
 | `EMBEDDING_DIM` | `1536` | 模板中为 `1024`；必须与已建索引一致 |
 | `EMBEDDING_TIMEOUT_SECONDS` | `60` | |
 | `EMBEDDING_RETRY_SECONDS` | `30` | 429/5xx/网络错误的重试时间预算 |
-| `RERANK_MODE` | `off` | `off` 或 `embedding` |
-| `RERANK_BASE_URL` / `RERANK_API_KEY` / `RERANK_MODEL` | 继承 Embedding | |
+| `RERANK_MODE` | `cross_encoder` | `cross_encoder`（融合后用 cross-encoder 重排每条查询的前 50 个候选）或 `off`；重排接口失败时退回融合排序 |
+| `RERANK_BASE_URL` / `RERANK_API_KEY` / `RERANK_MODEL` | 继承 Embedding | 留空即继承；模型按 Embedding 配对，bge-m3 对应 bge-reranker-v2-m3 |
 | `RERANK_TIMEOUT_SECONDS` | 继承 Embedding | |
 | `RERANK_WINDOW` | `50` | |
-| `RERANK_BLEND_WEIGHT` | `0.4` | |
+| `RERANK_BLEND_WEIGHT` | `0.7` | 重排分在最终排序中的权重，其余为融合分 |
 
 ## 检索服务
 

@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "香港客户及其新加坡分公司",
     "destination_region": "中国香港、新加坡",
-    "processing_purpose": "区域客户服务"
+    "processing_purpose": "区域客户服务",
+    "regions": [
+      "深圳"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -47,8 +52,18 @@
   ],
   "retrieval": {
     "queries": [
-      "粤港澳大湾区标准合同 不得向粤港澳大湾区以外的组织 个人提供",
-      "大湾区标准合同 出境情形变化 合规义务"
+      {
+        "text": "粤港澳大湾区标准合同 不得向粤港澳大湾区以外的组织 个人提供",
+        "targets": [
+          "cac_gba_hk_standard_contract_guide_2023"
+        ]
+      },
+      {
+        "text": "大湾区标准合同 出境情形变化 合规义务",
+        "targets": [
+          "cac_data_export_policy_qna_2026_01"
+        ]
+      }
     ],
     "must_cite": [],
     "must_retrieve": [

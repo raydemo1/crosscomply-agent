@@ -27,7 +27,12 @@
     "overseas_recipient": "新加坡母公司（全球HR平台运营方）",
     "destination_region": "新加坡",
     "processing_purpose": "集团统一人力资源管理与招聘",
-    "exemption_facts": "HR认为属于跨境人力资源管理豁免；员工手册2026版经职代会通过，集体合同尚在协商。"
+    "exemption_facts": "HR认为属于跨境人力资源管理豁免；员工手册2026版经职代会通过，集体合同尚在协商。",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -173,10 +178,36 @@
   ],
   "retrieval": {
     "queries": [
-      "劳动规章制度 集体合同 跨境人力资源管理 员工个人信息 免予",
-      "员工身份证 银行账户 是否属于确需 跨境人力资源管理豁免",
-      "累计向境外提供不满10万人 免予 关键信息基础设施运营者以外",
-      "求职者简历 出境 境外总部 录用决策 必要性"
+      {
+        "text": "劳动规章制度 集体合同 跨境人力资源管理 员工个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第十三条",
+          "cac_data_export_policy_qna_2025_10"
+        ]
+      },
+      {
+        "text": "员工身份证 银行账户 敏感个人信息 不满1万人 标准合同",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十八条",
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      },
+      {
+        "text": "累计向境外提供不满10万人 免予 免予情形不计入累计数量",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条",
+          "cac_cross_border_flow_rules_qna_2024"
+        ]
+      },
+      {
+        "text": "求职者简历 出境 境外总部 告知 单独同意 影响评估",
+        "targets": [
+          "cac_data_export_policy_qna_2026_07",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十五条"
+        ]
+      }
     ],
     "must_cite": [
       {

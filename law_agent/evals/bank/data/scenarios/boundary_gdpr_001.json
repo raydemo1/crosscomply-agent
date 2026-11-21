@@ -16,7 +16,12 @@
     "overseas_recipient": "德国客户",
     "destination_region": "德国",
     "processing_purpose": "员工数据分析及回传",
-    "exemption_facts": "数据由客户在欧盟收集。"
+    "exemption_facts": "数据由客户在欧盟收集。",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -43,7 +48,12 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "境外收集和产生的个人信息 传输至境内处理后向境外提供 免予"
+      {
+        "text": "境外收集和产生的个人信息 传输至境内处理后向境外提供 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第四条"
+        ]
+      }
     ],
     "must_cite": [
       {

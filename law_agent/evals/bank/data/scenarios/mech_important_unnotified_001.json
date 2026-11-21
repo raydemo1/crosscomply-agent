@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "新加坡母公司数据中心",
     "destination_region": "新加坡",
-    "processing_purpose": "集团经营分析"
+    "processing_purpose": "集团经营分析",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -45,8 +50,25 @@
   ],
   "retrieval": {
     "queries": [
-      "未被相关部门告知或者公开发布为重要数据 不需要作为重要数据申报",
-      "数据处理者识别申报重要数据"
+      {
+        "text": "未被相关部门告知或者公开发布为重要数据 不需要作为重要数据申报",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第二条"
+        ]
+      },
+      {
+        "text": "重要数据目录 数据处理者识别申报重要数据",
+        "targets": [
+          "flk_npc_ff808181927f0e7b0192949a1da4355d 第二十九条",
+          "cac_data_export_policy_qna_2025_05"
+        ]
+      },
+      {
+        "text": "不包含个人信息或者重要数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第三条"
+        ]
+      }
     ],
     "must_cite": [
       {

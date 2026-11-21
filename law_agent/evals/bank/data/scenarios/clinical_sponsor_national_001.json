@@ -17,7 +17,12 @@
     "annual_sensitive_count": "25000",
     "overseas_recipient": "瑞士合作方全球临床数据库",
     "destination_region": "瑞士",
-    "processing_purpose": "药物临床试验数据管理"
+    "processing_purpose": "药物临床试验数据管理",
+    "regions": [
+      "江西"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -46,8 +51,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "累计1万人以上敏感个人信息 申报数据出境安全评估",
-      "自由贸易试验区 负面清单 适用范围"
+      {
+        "text": "累计1万人以上敏感个人信息 申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "自由贸易试验区 负面清单 适用范围",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      }
     ],
     "must_cite": [
       {

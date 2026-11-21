@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "新加坡母公司数据中心",
     "destination_region": "新加坡",
-    "processing_purpose": "集团会员运营"
+    "processing_purpose": "集团会员运营",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -42,8 +47,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "数据出境安全评估结果有效期",
-      "有效期届满 重新申报 延长评估结果有效期"
+      {
+        "text": "数据出境安全评估结果有效期",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第九条"
+        ]
+      },
+      {
+        "text": "有效期届满 重新申报 延长评估结果有效期",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第九条"
+        ]
+      }
     ],
     "must_cite": [
       {

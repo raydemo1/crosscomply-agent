@@ -17,7 +17,12 @@
     "annual_sensitive_count": "200",
     "overseas_recipient": "德国合作研究机构",
     "destination_region": "德国",
-    "processing_purpose": "随访研究"
+    "processing_purpose": "随访研究",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -45,8 +50,19 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "关键信息基础设施运营者 向境外提供个人信息 申报数据出境安全评估",
-      "关键信息基础设施认定结果通知运营者"
+      {
+        "text": "关键信息基础设施运营者 向境外提供个人信息 申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第四十条"
+        ]
+      },
+      {
+        "text": "关键信息基础设施认定结果通知运营者",
+        "targets": [
+          "flk_npc_ff8081817b63b935017b7bcc49877e0b 第十条"
+        ]
+      }
     ],
     "must_cite": [
       {

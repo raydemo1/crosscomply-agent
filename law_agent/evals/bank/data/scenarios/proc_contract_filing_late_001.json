@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "韩国发行合作方",
     "destination_region": "韩国",
-    "processing_purpose": "韩服联运"
+    "processing_purpose": "韩服联运",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -46,8 +51,25 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "标准合同生效之日起10个工作日内 备案 个人信息保护影响评估报告",
-      "向境外提供个人信息前 开展个人信息保护影响评估"
+      {
+        "text": "标准合同生效之日起10个工作日内 备案 个人信息保护影响评估报告",
+        "targets": [
+          "cac_personal_info_export_standard_contract_measures_2023 第七条",
+          "cac_personal_info_export_standard_contract_filing_guide_v2_2024"
+        ]
+      },
+      {
+        "text": "向境外提供个人信息前 开展个人信息保护影响评估",
+        "targets": [
+          "cac_personal_info_export_standard_contract_measures_2023 第五条"
+        ]
+      },
+      {
+        "text": "累计10万人以上不满100万人 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
     ],
     "must_cite": [
       {

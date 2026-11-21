@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "法国母公司",
     "destination_region": "法国",
-    "processing_purpose": "全球会员管理"
+    "processing_purpose": "全球会员管理",
+    "regions": [
+      "上海"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -49,8 +54,32 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "负面清单外的数据 免予",
-      "向境外提供个人信息 单独同意 加密 去标识化 安全措施"
+      {
+        "text": "自由贸易试验区 负面清单外的数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      },
+      {
+        "text": "上海 数据出境负面清单 零售 会员管理",
+        "targets": [
+          "shanghai_free_trade_zone_data_export_negative_list_2025"
+        ]
+      },
+      {
+        "text": "向境外提供个人信息 告知 单独同意 影响评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第十条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条"
+        ]
+      },
+      {
+        "text": "数据出境 安全保护义务 技术措施 加密 去标识化",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第十一条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十一条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -22,7 +22,7 @@ from law_agent.evals.bank.schema import (
 from law_agent.evals.delivery import CitedSource, Delivery, FreeTextAnswer
 from law_agent.evals.grading import JudgeVerdict, classify, deterministic_grade, resolve_citations
 from law_agent.evals.report import agent_report, retrieval_report
-from law_agent.evals.retrieval import aggregate, score_scenario
+from law_agent.evals.retrieval import SearchOutcome, aggregate, score_scenario
 from law_agent.evals.review import (
     export_review_package,
     lock_test_split,
@@ -88,7 +88,9 @@ def test_materialized_bundle_parses_like_an_upload(tmp_path) -> None:
 
 def test_schema_rejects_unlocated_citations_mixed_bodies_and_unlabelled_scenarios() -> None:
     with pytest.raises(ValidationError):
-        RetrievalLabels(queries=["q"], must_cite=[{"source_id": "s", "note": "n"}])
+        RetrievalLabels(queries=[{"text": "q", "targets": ["s"]}], must_cite=[{"source_id": "s", "note": "n"}])
+    with pytest.raises(ValidationError, match="没有对准"):
+        RetrievalLabels(queries=[{"text": "q"}], must_cite=[{"source_id": "s", "article_no": "第一条", "note": "n"}])
     with pytest.raises(ValidationError):
         MaterialFile(filename="a.xlsx", kind="data_inventory", text="x")
     with pytest.raises(ValidationError):
@@ -270,10 +272,11 @@ def test_grade_delivery_resolves_titles_against_sources() -> None:
 # --------------------------------------------------------------------------- retrieval
 
 
-def test_retrieval_scoring_counts_articles_and_excluded_hits() -> None:
+def test_retrieval_scoring_separates_source_article_navigation_and_query_rank() -> None:
     labelled = scenario(retrieval={
-        "queries": ["门槛"],
-        "must_cite": [{"source_id": FLOW, "article_no": "第八条", "note": "n"}],
+        "queries": [{"text": "门槛", "targets": [f"{FLOW} 第八条", f"{FLOW} 第七条"]}],
+        "must_cite": [{"source_id": FLOW, "article_no": "第八条", "note": "n"},
+                      {"source_id": FLOW, "article_no": "第七条", "note": "n"}],
         "must_not_cite": [{"source_id": "old", "article_no": "第四条", "note": "n", "reason": "version_superseded"}],
     })
 
@@ -282,12 +285,18 @@ def test_retrieval_scoring_counts_articles_and_excluded_hits() -> None:
                             article_no=article, source_url="https://x", retriever="hybrid",
                             rank=rank, score=1.0, can_cite_clause=cite, citation_role="primary_legal_basis")
 
-    hits = [hit("old", "第四条", 0), *[hit("noise", str(i), i + 1) for i in range(5)], hit(FLOW, "第八条", 6)]
-    row = score_scenario(labelled, hits)
-    assert row.must_cite_recall == {5: 0.0, 10: 1.0} and row.excluded_hits[5] == ["old 第四条"]
-    summary = aggregate([row])
-    assert summary["overall"]["must_cite_recall@10"] == 1.0
-    assert "条款召回" in retrieval_report(summary, {})
+    bodies = [hit("old", "第四条", 0), hit(FLOW, "第八条", 1)]
+    navigation = [{"source_id": FLOW, "locations": [{"article_no": "第七条"}]}]
+    ranked = [*bodies, *[hit("noise", str(i), i) for i in range(5)], hit(FLOW, "第七条", 9)]
+    row = score_scenario(labelled, SearchOutcome(hits=bodies, navigation=navigation, per_query=[ranked]))
+    by_key = {label.key: label for label in row.labels}
+    assert by_key[f"{FLOW} 第八条"].article and by_key[f"{FLOW} 第七条"].source
+    assert not by_key[f"{FLOW} 第七条"].article and by_key[f"{FLOW} 第七条"].discoverable
+    assert [t.rank for t in row.query_targets] == [2, 8] and row.excluded_hits == ["old 第四条"]
+    summary = aggregate([row])["overall"]
+    assert summary["must_cite_article"] == 0.5 and summary["must_cite_discoverable"] == 1.0
+    assert summary["query_target@3"] == 0.5 and summary["query_target@8"] == 1.0
+    assert "条款召回" in retrieval_report(aggregate([row]), {})
 
 
 def test_wilson_interval_is_honest_for_small_samples() -> None:
@@ -305,3 +314,50 @@ def test_cli_check_and_review_package(tmp_path, capsys) -> None:
     assert (tmp_path / "pkg" / "review.md").exists()
     shutil.rmtree(tmp_path / "pkg")
     assert Path("law_agent/evals/bank/data/personas.json").exists()
+
+
+# --------------------------------------------------------------------------- qa / evidence recall
+
+
+def test_qa_eval_scores_gathered_evidence_and_citations_with_the_shared_scorer() -> None:
+    from law_agent.evals.qa_eval import aggregate as qa_aggregate
+    from law_agent.evals.qa_eval import qa_report, run_scenario
+
+    labelled = scenario(retrieval={
+        "queries": [{"text": "门槛", "targets": [f"{FLOW} 第八条", f"{FLOW} 第七条"]}],
+        "must_cite": [{"source_id": FLOW, "article_no": "第八条", "note": "n"},
+                      {"source_id": FLOW, "article_no": "第七条", "note": "n"}],
+        "must_not_cite": [{"source_id": "old", "article_no": "第四条", "note": "n", "reason": "version_superseded"}],
+    })
+    seen = {}
+
+    def fake_execute(conversation, run, *, checkpoint, chunks_path, current_date):
+        seen.update(current_date=current_date, materials=len(conversation["materials"]))
+        checkpoint(state={"evidence": [{"chunk_id": "c8", "source_id": FLOW, "article_no": "第八条"},
+                                       {"chunk_id": "c7", "source_id": FLOW, "article_no": "第七条"}],
+                          "searches": 2, "reads": 1, "turns": 4, "queries": [{"text": "门槛"}]})
+        checkpoint(result={"answer": "答", "citations": [
+            {"source_id": FLOW, "article_no": "第八条", "can_cite_clause": True},
+            {"source_id": "old", "article_no": "第四条", "can_cite_clause": True}]})
+
+    run = run_scenario(labelled, chunks_path=Path("unused"), execute=fake_execute)
+    assert seen["current_date"] == labelled.as_of_date and seen["materials"] == len(labelled.materials)
+    assert run.status == "completed" and run.searches == 2
+    assert [(label.retrieved, label.cited) for label in run.evidence.labels] == [(True, True), (True, False)]
+    assert run.evidence.excluded_citations == ["old 第四条"]
+    summary = qa_aggregate([run])["overall"]
+    assert summary["must_cite_retrieved"] == 1.0 and summary["must_cite_cited"] == 0.5
+    assert "证据召回" in qa_report(qa_aggregate([run]), {})
+
+
+def test_qa_eval_records_a_crash_without_stopping() -> None:
+    from law_agent.evals.qa_eval import run_scenario
+
+    labelled = scenario(retrieval={"queries": [{"text": "q", "targets": [f"{FLOW} 第八条"]}],
+                                   "must_cite": [{"source_id": FLOW, "article_no": "第八条", "note": "n"}]})
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("upstream 502")
+
+    run = run_scenario(labelled, chunks_path=Path("unused"), execute=boom)
+    assert run.status == "failed" and "502" in run.error

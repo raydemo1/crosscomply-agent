@@ -17,7 +17,12 @@
     "annual_sensitive_count": "3100",
     "overseas_recipient": "菲律宾客服外包公司",
     "destination_region": "菲律宾",
-    "processing_purpose": "玩家客服"
+    "processing_purpose": "玩家客服",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -51,8 +56,25 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "不满十四周岁未成年人个人信息 敏感个人信息 监护人同意",
-      "敏感个人信息 不满1万人 标准合同 认证"
+      {
+        "text": "不满十四周岁未成年人个人信息 敏感个人信息 监护人同意",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十八条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十一条"
+        ]
+      },
+      {
+        "text": "敏感个人信息 不满1万人 标准合同 认证",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
     ],
     "must_cite": [
       {

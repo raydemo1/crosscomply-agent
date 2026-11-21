@@ -41,6 +41,9 @@ IssueKind = Literal["material_conflict", "missing_information", "legal_gap"]
 ImportantDataStatus = Literal["unknown", "not_important", "important", "under_review"]
 CIIOStatus = Literal["unknown", "not_ciio", "ciio", "under_review"]
 CountPeriod = Literal["unknown", "current_year_cumulative", "annual_estimate", "other"]
+# Fixed industry choices for the confirmed intake. Each named industry has its own
+# keyword set in retrieval/boosts.py; "其他" names none and boosts nothing.
+Industry = Literal["汽车", "金融", "工业和信息化", "医疗健康", "跨境电商", "教育", "其他"]
 IntakeFactField = Literal[
     "cross_border_transfer", "contains_personal_information", "sensitive_personal_info",
     "important_data_status", "ciio_status", "annual_non_sensitive_count",
@@ -52,7 +55,7 @@ ConfirmableFactField = Literal[
     "sensitive_personal_info", "cross_border_transfer", "overseas_recipient",
     "processing_purpose", "legal_basis_or_consent", "important_data_status", "ciio_status",
     "annual_non_sensitive_count", "annual_sensitive_count", "count_period",
-    "destination_region", "exemption_facts",
+    "destination_region", "exemption_facts", "regions", "in_free_trade_zone", "industry",
 ]
 
 
@@ -132,6 +135,7 @@ class ReviewFacts(StrictModel):
     ))
     industry: str | None = None
     regions: list[str] = Field(default_factory=list)
+    in_free_trade_zone: bool | None = None
     missing_information: list[str] = Field(default_factory=list)
     as_of_date: date | None = None
 

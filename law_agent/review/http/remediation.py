@@ -286,7 +286,7 @@ def register_remediation_routes(
             f"复核整改任务「{task.get('title')}」：判断原审查问题在本次处理进展后是否已经解决。"
             f"案件审查问题：{case.get('question') or ''}"
         )
-        return packet, goal, model_id, case.get("rerank_mode") or "off"
+        return packet, goal, model_id
 
     async def _advance(
         assessment: dict[str, Any],
@@ -296,7 +296,7 @@ def register_remediation_routes(
         state: AgentState | None,
     ) -> dict[str, Any]:
         try:
-            packet, goal, model_id, rerank_mode = await run_in_threadpool(
+            packet, goal, model_id = await run_in_threadpool(
                 _rereview_inputs, task, submission
             )
             result = await run_in_threadpool(
@@ -306,7 +306,6 @@ def register_remediation_routes(
                 state=state,
                 model_id=model_id,
                 chunks_path=chunks_path(),
-                rerank_mode=rerank_mode,
             )
         except Exception as exc:  # noqa: BLE001 - a failed re-review must not lose the submission
             return assessments().update(

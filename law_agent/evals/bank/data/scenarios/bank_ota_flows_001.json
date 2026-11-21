@@ -26,7 +26,12 @@
     "overseas_recipient": "境外酒店、航司及全球分销系统；某国际酒店集团中央预订系统；新加坡母公司数据中心",
     "destination_region": "新加坡、美国等",
     "processing_purpose": "订单履约、酒店会员积分、集团营销分析",
-    "exemption_facts": "业务部门认为属于机票酒店预订，可整体免予；未经法务确认。"
+    "exemption_facts": "业务部门认为属于机票酒店预订，可整体免予；未经法务确认。",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -158,10 +163,34 @@
   ],
   "retrieval": {
     "queries": [
-      "机票酒店预订 向境外提供个人信息 免予申报 确需 条件",
-      "境内个人预定境内酒店 个人信息出境 是否适用豁免",
-      "免予情形 不计入累计数量 自然人去重 100万人",
-      "向境外提供个人信息 告知境外接收方 单独同意 个人信息保护影响评估"
+      {
+        "text": "机票酒店预订 向境外提供个人信息 免予申报 确需 条件",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条",
+          "cac_data_export_policy_qna_2025_10"
+        ]
+      },
+      {
+        "text": "境内个人预定境内酒店 个人信息出境 是否适用豁免",
+        "targets": [
+          "cac_data_export_policy_qna_2025_10"
+        ]
+      },
+      {
+        "text": "免予情形 不计入累计数量 自然人去重 100万人 申报安全评估",
+        "targets": [
+          "cac_cross_border_flow_rules_qna_2024",
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "免予申报 仍应履行 告知 单独同意 个人信息保护影响评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第十条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十五条"
+        ]
+      }
     ],
     "must_cite": [
       {

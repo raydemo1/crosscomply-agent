@@ -18,7 +18,12 @@
     "overseas_recipient": "新加坡数据分析服务商",
     "destination_region": "新加坡",
     "processing_purpose": "玩家留存分析",
-    "exemption_facts": "不涉及合同履行、人力资源、紧急情况等情形。"
+    "exemption_facts": "不涉及合同履行、人力资源、紧急情况等情形。",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -78,8 +83,26 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "累计向境外提供不满10万人个人信息 免予申报",
-      "数据出境活动 传输至境外 存储至境外 定义"
+      {
+        "text": "累计向境外提供不满10万人个人信息 免予申报",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "数据出境活动 传输至境外 存储至境外 定义",
+        "targets": [
+          "cac_data_export_assessment_qna_2022"
+        ]
+      },
+      {
+        "text": "免予申报 仍应履行 告知 单独同意 个人信息保护影响评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第十条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十五条"
+        ]
+      }
     ],
     "must_cite": [
       {

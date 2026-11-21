@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "新加坡母公司",
     "destination_region": "新加坡",
-    "processing_purpose": "集团运营"
+    "processing_purpose": "集团运营",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -46,8 +51,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "关键信息基础设施运营者 向境外提供个人信息 申报安全评估",
-      "关键信息基础设施 较大变化 重新认定"
+      {
+        "text": "关键信息基础设施运营者 向境外提供个人信息 申报安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "关键信息基础设施运营者以外的数据处理者 累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "关键信息基础设施 较大变化 重新认定",
+        "targets": [
+          "flk_npc_ff8081817b63b935017b7bcc49877e0b 第十一条"
+        ]
+      }
     ],
     "must_cite": [
       {

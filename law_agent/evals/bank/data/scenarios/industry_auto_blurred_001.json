@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "德国研发合作伙伴",
     "destination_region": "德国",
-    "processing_purpose": "目标检测训练"
+    "processing_purpose": "目标检测训练",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "汽车"
   },
   "materials": [
     {
@@ -42,8 +47,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "汽车数据 车外影像 重要数据判定 人脸 车牌",
-      "不包含个人信息或者重要数据 免予"
+      {
+        "text": "汽车数据 车外影像 重要数据判定 人脸 车牌",
+        "targets": [
+          "cac_automotive_data_export_security_guide_2026"
+        ]
+      },
+      {
+        "text": "不包含个人信息或者重要数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第三条"
+        ]
+      },
+      {
+        "text": "未被告知或者公开发布为重要数据 不需要作为重要数据申报",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第二条"
+        ]
+      }
     ],
     "must_cite": [
       {

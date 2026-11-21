@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "日本短信服务商、泰国呼叫中心、新加坡问卷服务商",
     "destination_region": "日本、泰国、新加坡",
-    "processing_purpose": "营销短信、电话回访、满意度调研"
+    "processing_purpose": "营销短信、电话回访、满意度调研",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -93,8 +98,24 @@
   ],
   "retrieval": {
     "queries": [
-      "累计数量 以自然人为单位去重后的统计结果为准",
-      "累计向境外提供10万人以上 标准合同"
+      {
+        "text": "累计数量 以自然人为单位去重后的统计结果为准",
+        "targets": [
+          "cac_cross_border_flow_rules_qna_2024"
+        ]
+      },
+      {
+        "text": "累计向境外提供10万人以上 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
     ],
     "must_cite": [
       {

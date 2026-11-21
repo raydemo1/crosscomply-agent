@@ -17,7 +17,12 @@
     "annual_sensitive_count": "",
     "overseas_recipient": "新加坡数据分析服务商",
     "destination_region": "新加坡",
-    "processing_purpose": "玩家行为分析"
+    "processing_purpose": "玩家行为分析",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -52,8 +57,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "累计不满10万人 免予",
-      "累计10万人以上不满100万人 标准合同"
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "累计10万人以上不满100万人 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "日本发行合作方",
     "destination_region": "日本",
-    "processing_purpose": "日服联运"
+    "processing_purpose": "日服联运",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -47,8 +52,25 @@
   ],
   "retrieval": {
     "queries": [
-      "向境外提供个人信息 单独同意 不得捆绑 一揽子授权",
-      "告知境外接收方的名称 联系方式 处理目的"
+      {
+        "text": "向境外提供个人信息 单独同意 不得捆绑 一揽子授权",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条",
+          "cac_data_export_policy_qna_2026_07"
+        ]
+      },
+      {
+        "text": "告知境外接收方的名称 联系方式 处理目的",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条"
+        ]
+      },
+      {
+        "text": "单独同意 含义 就具体数据处理活动 单独取得同意",
+        "targets": [
+          "flk_npc_ff808181927f0e7b0192949a1da4355d 第六十二条"
+        ]
+      }
     ],
     "must_cite": [
       {

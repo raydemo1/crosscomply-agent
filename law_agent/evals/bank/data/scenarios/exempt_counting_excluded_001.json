@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "境外航司酒店；日本营销服务商",
     "destination_region": "多国",
-    "processing_purpose": "预订履约；营销"
+    "processing_purpose": "预订履约；营销",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -74,8 +79,18 @@
   ],
   "retrieval": {
     "queries": [
-      "第五条第一款第一项至第三项 不计入累计数量",
-      "累计不满10万人 免予"
+      {
+        "text": "免予情形 不计入累计数量 第一项至第三项",
+        "targets": [
+          "cac_cross_border_flow_rules_qna_2024"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
     ],
     "must_cite": [
       {

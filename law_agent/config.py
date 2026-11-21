@@ -167,8 +167,9 @@ def require_semantic_llm_config(*, model_id: str | None = None) -> LLMConfig:
 # ---------------------------------------------------------------------------
 
 EmbeddingProvider = Literal["openai_compatible", "sentence_transformers"]
-RerankMode = Literal["off", "embedding"]
+RerankMode = Literal["off", "cross_encoder"]
 DEFAULT_RERANK_WINDOW = 50
+DEFAULT_RERANK_BLEND_WEIGHT = 0.7
 
 
 @dataclass(frozen=True)
@@ -260,42 +261,35 @@ def _default_rerank_model(embedding_model: str) -> str:
 
 
 def load_rerank_config(*, mode: RerankMode | None = None) -> RerankConfig:
-    """Load optional rerank settings.
+    """Load the post-fusion reranker settings.
 
-    Rerank is off by default. When enabled, it uses the same provider family as
-    embeddings by default, with ``RERANK_*`` variables allowing an explicit
-    override.
+    Cross-encoder reranking is on by default: on the dev scenario bank it lifts
+    article recall well beyond fusion alone (see docs/evaluation.md). It uses the
+    embedding provider's host and key unless ``RERANK_*`` overrides them; empty
+    variables count as unset. ``mode`` overrides ``RERANK_MODE`` for A/B runs.
     """
 
-    selected_mode = mode or os.getenv("RERANK_MODE", "off")
-    if selected_mode not in ("off", "embedding"):
-        raise RuntimeError("RERANK_MODE must be off or embedding")
+    def env(name: str, default: str = "") -> str:
+        return os.getenv(name, "").strip() or default
+
+    selected_mode = mode or env("RERANK_MODE", "cross_encoder")
+    if selected_mode not in ("off", "cross_encoder"):
+        raise RuntimeError("RERANK_MODE must be off or cross_encoder")
+    window = int(env("RERANK_WINDOW", str(DEFAULT_RERANK_WINDOW)))
+    blend_weight = float(env("RERANK_BLEND_WEIGHT", str(DEFAULT_RERANK_BLEND_WEIGHT)))
     if selected_mode == "off":
-        return RerankConfig(
-            mode="off",
-            base_url=os.getenv("RERANK_BASE_URL", "").rstrip("/"),
-            api_key=os.getenv("RERANK_API_KEY") or None,
-            model=os.getenv("RERANK_MODEL", ""),
-            timeout_seconds=int(os.getenv("RERANK_TIMEOUT_SECONDS", "60")),
-            window=int(os.getenv("RERANK_WINDOW", str(DEFAULT_RERANK_WINDOW))),
-            blend_weight=float(os.getenv("RERANK_BLEND_WEIGHT", "0.4")),
-        )
+        return RerankConfig(mode="off", base_url="", api_key=None, model="", timeout_seconds=60,
+                            window=window, blend_weight=blend_weight)
 
     embedding = _load_embedding_config()
     return RerankConfig(
-        mode=selected_mode,  # type: ignore[arg-type]
-        base_url=os.getenv("RERANK_BASE_URL", embedding.base_url).rstrip("/"),
-        api_key=os.getenv("RERANK_API_KEY") or embedding.api_key,
-        model=os.getenv(
-            "RERANK_MODEL",
-            os.getenv(
-                "EMBEDDING_RERANK_MODEL",
-                _default_rerank_model(embedding.model),
-            ),
-        ),
-        timeout_seconds=int(os.getenv("RERANK_TIMEOUT_SECONDS", str(embedding.timeout_seconds))),
-        window=int(os.getenv("RERANK_WINDOW", str(DEFAULT_RERANK_WINDOW))),
-        blend_weight=float(os.getenv("RERANK_BLEND_WEIGHT", "0.4")),
+        mode="cross_encoder",
+        base_url=env("RERANK_BASE_URL", embedding.base_url).rstrip("/"),
+        api_key=env("RERANK_API_KEY") or embedding.api_key,
+        model=env("RERANK_MODEL", _default_rerank_model(embedding.model)),
+        timeout_seconds=int(env("RERANK_TIMEOUT_SECONDS", str(embedding.timeout_seconds))),
+        window=window,
+        blend_weight=blend_weight,
     )
 
 

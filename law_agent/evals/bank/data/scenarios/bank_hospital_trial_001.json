@@ -30,7 +30,12 @@
     "overseas_recipient": "荷兰某大学医学中心（研究全球牵头单位）及其委托的EDC服务商",
     "destination_region": "荷兰",
     "processing_purpose": "国际多中心临床研究数据汇总与统计分析",
-    "exemption_facts": "科研处认为属于学术合作，按第三条免予；未经法务确认。"
+    "exemption_facts": "科研处认为属于学术合作，按第三条免予；未经法务确认。",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -184,10 +189,35 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "学术合作 数据向境外提供 不包含个人信息 免予申报",
-      "去标识化 匿名化 个人信息 定义",
-      "医疗健康信息 敏感个人信息 不满1万人 标准合同 认证",
-      "敏感个人信息 向境外提供 单独同意 告知境外接收方名称 联系方式"
+      {
+        "text": "学术合作 数据向境外提供 不包含个人信息 免予申报",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第三条"
+        ]
+      },
+      {
+        "text": "去标识化 匿名化 个人信息 定义",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第四条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第七十三条"
+        ]
+      },
+      {
+        "text": "医疗健康信息 敏感个人信息 不满1万人 标准合同 认证",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十八条",
+          "cac_cross_border_data_flow_rules_2024 第八条",
+          "tc260_sensitive_pip_identification_guide_2024"
+        ]
+      },
+      {
+        "text": "敏感个人信息 向境外提供 告知必要性 单独同意 个人信息保护影响评估",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十五条"
+        ]
+      }
     ],
     "must_cite": [
       {

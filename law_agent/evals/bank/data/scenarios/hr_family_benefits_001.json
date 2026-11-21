@@ -18,7 +18,12 @@
     "overseas_recipient": "新加坡区域总部及其保险经纪",
     "destination_region": "新加坡",
     "processing_purpose": "员工及家属医疗保险",
-    "exemption_facts": "员工手册经职代会通过，规定公司为员工提供商业医疗保险。"
+    "exemption_facts": "员工手册经职代会通过，规定公司为员工提供商业医疗保险。",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -48,8 +53,30 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "跨境人力资源管理 确需向境外提供员工个人信息",
-      "敏感个人信息 不满1万人 标准合同 单独同意"
+      {
+        "text": "跨境人力资源管理 确需向境外提供员工个人信息",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "敏感个人信息 不满1万人 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      },
+      {
+        "text": "家属 医疗健康 敏感个人信息 定义",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十八条"
+        ]
+      },
+      {
+        "text": "处理敏感个人信息 取得个人单独同意",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十九条"
+        ]
+      }
     ],
     "must_cite": [
       {

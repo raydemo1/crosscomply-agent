@@ -17,7 +17,12 @@
     "annual_sensitive_count": "",
     "overseas_recipient": "美国病理会诊中心",
     "destination_region": "美国",
-    "processing_purpose": "病理第二意见"
+    "processing_purpose": "病理第二意见",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -46,8 +51,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "不满1万人敏感个人信息 标准合同",
-      "1万人以上敏感个人信息 申报安全评估"
+      {
+        "text": "不满1万人敏感个人信息 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      },
+      {
+        "text": "1万人以上敏感个人信息 申报安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      }
     ],
     "must_cite": [
       {

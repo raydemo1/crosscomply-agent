@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "瑞士合作大学",
     "destination_region": "瑞士",
-    "processing_purpose": "联合研究"
+    "processing_purpose": "联合研究",
+    "regions": [
+      "江西"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -47,8 +52,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "学术合作 不包含个人信息 免予",
-      "累计不满10万人个人信息 免予"
+      {
+        "text": "学术合作 不包含个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第三条"
+        ]
+      },
+      {
+        "text": "累计不满10万人个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "免予申报 仍应履行 告知 单独同意 个人信息保护影响评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第十条"
+        ]
+      }
     ],
     "must_cite": [
       {

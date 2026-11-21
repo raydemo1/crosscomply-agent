@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "境外承运商",
     "destination_region": "多国",
-    "processing_purpose": "国际运输与清关"
+    "processing_purpose": "国际运输与清关",
+    "regions": [
+      "天津"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -46,8 +51,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "跨境寄递 确需向境外提供个人信息 免予",
-      "国际贸易 跨境运输 收集和产生的数据 不包含个人信息"
+      {
+        "text": "跨境寄递 确需向境外提供个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "国际贸易 跨境运输 收集和产生的数据 不包含个人信息",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第三条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "德国研发合作方",
     "destination_region": "德国",
-    "processing_purpose": "工艺比对"
+    "processing_purpose": "工艺比对",
+    "regions": [
+      "江西"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
   },
   "materials": [
     {
@@ -88,7 +93,12 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "跨国生产制造 收集和产生的数据 不包含个人信息或者重要数据 免予"
+      {
+        "text": "跨国生产制造 收集和产生的数据 不包含个人信息或者重要数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第三条"
+        ]
+      }
     ],
     "must_cite": [
       {

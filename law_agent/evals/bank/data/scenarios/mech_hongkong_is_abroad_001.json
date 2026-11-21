@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "香港关联公司",
     "destination_region": "中国香港",
-    "processing_purpose": "港澳地区营销"
+    "processing_purpose": "港澳地区营销",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -45,8 +50,19 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "向香港提供个人信息 数据出境",
-      "累计10万人以上不满100万人 标准合同"
+      {
+        "text": "向香港提供个人信息 数据出境",
+        "targets": [
+          "cac_data_export_assessment_qna_2022",
+          "cac_gba_hk_standard_contract_guide_2023"
+        ]
+      },
+      {
+        "text": "累计10万人以上不满100万人 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
     ],
     "must_cite": [
       {

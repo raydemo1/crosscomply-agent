@@ -15,7 +15,12 @@
     "sensitive_personal_info": true,
     "overseas_recipient": "德国研发合作伙伴",
     "destination_region": "德国",
-    "processing_purpose": "感知算法训练"
+    "processing_purpose": "感知算法训练",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "汽车"
   },
   "materials": [
     {
@@ -75,8 +80,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "汽车数据出境安全指引 车外人脸 像素 重要数据 判定",
-      "智能网联汽车 地理信息数据 存储于境内 对外提供审批 地图审核"
+      {
+        "text": "汽车数据出境安全指引 车外人脸 像素 重要数据 判定",
+        "targets": [
+          "cac_automotive_data_export_security_guide_2026"
+        ]
+      },
+      {
+        "text": "智能网联汽车 地理信息数据 存储于境内 对外提供审批 地图审核",
+        "targets": [
+          "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024"
+        ]
+      },
+      {
+        "text": "重要数据 向境外提供 申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -6,8 +6,10 @@ gates; it does not replace query relevance in retrieval ranking.
 
 from __future__ import annotations
 
+from typing import get_args
+
 from law_agent.data.schemas import Chunk
-from law_agent.review.schemas import RetrievalHit, RetrievalQueryType, ReviewFacts
+from law_agent.review.schemas import Industry, RetrievalHit, RetrievalQueryType, ReviewFacts
 
 # ---------------------------------------------------------------------------
 # Region mapping: Chinese name -> ISO 3166-2 subdivision code
@@ -37,15 +39,28 @@ _NON_LOCAL_REGION_VALUES: frozenset[str] = frozenset(
 # ---------------------------------------------------------------------------
 
 _INDUSTRY_KEYWORD_MAP: dict[str, list[str]] = {
-    "智能网联汽车": ["汽车", "智能网联"],
-    "汽车": ["汽车"],
-    "车联网": ["车联网", "智能网联", "汽车"],
-    "跨境电商": ["跨境电商", "电子商务", "电商"],
+    "汽车": ["汽车", "智能网联", "车联网"],
     "金融": ["金融"],
-    "金融信息服务": ["金融"],
-    "医疗": ["医疗", "健康"],
+    "工业和信息化": ["工信领域", "工业数据", "电信数据", "互联网信息服务"],
+    "医疗健康": ["医疗", "健康", "医药"],
+    "跨境电商": ["跨境电商", "电子商务", "电商"],
     "教育": ["教育"],
 }
+assert set(_INDUSTRY_KEYWORD_MAP) == set(get_args(Industry)) - {"其他"}
+
+
+def normalize_industry(text: str | None) -> Industry | None:
+    """Map a free-text industry (from extraction) onto the fixed intake choices."""
+
+    if not text or not text.strip():
+        return None
+    value = text.strip()
+    if value in _INDUSTRY_KEYWORD_MAP or value == "其他":
+        return value  # type: ignore[return-value]
+    for industry, keywords in _INDUSTRY_KEYWORD_MAP.items():
+        if any(keyword in value for keyword in keywords):
+            return industry  # type: ignore[return-value]
+    return "其他"
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +92,9 @@ def compute_boost_for_hit(
         fact_regions = _specific_regions(facts.regions)
         chunk_region = _normalize_region(chunk.applicable_region)
         if fact_regions and _is_specific_region(chunk_region):
-            if any(_region_matches(chunk_region, region) for region in fact_regions):
+            if any(_region_matches(chunk_region, region) for region in fact_regions) and not (
+                facts.in_free_trade_zone is False and _ftz_only(chunk)
+            ):
                 boost *= CONDITIONAL_LOCAL_BASIS_BOOST
             else:
                 boost *= CONDITIONAL_LOCAL_MISMATCH_WEIGHT
@@ -195,6 +212,12 @@ def _specific_regions(regions: list[str]) -> list[str]:
         if _is_specific_region(code) and code not in codes:
             codes.append(code)
     return codes
+
+
+def _ftz_only(chunk: Chunk) -> bool:
+    """A local list whose subjects are only enterprises inside a free trade zone or port."""
+
+    return any("自贸试验区" in subject or "自由贸易港" in subject for subject in chunk.applicable_subjects)
 
 
 def _industry_matches(chunk: Chunk, industry: str) -> bool:

@@ -44,7 +44,7 @@ def execute_agent_task(
     material: str,
     material_versions: Sequence[MaterialVersion] = (),
     chunks_path: Path | str = DEFAULT_CHUNKS_PATH,
-    rerank_mode: RerankMode = "off",
+    rerank_mode: RerankMode | None = None,
     on_web_findings: Any = None,
 ) -> AgentState:
     """Resume the saved state or start a new bounded Agent loop."""

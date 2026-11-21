@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "日本海外仓、国际快递公司",
     "destination_region": "日本",
-    "processing_purpose": "跨境商品配送"
+    "processing_purpose": "跨境商品配送",
+    "regions": [
+      "广东"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "跨境电商"
   },
   "materials": [
     {
@@ -45,8 +50,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "跨境购物 跨境寄递 确需向境外提供个人信息 免予",
-      "累计10万人以上 标准合同"
+      {
+        "text": "跨境购物 跨境寄递 确需向境外提供个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "累计10万人以上 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
     ],
     "must_cite": [
       {

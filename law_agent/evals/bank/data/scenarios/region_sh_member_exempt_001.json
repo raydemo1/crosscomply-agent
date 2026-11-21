@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "法国母公司",
     "destination_region": "法国",
-    "processing_purpose": "全球会员管理"
+    "processing_purpose": "全球会员管理",
+    "regions": [
+      "上海"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -44,8 +49,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "自由贸易试验区内数据处理者 向境外提供负面清单外的数据 免予",
-      "上海 负面清单 会员管理 100万人"
+      {
+        "text": "自由贸易试验区内数据处理者 向境外提供负面清单外的数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      },
+      {
+        "text": "上海 负面清单 会员管理 100万人",
+        "targets": [
+          "shanghai_free_trade_zone_data_export_negative_list_2025"
+        ]
+      }
     ],
     "must_cite": [
       {

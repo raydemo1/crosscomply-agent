@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "日本发行合作方",
     "destination_region": "日本",
-    "processing_purpose": "海外联运运营"
+    "processing_purpose": "海外联运运营",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -48,8 +53,25 @@
   ],
   "retrieval": {
     "queries": [
-      "已订立标准合同 累计超过100万人 申报数据出境安全评估",
-      "自当年1月1日起累计向境外提供100万人以上个人信息"
+      {
+        "text": "已订立标准合同 累计超过100万人 申报数据出境安全评估",
+        "targets": [
+          "cac_data_export_policy_qna_2026_01",
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "自当年1月1日起累计向境外提供100万人以上个人信息",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "10万人以上不满100万人 订立标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
     ],
     "must_cite": [
       {

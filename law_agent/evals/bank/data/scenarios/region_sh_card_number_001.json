@@ -17,7 +17,12 @@
     "annual_sensitive_count": "5000",
     "overseas_recipient": "法国母公司支付团队",
     "destination_region": "法国",
-    "processing_purpose": "跨境退款"
+    "processing_purpose": "跨境退款",
+    "regions": [
+      "上海"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -46,8 +51,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "上海 负面清单 信用卡信息 仅限后四位和有效期",
-      "不满1万人敏感个人信息 标准合同"
+      {
+        "text": "上海 负面清单 信用卡信息 仅限后四位和有效期",
+        "targets": [
+          "shanghai_free_trade_zone_data_export_negative_list_2025"
+        ]
+      },
+      {
+        "text": "自由贸易试验区 负面清单外的数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      },
+      {
+        "text": "金融账户 敏感个人信息 定义",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十八条"
+        ]
+      }
     ],
     "must_cite": [
       {

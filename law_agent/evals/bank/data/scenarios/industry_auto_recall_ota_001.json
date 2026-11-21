@@ -15,7 +15,12 @@
     "sensitive_personal_info": false,
     "overseas_recipient": "德国零部件供应商",
     "destination_region": "德国",
-    "processing_purpose": "缺陷召回OTA修复"
+    "processing_purpose": "缺陷召回OTA修复",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "汽车"
   },
   "materials": [
     {
@@ -41,7 +46,12 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "汽车数据 免予申报 消除汽车产品缺陷 实施召回 OTA升级软件包 源代码"
+      {
+        "text": "汽车数据 免予申报 消除汽车产品缺陷 实施召回 OTA升级软件包 源代码",
+        "targets": [
+          "cac_automotive_data_export_security_guide_2026"
+        ]
+      }
     ],
     "must_cite": [],
     "must_retrieve": [

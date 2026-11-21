@@ -103,7 +103,7 @@ class OpenAICompatibleReranker(Reranker):
                         f"rerank request failed with HTTP {exc.code}: {detail}"
                     ) from exc
                 time.sleep(min(2**attempt, 8))
-            except urllib.error.URLError as exc:
+            except OSError as exc:  # URLError, SSL EOF and timeouts on the response read
                 if attempt == max_retries - 1:
                     raise RuntimeError(f"rerank request failed: {exc}") from exc
                 time.sleep(min(2**attempt, 8))
@@ -111,7 +111,7 @@ class OpenAICompatibleReranker(Reranker):
 
 
 def build_reranker(config: RerankConfig) -> Reranker:
-    if config.mode == "embedding":
+    if config.mode == "cross_encoder":
         return OpenAICompatibleReranker(config)
     raise RuntimeError(f"unsupported rerank mode: {config.mode!r}")
 

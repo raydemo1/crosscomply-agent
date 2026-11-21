@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "日本发行合作方",
     "destination_region": "日本",
-    "processing_purpose": "日服联运"
+    "processing_purpose": "日服联运",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -44,8 +49,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "个人信息保护认证 跨境处理活动 实施规则 认证规范",
-      "个人信息出境认证办法 依据标准"
+      {
+        "text": "个人信息保护认证 跨境处理活动 实施规则 认证规范",
+        "targets": [
+          "cac_personal_info_export_certification_measures_2025 第五条"
+        ]
+      },
+      {
+        "text": "个人信息出境认证办法 依据标准",
+        "targets": [
+          "cac_personal_info_export_certification_basis_change_2025"
+        ]
+      },
+      {
+        "text": "个人信息出境认证 专业认证机构 申请",
+        "targets": [
+          "cac_personal_info_export_certification_measures_2025 第七条"
+        ]
+      }
     ],
     "must_cite": [
       {

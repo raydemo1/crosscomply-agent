@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "新加坡客户",
     "destination_region": "新加坡",
-    "processing_purpose": "员工敬业度分析回传"
+    "processing_purpose": "员工敬业度分析回传",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -47,8 +52,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "处理过程中没有引入境内个人信息 免予",
-      "累计不满10万人 免予"
+      {
+        "text": "处理过程中没有引入境内个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第四条"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
     ],
     "must_cite": [
       {

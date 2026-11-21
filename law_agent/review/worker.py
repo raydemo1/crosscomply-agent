@@ -213,7 +213,6 @@ def build_production_review_worker(
             material=frozen_material,
             material_versions=frozen_versions,
             chunks_path=chunks_path,
-            rerank_mode=case["rerank_mode"],
             on_web_findings=lambda findings: [
                 enrichment_store.enqueue(finding, case_id=task.case_id, review_task_id=task.id)
                 for finding in findings[:2]

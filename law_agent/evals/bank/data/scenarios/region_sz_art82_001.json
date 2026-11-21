@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "新加坡客服供应商",
     "destination_region": "新加坡",
-    "processing_purpose": "客户支持"
+    "processing_purpose": "客户支持",
+    "regions": [
+      "深圳"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -46,8 +51,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "深圳经济特区数据条例 向境外提供个人数据 按照有关规定 数据出境安全评估",
-      "累计不满10万人个人信息 免予申报"
+      {
+        "text": "深圳经济特区数据条例 向境外提供个人数据 按照有关规定 数据出境安全评估",
+        "targets": [
+          "shenzhen_data_regulation_2021 第八十二条"
+        ]
+      },
+      {
+        "text": "累计不满10万人个人信息 免予申报",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -17,7 +17,12 @@
     "annual_sensitive_count": "6000",
     "overseas_recipient": "德国研发团队",
     "destination_region": "德国",
-    "processing_purpose": "疲劳识别模型优化"
+    "processing_purpose": "疲劳识别模型优化",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "汽车"
   },
   "materials": [
     {
@@ -45,8 +50,25 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "汽车 敏感个人信息 不满1万人 标准合同 认证",
-      "敏感个人信息 向境外提供 单独同意"
+      {
+        "text": "汽车 敏感个人信息 不满1万人 标准合同 认证",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条",
+          "cac_automotive_data_export_security_guide_2026"
+        ]
+      },
+      {
+        "text": "敏感个人信息 向境外提供 单独同意",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条"
+        ]
+      },
+      {
+        "text": "人脸 生物识别 敏感个人信息 定义",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十八条"
+        ]
+      }
     ],
     "must_cite": [
       {

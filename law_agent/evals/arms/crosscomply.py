@@ -122,7 +122,7 @@ class FirstDraftVerifier:
 
 
 def production_executor(
-    scenario: Scenario, *, chunks_path: Path, rerank_mode: RerankMode = "off", workdir: Path | None = None,
+    scenario: Scenario, *, chunks_path: Path, rerank_mode: RerankMode | None = None, workdir: Path | None = None,
     skip_verifier: bool = False,
 ) -> Executor:
     def execute(task: ReviewTask, store: InMemoryEnterpriseStore) -> AgentState:
@@ -188,7 +188,7 @@ def delivery_from_result(scenario_id: str, payload: dict[str, Any], **extra: Any
 class CrossComplyArm:
     name = "crosscomply"
 
-    def __init__(self, *, model_id: str, rerank_mode: RerankMode = "off", skip_verifier: bool = False,
+    def __init__(self, *, model_id: str, rerank_mode: RerankMode | None = None, skip_verifier: bool = False,
                  executor_factory=None) -> None:
         self.model_id = model_id
         self.rerank_mode = rerank_mode

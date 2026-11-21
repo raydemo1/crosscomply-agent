@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "新加坡区域总部",
     "destination_region": "新加坡",
-    "processing_purpose": "高级岗位录用决策"
+    "processing_purpose": "高级岗位录用决策",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -46,8 +51,24 @@
   ],
   "retrieval": {
     "queries": [
-      "招聘场景 求职者简历出境 必要性 境外总部参与录用决策",
-      "累计不满10万人 免予"
+      {
+        "text": "招聘场景 求职者简历出境 必要性 境外总部参与录用决策",
+        "targets": [
+          "cac_data_export_policy_qna_2026_07"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "向境外提供个人信息 告知境外接收方 单独同意",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -14,7 +14,12 @@
     "count_period": "current_year_cumulative",
     "sensitive_personal_info": false,
     "overseas_recipient": "（无）",
-    "processing_purpose": "仓储管理系统运维"
+    "processing_purpose": "仓储管理系统运维",
+    "regions": [
+      "天津"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -40,8 +45,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "数据出境活动 传输至境外 境外可以访问",
-      "委托处理个人信息 约定 监督受托人"
+      {
+        "text": "数据出境活动 传输至境外 境外可以访问",
+        "targets": [
+          "cac_data_export_assessment_qna_2022"
+        ]
+      },
+      {
+        "text": "委托处理个人信息 约定 监督受托人",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十一条"
+        ]
+      }
     ],
     "must_cite": [],
     "must_retrieve": [

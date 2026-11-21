@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "美国客户关系管理服务商",
     "destination_region": "美国",
-    "processing_purpose": "客户关系管理"
+    "processing_purpose": "客户关系管理",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -46,8 +51,24 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "个人信息保护影响评估 重点评估 境外接收方所在国家或者地区 政策法规",
-      "影响评估报告 处理情况记录 至少保存三年"
+      {
+        "text": "个人信息保护影响评估 重点评估 境外接收方所在国家或者地区 政策法规",
+        "targets": [
+          "cac_personal_info_export_standard_contract_measures_2023 第五条"
+        ]
+      },
+      {
+        "text": "影响评估报告 处理情况记录 至少保存三年",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十六条"
+        ]
+      },
+      {
+        "text": "标准合同生效之日起10个工作日内 备案 提交材料",
+        "targets": [
+          "cac_personal_info_export_standard_contract_measures_2023 第七条"
+        ]
+      }
     ],
     "must_cite": [
       {

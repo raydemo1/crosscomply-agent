@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "法国母公司",
     "destination_region": "法国",
-    "processing_purpose": "全球会员管理与分析"
+    "processing_purpose": "全球会员管理与分析",
+    "regions": [
+      "上海"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -46,8 +51,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "上海 数据出境负面清单 零售 会员管理场景 门槛",
-      "自由贸易试验区 负面清单外的数据 免予"
+      {
+        "text": "上海 数据出境负面清单 零售 会员管理场景 门槛",
+        "targets": [
+          "shanghai_free_trade_zone_data_export_negative_list_2025"
+        ]
+      },
+      {
+        "text": "自由贸易试验区 负面清单外的数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -981,6 +981,10 @@ export interface CaseIntake {
   count_period: 'unknown' | 'current_year_cumulative' | 'annual_estimate' | 'other';
   overseas_recipient: string;
   destination_region: string;
+  /** Provinces where the processor is registered or operates; decides which local rules and FTZ lists apply. */
+  regions: string[];
+  in_free_trade_zone: boolean | null;
+  industry: IntakeIndustry | null;
   processing_purpose: string;
   transfer_mechanism: string;
   vendor_name: string;
@@ -992,13 +996,15 @@ export interface CaseIntake {
 }
 
 /** A reusable new-case field preset. Materials and review results never belong to a template. */
+export const INTAKE_INDUSTRIES = ['汽车', '金融', '工业和信息化', '医疗健康', '跨境电商', '教育', '其他'] as const;
+export type IntakeIndustry = typeof INTAKE_INDUSTRIES[number];
+
 export interface CaseTemplateApi {
   id: string;
   name: string;
   description: string;
   question: string;
   intake: CaseIntake;
-  rerank_mode: 'off' | 'embedding';
   created_by: string;
   created_by_user?: WorkbenchUser | null;
   updated_by?: string | null;
@@ -1012,7 +1018,6 @@ export interface CaseTemplatePayload {
   description?: string;
   question: string;
   intake: CaseIntake;
-  rerank_mode?: 'off' | 'embedding';
 }
 
 
@@ -1067,7 +1072,6 @@ export interface CaseRecordApi extends CaseSummaryApi {
   material_text: string;
   material_source: string | null;
   intake: CaseIntake;
-  rerank_mode: 'off' | 'embedding';
   trace_id: string | null;
   response: ReviewApiResponse | null;
 }

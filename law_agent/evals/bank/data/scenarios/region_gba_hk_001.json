@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "香港客户（注册于香港）",
     "destination_region": "中国香港",
-    "processing_purpose": "客户服务数据回传"
+    "processing_purpose": "客户服务数据回传",
+    "regions": [
+      "深圳"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -43,8 +48,18 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "粤港澳大湾区 内地 香港 个人信息跨境流动标准合同 适用条件",
-      "大湾区标准合同 10个工作日内 备案 广东省互联网信息办公室"
+      {
+        "text": "粤港澳大湾区 内地 香港 个人信息跨境流动标准合同 适用条件",
+        "targets": [
+          "cac_gba_hk_standard_contract_guide_2023"
+        ]
+      },
+      {
+        "text": "大湾区标准合同 10个工作日内 备案 广东省互联网信息办公室",
+        "targets": [
+          "cac_gba_hk_standard_contract_guide_2023"
+        ]
+      }
     ],
     "must_cite": [],
     "must_retrieve": [

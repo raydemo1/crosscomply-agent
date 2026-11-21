@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "新加坡数据分析平台",
     "destination_region": "新加坡",
-    "processing_purpose": "玩家行为分析"
+    "processing_purpose": "玩家行为分析",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -45,7 +50,13 @@
   ],
   "retrieval": {
     "queries": [
-      "集团公司 子公司 业务场景相似 合并申报数据出境安全评估"
+      {
+        "text": "集团公司 子公司 业务场景相似 合并申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条",
+          "cac_data_export_policy_qna_2025_04"
+        ]
+      }
     ],
     "must_cite": [
       {

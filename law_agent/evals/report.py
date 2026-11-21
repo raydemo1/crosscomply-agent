@@ -88,17 +88,22 @@ def agent_report(grades: Sequence[Grade], scenarios: Sequence[Scenario], manifes
 
 
 def retrieval_report(aggregate: dict[str, Any], manifest: dict[str, Any]) -> str:
-    def row(name: str, values: dict[str, Any]) -> str:
-        def fmt(key: str) -> str:
-            value = values.get(key)
-            return "—" if value is None else f"{value:.1%}"
-        return (f"| {name} | {values['n']} | {fmt('must_cite_recall@5')} | {fmt('must_cite_recall@10')} | "
-                f"{fmt('must_retrieve_recall@10')} | {values['excluded_hit_scenarios@10']} |")
+    def fmt(values: dict[str, Any], key: str) -> str:
+        value = values.get(key)
+        return "—" if value is None else f"{value:.1%}"
 
-    header = ["| 范围 | 场景数 | 条款召回@5 | 条款召回@10 | 必检来源召回@10 | 命中排除条款的场景@10 |",
-              "| --- | ---: | ---: | ---: | ---: | ---: |"]
+    def row(name: str, v: dict[str, Any]) -> str:
+        return (f"| {name} | {v['n']} | {v['must_cite_n']} | {fmt(v, 'must_cite_source')} | "
+                f"{fmt(v, 'must_cite_article')} | {fmt(v, 'must_cite_discoverable')} | "
+                f"{fmt(v, 'must_retrieve_discoverable')} | {fmt(v, 'query_target@3')} | "
+                f"{fmt(v, 'query_target@8')} | {v['excluded_hit_scenarios']} |")
+
+    header = ["| 范围 | 场景 | 必引条款 | 来源召回 | 条款召回 | 可发现率 | 必检来源可发现 | 单查询目标@3 | 单查询目标@8 | 命中排除条款的场景 |",
+              "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
     lines = ["# 检索评测报告", "", f"代码：{manifest.get('base_commit', '')[:12]}", "",
-             ("固定查询直接调用生产检索 `ComplianceAgentTools.search`。条款召回按（来源, 条号）计；"
+             ("固定查询直接调用生产检索 `ComplianceAgentTools.search`（一批查询共返回 10 条正文）。"
+              "来源召回：正文里有该法规；条款召回：该条作为正文返回；可发现率：正文或导航条目里出现该条。"
+              "单查询目标@k：每条查询对准的条款在它自己的融合排序里进入前 k。"
               "排除条款指该审查时点已失效、被取代或地域/行业不适用的条文。"), "",
              *header, row("全部", aggregate["overall"]), row("不含直接答案场景", aggregate["without_answer_leak"])]
     lines += [row(f"split={k}", v) for k, v in aggregate["by_split"].items()]

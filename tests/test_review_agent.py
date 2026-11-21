@@ -803,7 +803,7 @@ def test_optional_rerank_queries_share_one_chunk_budget(monkeypatch) -> None:
     ]
     hits = [hit_from_chunk(chunk, i) for i, chunk in enumerate(chunks)]
     tools = _search_tools(chunks, lambda *_args, **_kwargs: [hits[:2], hits[1:]], top_k=2)
-    tools._rerank_mode = "embedding"
+    tools._rerank_mode = "cross_encoder"
     calls = []
 
     def rerank(results, *, queries, top_k, **kwargs):
@@ -1095,3 +1095,20 @@ def test_agent_accepts_a_focused_report_without_auxiliary_sections():
     assert decision.draft.risk_level == draft["risk_level"]
     assert all(getattr(decision.draft, field) == [] for field in auxiliary)
     assert len(client.calls) == 1
+
+
+def test_reranker_failure_keeps_the_fused_order(monkeypatch) -> None:
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+
+    chunks = [_chunk(name, "第一条", "示例依据" * 100, index=0).model_copy(update={"source_id": name})
+              for name in ["a", "b"]]
+    hits = [hit_from_chunk(chunk, i).model_copy(update={"score": 1 - i * 0.1}) for i, chunk in enumerate(chunks)]
+    tools = _search_tools(chunks, lambda *_args, **_kwargs: [hits], top_k=2)
+    tools._rerank_mode = "cross_encoder"
+
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("rerank request failed: EOF")
+
+    monkeypatch.setattr("law_agent.review.agent_tools.rerank_hits", broken)
+    result = tools.search([RetrievalQuery(query_id="q", text="查询", query_type="legal_issue")], ReviewFacts())
+    assert [hit.source_id for hit in result] == ["a", "b"]

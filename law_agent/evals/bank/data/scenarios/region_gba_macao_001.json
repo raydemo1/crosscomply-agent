@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "澳门酒店客户（注册于澳门）",
     "destination_region": "中国澳门",
-    "processing_purpose": "会员系统对接"
+    "processing_purpose": "会员系统对接",
+    "regions": [
+      "深圳"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -43,7 +48,12 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "粤港澳大湾区 内地 澳门 个人信息跨境流动标准合同"
+      {
+        "text": "粤港澳大湾区 内地 澳门 个人信息跨境流动标准合同",
+        "targets": [
+          "cac_gba_macao_standard_contract_guide_2024"
+        ]
+      }
     ],
     "must_cite": [],
     "must_retrieve": [

@@ -13,7 +13,12 @@
     "ciio_status": "not_ciio",
     "count_period": "current_year_cumulative",
     "overseas_recipient": "",
-    "processing_purpose": ""
+    "processing_purpose": "",
+    "regions": [
+      "广东"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "跨境电商"
   },
   "materials": [
     {

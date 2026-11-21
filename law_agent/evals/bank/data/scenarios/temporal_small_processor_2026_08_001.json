@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "英国多所大学",
     "destination_region": "英国",
-    "processing_purpose": "留学申请递交"
+    "processing_purpose": "留学申请递交",
+    "regions": [
+      "甘肃"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "教育"
   },
   "materials": [
     {
@@ -45,8 +50,23 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "个人信息保护影响评估 向境外提供",
-      "小型个人信息处理者 影响评估表"
+      {
+        "text": "个人信息保护影响评估 向境外提供",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十五条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十六条"
+        ]
+      },
+      {
+        "text": "小型个人信息处理者 影响评估表",
+        "targets": []
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
     ],
     "must_cite": [
       {

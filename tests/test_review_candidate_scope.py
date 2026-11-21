@@ -123,7 +123,7 @@ def test_rerank_reads_clause_candidates_before_source_collapse_and_uses_current_
                 for i, c in enumerate(part)] for part in [chunks[:50], chunks[50:]]]
     tools = _search_tools(chunks, lambda *a, **k: [batches[0]], top_k=1)
     tools._adapters.vector = SimpleNamespace(search_many=lambda *a, **k: [batches[1]])
-    tools._rerank_mode = "embedding"
+    tools._rerank_mode = "cross_encoder"
     tools._rerank_config = RerankConfig(mode="embedding", base_url="unused", api_key=None,
                                         model="test", timeout_seconds=1, window=50, blend_weight=1.0)
     tools._question = "这是另一个层级的案件总问题"

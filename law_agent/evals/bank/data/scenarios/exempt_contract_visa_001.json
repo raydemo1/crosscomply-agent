@@ -18,7 +18,12 @@
     "overseas_recipient": "日本签证申请受理机构",
     "destination_region": "日本",
     "processing_purpose": "签证代办",
-    "exemption_facts": "客户本人委托办理签证。"
+    "exemption_facts": "客户本人委托办理签证。",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
   },
   "materials": [
     {
@@ -46,8 +51,19 @@
   ],
   "retrieval": {
     "queries": [
-      "签证办理 为订立履行个人作为一方当事人的合同 确需向境外提供",
-      "免予申报 仍应履行告知 单独同意 影响评估"
+      {
+        "text": "签证办理 为订立履行个人作为一方当事人的合同 确需向境外提供",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条",
+          "cac_data_export_policy_qna_2025_10"
+        ]
+      },
+      {
+        "text": "免予申报 仍应履行 告知 单独同意 个人信息保护影响评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第十条"
+        ]
+      }
     ],
     "must_cite": [
       {

@@ -17,7 +17,12 @@
     "annual_sensitive_count": "0",
     "overseas_recipient": "新加坡数据分析服务商",
     "destination_region": "新加坡",
-    "processing_purpose": "玩家行为分析"
+    "processing_purpose": "玩家行为分析",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
   },
   "materials": [
     {
@@ -46,8 +51,19 @@
   "answer_leak_sources": [],
   "retrieval": {
     "queries": [
-      "不得采取数量拆分等手段 应当通过出境安全评估",
-      "累计100万人以上 申报数据出境安全评估"
+      {
+        "text": "不得采取数量拆分等手段 应当通过出境安全评估",
+        "targets": [
+          "cac_personal_info_export_certification_measures_2025 第五条",
+          "cac_personal_info_export_standard_contract_measures_2023 第四条"
+        ]
+      },
+      {
+        "text": "累计100万人以上 申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      }
     ],
     "must_cite": [
       {
