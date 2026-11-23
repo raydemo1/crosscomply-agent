@@ -16,6 +16,7 @@ DocType = Literal[
     "policy",
     "faq",
     "guideline",
+    "standard",
     "judicial_interpretation",
     "privacy_policy",
     "internal_policy",
@@ -31,6 +32,11 @@ Authority = Literal[
     "local_regulation",
     "judicial_interpretation",
     "public_interpretation",
+    "national_standard",
+    # 地方行政规范性文件，如经上位规章授权制定的自贸区数据出境负面清单
+    "local_normative_document",
+    # 标准化组织的技术文件，如《网络安全标准实践指南》
+    "technical_guidance",
     "privacy_policy",
     "simulated_internal_policy",
     "unknown",

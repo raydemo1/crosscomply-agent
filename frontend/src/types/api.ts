@@ -539,9 +539,25 @@ export interface KnowledgeEnrichmentJobApi {
   source_id: string | null;
   raw_sha256: string | null;
   parsed_excerpt: string | null;
+  draft_json: KnowledgeSourceDraftApi | null;
+  published_date: string | null;
   error: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** 采集任务读出的待审元数据：每项附原文依据，unresolved 为模型拿不准、读不出或引文不成立、需要审核人确认的字段。 */
+export interface KnowledgeSourceDraftApi {
+  /** model：模型读取；rules：模型不可用，按规则推断，需逐项确认。 */
+  reader: 'model' | 'rules';
+  source: KnowledgeSourceRecordApi;
+  evidence: Record<string, string>;
+  unresolved: string[];
+  supersedes: { source_id: string; title: string; date: string | null }[];
+  supersession_problem: string | null;
+  chunk_count: number;
+  chunks: { heading: string; text: string }[];
+  publish_blocked: boolean;
 }
 
 export interface CaseKnowledgeRecheckApi {

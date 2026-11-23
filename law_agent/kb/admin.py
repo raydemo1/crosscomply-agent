@@ -23,6 +23,7 @@ import psycopg
 
 from law_agent.config import require_service_config
 from law_agent.data.schemas import Chunk, SourceRecord
+from law_agent.data.source_rules import require_consistent_metadata
 from law_agent.kb.ingestion import prepare_source_for_ingest
 from law_agent.kb.service import (
     InMemoryIndex,
@@ -222,6 +223,7 @@ class KnowledgeBaseAdminService:
     def ingest_file(self, source: SourceRecord, file_path: Path, *, parser: str = "auto") -> dict[str, Any]:
         if self.read_only:
             raise RuntimeError("知识库当前为只读挂载")
+        require_consistent_metadata(source)
         with self._mutation_lock, corpus_mutation_lock():
             # One formal boundary for parsing, binding, chunking and both
             # gates: the HTTP path and the CLI judge a source identically.
@@ -265,6 +267,7 @@ class KnowledgeBaseAdminService:
         """
         if self.read_only:
             raise RuntimeError("知识库当前为只读挂载")
+        require_consistent_metadata(source)
         with self._mutation_lock, corpus_mutation_lock():
             config = require_service_config()
             index = ServiceGenerationIndex(config)

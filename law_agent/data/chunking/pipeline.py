@@ -12,14 +12,16 @@ MAX_MERGED_CHUNK_CHARS = 650
 # Bumped whenever the splits below change the chunks a source is published
 # with. ``processing_signature`` reads it so cached vectors cannot outlive the
 # layout they were embedded for.
-CHUNKING_VERSION = "legal-structure-v4"
+CHUNKING_VERSION = "legal-structure-v6"  # v6: table rows carry their section path; guides split by article
 
 # Instruments that are article-based by definition.
 LAW_DOC_TYPES = frozenset({"law", "regulation"})
 # Instruments that look article-based only when the body proves it. A policy
 # notice or interpretation that merely quotes an article is not a statute, and
-# splitting it by article drops everything outside the quotation.
-ARTICLE_STRUCTURE_DOC_TYPES = frozenset({"policy", "judicial_interpretation"})
+# splitting it by article drops everything outside the quotation. A guideline
+# written in articles (the Greater Bay Area implementation guidelines) is split
+# by article for its locators; it stays uncitable as a clause all the same.
+ARTICLE_STRUCTURE_DOC_TYPES = frozenset({"policy", "judicial_interpretation", "guideline"})
 
 
 def should_chunk_as_law(document: Document) -> bool:

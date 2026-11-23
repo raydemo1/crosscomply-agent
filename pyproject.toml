@@ -15,9 +15,9 @@ dependencies = [
   "pwdlib[argon2]>=0.2",
   "uvicorn[standard]>=0.29",
   "psycopg-pool>=3.2",
-  # Reading a PDF's embedded text layer is the first step of every PDF parse,
-  # so it is a runtime dependency rather than a test-only one.
-  "pypdf>=5.0",
+  # Reading a PDF's embedded text layer (with its table grid) is the first
+  # step of every PDF parse, so it is a runtime dependency.
+  "pdfplumber>=0.11,<0.12",
   "openpyxl>=3.1.5,<4",
   "defusedxml>=0.7.1,<1",
 ]
@@ -25,6 +25,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
+  "pypdf>=5.0",
   "httpx2>=2.0.0",
 ]
 service = [

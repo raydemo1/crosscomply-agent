@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-import re
+from dataclasses import replace
 import urllib.error
 import urllib.request
-from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -17,13 +16,25 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from law_agent.data.schemas import SourceRecord
+from law_agent.data.source_rules import metadata_problems, require_consistent_metadata
 from law_agent.kb.admin import KnowledgeBaseAdminService
 from law_agent.kb.ingestion import (
     PreparedSource,
+    parse_document,
     prepare_bound_document,
     prepare_document_for_ingest,
+    provisional_source,
 )
 from law_agent.kb.service import normalized_content_hash
+from law_agent.kb.source_inference import (
+    SourceInference,
+    clean_title,
+    previous_editions,
+    retire_editions,
+    supersession_problem,
+    version_date,
+)
+from law_agent.kb.source_llm import read_source_metadata
 from law_agent.review.web_research import (
     WebFinding,
     canonical_url,
@@ -32,53 +43,10 @@ from law_agent.review.web_research import (
 )
 
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
-DATE_PATTERN = re.compile(r"自\s*(20\d{2})年(\d{1,2})月(\d{1,2})日\s*起施行")
-ORDER_PATTERN = re.compile(r"[\u4e00-\u9fff]{2,20}(?:部|委员会|办公室)第[一二三四五六七八九十百千\d]+号令")
-DEPARTMENT_ISSUERS = {
-    "moj.gov.cn": ("司法部", ("司法部令", "司法部第")),
-    "cac.gov.cn": ("国家互联网信息办公室", ("国家互联网信息办公室令", "国家互联网信息办公室第")),
-    "miit.gov.cn": ("工业和信息化部", ("工业和信息化部令", "工业和信息化部第")),
-    "mnr.gov.cn": ("自然资源部", ("自然资源部令", "自然资源部第")),
-}
-
-
-def verified_auto_source(title: str, text: str, url: str) -> SourceRecord | None:
-    """Only unambiguous enactments with visible effective dates may publish."""
-    if not is_official_url(url) or title not in text[:1200]:
-        return None
-    match = DATE_PATTERN.search(text)
-    if match is None:
-        return None
-    try:
-        effective = date(*(int(part) for part in match.groups()))
-    except ValueError:
-        return None
-    host = host_of(url)
-    authority: str
-    doc_type: str
-    issuer: str
-    if host == "flk.npc.gov.cn" and title.startswith("中华人民共和国") and title.endswith("法"):
-        authority, doc_type, issuer = "national_law", "law", "全国人民代表大会及其常务委员会"
-    elif host in {"sousuo.www.gov.cn", "xzfg.moj.gov.cn"} and title.endswith("条例") and "国务院令" in text[:1200]:
-        authority, doc_type, issuer = "administrative_regulation", "regulation", "国务院"
-    elif (
-        host in DEPARTMENT_ISSUERS
-        and ORDER_PATTERN.search(text[:1200])
-        and any(token in text[:1200] for token in DEPARTMENT_ISSUERS[host][1])
-    ):
-        authority, doc_type, issuer = "departmental_rule", "regulation", DEPARTMENT_ISSUERS[host][0]
-    else:
-        return None
-    digest = hashlib.sha256((canonical_url(url) + "\x1f" + text).encode("utf-8")).hexdigest()[:20]
-    return SourceRecord(
-        source_id=f"legal_{digest}", title=title, source_url=url,
-        source_site=host, doc_type=doc_type, authority=authority,
-        citation_role="primary_legal_basis",
-        law_status="effective" if effective <= datetime.now(UTC).date() else "not_yet_effective",
-        effective_date=effective.isoformat(), issuing_body=issuer,
-        instrument_key=title.strip(),
-        file_format=Path(urlsplit(url).path).suffix.lstrip(".") or "html",
-    )
+# Instruments a worker may publish without a reviewer once every field is settled: enacted norms,
+# whose clause-level citability a wrong guess would grant. Everything else waits for one click.
+AUTO_PUBLISH_DOC_TYPES = frozenset({"law", "regulation", "judicial_interpretation"})
+DRAFT_CHUNK_SAMPLES = 6
 
 
 class PostgresEnrichmentStore:
@@ -96,11 +64,12 @@ class PostgresEnrichmentStore:
         with psycopg.connect(self.dsn) as conn, conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 """INSERT INTO knowledge_enrichment_jobs
-                   (id, canonical_url, candidate_hash, url, title, excerpt)
-                   VALUES (%s, %s, %s, %s, %s, %s)
+                   (id, canonical_url, candidate_hash, url, title, excerpt, published_date)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT (canonical_url, candidate_hash) DO UPDATE SET updated_at = now()
                    RETURNING id""",
-                (f"enrich_{uuid4().hex}", key, candidate_hash, finding.url, finding.title, finding.excerpt),
+                (f"enrich_{uuid4().hex}", key, candidate_hash, finding.url, finding.title, finding.excerpt,
+                 finding.published_date),
             )
             job_id = cur.fetchone()["id"]
             cur.execute(
@@ -182,7 +151,7 @@ class PostgresEnrichmentStore:
                        (id, case_id, event_type, payload_json)
                        SELECT 'evt_' || md5(ec.job_id || ':' || ec.case_id),
                               ec.case_id, 'knowledge_recheck_pending',
-                              jsonb_build_object('job_id', ec.job_id, 'source_id', %s)
+                              jsonb_build_object('job_id', ec.job_id, 'source_id', %s::text)
                        FROM knowledge_enrichment_cases ec
                        WHERE ec.job_id=%s AND ec.recheck_status='pending'
                        ON CONFLICT (id) DO NOTHING""",
@@ -193,7 +162,7 @@ class PostgresEnrichmentStore:
         with psycopg.connect(self.dsn) as conn, conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 """SELECT id, url, title, status, source_json, source_id, error,
-                          raw_sha256, parsed_excerpt,
+                          raw_sha256, parsed_excerpt, draft_json, published_date,
                           created_at, updated_at FROM knowledge_enrichment_jobs
                    WHERE (%s::text IS NULL OR status=%s) ORDER BY created_at DESC LIMIT 100""",
                 (status, status),
@@ -206,6 +175,14 @@ class PostgresEnrichmentStore:
                 """UPDATE knowledge_enrichment_jobs SET raw_path=%s, raw_sha256=%s,
                    parsed_excerpt=%s, updated_at=now() WHERE id=%s""",
                 (str(path), sha256, parsed_excerpt[:6000], job_id),
+            )
+
+    def record_draft(self, job_id: str, draft: dict[str, Any]) -> None:
+        """The inferred source, its evidence and the editions it supersedes, for the reviewer."""
+        with psycopg.connect(self.dsn) as conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE knowledge_enrichment_jobs SET draft_json=%s, updated_at=now() WHERE id=%s",
+                (Jsonb(draft), job_id),
             )
 
     def raw_file(self, job_id: str, *, corpus: Path) -> Path:
@@ -227,11 +204,10 @@ class PostgresEnrichmentStore:
         if source.source_id != f"legal_{job_id.removeprefix('enrich_')}":
             raise ValueError("待审来源必须使用任务生成的版本 ID")
         if source.citation_role == "primary_legal_basis" and source.authority not in {
-            "national_law", "administrative_regulation", "departmental_rule",
+            "national_law", "administrative_regulation", "departmental_rule", "judicial_interpretation",
         }:
             raise ValueError("政策、问答和指南不能以主要法律依据发布")
-        if not source.effective_date and source.citation_role == "primary_legal_basis":
-            raise ValueError("正式法规须填写经核实的生效日期")
+        require_consistent_metadata(source)
         with psycopg.connect(self.dsn) as conn, conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 """SELECT url FROM knowledge_enrichment_jobs WHERE id=%s AND status='awaiting_review'
@@ -360,10 +336,66 @@ def _has_clause_structure(prepared: PreparedSource) -> bool:
     return any(chunk.article_no for chunk in prepared.chunks)
 
 
+def review_source_id(job_id: str) -> str:
+    return f"legal_{job_id.removeprefix('enrich_')}"
+
+
+def _chunk_samples(prepared: PreparedSource) -> list[dict[str, str]]:
+    """A few chunks spread over the document, so the reviewer sees how it will be split."""
+
+    chunks = prepared.chunks
+    step = max(1, len(chunks) // DRAFT_CHUNK_SAMPLES)
+    return [{"heading": " / ".join(chunk.heading_path[1:]), "text": chunk.text[:240]}
+            for chunk in chunks[::step][:DRAFT_CHUNK_SAMPLES]]
+
+
+def _draft(inference: SourceInference, prepared: PreparedSource, editions: list[SourceRecord],
+           problem: str | None) -> dict[str, Any]:
+    return {
+        "source": inference.source.model_dump(mode="json"),
+        "evidence": inference.evidence,
+        "unresolved": inference.unresolved,
+        "supersedes": [{"source_id": item.source_id, "title": item.title, "date": version_date(item)}
+                       for item in editions],
+        "supersession_problem": problem,
+        "chunk_count": len(prepared.chunks),
+        "chunks": _chunk_samples(prepared),
+        "publish_blocked": prepared.blocks_publish,
+        "problems": metadata_problems(inference.source),
+        "reader": inference.reader,
+    }
+
+
+def _publish(source: SourceRecord, path: Path, editions: list[SourceRecord], *, job: dict[str, Any],
+             store: PostgresEnrichmentStore, service: KnowledgeBaseAdminService, impact) -> None:
+    """Publish ``source`` and retire the editions it supersedes, ending each where it takes over."""
+
+    if impact is None:
+        service.ingest_file(source, path)
+    else:
+        impact.track_publication(service, source.source_id, lambda: service.ingest_file(source, path),
+                                 job_id=job["id"])
+    for retired in retire_editions(source, editions):
+        service.update_source_metadata(retired)
+    store.transition(job["id"], status="published", source=source)
+
+
 def process_enrichment_job(
     job: dict[str, Any], *, store: PostgresEnrichmentStore,
-    service: KnowledgeBaseAdminService, impact=None,
+    service: KnowledgeBaseAdminService, client, impact=None,
 ) -> None:
+    """Download, parse and publish one discovered official source, or hand it to a reviewer prefilled.
+
+    The model reads the metadata from the document (:func:`read_source_metadata`; ``client`` is
+    the model client, and with None or a failed call the rules prefill the draft instead). An
+    enacted norm the model read with nothing uncertain, consistent metadata, a clean parse, real
+    clause structure and, if it is a new edition, a date after the one it replaces, publishes on
+    its own; a rules draft never does. Anything else waits for review with
+    the draft, the evidence for each field, sample chunks and the editions it would supersede,
+    so the reviewer confirms or corrects rather than fills in. An approved job publishes the
+    reviewer's record with the same edition handling.
+    """
+
     try:
         suffix = Path(urlsplit(job["url"]).path).suffix.lower()
         if suffix not in {".pdf", ".docx", ".txt", ".html", ".htm"}:
@@ -385,21 +417,21 @@ def process_enrichment_job(
                 renamed = path.with_suffix(actual_suffix)
                 path.replace(renamed)
                 path = renamed
-        document = prepare_document_for_ingest(path, parser="auto")
+        # The page's own title names the document, so cleaning can drop the "<title>_site" line and chrome.
+        parsed = parse_document(path, parser="auto", source=provisional_source(path).model_copy(
+            update={"title": clean_title(job["title"])}))
+        document = prepare_document_for_ingest(path, parser="auto", parsed=parsed)
         if not document.text.strip():
             raise ValueError("官方文件未能解析出正文")
         raw_hash = hashlib.sha256(path.read_bytes()).hexdigest()
         store.record_raw(
             job["id"], path=path, sha256=raw_hash, parsed_excerpt=document.text,
         )
-        existing = [
-            item.source for item in service.list_sources()
-            if item.source.library_kind == "legal"
-            and canonical_url(item.source.source_url) == canonical_url(job["url"])
-        ]
+        published = [item.source for item in service.list_sources() if item.source.library_kind == "legal"]
+        same_url = [item for item in published if canonical_url(item.source_url) == canonical_url(job["url"])]
         content_hash = normalized_content_hash(document.text)
         matching = next(
-            (item for item in existing if service.get_source(item.source_id).get("content_hash") == content_hash),
+            (item for item in same_url if service.get_source(item.source_id).get("content_hash") == content_hash),
             None,
         )
         if matching is not None:
@@ -412,46 +444,39 @@ def process_enrichment_job(
             if service.is_up_to_date(matching, document.text, candidate.chunks):
                 store.transition(job["id"], status="unchanged", source=matching)
                 return
-        source = (
-            SourceRecord.model_validate(job["source_json"])
-            if job.get("source_json") else
-            verified_auto_source(job["title"], document.text, job["url"])
-        )
-        if source is not None and not job.get("source_json"):
-            candidate = prepare_bound_document(document, source)
-            if candidate.blocks_publish or not _has_clause_structure(candidate):
-                source = None
-        if source is None:
-            store.transition(job["id"], status="awaiting_review")
+
+        source_file_format = path.suffix.lstrip(".")
+        if job.get("source_json"):
+            # Approved by a reviewer: the record is theirs; editions are still matched and retired.
+            source = SourceRecord.model_validate(job["source_json"]).model_copy(
+                update={"file_format": source_file_format})
+            editions = [*{item.source_id: item for item in [*same_url, *previous_editions(source, published)]
+                          if item.source_id != source.source_id}.values()]
+            prepare_bound_document(document, source).require_publishable()
+            _publish(source, path, editions, job=job, store=store, service=service, impact=impact)
             return
-        if existing:
-            latest = max(existing, key=lambda item: item.effective_date or "")
-            source = source.model_copy(update={
-                "instrument_key": latest.instrument_key or latest.title.strip(),
-            })
-            overlapping = source.citation_role == "primary_legal_basis" and any(
-                item.citation_role == "primary_legal_basis"
-                and (not source.effective_date or not item.effective_date
-                     or source.effective_date <= item.effective_date)
-                and (not item.valid_to or not source.effective_date or item.valid_to > source.effective_date)
-                for item in existing
-            )
-            if overlapping:
-                store.transition(
-                    job["id"], status="awaiting_review",
-                    error="同一法源的新版生效时间未晚于旧版；请核实版本日期，并先为旧版设置失效时间",
-                )
-                return
+
+        inference = read_source_metadata(
+            client=client, source_id=review_source_id(job["id"]), title=job["title"], text=document.text,
+            raw_text=parsed.text, url=job["url"], source_site=host_of(job["url"]),
+            file_format=source_file_format, published_hint=job.get("published_date"),
+        )
+        source = inference.source
+        if same_url:
+            # A changed body at a known address is a new edition of what is published there.
+            source = source.model_copy(update={"instrument_key": same_url[0].instrument_key or same_url[0].title})
+        editions = [*{item.source_id: item for item in [*same_url, *previous_editions(source, published)]}.values()]
+        problem = supersession_problem(source, editions) if editions else None
         prepared = prepare_bound_document(document, source)
-        prepared.require_publishable()
-        if source.citation_role == "primary_legal_basis" and not _has_clause_structure(prepared):
-            raise ValueError("正式法源缺少可核对的条款结构")
-        source = source.model_copy(update={"file_format": path.suffix.lstrip(".")})
-        if impact is None:
-            service.ingest_file(source, path)
-        else:
-            impact.track_publication(service, source.source_id, lambda: service.ingest_file(source, path), job_id=job["id"])
-        store.transition(job["id"], status="published", source=source)
+        inference = replace(inference, source=source)
+        store.record_draft(job["id"], _draft(inference, prepared, editions, problem))
+        auto = (inference.settled and source.doc_type in AUTO_PUBLISH_DOC_TYPES and problem is None
+                and not metadata_problems(source)
+                and not prepared.blocks_publish and _has_clause_structure(prepared))
+        if not auto:
+            store.transition(job["id"], status="awaiting_review", error=problem)
+            return
+        _publish(source, path, editions, job=job, store=store, service=service, impact=impact)
     except Exception as exc:  # noqa: BLE001 - persist every worker failure
         transient = isinstance(exc, (urllib.error.URLError, TimeoutError, ConnectionError))
         retry = transient and int(job.get("attempt_count") or 0) < 2

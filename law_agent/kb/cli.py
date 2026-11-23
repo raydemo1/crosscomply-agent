@@ -8,35 +8,61 @@ import json
 import sys
 import unicodedata
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from law_agent.config import require_service_config
 from law_agent.data.schemas import SourceRecord
-from law_agent.kb.ingestion import prepare_bound_document, prepare_document_for_ingest
+from law_agent.kb.ingestion import prepare_document_for_ingest
 from law_agent.kb.service import InMemoryIndex, KnowledgeBase, SourceSummary, processing_signature
 from law_agent.kb.service_index import ServiceGenerationIndex
+from law_agent.kb.source_draft import SourceDraft, draft_source
+from law_agent.kb.source_llm import metadata_client
 from law_agent.llm.embeddings import build_embeddings_provider
 
 DEFAULT_CORPUS = Path("data/corpus/legal_docs_20260702")
 
 
-def _new_source_from_interaction(path: Path, title: str, *, as_new: bool = False) -> SourceRecord:
-    prompted_title = input(f"未找到可更新来源，标题 [{title}]：").strip() or title
-    url = input("来源 URL（留空则记录本地文件）：").strip() or path.resolve().as_uri()
+def _new_source(path: Path, title: str, *, url: str | None, as_new: bool = False) -> SourceRecord:
+    """The identity of a new source. Its metadata is inferred from the document afterwards."""
+
+    url = url or path.resolve().as_uri()
     content_digest = hashlib.sha256(path.read_bytes()).hexdigest()[:12]
-    prefix = hashlib.sha256(f"{prompted_title}\x1f{content_digest}".encode()).hexdigest()[:12]
+    prefix = hashlib.sha256(f"{title}\x1f{content_digest}".encode()).hexdigest()[:12]
     source_id = f"user_{prefix}"
     if as_new:
         source_id = f"{source_id}_{uuid4().hex[:8]}"
     return SourceRecord(
         source_id=source_id,
-        title=prompted_title,
+        title=title,
         source_url=url,
-        source_site="local_import" if url.startswith("file:") else Path(url).name or "manual",
+        source_site="local_import" if url.startswith("file:") else urlsplit(url).hostname or "manual",
         doc_type="guideline",
         file_format=path.suffix.lstrip(".") or "txt",
         include_in_mvp=True,
     )
+
+
+def _new_source_from_interaction(path: Path, title: str, *, as_new: bool = False) -> SourceRecord:
+    prompted_title = input(f"未找到可更新来源，标题 [{title}]：").strip() or title
+    url = input("来源 URL（留空则记录本地文件）：").strip() or None
+    return _new_source(path, prompted_title, url=url, as_new=as_new)
+
+
+def _print_draft(draft: SourceDraft) -> None:
+    source = draft.source
+    reader = {"model": "模型读取", "rules": "模型不可用，按规则推断", "operator": "按填写"}[draft.reader]
+    print(f"元数据（{reader}）：{source.title}")
+    for name in ("doc_type", "authority", "citation_role", "applicable_region", "issuing_body",
+                 "publish_date", "effective_date", "law_status", "instrument_key"):
+        reason = draft.evidence.get(name)
+        print(f"  {name}: {getattr(source, name)}" + (f"  ← {reason}" if reason else ""))
+    for edition in draft.editions:
+        print(f"  将取代：{edition.title}（{edition.source_id}）")
+    if draft.unresolved:
+        print(f"  待人工确认：{', '.join(draft.unresolved)}")
+    if note := draft.evidence.get("note"):
+        print(f"  模型说明：{note}")
 
 
 def _load_metadata(path: Path) -> SourceRecord:
@@ -182,11 +208,13 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         print("如需作为独立来源保留，请加 --as-new。")
         return 0
 
+    explicit: dict[str, object] = (
+        json.loads(Path(args.metadata).read_text(encoding="utf-8")) if args.metadata else {}
+    )
+    if source is None and args.non_interactive:
+        # No metadata file: the identity comes from the document and the metadata is inferred below.
+        source = _new_source(file_path, document.title, url=None, as_new=args.as_new)
     if source is None:
-        if args.non_interactive:
-            raise RuntimeError(
-                "--non-interactive requires --metadata when the file is not a duplicate"
-            )
         candidates = local_kb.title_candidates(document.title)
         if candidates and not args.as_new:
             print("发现可能需要更正的来源：")
@@ -216,13 +244,36 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
             ),
             embed_texts=embeddings.embed_texts,
         )
-        # The identity is chosen above from the parsed title, so the document
-        # is bound to it here rather than re-parsed: one binding, no
-        # hand-maintained field list that can fall behind the schema.
-        prepared = prepare_bound_document(document, source).require_publishable()
+        known = {item.source_id: item for item in local_kb._read_sources()}
+        if source.source_id in known and not explicit:
+            # Updating a governed source keeps its record; only a new source's metadata is inferred.
+            explicit = source.model_dump()
+        draft = draft_source(file_path, base=source, explicit=explicit,
+                             published=[item for item in known.values() if item.source_id != source.source_id],
+                             client=metadata_client() if source.library_kind == "legal" else None,
+                             parser=args.parser)
+        _print_draft(draft)
+        if draft.supersession_problem:
+            raise RuntimeError(draft.supersession_problem)
+        if problems := draft.summary()["problems"]:
+            raise RuntimeError("元数据不一致：" + "；".join(problems) + "。请用 --metadata 更正")
+        if draft.needs_review and source.library_kind == "legal":
+            if args.non_interactive:
+                raise RuntimeError(
+                    f"待人工确认的字段：{', '.join(draft.unresolved) or '全部（模型不可用，仅规则推断）'}，"
+                    "请用 --metadata 补充这些字段"
+                )
+            if input("确认按以上元数据入库？[y/N]：").strip().lower() != "y":
+                print("已取消，未入库。")
+                return 0
+        source = draft.source
+        prepared = draft.prepared.require_publishable()
         result = kb.ingest_prepared(
             source, prepared.document.text, prepared.chunks, raw_file=file_path
         )
+        for retired in draft.retired:
+            kb.update_source_metadata(retired)
+            print(f"旧版本 {retired.title} 设置失效日期 {retired.valid_to}")
         print(
             f"{result.action}: {source.title} ({source.source_id}); "
             f"新增向量 {result.embedded_chunks}，缓存命中 {result.cached_chunks}。"

@@ -1,3 +1,5 @@
+import pytest
+
 from law_agent.data.chunking.pipeline import chunk_document, should_chunk_as_law
 from law_agent.data.chunking.structured import split_heading_units
 from law_agent.data.schemas import Document, IngestMeta
@@ -74,6 +76,27 @@ def test_chunk_document_splits_faq_by_question_blocks() -> None:
     )
     assert "答：达到规定数量" in chunks[0].text
     assert chunks[0].can_cite_clause is False
+
+
+@pytest.mark.parametrize("first,second", [
+    ("**问1：哪些情形需要申报安全评估？**", "**问2：标准合同如何备案？**"),
+    ("**1.哪些情形需要申报安全评估？**", "**2****.****标准合同如何****备案？**"),
+])
+def test_numbered_questions_each_start_their_own_chunk(first, second) -> None:
+    """Official Q&As number their questions ("问1：", "1.…？"); each question is one retrieval unit."""
+
+    chunks = chunk_document(_document(doc_type="faq", title="政策问答", text="\n".join([
+        "国家网信办发布政策问答。", first, "答：" + "达到规定数量的应当申报。" * 3,
+        second, "答：" + "按照所在地省级网信部门要求提交材料。" * 3])))
+    assert [c.heading_path[-1] for c in chunks] == [
+        "问答", first.strip("*"), second.replace("*", "")]
+    assert "按照所在地" in chunks[2].text and "达到规定数量" not in chunks[2].text
+
+
+def test_a_numbered_statement_inside_an_answer_is_not_a_question() -> None:
+    chunks = chunk_document(_document(doc_type="faq", title="政策问答", text=(
+        "问：标准合同需要哪些材料？\n答：需要提交以下材料：\n1.标准合同文本。\n2.个人信息保护影响评估报告。")))
+    assert len(chunks) == 1
 
 
 def test_chunk_document_keeps_the_lead_in_before_the_first_question() -> None:
@@ -366,3 +389,62 @@ def test_short_table_shard_is_kept_rather_than_dropped_as_decoration() -> None:
     published = "".join(chunk.text for chunk in chunks)
     assert "判定规则" in published
     assert "不适用 | 无" in published
+
+
+def test_table_rows_carry_the_industry_and_list_they_sit_under() -> None:
+    # A negative list is one table: spanning rows open the industry and the list a row belongs to.
+    table = (
+        "<table>"
+        "<tr><td>一、医药行业</td></tr>"
+        "<tr><td>（一）需要通过数据出境安全评估的数据清单</td></tr>"
+        "<tr><td>数据类别</td><td>数据子类</td><td>数据基本特征与描述</td></tr>"
+        "<tr><td>个人信息</td><td>7.自当年1月1日起累计向境外提供1万人以上的受试者个人信息。</td><td>仅限于：临床试验场景。" + "说明" * 40 + "</td></tr>"
+        "<tr><td>（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单</td></tr>"
+        "<tr><td>个人信息</td><td>14.自当年1月1日起累计向境外提供5000人以上且不满1万人的受试者个人信息。</td><td>仅限于：临床试验场景。" + "说明" * 40 + "</td></tr>"
+        "<tr><td>二、车联网行业</td></tr>"
+        "<tr><td>（一）需要通过数据出境安全评估的数据清单</td></tr>"
+        "<tr><td>数据类别</td><td>数据子类</td><td>数据基本特征与描述</td></tr>"
+        "<tr><td>个人信息</td><td>14.自当年1月1日起累计向境外提供1万人以上敏感个人信息。</td><td>所有场景。" + "说明" * 40 + "</td></tr>"
+        "</table>"
+    )
+    chunks = chunk_document(_document(title="负面清单", text=table))
+    rows = {chunk.text.splitlines()[-1].split(" | ")[1][:3]: chunk for chunk in chunks}
+    standard_contract = rows["14."]
+    assert standard_contract.heading_path[1:] == ["二、车联网行业", "（一）需要通过数据出境安全评估的数据清单"]
+    medical = next(chunk for chunk in chunks if "5000人以上" in chunk.text)
+    assert medical.heading_path[1:] == ["一、医药行业", "（二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单"]
+    # The section path and the column header are in the text, so a retrieved row states which procedure it triggers.
+    assert medical.text.splitlines()[:2] == [
+        "一、医药行业 | （二）需要通过个人信息出境标准合同备案、个人信息保护认证出境的数据清单",
+        "数据类别 | 数据子类 | 数据基本特征与描述",
+    ]
+
+
+def test_a_header_repeated_mid_table_starts_a_new_unit_in_source_order() -> None:
+    table = (
+        "<table><tr><td>类别</td><td>示例</td></tr>"
+        "<tr><td>甲</td><td>一</td></tr>"
+        "<tr><td>类别</td><td>示例</td></tr>"
+        "<tr><td>乙</td><td>二</td></tr></table>"
+    )
+    chunks = chunk_document(_document(text=table))
+    published = "\n".join(chunk.text for chunk in chunks)
+    assert published.index("甲 | 一") < published.index("乙 | 二")
+    assert chunks[-1].text.startswith("类别 | 示例")
+
+
+def test_a_guideline_written_in_articles_is_split_by_article_but_not_citable() -> None:
+    text = "\n".join(f"**第{n}条** 条文内容{n}。" for n in ("一", "二", "三", "四"))
+    document = _document(title="实施指引", text=text)
+
+    assert should_chunk_as_law(document)
+    chunks = chunk_document(document)
+    assert [chunk.article_no for chunk in chunks] == ["第一条", "第二条", "第三条", "第四条"]
+    assert not any(chunk.can_cite_clause for chunk in chunks)
+
+
+def test_a_numbered_empty_form_row_is_data_not_a_section_title() -> None:
+    table = ("<table><tr><td>序号</td><td>数据名称</td></tr>"
+             "<tr><td>1</td><td></td></tr><tr><td>2</td><td></td></tr></table>")
+    chunks = chunk_document(_document(text=table))
+    assert all(chunk.heading_path[-1] == "表格1" for chunk in chunks)

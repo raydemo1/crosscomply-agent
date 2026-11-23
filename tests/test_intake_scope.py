@@ -27,7 +27,7 @@ def test_ftz_only_list_is_a_mismatch_for_a_processor_outside_the_zone() -> None:
 
     chunks = load_corpus(DEFAULT_CHUNKS_PATH)
     zhejiang = next(c for c in chunks if c.source_id.startswith("zhejiang_free_trade_zone"))
-    shanghai = next(c for c in chunks if c.source_id.startswith("shanghai_free_trade_zone"))
+    shanghai = next(c for c in chunks if c.source_id == "shanghai_free_trade_zone_data_export_negative_list_2025")
 
     def boost(chunk, **facts):
         return compute_boost_for_hit(hit_from_chunk(chunk, 1), chunk, ReviewFacts(**facts))

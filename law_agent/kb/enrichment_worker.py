@@ -1,4 +1,4 @@
-"""Independent knowledge-enrichment worker. It never runs the review model."""
+"""Independent knowledge-enrichment worker. It never runs the review model; a model only reads new sources' metadata."""
 
 from __future__ import annotations
 
@@ -21,9 +21,10 @@ class KnowledgeEnrichmentWorker:
         self, *, store: PostgresEnrichmentStore, service: KnowledgeBaseAdminService,
         worker_id: str, notification_client: MessageClient | None = None,
         notification_open_id: str = "",
-        impact=None,
+        impact=None, client=None,
     ) -> None:
         self.store = store
+        self.client = client  # reads new sources' metadata; None leaves it to the rules and a reviewer
         self.service = service
         self.worker_id = worker_id
         self.notification_client = notification_client
@@ -52,7 +53,8 @@ class KnowledgeEnrichmentWorker:
                     )
         job = self.store.claim_approved(self.worker_id) or self.store.claim(self.worker_id)
         if job is not None:
-            process_enrichment_job(job, store=self.store, service=self.service, impact=self.impact)
+            process_enrichment_job(job, store=self.store, service=self.service, client=self.client,
+                                   impact=self.impact)
             processed = True
         return processed
 
@@ -61,6 +63,7 @@ def main() -> None:
     from pathlib import Path
 
     from law_agent.config import load_service_config
+    from law_agent.kb.source_llm import metadata_client
     from law_agent.review.case_store import PostgresCaseStore
     from law_agent.review.dates import business_today
     from law_agent.review.enterprise_store import PostgresEnterpriseStore
@@ -100,6 +103,7 @@ def main() -> None:
         notification_client=notification_client,
         notification_open_id=open_id,
         impact=impact,
+        client=metadata_client(),
     )
     reminder_worker = (
         WorkReminderWorker(config.postgres.dsn, notification_client, public_url, recipients)

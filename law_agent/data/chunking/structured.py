@@ -17,7 +17,8 @@ MARKDOWN_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 NUMERIC_HEADING_RE = re.compile(r"^(\d+(?:\.\d+){0,4})[\.、]?\s+(.{1,80})$")
 APPENDIX_HEADING_RE = re.compile(r"^(?:#{1,6}\s+)?附\s*录\s*([A-Z])(?:[\s（(]|$)")
 APPENDIX_SUBHEADING_RE = re.compile(r"^([A-Z])\.(\d+(?:\.\d+){0,4})[\.、]?\s+(.{1,80})$")
-QUESTION_HEADING_RE = re.compile(r"^(?:问|Q|问题)\s*[:：].+")
+# A question line in a Q&A: "问：…", "问3：…", "Q: …", or a numbered question "2.…？".
+QUESTION_HEADING_RE = re.compile(r"^(?:(?:问|Q|问题)\s*\d{0,3}\s*[:：].+|\d{1,3}\s*[\.．、]\s*\S.{2,200}[？?])$")
 TABLE_RE = re.compile(r"<table\b.*?</table>", re.IGNORECASE | re.DOTALL)
 ROW_RE = re.compile(r"<tr\b.*?</tr>", re.IGNORECASE | re.DOTALL)
 CELL_RE = re.compile(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", re.IGNORECASE | re.DOTALL)
@@ -118,8 +119,7 @@ def split_table_aware_units(text: str) -> list[StructuredUnit]:
         else:
             heading_path = _last_context_heading(before, heading_path)
 
-        table_heading = [*heading_path, f"表格{table_index}"]
-        units.extend(split_table_units(match.group(0), table_heading))
+        units.extend(split_table_units(match.group(0), heading_path, f"表格{table_index}"))
         cursor = match.end()
 
     tail_units = split_heading_units(text[cursor:])
@@ -161,85 +161,133 @@ def _markdown_tables_to_html(text: str) -> str:
     return MARKDOWN_TABLE_RE.sub(replacer, text)
 
 
-def split_table_units(table_html: str, heading_path: list[str]) -> list[StructuredUnit]:
-    """Split an HTML table into chunks, preserving row-level context.
+TABLE_SECTION_RE = re.compile(r"^(?:([一二三四五六七八九十]+、)|(（[一二三四五六七八九十]+）)|(\d+[\.、．](?!\d)))")
+TABLE_NOTE_RE = re.compile(r"^(?:注|备注|说明)\s*\d*\s*[:：]")
 
-    The first row (header) is prepended to each chunk that starts a new
-    buffer, so that every chunk is self-contained: a retrieval hit on any
-    table chunk shows the column headers alongside the data rows. This is
-    critical for negative-list tables where "数据类别" (重要数据/个人信息)
-    must stay associated with its data sub-rows.
+
+def _table_rows(table_html: str) -> list[list[str]]:
+    rows = [[_strip_tags(cell.group(1)) for cell in CELL_RE.finditer(row.group(0))]
+            for row in ROW_RE.finditer(table_html)]
+    return [row for row in rows if any(row)]
+
+
+def _is_title_row(row: list[str], width: int) -> bool:
+    """A row the table spans across: one value, in a table that has more columns."""
+
+    # A row holding only a number in its first cell ("1" in an empty form) is a data row, not a title.
+    return (width > 1 and len(row[0]) <= 120 and not any(row[1:])
+            and bool(re.search(r"[\u4e00-\u9fff]", row[0])))
+
+
+def _is_column_header(row: list[str]) -> bool:
+    cells = [cell for cell in row if cell]
+    return len(cells) >= 2 and all(
+        len(cell) <= 20 and not re.search(r"[。；]", cell) and not re.match(r"^\d", cell) for cell in cells
+    )
+
+
+def _title_level(value: str) -> int:
+    match = TABLE_SECTION_RE.match(value)
+    if not match:
+        return 1
+    return 1 if match.group(1) else 2 if match.group(2) else 3
+
+
+def split_table_units(table_html: str, heading_path: list[str], table_label: str) -> list[StructuredUnit]:
+    """One unit per data row, each stating where in the table it sits.
+
+    A negative list is one long table whose meaning depends on rows that span
+    it: the industry ("一、医药行业"), the list a row belongs to ("（一）需要通过
+    数据出境安全评估的数据清单" vs "（二）……标准合同……"), and the column
+    header. Those rows open sections of the table; every data row is published
+    with its section path and column header so a retrieved row still says which
+    procedure it triggers. A row too short to stand alone joins the row before
+    it in the same section.
     """
-    rows = [_table_row_text(row.group(0)) for row in ROW_RE.finditer(table_html)]
-    rows = [row for row in rows if row]
+
+    rows = _table_rows(table_html)
     if not rows:
         return split_plain_units(_strip_tags(table_html), heading_path)
-
-    # First row is the header — keep it so we can prepend it to each chunk
-    # for context. If the table has no header (rare), treat all rows as data.
-    header = rows[0] if rows else ""
-    data_rows = rows[1:] if len(rows) > 1 else rows
-    if not data_rows:
-        return [
-            StructuredUnit(
-                text=header,
-                heading_path=heading_path,
-                citation_label=" ".join(heading_path),
-            )
-        ]
-
+    width = max(len(row) for row in rows)
+    sections: list[str] = []
+    header: list[str] | None = None
     units: list[StructuredUnit] = []
-    current: list[str] = []
+    last_path: list[str] | None = None
+    header_used = False
+    last_header: list[str] | None = None
+    title_pending = False  # a title row that no row has been published under yet
 
-    def flush() -> None:
-        nonlocal current
-        if not current:
+    def path() -> list[str]:
+        return [*heading_path, *sections] if sections else [*heading_path, table_label]
+
+    def emit(body: str, *, joinable: bool) -> None:
+        nonlocal last_path
+        current = path()
+        # The spanning rows are written into the text, not only the metadata, so the words that decide a
+        # row's meaning ("（一）需要通过数据出境安全评估的数据清单") are searchable and shown with it.
+        # They are joined as table cells are, which keeps them in the source's reading order.
+        context = " | ".join(sections)
+        if (joinable and units and last_path == current and len(body) < MIN_GENERIC_CHUNK_CHARS
+                and len(units[-1].text) + len(body) + 1 <= GENERIC_SOFT_LIMIT_CHARS):
+            previous = units[-1]
+            units[-1] = StructuredUnit(text=f"{previous.text}\n{body}", heading_path=previous.heading_path,
+                                       citation_label=previous.citation_label)
             return
-        # Prepend the header to every chunk, the first one included. A chunk
-        # has to carry its column names or a retrieval hit on a data row shows
-        # values with no columns; the old first-chunk exemption was the one
-        # place the header was missing.
-        units.append(
-            StructuredUnit(
-                text="\n".join([header, *current]) if header else "\n".join(current),
-                heading_path=heading_path,
-                citation_label=" ".join(heading_path),
-            )
-        )
-        current = []
+        columns = header or last_header  # a section without its own header row reads under the table's last one
+        lead = "\n".join(part for part in (context, " | ".join(columns) if columns and joinable else "") if part)
 
-    for row in data_rows:
-        projected_len = len("\n".join([header, *current, row]))
-        if current and projected_len > GENERIC_HARD_LIMIT_CHARS:
-            flush()
-        if len(row) > GENERIC_HARD_LIMIT_CHARS:
-            flush()
-            # A row too long to keep whole still needs its columns, otherwise
-            # the fragments are unreadable values with no header.
-            units.extend(
-                _with_table_header(
-                    header, _split_long_text(row, heading_path, " ".join(heading_path))
-                )
-            )
+        def with_lead(text: str) -> str:
+            return f"{lead}\n{text}" if lead else text
+
+        if len(body) + len(lead) + 1 > GENERIC_HARD_LIMIT_CHARS:
+            pieces = _split_long_text(body, current, " ".join(current))
+            units.extend(StructuredUnit(text=with_lead(piece.text), heading_path=current,
+                                        citation_label=" ".join(current)) for piece in pieces)
+        else:
+            units.append(StructuredUnit(text=with_lead(body), heading_path=current,
+                                        citation_label=" ".join(current)))
+        last_path = current
+
+    for row in rows:
+        if width > 1 and TABLE_NOTE_RE.match(row[0]) and not any(row[1:]):
+            # A note spanning the table ("注：……") is published as written, of any length, without a header.
+            emit(row[0], joinable=False)
+            title_pending = False
             continue
-        current.append(row)
-    flush()
+        if _is_title_row(row, width):
+            value = row[0]
+            if header is not None and not header_used:
+                lone, header = " | ".join(header), None
+                emit(lone, joinable=False)
+                title_pending = False
+            level = _title_level(value)
+            if title_pending and level <= len(sections):
+                emit(sections[-1], joinable=False)  # a section with no rows still says it exists
+            sections = [*sections[: level - 1], value]
+            header = None
+            last_path = None
+            title_pending = True
+            continue
+        if header is not None and row == header:
+            # A header repeated on every page of the original: the next row opens a unit of its own,
+            # which then carries the header, keeping the source's order.
+            last_path = None
+            continue
+        if header is None and _is_column_header(row):
+            # Only the first row of a section can be its column header; later short rows are data.
+            header = last_header = row
+            header_used = False
+            last_path = None
+            continue
+        emit(" | ".join(row), joinable=True)
+        header_used = True
+        title_pending = False
+    if header is not None and not header_used:
+        header, lone = None, " | ".join(header)
+        emit(lone, joinable=False)
+    elif title_pending:
+        emit(sections[-1], joinable=False)
     return units
-
-
-def _with_table_header(header: str, units: list[StructuredUnit]) -> list[StructuredUnit]:
-    """Re-attach the column header to fragments split out of one long row."""
-
-    if not header:
-        return units
-    return [
-        StructuredUnit(
-            text=f"{header}\n{unit.text}",
-            heading_path=unit.heading_path,
-            citation_label=unit.citation_label,
-        )
-        for unit in units
-    ]
 
 
 # A heading's own section number states its depth: "4.1" is a subsection of "4"
@@ -484,6 +532,7 @@ def _strip_markdown_heading(line: str) -> str:
 
 def _clean_inline_markup(line: str) -> str:
     line = line.strip()
+    line = re.sub(r"\*{4,}", "", line)  # empty bold runs left by converters, e.g. "2****.****已****通过"
     line = re.sub(r"^\*{1,3}(.+?)\*{1,3}$", r"\1", line)
     line = re.sub(r"\*\*(问|答|Q|A|问题)\s*[:：]\*\*", r"\1：", line)
     return line.strip()

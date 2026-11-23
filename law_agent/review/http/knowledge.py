@@ -38,13 +38,14 @@ from law_agent.kb.admin import (
     source_summary_payload,
 )
 from law_agent.kb.enrichment import PostgresEnrichmentStore
-from law_agent.kb.ingestion import prepare_source_for_ingest
 from law_agent.kb.service import (
     InMemoryIndex,
     KnowledgeBase,
     normalized_content_hash,
     processing_signature,
 )
+from law_agent.kb.source_draft import draft_source
+from law_agent.kb.source_llm import metadata_client
 from law_agent.review.case_store import UserRecord
 from law_agent.review.http.schemas import (
     KnowledgeDeleteJobRequest,
@@ -243,6 +244,10 @@ def register_knowledge_routes(
                             result = publish(source.source_id, partial(service.update_source_metadata, source))
                         else:
                             result = publish(source.source_id, partial(service.ingest_file, source, Path(entry["temp_path"])))
+                            for retired in entry.get("retire") or []:
+                                # The superseded edition now ends where this one takes over.
+                                retired_source = SourceRecord.model_validate(retired)
+                                publish(retired_source.source_id, partial(service.update_source_metadata, retired_source))
                         results.append({"source_id": source.source_id, "status": "succeeded", **result})
                     except Exception as exc:  # noqa: BLE001 - persist per-source failure
                         failures += 1
@@ -426,7 +431,17 @@ def register_knowledge_routes(
                     "error": None,
                 }
                 try:
-                    prepared = prepare_source_for_ingest(source, path)
+                    # Metadata the operator left blank is inferred from the document, with evidence;
+                    # what they filled in stands. The editions it supersedes are retired on commit.
+                    draft = draft_source(path, base=source, explicit=metadata, published=[
+                        value.source for value in existing.values() if value.source.source_id != source.source_id],
+                        client=metadata_client() if library_kind == "legal" else None)
+                    source, prepared = draft.source, draft.prepared
+                    item["source"] = source.model_dump(mode="json")
+                    item.update(draft.summary())
+                    item["retire"] = [retired.model_dump(mode="json") for retired in draft.retired]
+                    if draft.supersession_problem:
+                        raise ValueError(draft.supersession_problem)
                     prepared.require_publishable()
                     digest = normalized_content_hash(prepared.document.text)
                     item["content_hash"] = digest

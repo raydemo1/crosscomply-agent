@@ -56,6 +56,8 @@ WEB_BOILERPLATE_PATTERNS = [
         r"^URL Source:\s+",
         r"^Markdown Content:\s*$",
         r"^\d{4}年\d{2}月\d{2}日 星期[一二三四五六日天]$",
+        # The page's own dateline: "2023年12月13日 09:00 来源：中国网信网"
+        r"^\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日\s+\d{1,2}:\d{2}\s+来源\s*[:：]",
         r"^\[设为首页\].*\[加入收藏\].*",
         r"^\[搜索\]\(",
         r"^\*?\s*!\[Image\b",
@@ -79,6 +81,12 @@ WEB_BOILERPLATE_PATTERNS = [
         r"^使用“扫一扫”",
         r"^\*\s+######\s*(学习强国|微信|返回顶部)",
         r"^_◆_◆",
+        # A government page's own chrome, as a plain HTML download renders it line by line:
+        # navigation entries, account links, the leave-site prompt and the footer.
+        r"^(?:\|+|首\s*页|简|繁|EN|登录|注册|退出|个人中心|邮箱|无障碍|小程序|微博|微信|搜索|网站纠错|放弃|继续|下载"
+        r"|评价建议|时政要闻|网信政务|互动服务|热点专题|-->|<!--|【打印】.*|【关闭】|打印本页|关闭窗口)$",
+        r"^设为首页",
+        r"^(?:主办单位|运行维护单位|版权所有|网站标识码|您访问的链接即将离开|如您对本服务有任何意见)",
     ]
 ]
 IMAGE_PLACEHOLDER_RE = re.compile(r"^<!--\s*image\s*-->$", re.IGNORECASE)
@@ -93,6 +101,8 @@ MARKDOWN_SOURCE_LINK_RE = re.compile(
     r"^\[[^\]]*(?:tc260\.org\.cn|cac\.gov\.cn|flk\.npc\.gov\.cn)[^\]]*\]\([^)]+\)$",
     re.IGNORECASE,
 )
+# A Markdown link keeps its words and loses its address: "[附件1：标准合同](https://…)".
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]\n]*)\]\((?:https?:)?//[^)\s]*\)")
 STANDALONE_YEAR_MONTH_RE = re.compile(r"^20\d{2}\s*年\s*\d{1,2}\s*月$")
 PDF_COVER_FRAGMENT_RE = re.compile(r"^(?:TECHNICAL COMMITTEE|Cyber|维化技术|术委员会|[会委])$")
 
@@ -371,6 +381,10 @@ def clean_text(text: str, *, title: str | None = None) -> CleanResult:
     hits["trailing_space"] = count
 
     if title:
+        # The page's <title> line is the document title followed by the site: "标题_中国政府网".
+        site_title = re.compile(rf"^{re.escape(title.strip())}\s*_.*$")
+        text, count = _apply_counted_sub(re.compile(site_title.pattern, re.MULTILINE), "", text)
+        hits["page_title_line"] = count
         lines = text.split("\n")
         cleaned_lines: list[str] = []
         seen_title = False
@@ -384,6 +398,9 @@ def clean_text(text: str, *, title: str | None = None) -> CleanResult:
             cleaned_lines.append(line)
         text = "\n".join(cleaned_lines)
         hits["duplicate_title"] = duplicate_title_count
+
+    text, count = _apply_counted_sub(MARKDOWN_LINK_RE, r"\1", text)
+    hits["markdown_link_targets"] = count
 
     lines, count = _remove_contents_table(text.split("\n"))
     lines, line_hits = _remove_mechanical_lines(lines)

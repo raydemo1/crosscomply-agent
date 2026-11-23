@@ -126,6 +126,9 @@
 .knowledge-form .form-field > span, .knowledge-import-fields .form-field > span { font-size: 0.8125rem; }
 .knowledge-form input, .knowledge-form select, .knowledge-import-fields input, .knowledge-import-fields select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-foreground); font: inherit; font-size: var(--text-md); }
 .knowledge-form__grid, .knowledge-import-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.knowledge-form__evidence { display: block; margin-top: 3px; color: var(--color-foreground-muted); font-size: 0.75rem; line-height: 1.4; }
+.knowledge-form__unresolved { display: block; margin-top: 3px; color: var(--color-danger-strong); font-size: 0.75rem; font-weight: 600; }
+.knowledge-form__chunks summary { cursor: pointer; font-size: 0.8125rem; }
 .knowledge-form__save { width: 100%; min-height: 40px; margin-top: 4px; font-size: var(--text-md); }
 .knowledge-detail__technical { margin: 0 20px 18px; padding-top: 12px; border-top: 1px solid var(--color-hairline); color: var(--color-foreground-muted); font-size: var(--text-sm); }
 .knowledge-detail__technical > summary { cursor: pointer; min-height: 32px; }
