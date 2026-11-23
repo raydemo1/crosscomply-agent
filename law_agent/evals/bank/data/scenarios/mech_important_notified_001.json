@@ -26,7 +26,8 @@
     {
       "filename": "网信办告知函摘要.txt",
       "kind": "business_memo",
-      "text": "数据安全部摘要（2026年9月20日）\n\n9月15日收到省网信办转来的告知：公司“全国主要城市航班与酒店预订量日度统计数据集”被认定为重要数据。该数据集是按城市、日期汇总的预订量统计，不含个人信息。\n\n集团财务每月把该数据集同步到新加坡数据中心用于经营分析。集团希望先继续同步，等年底再统一处理。"
+      "text": "数据安全部摘要（2026年9月20日）\n\n9月15日收到省网信办转来的告知：公司“全国主要城市航班与酒店预订量日度统计数据集”被认定为重要数据。该数据集是按城市、日期汇总的预订量统计，不含个人信息。\n\n集团财务每月把该数据集同步到新加坡数据中心用于经营分析。集团希望先继续同步，等年底再统一处理。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -74,27 +75,39 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第七条",
-        "note": "向境外提供重要数据申报安全评估"
+        "note": "向境外提供重要数据申报安全评估",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+              "article_no": "第三十七条"
+            }
+          ]
+        ]
       },
       {
         "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
         "article_no": "第三十七条",
-        "note": "重要数据确需出境须通过安全评估"
-      },
-      {
-        "source_id": "cac_cross_border_data_flow_rules_2024",
-        "article_no": "第三条",
-        "note": "不含个人信息或重要数据的才免予"
+        "note": "重要数据确需出境须通过安全评估",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_data_export_policy_qna_2025_05",
         "article_no": null,
-        "note": "被告知后2个月内申报安全评估"
+        "note": "被告知后2个月内申报安全评估",
+        "equivalents": []
       }
     ],
-    "optional": [],
+    "optional": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第三条",
+        "note": "不含个人信息或重要数据的才免予",
+        "equivalents": []
+      }
+    ],
     "must_not_cite": []
   },
   "agent_rubric": {

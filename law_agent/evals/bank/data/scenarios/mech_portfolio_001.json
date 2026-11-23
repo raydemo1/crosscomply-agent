@@ -29,7 +29,8 @@
     {
       "filename": "项目说明.txt",
       "kind": "business_memo",
-      "text": "日服客服项目说明\n\n日服上线后，由日本客服外包公司处理日服玩家（中国境内注册账号）的工单，预计今年涉及约3万名玩家的账号ID、昵称和工单内容。项目组认为单个项目人数不到10万，可以免予申报。"
+      "text": "日服客服项目说明\n\n日服上线后，由日本客服外包公司处理日服玩家（中国境内注册账号）的工单，预计今年涉及约3万名玩家的账号ID、昵称和工单内容。项目组认为单个项目人数不到10万，可以免予申报。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -76,17 +77,20 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "不满10万免予按处理者累计"
+        "note": "不满10万免予按处理者累计",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "10万至100万"
+        "note": "10万至100万",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第七条",
-        "note": "100万以上"
+        "note": "100万以上",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

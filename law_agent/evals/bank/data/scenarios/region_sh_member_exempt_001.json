@@ -28,7 +28,8 @@
     {
       "filename": "同步方案.txt",
       "kind": "business_memo",
-      "text": "会员数据同步方案（修订）\n\n同步字段：会员姓名、手机号、会员等级、积分余额、购买记录（商品、时间、金额）、偏好门店。今年计划同步约80万名会员（去重），不含敏感个人信息。"
+      "text": "会员数据同步方案（修订）\n\n同步字段：会员姓名、手机号、会员等级、积分余额、购买记录（商品、时间、金额）、偏好门店。今年计划同步约80万名会员（去重），不含敏感个人信息。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -66,14 +67,16 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第六条",
-        "note": "负面清单外数据免予"
+        "note": "负面清单外数据免予",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
         "article_no": null,
-        "note": "会员管理数据不满100万人不在清单内"
+        "note": "会员管理数据不满100万人不在清单内",
+        "equivalents": []
       }
     ],
     "optional": [],

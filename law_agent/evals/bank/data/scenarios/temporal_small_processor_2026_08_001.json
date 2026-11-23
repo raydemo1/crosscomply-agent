@@ -28,7 +28,8 @@
     {
       "filename": "业务说明.txt",
       "kind": "business_memo",
-      "text": "本机构今年服务约600名学生，受学生委托向英国大学递交成绩单、护照信息页和推荐信。听说有针对小企业的简化规定。"
+      "text": "本机构今年服务约600名学生，受学生委托向英国大学递交成绩单、护照信息页和推荐信。听说有针对小企业的简化规定。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -72,17 +73,20 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "合同履行免予"
+        "note": "合同履行免予",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第五十五条",
-        "note": "向境外提供须影响评估"
+        "note": "向境外提供须影响评估",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第五十六条",
-        "note": "影响评估内容"
+        "note": "影响评估内容",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],
@@ -91,8 +95,9 @@
       {
         "source_id": "cac_small_pip_processor_simplified_measures_2026",
         "article_no": "第十四条",
-        "reason": "not_applicable",
-        "note": "2026年9月1日才施行"
+        "note": "2026年9月1日才施行",
+        "equivalents": [],
+        "reason": "not_applicable"
       }
     ]
   },

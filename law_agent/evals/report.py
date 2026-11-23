@@ -102,7 +102,7 @@ def retrieval_report(aggregate: dict[str, Any], manifest: dict[str, Any]) -> str
               "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
     lines = ["# 检索评测报告", "", f"代码：{manifest.get('base_commit', '')[:12]}", "",
              ("固定查询直接调用生产检索 `ComplianceAgentTools.search`（一批查询共返回 10 条正文）。"
-              "来源召回：正文里有该法规；条款召回：该条作为正文返回；可发现率：正文或导航条目里出现该条。"
+              "来源召回：正文里有该法规；条款召回：该条作为正文返回；可发现率：该条已取得，或在检索结果列表里以预览出现。"
               "单查询目标@k：每条查询对准的条款在它自己的融合排序里进入前 k。"
               "排除条款指该审查时点已失效、被取代或地域/行业不适用的条文。"), "",
              *header, row("全部", aggregate["overall"]), row("不含直接答案场景", aggregate["without_answer_leak"])]

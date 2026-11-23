@@ -28,7 +28,8 @@
     {
       "filename": "项目变更说明.txt",
       "kind": "business_memo",
-      "text": "敬业度调研项目变更\n\n客户新增要求：把其中国子公司约4000名员工的问卷（由我们在境内直接收集）合并到东南亚数据中一起分析，回传明细时不再区分来源。项目经理认为“都是这个客户的数据，仍然属于境外数据回传”。"
+      "text": "敬业度调研项目变更\n\n客户新增要求：把其中国子公司约4000名员工的问卷（由我们在境内直接收集）合并到东南亚数据中一起分析，回传明细时不再区分来源。项目经理认为“都是这个客户的数据，仍然属于境外数据回传”。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -69,12 +70,14 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第四条",
-        "note": "引入境内个人信息则不适用"
+        "note": "引入境内个人信息则不适用",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "境内部分按累计人数判断"
+        "note": "境内部分按累计人数判断",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

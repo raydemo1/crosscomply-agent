@@ -25,7 +25,8 @@
     {
       "filename": "外包合同摘要.txt",
       "kind": "contract_excerpt",
-      "text": "仓储管理系统外包合同摘要\n\n服务商为外资企业在天津设立的子公司，系统部署在天津机房，运维人员均在境内。合同约定服务商不得向其境外关联方提供或开放访问数据。"
+      "text": "仓储管理系统外包合同摘要\n\n服务商为外资企业在天津设立的子公司，系统部署在天津机房，运维人员均在境内。合同约定服务商不得向其境外关联方提供或开放访问数据。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -63,14 +64,29 @@
       {
         "source_id": "cac_data_export_assessment_qna_2022",
         "article_no": null,
-        "note": "数据出境活动的范围"
+        "note": "数据出境活动的范围",
+        "equivalents": [
+          [
+            {
+              "source_id": "cac_data_export_security_assessment_filing_guide_v3_2025",
+              "article_no": null
+            }
+          ],
+          [
+            {
+              "source_id": "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
+              "article_no": null
+            }
+          ]
+        ]
       }
     ],
     "optional": [
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第二十一条",
-        "note": "委托处理的合同约定与监督"
+        "note": "委托处理的合同约定与监督",
+        "equivalents": []
       }
     ],
     "must_not_cite": []

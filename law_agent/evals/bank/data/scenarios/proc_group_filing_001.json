@@ -28,7 +28,8 @@
     {
       "filename": "集团说明.txt",
       "kind": "business_memo",
-      "text": "集团合规说明\n\n星屿互动旗下三家游戏子公司（杭州、成都、厦门）均向同一家新加坡数据分析平台提供玩家行为数据，业务场景和数据字段一致，三家合计去重约130万人。合规部担心要准备三套申报材料。"
+      "text": "集团合规说明\n\n星屿互动旗下三家游戏子公司（杭州、成都、厦门）均向同一家新加坡数据分析平台提供玩家行为数据，业务场景和数据字段一致，三家合计去重约130万人。合规部担心要准备三套申报材料。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -62,14 +63,16 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第七条",
-        "note": "100万人以上申报评估"
+        "note": "100万人以上申报评估",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_data_export_policy_qna_2025_04",
         "article_no": null,
-        "note": "集团可作为申报主体合并申报"
+        "note": "集团可作为申报主体合并申报",
+        "equivalents": []
       }
     ],
     "optional": [],

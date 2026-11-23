@@ -28,7 +28,8 @@
     {
       "filename": "项目需求.txt",
       "kind": "business_memo",
-      "text": "疲劳识别模型优化项目\n\n计划从6000名同意参加“体验改进计划”的车主车辆中，回传驾驶员面部视频片段（每段10秒）。用户协议中“体验改进计划”条款写明会收集驾驶行为数据用于改进产品，没有提到向境外提供。"
+      "text": "疲劳识别模型优化项目\n\n计划从6000名同意参加“体验改进计划”的车主车辆中，回传驾驶员面部视频片段（每段10秒）。用户协议中“体验改进计划”条款写明会收集驾驶行为数据用于改进产品，没有提到向境外提供。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -74,27 +75,31 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "不满1万人敏感走标准合同或认证"
+        "note": "不满1万人敏感走标准合同或认证",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第二十八条",
-        "note": "生物识别、面部影像属敏感"
+        "note": "生物识别、面部影像属敏感",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第三十九条",
-        "note": "出境单独同意"
+        "note": "出境单独同意",
+        "equivalents": []
       }
     ],
-    "must_retrieve": [
+    "must_retrieve": [],
+    "optional": [
       {
         "source_id": "cac_automotive_data_export_security_guide_2026",
         "article_no": null,
-        "note": "汽车数据处理者可在标准合同与认证中任选其一"
+        "note": "汽车数据处理者可在标准合同与认证中任选其一",
+        "equivalents": []
       }
     ],
-    "optional": [],
     "must_not_cite": []
   },
   "agent_rubric": {

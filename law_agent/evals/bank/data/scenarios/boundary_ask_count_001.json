@@ -28,7 +28,8 @@
     {
       "filename": "病理科说明.txt",
       "kind": "business_memo",
-      "text": "病理科说明\n\n疑难病例经患者同意后，把病理切片数字图像和报告发给美国病理会诊中心出具第二意见。今年已经发了一批，具体人数病理科还在统计。"
+      "text": "病理科说明\n\n疑难病例经患者同意后，把病理切片数字图像和报告发给美国病理会诊中心出具第二意见。今年已经发了一批，具体人数病理科还在统计。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -68,12 +69,14 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "不满1万人敏感"
+        "note": "不满1万人敏感",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第七条",
-        "note": "1万人以上敏感"
+        "note": "1万人以上敏感",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

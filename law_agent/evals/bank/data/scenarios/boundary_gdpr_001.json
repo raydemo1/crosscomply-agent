@@ -27,7 +27,8 @@
     {
       "filename": "客户邮件.txt",
       "kind": "email",
-      "text": "主题：数据处理协议\n\n我们是德国公司，将把欧盟员工的绩效数据传给贵司在南京分析。按照GDPR，我们需要和贵司签署标准合同条款（SCC）并做传输影响评估，请贵司确认能否接受相关条款。分析完成后数据回传德国。"
+      "text": "主题：数据处理协议\n\n我们是德国公司，将把欧盟员工的绩效数据传给贵司在南京分析。按照GDPR，我们需要和贵司签署标准合同条款（SCC）并做传输影响评估，请贵司确认能否接受相关条款。分析完成后数据回传德国。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -59,7 +60,8 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第四条",
-        "note": "回传免予"
+        "note": "回传免予",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

@@ -29,7 +29,8 @@
     {
       "filename": "签证业务说明.txt",
       "kind": "business_memo",
-      "text": "签证代办业务说明\n\n客户在App下单委托办理日本旅游签证，我们把护照信息页、行程单、在职证明和银行流水按领事馆要求提交给日本的签证申请受理机构。今年办理约4.5万单（4.5万人）。产品经理问：是否需要和受理机构签个人信息出境标准合同？"
+      "text": "签证代办业务说明\n\n客户在App下单委托办理日本旅游签证，我们把护照信息页、行程单、在职证明和银行流水按领事馆要求提交给日本的签证申请受理机构。今年办理约4.5万单（4.5万人）。产品经理问：是否需要和受理机构签个人信息出境标准合同？",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -69,19 +70,33 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "签证办理属合同履行豁免"
+        "note": "签证办理属合同履行豁免",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第十条",
-        "note": "豁免不免除告知、同意、评估义务"
+        "note": "豁免不免除告知、同意、评估义务",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第三十九条"
+            },
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第五十五条"
+            }
+          ]
+        ]
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_data_export_policy_qna_2025_10",
         "article_no": null,
-        "note": "豁免须同时满足合同与确需"
+        "note": "豁免须同时满足合同与确需",
+        "equivalents": []
       }
     ],
     "optional": [],

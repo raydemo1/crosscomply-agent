@@ -99,7 +99,7 @@ def test_both_routes_contribute_to_bounded_candidates_before_body_selection():
     from law_agent.review.retrieval.neighbors import hit_from_chunk
     from tests.test_review_agent import _search_tools
 
-    chunks = [_chunk(str(i), f"第{i + 1}条", f"原文{i}", index=i) for i in range(100)]
+    chunks = [_chunk(str(i), f"第{i + 1}条", f"原文{i}" * 40, index=i) for i in range(100)]
     keyword, vector = [[hit_from_chunk(c, i).model_copy(update={"score": 100 - i})
                         for i, c in enumerate(batch)] for batch in [chunks[:50], chunks[50:]]]
     tools = _search_tools(chunks, lambda *a, **k: [keyword], top_k=1)
@@ -145,3 +145,47 @@ def test_rerank_reads_clause_candidates_before_source_collapse_and_uses_current_
     assert any("候选原文1\n" in doc + "\n" for doc in calls[0][1])
     assert hits[0].chunk_id == "1"
     assert hits[0].can_cite_clause
+
+
+def test_vector_only_hits_take_article_metadata_from_the_corpus():
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+    from tests.test_review_agent import _search_tools
+
+    chunks = [_chunk(str(i), f"第{i + 1}条", f"原文{i}" * 40, index=i) for i in range(3)]
+    # The vector index returns rows without article numbers or headings.
+    bare = [hit_from_chunk(c, i).model_copy(update={"article_no": None, "heading_path": [], "score": 3 - i})
+            for i, c in enumerate(chunks)]
+    tools = _search_tools(chunks, lambda *a, **k: [[]], top_k=1)
+    tools._adapters.vector = SimpleNamespace(search_many=lambda *a, **k: [bare])
+    tools.search([RetrievalQuery(query_id="q", query_type="legal_issue", text="规则")], ReviewFacts())
+    assert [h.article_no for h in tools.last_query_candidates()[0]] == ["第1条", "第2条", "第3条"]
+    locations = [loc for source in tools.search_results() for loc in source["locations"]]
+    assert [(loc["article_no"], loc.get("acquired", False)) for loc in locations] == [
+        ("第1条", True), ("第2条", False), ("第3条", False)]
+
+
+def test_a_sectioned_document_keeps_two_listed_positions_while_law_articles_are_never_deferred():
+    from law_agent.review.agent_tools import _spread_sources
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+
+    sections = [_chunk(f"list{i}", "", f"清单条目{i}", index=i).model_copy(update={
+        "source_id": "ftz_list", "article_no": None, "can_cite_clause": False}) for i in range(4)]
+    law = [_chunk(f"law{i}", f"第{i + 5}条", f"条文{i}", index=10 + i) for i in range(4)]
+    ranked = [hit_from_chunk(c, i) for i, c in enumerate([*sections, *law, _chunk("tail", "第九条", "尾", index=20)])]
+    spread = [h.chunk_id for h in _spread_sources(ranked)]
+    # Only two list sections stay in front; every article of the law does, and the rest of the list follows.
+    assert spread[:6] == ["list0", "list1", "law0", "law1", "law2", "law3"]
+    assert spread[6:] == ["tail", "list2", "list3"]
+
+
+def test_preview_starts_at_the_sentence_matching_the_query_and_names_its_section():
+    from law_agent.review.agent_tools import preview_for
+    from law_agent.review.retrieval.neighbors import hit_from_chunk
+
+    answer = _chunk("qa", "", "答：此前已说明的背景情况。" * 6 + "第五条第一款第一项至第三项情形不计入累计数量。", index=0)
+    hit = hit_from_chunk(answer, 0).model_copy(update={
+        "article_no": None, "heading_path": ["政策问答", "问11：如何计算累计数量？"]})
+    preview = preview_for(hit, "累计数量 不计入 豁免情形")
+    assert preview.startswith("【问11：如何计算累计数量？】……第五条第一款第一项至第三项情形不计入累计数量")
+    # No sentence matches: the opening is kept, with no ellipsis.
+    assert preview_for(hit, "完全无关").startswith("【问11：如何计算累计数量？】答：此前已说明")

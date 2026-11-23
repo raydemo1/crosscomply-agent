@@ -28,7 +28,8 @@
     {
       "filename": "业务说明.txt",
       "kind": "business_memo",
-      "text": "国际快件业务说明\n\n今年承运的出口快件中，个人寄件人和收件人约4.5万人；另有大量企业客户货物，只涉及企业名称和企业联系人的姓名、电话。需要把寄收件信息报给境外承运商用于运输和目的国清关。"
+      "text": "国际快件业务说明\n\n今年承运的出口快件中，个人寄件人和收件人约4.5万人；另有大量企业客户货物，只涉及企业名称和企业联系人的姓名、电话。需要把寄收件信息报给境外承运商用于运输和目的国清关。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -68,12 +69,14 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "跨境寄递豁免与不满10万人免予"
+        "note": "跨境寄递豁免与不满10万人免予",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第三条",
-        "note": "不含个人信息的运输数据免予"
+        "note": "不含个人信息的运输数据免予",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

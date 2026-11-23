@@ -26,7 +26,8 @@
     {
       "filename": "评估结果通知摘要.txt",
       "kind": "business_memo",
-      "text": "评估结果通知摘要\n\n准予出境：会员ID、姓名、手机号、会员等级、订单号。\n不予准予（出境必要性不足）：身份证号、常用住址、紧急联系人。\n\n集团IT表示系统字段已固定，暂时无法删除这三个字段，建议先照常同步，后续再改。"
+      "text": "评估结果通知摘要\n\n准予出境：会员ID、姓名、手机号、会员等级、订单号。\n不予准予（出境必要性不足）：身份证号、常用住址、紧急联系人。\n\n集团IT表示系统字段已固定，暂时无法删除这三个字段，建议先照常同步，后续再改。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -67,14 +68,16 @@
       {
         "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
         "article_no": "第三十八条",
-        "note": "不得超出评估明确的范围、种类"
+        "note": "不得超出评估明确的范围、种类",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_data_export_policy_qna_2025_04",
         "article_no": null,
-        "note": "必要性评估要点"
+        "note": "必要性评估要点",
+        "equivalents": []
       }
     ],
     "optional": [],

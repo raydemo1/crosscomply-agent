@@ -14,6 +14,7 @@ from law_agent.review.agent import (
 )
 from law_agent.review.agent_tools import ComplianceAgentTools
 from law_agent.review.result_builder import LLMReviewResultDraft, ReviewQuestionDraft
+from law_agent.review.retrieval.later_provisions import index_later_provisions
 from law_agent.review.schemas import RetrievalHit, RetrievalQuery, ReviewFacts
 from tests.test_review_llm import FakeClient, tool_message
 
@@ -840,7 +841,7 @@ def test_omitted_keyword_source_is_discoverable_but_requires_reading_before_cita
     from law_agent.review.schemas import GroundedClaim
 
     primary = _chunk("primary", "第一条", "主要命中", index=0)
-    target = _chunk("target", "第二条", "关键词命中的条件", index=0).model_copy(update={"source_id": "other"})
+    target = _chunk("target", "第二条", "关键词命中的条件" * 20, index=0).model_copy(update={"source_id": "other"})
     duplicate = target.model_copy(update={"chunk_id": "duplicate", "chunk_index": 1})
     future = target.model_copy(update={"chunk_id": "future", "source_id": "future-source",
                                        "publish_date": "2027-01-01", "effective_date": "2027-01-01"})
@@ -861,13 +862,14 @@ def test_omitted_keyword_source_is_discoverable_but_requires_reading_before_cita
     state = run_agent(
         AgentState(goal="核对条件", facts=ReviewFacts(as_of_date="2026-10-08")),
         material="", intake={}, decide=lambda *_: next(decisions), search=tools.search,
-        search_navigation=tools.search_navigation, read_evidence=tools.read_evidence,
+        search_results=tools.search_results, read_evidence=tools.read_evidence,
         web_search=lambda *_args: [], finalize=lambda *_args: {"ok": True},
         checkpoint=lambda current: snapshots.append(current.model_copy(deep=True)),
     )
-    candidates = state.steps[0].observation["candidate_navigation"]
-    assert len(candidates) == 1
-    assert candidates[0]["source_id"] == "other" and candidates[0]["locations"][0]["article_no"] == "第二条"
+    results = state.steps[0].observation["results"]
+    assert [(source["source_id"], [loc.get("acquired", False) for loc in source["locations"]]) for source in results] == [
+        ("s1", [True]), ("other", [False])]
+    assert results[1]["locations"][0]["article_no"] == "第二条"
     assert state.queries[0].query_id in state.evidence[0].matched_query_ids
     searched = next(s for s in snapshots if len(s.steps) == 1)
     assert {h.source_id for h in searched.evidence} == {"s1"}
@@ -878,7 +880,7 @@ def test_omitted_keyword_source_is_discoverable_but_requires_reading_before_cita
     assert "future" not in {h.chunk_id for h in state.evidence}
 
 
-def test_search_navigation_keeps_omitted_articles_in_an_already_returned_source():
+def test_search_results_keep_omitted_articles_in_an_already_returned_source():
     from law_agent.review.retrieval.neighbors import hit_from_chunk
 
     primary, target, generic1, generic2 = [
@@ -886,8 +888,8 @@ def test_search_navigation_keeps_omitted_articles_in_an_already_returned_source(
         for index, (name, article, text) in enumerate([
             ("primary", "第一条", "一般义务"),
             ("target", "第二条", "义务例外" * 100),
-            ("generic1", "第三条", "一般范围"),
-            ("generic2", "第四条", "通用范围"),
+            ("generic1", "第三条", "一般范围" * 30),
+            ("generic2", "第四条", "通用范围" * 30),
         ])
     ]
     keyword = [hit_from_chunk(c, 1) for c in (primary, target, generic1, generic2)]
@@ -900,7 +902,8 @@ def test_search_navigation_keeps_omitted_articles_in_an_already_returned_source(
 
     assert {h.source_id for h in hits} == {"s1"}
     assert "target" not in {h.chunk_id for h in hits}
-    assert {loc["chunk_id"] for source in tools.search_navigation() for loc in source["locations"]} == {"primary", "target", "generic2"}
+    listed = {loc["chunk_id"]: loc.get("acquired", False) for source in tools.search_results() for loc in source["locations"]}
+    assert listed == {"generic1": True, "primary": True, "target": False, "generic2": False}  # primary is short and whole
     read = tools.read_evidence("s1", "第二条", None, ReviewFacts())
     assert [h.chunk_id for h in read.hits] == ["target"]
 
@@ -943,10 +946,10 @@ def test_search_observation_keeps_query_matches_distinct_between_batches():
         finalize=lambda *_: {}, checkpoint=lambda *_: None,
     )
 
-    groups = [step.observation["query_results"][0] for step in state.steps[:2]]
+    groups = [step.observation["queries"][0] for step in state.steps[:2]]
     assert groups[0]["query_id"] != groups[1]["query_id"]
     assert [group["text"] for group in groups] == ["第一个问题", "第二个问题"]
-    assert all(group["chunk_ids"] == ["c1"] for group in groups)
+    assert all(step.observation["chunk_ids"] == ["c1"] for step in state.steps[:2])
 
 
 def test_review_search_budgets_do_not_evict_originals_from_previous_rounds():
@@ -1046,8 +1049,9 @@ def _tools_with(chunks: list[Chunk]) -> ComplianceAgentTools:
     tools._chunks = chunks
     tools._chunks_by_id = {chunk.chunk_id: chunk for chunk in chunks}
     tools._sources_with_articles = {chunk.source_id for chunk in chunks if chunk.article_no}
+    tools._later_provisions = index_later_provisions(chunks)
     tools._candidate_hits = {}
-    tools._search_navigation = []
+    tools._search_results = []
     return tools
 
 

@@ -95,7 +95,7 @@ def execute_agent_task(
             material_versions=material_versions,
             execute_python=sandbox.run if sandbox is not None else None,
             search=tools.search,
-            search_navigation=tools.search_navigation,
+            search_results=tools.search_results,
             read_evidence=tools.read_evidence,
             web_search=tools.search_web,
             on_web_findings=on_web_findings,

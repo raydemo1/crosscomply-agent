@@ -29,7 +29,8 @@
     {
       "filename": "业务说明.txt",
       "kind": "business_memo",
-      "text": "业务说明\n\n本机构今年服务约600名学生，累计处理的个人信息不到1万人。学生委托我们向英国大学递交成绩单、护照信息页、推荐信和个人陈述。老板听说有针对小企业的简化规定，想知道影响评估能不能简化。"
+      "text": "业务说明\n\n本机构今年服务约600名学生，累计处理的个人信息不到1万人。学生委托我们向英国大学递交成绩单、护照信息页、推荐信和个人陈述。老板听说有针对小企业的简化规定，想知道影响评估能不能简化。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -73,17 +74,20 @@
       {
         "source_id": "cac_small_pip_processor_simplified_measures_2026",
         "article_no": "第二条",
-        "note": "处理不满10万人为小型处理者"
+        "note": "处理不满10万人为小型处理者",
+        "equivalents": []
       },
       {
         "source_id": "cac_small_pip_processor_simplified_measures_2026",
         "article_no": "第十条",
-        "note": "出境免予情形及告知、单独同意义务"
+        "note": "出境免予情形及告知、单独同意义务",
+        "equivalents": []
       },
       {
         "source_id": "cac_small_pip_processor_simplified_measures_2026",
         "article_no": "第十四条",
-        "note": "可用简易影响评估表并保存三年"
+        "note": "可用简易影响评估表并保存三年",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

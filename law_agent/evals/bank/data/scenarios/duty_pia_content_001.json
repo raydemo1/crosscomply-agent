@@ -28,7 +28,8 @@
     {
       "filename": "影响评估报告目录.txt",
       "kind": "pia_draft",
-      "text": "个人信息保护影响评估报告（草稿）目录\n一、出境数据清单（字段、数量15万人）\n二、传输加密与访问控制措施\n三、结论：风险可控\n\n（报告未涉及：处理目的与必要性分析、境外接收方的承诺与能力、美国个人信息保护法规对合同履行的影响、个人维权渠道）"
+      "text": "个人信息保护影响评估报告（草稿）目录\n一、出境数据清单（字段、数量15万人）\n二、传输加密与访问控制措施\n三、结论：风险可控\n\n（报告未涉及：处理目的与必要性分析、境外接收方的承诺与能力、美国个人信息保护法规对合同履行的影响、个人维权渠道）",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -74,17 +75,20 @@
       {
         "source_id": "cac_personal_info_export_standard_contract_measures_2023",
         "article_no": "第五条",
-        "note": "影响评估重点内容"
+        "note": "影响评估重点内容",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第五十六条",
-        "note": "影响评估内容与保存三年"
+        "note": "影响评估内容与保存三年",
+        "equivalents": []
       },
       {
         "source_id": "cac_personal_info_export_standard_contract_measures_2023",
         "article_no": "第七条",
-        "note": "备案须提交影响评估报告"
+        "note": "备案须提交影响评估报告",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

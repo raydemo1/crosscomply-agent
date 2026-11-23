@@ -28,7 +28,8 @@
     {
       "filename": "变更通知.txt",
       "kind": "email",
-      "text": "发件人：新加坡区域总部IT\n主题：CRM系统迁移\n\n明年一季度起，区域CRM将迁移到美国弗吉尼亚的数据中心，客户联系人数据（中国区约12万人）将存储在美国，新加坡团队继续使用。请中国公司知悉。"
+      "text": "发件人：新加坡区域总部IT\n主题：CRM系统迁移\n\n明年一季度起，区域CRM将迁移到美国弗吉尼亚的数据中心，客户联系人数据（中国区约12万人）将存储在美国，新加坡团队继续使用。请中国公司知悉。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -59,7 +60,8 @@
       {
         "source_id": "cac_personal_info_export_standard_contract_measures_2023",
         "article_no": "第八条",
-        "note": "保存地点变化须重新评估、补充或重新订立并备案"
+        "note": "保存地点变化须重新评估、补充或重新订立并备案",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

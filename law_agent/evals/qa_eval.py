@@ -1,7 +1,7 @@
 """Q&A Agent evaluation: what the Agent gathers and cites after its own multi-round research.
 
 The retrieval eval scores one batch of fixed queries. Here the production Q&A
-Agent (``execute_qa``) plans its own queries, reads navigation entries and
+Agent (``execute_qa``) plans its own queries, reads listed results and
 articles, and answers; ``evals.evidence`` scores what it gathered and cited
 against the same article-level labels (the review-report Agent uses the same scorer).
 
@@ -17,13 +17,37 @@ from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from statistics import median
-from typing import Any
+from typing import Any, Literal, get_args
+
+from pydantic import Field
 
 from law_agent.data.schemas import StrictModel
 from law_agent.evals.bank.schema import Scenario
 from law_agent.evals.evidence import EvidenceScore, score_evidence, summarize_evidence
 
 Executor = Callable[..., None]
+
+
+ReadOrigin = Literal["preview", "later_provision", "returned_source", "continuation", "direct"]
+
+
+class ReadRecord(StrictModel):
+    """One evidence read and where the Agent found what it asked for.
+
+    preview — the location was listed with a preview in an earlier search's results;
+    later_provision — it is a later provision shown with an earlier source;
+    returned_source — another part of a source already returned as a body;
+    continuation — paging or expanding an outline the Agent had opened;
+    direct — none of the above: the Agent named the source itself.
+    """
+
+    turn: int
+    source_id: str | None
+    source_title: str | None
+    article_no: str | None
+    chunk_id: str | None
+    origin: ReadOrigin
+    ok: bool
 
 
 class QARun(StrictModel):
@@ -40,7 +64,58 @@ class QARun(StrictModel):
     queries: list[str]
     answer: str
     citations: list[dict[str, Any]]
+    evidence_refs: list[dict[str, Any]]  # what was gathered, so a label change can be rescored without a rerun
+    read_records: list[ReadRecord] = Field(default_factory=list)
     evidence: EvidenceScore
+
+
+def read_records(state: dict[str, Any], *, turn: int) -> list[ReadRecord]:
+    """Classify every read in one turn's saved state by what the Agent had been shown before it."""
+
+    hits = {hit["chunk_id"]: hit for hit in state.get("evidence", [])}
+    listed_locations: set[tuple[str, str | None]] = set()
+    listed_chunks: set[str] = set()
+    listed_sources: set[str] = set()
+    returned_sources: set[str] = set()
+    later: set[tuple[str, str | None]] = set()
+
+    def acquired(chunk_ids: list[str]) -> None:
+        for chunk_id in chunk_ids:
+            hit = hits.get(chunk_id)
+            if hit is not None:
+                returned_sources.add(hit["source_id"])
+                later.update((p["source_id"], p.get("article_no")) for p in hit.get("later_provisions", []))
+
+    records: list[ReadRecord] = []
+    for step in state.get("steps", []):
+        observation = step.get("observation", {})
+        if step.get("action") == "search_evidence":
+            acquired(observation.get("chunk_ids", []))
+            for source in observation.get("results", []):
+                listed_sources.add(source["source_id"])
+                for location in source.get("locations", []):
+                    if not location.get("acquired"):
+                        listed_chunks.add(location["chunk_id"])
+                        listed_locations.add((source["source_id"], location.get("article_no")))
+        for result in observation.get("read_results", []) if step.get("action") == "read_evidence" else []:
+            request = result.get("read_request", {})
+            source = result.get("resolved_source_id") or request.get("source_id")
+            article, chunk = request.get("article_no"), request.get("chunk_id")
+            if request.get("offset") or request.get("node_id") or request.get("parent_node_id"):
+                origin = "continuation"
+            elif chunk in listed_chunks or (article and (source, article) in listed_locations) or (
+                    not article and not chunk and source in listed_sources):
+                origin = "preview"
+            elif (source, article) in later:
+                origin = "later_provision"
+            elif source in returned_sources:
+                origin = "returned_source"
+            else:
+                origin = "direct"
+            records.append(ReadRecord(turn=turn, source_id=source, source_title=request.get("source_title"),
+                                      article_no=article, chunk_id=chunk, origin=origin, ok="error" not in result))
+            acquired(result.get("chunk_ids", []))
+    return records
 
 
 def score_run(scenario: Scenario, *, evidence: Sequence[dict[str, Any]], citations: Sequence[dict[str, Any]],
@@ -48,6 +123,8 @@ def score_run(scenario: Scenario, *, evidence: Sequence[dict[str, Any]], citatio
     return QARun(
         scenario_id=scenario.scenario_id, split=scenario.split, judgment_points=list(scenario.judgment_points),
         answer_leak=bool(scenario.answer_leak_sources), citations=list(citations),
+        evidence_refs=[{"chunk_id": e.get("chunk_id"), "source_id": e.get("source_id"),
+                        "article_no": e.get("article_no")} for e in evidence],
         evidence=score_evidence(scenario.retrieval, evidence=evidence, citations=citations), **fields,
     )
 
@@ -65,6 +142,7 @@ def run_scenario(scenario: Scenario, *, chunks_path: Path, execute: Executor | N
     evidence: dict[str, dict[str, Any]] = {}
     totals = {"turns": 0, "searches": 0, "reads": 0, "web_searches": 0}
     queries: list[str] = []
+    reads: list[ReadRecord] = []
     status, error, answer, citations = "failed", None, "", []
     for index, question in enumerate(turns):
         run: dict[str, Any] = {"id": f"r{index + 1}", "question": question, "attempt": 1,
@@ -90,6 +168,7 @@ def run_scenario(scenario: Scenario, *, chunks_path: Path, execute: Executor | N
         for key in totals:
             totals[key] += state.get(key, 0)
         queries += [q["text"] for q in state.get("queries", [])]
+        reads += read_records(state, turn=index + 1)
         if failure is not None:
             status, error = "failed", failure[:1000]
             break
@@ -101,7 +180,14 @@ def run_scenario(scenario: Scenario, *, chunks_path: Path, execute: Executor | N
         answer, citations = result.get("answer") or run["answer"], result.get("citations", [])
         break
     return score_run(scenario, evidence=list(evidence.values()), citations=citations, status=status, error=error,
-                     answer=answer, queries=queries, **totals)
+                     answer=answer, queries=queries, read_records=reads, **totals)
+
+
+def rescore(run: QARun, scenario: Scenario) -> QARun:
+    """Score a saved run against the scenario's current labels, without calling the Agent again."""
+
+    return run.model_copy(update={"evidence": score_evidence(
+        scenario.retrieval, evidence=run.evidence_refs, citations=run.citations)})
 
 
 def aggregate(runs: Sequence[QARun]) -> dict[str, Any]:
@@ -113,6 +199,9 @@ def aggregate(runs: Sequence[QARun]) -> dict[str, Any]:
                                **summarize_evidence(r.evidence for r in scored)}
         for key in ("searches", "reads", "turns"):
             out[f"median_{key}"] = median([getattr(r, key) for r in scored]) if scored else None
+        records = [record for r in scored for record in r.read_records]
+        out["read_origins"] = {origin: sum(record.origin == origin for record in records)
+                               for origin in get_args(ReadOrigin)}
         return out
 
     return {
@@ -151,8 +240,13 @@ def qa_report(aggregate_: dict[str, Any], manifest: dict[str, Any]) -> str:
     header = ["| 范围 | 场景 | 完成/追问/失败 | 必引条款 | 证据召回 | 回答引用 | 必检来源召回 | 引用排除条款的场景 | 检索/精读次数中位数 |",
               "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
     lines = ["# 问答 Agent 评测报告", "", f"代码：{manifest.get('base_commit', '')[:12]}", "",
-             ("生产问答 Agent 自主规划查询、按导航精读并作答，不经过语义核验器；审查时点固定为场景的 as_of_date。"
-              "证据召回：标签条款出现在本次检索或精读拿到的全部证据中；回答引用：最终回答引用了该条。"), "",
+             ("生产问答 Agent 自主规划查询、按检索结果精读并作答，不经过语义核验器；审查时点固定为场景的 as_of_date。"
+              "证据召回：标签条款（或其列明的等价条款）出现在本次检索或精读拿到的全部证据中；回答引用：最终回答引用了该条或其等价条款。"), "",
              *header, row("全部", aggregate_["overall"]), row("不含直接答案场景", aggregate_["without_answer_leak"])]
     lines += [row(f"split={k}", v) for k, v in aggregate_["by_split"].items()]
+    origins = aggregate_["overall"]["read_origins"]
+    names = {"preview": "来自检索结果的预览", "later_provision": "来自新规关联条款", "returned_source": "已返回来源的其他部分",
+             "continuation": "续读或展开目录", "direct": "Agent 自行指定"}
+    lines += ["", "## 精读从哪里来", "", "| 来源 | 次数 |", "| --- | ---: |",
+              *(f"| {names[k]} | {v} |" for k, v in origins.items())]
     return "\n".join(lines) + "\n"

@@ -26,7 +26,8 @@
     {
       "filename": "数据分类分级自评结论.txt",
       "kind": "business_memo",
-      "text": "数据分类分级自评结论（2026年8月）\n\n依据GB/T 43697-2024附录G，自评认为“全国主要城市酒店预订量日度统计”达到一定规模和精度，可能属于重要数据，已于8月向省网信办报送识别结果，尚未收到任何反馈或告知。该数据为汇总统计，不含个人信息。\n\n集团要求本月起每月同步到新加坡。业务部门问：既然自己认定可能是重要数据，是不是必须先申报安全评估？"
+      "text": "数据分类分级自评结论（2026年8月）\n\n依据GB/T 43697-2024附录G，自评认为“全国主要城市酒店预订量日度统计”达到一定规模和精度，可能属于重要数据，已于8月向省网信办报送识别结果，尚未收到任何反馈或告知。该数据为汇总统计，不含个人信息。\n\n集团要求本月起每月同步到新加坡。业务部门问：既然自己认定可能是重要数据，是不是必须先申报安全评估？",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -74,24 +75,35 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第二条",
-        "note": "未被告知或公开发布的不需作为重要数据申报"
+        "note": "未被告知或公开发布的不需作为重要数据申报",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+              "article_no": "第三十七条"
+            }
+          ]
+        ]
       },
       {
         "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
         "article_no": "第二十九条",
-        "note": "识别、申报重要数据，确认后告知或公开"
+        "note": "识别、申报重要数据，确认后告知或公开",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第三条",
-        "note": "不含个人信息或重要数据的免予"
+        "note": "不含个人信息或重要数据的免予",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_data_export_policy_qna_2025_05",
         "article_no": null,
-        "note": "未被告知不会被认定违法出境重要数据"
+        "note": "未被告知不会被认定违法出境重要数据",
+        "equivalents": []
       }
     ],
     "optional": [],

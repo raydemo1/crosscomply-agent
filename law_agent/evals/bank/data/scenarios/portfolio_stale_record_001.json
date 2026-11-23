@@ -29,7 +29,8 @@
     {
       "filename": "项目说明.txt",
       "kind": "business_memo",
-      "text": "韩服客服项目预计今年涉及4万名玩家。项目组想知道加上公司其他出境业务后是否超过门槛。"
+      "text": "韩服客服项目预计今年涉及4万名玩家。项目组想知道加上公司其他出境业务后是否超过门槛。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -69,12 +70,14 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "当年累计"
+        "note": "当年累计",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "10万以上"
+        "note": "10万以上",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

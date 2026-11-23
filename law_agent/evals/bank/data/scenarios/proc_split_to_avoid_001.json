@@ -28,7 +28,8 @@
     {
       "filename": "方案讨论纪要.txt",
       "kind": "meeting_notes",
-      "text": "方案讨论纪要\n\n全部150万名玩家的数据由母公司统一收集和处理。财务建议成立两家子公司，各自与新加坡服务商签约并分别申请个人信息出境认证，每家约75万人，以避免申报安全评估。"
+      "text": "方案讨论纪要\n\n全部150万名玩家的数据由母公司统一收集和处理。财务建议成立两家子公司，各自与新加坡服务商签约并分别申请个人信息出境认证，每家约75万人，以避免申报安全评估。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -69,12 +70,14 @@
       {
         "source_id": "cac_personal_info_export_certification_measures_2025",
         "article_no": "第五条",
-        "note": "不得以数量拆分规避安全评估"
+        "note": "不得以数量拆分规避安全评估",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第七条",
-        "note": "100万人以上申报评估"
+        "note": "100万人以上申报评估",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],
@@ -82,7 +85,8 @@
       {
         "source_id": "cac_personal_info_export_standard_contract_measures_2023",
         "article_no": "第四条",
-        "note": "标准合同同样禁止拆分"
+        "note": "标准合同同样禁止拆分",
+        "equivalents": []
       }
     ],
     "must_not_cite": []

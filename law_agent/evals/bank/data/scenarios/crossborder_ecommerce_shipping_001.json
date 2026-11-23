@@ -28,7 +28,8 @@
     {
       "filename": "物流流程.txt",
       "kind": "business_memo",
-      "text": "跨境直邮流程\n\n消费者下单后，订单的收件人姓名、电话、收货地址和商品信息发给日本海外仓打包，并交国际快递运输清关。今年约30万名消费者。运营部另外想把消费者的浏览记录也发给海外仓做选品分析。"
+      "text": "跨境直邮流程\n\n消费者下单后，订单的收件人姓名、电话、收货地址和商品信息发给日本海外仓打包，并交国际快递运输清关。今年约30万名消费者。运营部另外想把消费者的浏览记录也发给海外仓做选品分析。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -67,12 +68,14 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "跨境购物、寄递属合同履行豁免"
+        "note": "跨境购物、寄递属合同履行豁免",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "非必需部分按门槛"
+        "note": "非必需部分按门槛",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

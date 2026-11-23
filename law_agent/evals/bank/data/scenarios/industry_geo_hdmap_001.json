@@ -26,7 +26,8 @@
     {
       "filename": "合作方案.txt",
       "kind": "business_memo",
-      "text": "高精地图众包更新合作方案\n\n量产车在国内道路采集车道线、交通标志和道路拓扑变化，回传公司服务器后，计划每周打包发给德国图商更新高精地图。数据不含个人信息。公司没有导航电子地图制作资质，德国图商在国内也没有资质单位。"
+      "text": "高精地图众包更新合作方案\n\n量产车在国内道路采集车道线、交通标志和道路拓扑变化，回传公司服务器后，计划每周打包发给德国图商更新高精地图。数据不含个人信息。公司没有导航电子地图制作资质，德国图商在国内也没有资质单位。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -66,12 +67,14 @@
       {
         "source_id": "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
         "article_no": null,
-        "note": "测绘活动管理、资质单位、境内存储与出境审批"
+        "note": "测绘活动管理、资质单位、境内存储与出境审批",
+        "equivalents": []
       },
       {
         "source_id": "cac_automotive_data_export_security_guide_2026",
         "article_no": null,
-        "note": "测绘地理信息出境须先履行审批或地图审核"
+        "note": "测绘地理信息出境须先履行审批或地图审核",
+        "equivalents": []
       }
     ],
     "optional": [],

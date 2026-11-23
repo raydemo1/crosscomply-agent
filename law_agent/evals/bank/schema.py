@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from datetime import date
 from typing import Literal
 
@@ -51,6 +52,17 @@ NoiseType = Literal[
 ]
 
 
+class ArticleRef(StrictModel):
+    """One member of an equivalent group: an article, or (for ``must_retrieve`` only) a whole source."""
+
+    source_id: str
+    article_no: str | None = None
+
+    @property
+    def key(self) -> str:
+        return f"{self.source_id} {self.article_no}" if self.article_no else self.source_id
+
+
 class Provision(StrictModel):
     """One legal source, optionally narrowed to an article."""
 
@@ -59,10 +71,22 @@ class Provision(StrictModel):
         default=None, description="条号，如 第五条；None 只允许用于整篇作为参考的不可引用来源",
     )
     note: str = Field(min_length=1, description="为什么需要它，一句话")
+    equivalents: list[list[ArticleRef]] = Field(
+        default_factory=list,
+        description="就 note 所说的这一点，同样成立的现行条款组合；任一组全部出现即视为满足。"
+                    "must_retrieve 可列整篇来源（同一说法的其他官方指南、问答）",
+    )
 
     @property
     def key(self) -> str:
         return f"{self.source_id} {self.article_no}" if self.article_no else self.source_id
+
+    def satisfied(self, present: Callable[[str, str | None], bool]) -> bool:
+        """``present(source_id, article_no)``: is that provision among the items scored."""
+
+        return present(self.source_id, self.article_no) or any(
+            all(present(ref.source_id, ref.article_no) for ref in group) for group in self.equivalents
+        )
 
 
 class ExcludedProvision(Provision):
@@ -159,6 +183,12 @@ class RetrievalLabels(StrictModel):
     def article_level_citations(self) -> RetrievalLabels:
         if any(item.article_no is None for item in self.must_cite):
             raise ValueError("must_cite 必须标到条号")
+        if any(p.equivalents for p in (*self.optional, *self.must_not_cite)):
+            raise ValueError("只有 must_cite 和 must_retrieve 可以列等价条款")
+        if any(not group for p in (*self.must_cite, *self.must_retrieve) for group in p.equivalents):
+            raise ValueError("等价条款组不能为空")
+        if any(ref.article_no is None for p in self.must_cite for group in p.equivalents for ref in group):
+            raise ValueError("must_cite 的等价项必须标到条号")
         if not (self.must_cite or self.must_retrieve):
             raise ValueError("检索标签至少需要一条 must_cite 或 must_retrieve")
         labeled = {p.key for p in (*self.must_cite, *self.must_retrieve, *self.optional)}

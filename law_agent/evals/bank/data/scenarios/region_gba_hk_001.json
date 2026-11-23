@@ -28,7 +28,8 @@
     {
       "filename": "客户需求.txt",
       "kind": "email",
-      "text": "主题：数据回传\n\n香港客户（注册于香港）希望我们把其在深圳服务器上的3000名用户联系人资料同步到其香港系统。我们注册在深圳前海，不是关键信息基础设施运营者，数据未被告知为重要数据。客户不会再把数据转给第三地。"
+      "text": "主题：数据回传\n\n香港客户（注册于香港）希望我们把其在深圳服务器上的3000名用户联系人资料同步到其香港系统。我们注册在深圳前海，不是关键信息基础设施运营者，数据未被告知为重要数据。客户不会再把数据转给第三地。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -66,14 +67,16 @@
       {
         "source_id": "cac_gba_hk_standard_contract_guide_2023",
         "article_no": null,
-        "note": "双方注册于大湾区；不得向大湾区外提供；10个工作日内备案"
+        "note": "双方注册于大湾区；不得向大湾区外提供；10个工作日内备案",
+        "equivalents": []
       }
     ],
     "optional": [
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "国家规则下不满10万人免予（对比）"
+        "note": "国家规则下不满10万人免予（对比）",
+        "equivalents": []
       }
     ],
     "must_not_cite": []

@@ -82,6 +82,7 @@ LEGAL_ANALYSIS_GUIDANCE = """## 法律分析方法
 
 ## 专业表达
 使用审慎、客观、自然易懂的中文。区分法定要求、官方解释、推荐性标准、合同约束和实践建议，不将其混写为法定义务；建议须有对应前提。
+法定要求、数量门槛和程序义务以规定它的条文为引用依据；官方问答、解读用于说明适用口径，可与条文并列引用，不替代条文。
 避免无依据的概率性或绝对判断、套话、空泛风险提示、重复免责声明和无关延伸。
 """
 
@@ -253,6 +254,9 @@ class RetrievalHit(StrictModel):
     # retrieval passage; this field is the complete article assembled from
     # all chunks belonging to the same source/article.
     full_article_text: str | None = None
+    # Later provisions in force at the review date that name this hit's source in
+    # precedence language (see ``retrieval.later_provisions``); shown as they are.
+    later_provisions: list[dict[str, str | None]] = Field(default_factory=list)
 
 
 class SourceEvidencePacket(StrictModel):

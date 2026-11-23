@@ -26,7 +26,8 @@
     {
       "filename": "处理说明.txt",
       "kind": "business_memo",
-      "text": "车外视频处理说明\n\n300小时城市道路视频已统一做人脸和车牌模糊，抽检未发现可识别人脸；采集车辆12台，路线不涉及军事管理区、党政机关等敏感区域，未被告知为重要数据。视频画面不含经纬度等空间坐标。"
+      "text": "车外视频处理说明\n\n300小时城市道路视频已统一做人脸和车牌模糊，抽检未发现可识别人脸；采集车辆12台，路线不涉及军事管理区、党政机关等敏感区域，未被告知为重要数据。视频画面不含经纬度等空间坐标。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -70,19 +71,29 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第三条",
-        "note": "不含个人信息或重要数据的免予"
+        "note": "不含个人信息或重要数据的免予",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第二条",
-        "note": "未被告知的不作为重要数据申报"
+        "note": "未被告知的不作为重要数据申报",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+              "article_no": "第三十七条"
+            }
+          ]
+        ]
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_automotive_data_export_security_guide_2026",
         "article_no": null,
-        "note": "重要数据判定规则"
+        "note": "重要数据判定规则",
+        "equivalents": []
       }
     ],
     "optional": [],

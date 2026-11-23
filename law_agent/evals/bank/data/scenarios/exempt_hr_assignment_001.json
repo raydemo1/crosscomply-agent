@@ -29,7 +29,8 @@
     {
       "filename": "外派方案.txt",
       "kind": "business_memo",
-      "text": "员工外派方案（人力资源部）\n\n15名顾问外派新加坡区域总部6个月，需提供姓名、工号、职级、护照信息、学历和外派期间薪资结构，用于办理工作准证与项目排期。\n员工手册（2025版）经职工代表大会讨论通过并已公示，第七章规定员工跨境调派时，公司可向境外关联公司提供办理调派所必需的人事信息。公司没有签订集体合同。"
+      "text": "员工外派方案（人力资源部）\n\n15名顾问外派新加坡区域总部6个月，需提供姓名、工号、职级、护照信息、学历和外派期间薪资结构，用于办理工作准证与项目排期。\n员工手册（2025版）经职工代表大会讨论通过并已公示，第七章规定员工跨境调派时，公司可向境外关联公司提供办理调派所必需的人事信息。公司没有签订集体合同。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -69,22 +70,26 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "跨境人力资源管理豁免"
-      },
-      {
-        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
-        "article_no": "第十三条",
-        "note": "人力资源管理所必需的合法性基础"
+        "note": "跨境人力资源管理豁免",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_data_export_policy_qna_2025_10",
         "article_no": null,
-        "note": "员工身份证、护照是否确需须具体判断"
+        "note": "员工身份证、护照是否确需须具体判断",
+        "equivalents": []
       }
     ],
-    "optional": [],
+    "optional": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第十三条",
+        "note": "人力资源管理所必需的合法性基础",
+        "equivalents": []
+      }
+    ],
     "must_not_cite": []
   },
   "agent_rubric": {

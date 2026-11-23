@@ -28,6 +28,7 @@
     {
       "filename": "出境统计.xlsx",
       "kind": "data_inventory",
+      "text": null,
       "sheets": [
         {
           "name": "2026",
@@ -96,14 +97,16 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "豁免情形与不满10万人免予"
+        "note": "豁免情形与不满10万人免予",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_cross_border_flow_rules_qna_2024",
         "article_no": null,
-        "note": "问11：豁免情形不计入累计"
+        "note": "问11：豁免情形不计入累计",
+        "equivalents": []
       }
     ],
     "optional": [],

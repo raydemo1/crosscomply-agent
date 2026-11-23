@@ -29,7 +29,8 @@
     {
       "filename": "福利方案.txt",
       "kind": "business_memo",
-      "text": "全球医疗保险方案\n\n区域总部统一投保，需要南京公司提供员工及其配偶、子女的姓名、出生日期和既往病史（部分险种需要）。涉及员工600人、家属约300人。HR认为都属于跨境人力资源管理，可以免予。"
+      "text": "全球医疗保险方案\n\n区域总部统一投保，需要南京公司提供员工及其配偶、子女的姓名、出生日期和既往病史（部分险种需要）。涉及员工600人、家属约300人。HR认为都属于跨境人力资源管理，可以免予。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -82,26 +83,31 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "人力资源豁免仅限员工信息"
-      },
-      {
-        "source_id": "cac_cross_border_data_flow_rules_2024",
-        "article_no": "第八条",
-        "note": "不满1万人敏感走标准合同"
+        "note": "人力资源豁免仅限员工信息",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第二十八条",
-        "note": "医疗健康信息敏感"
+        "note": "医疗健康信息敏感",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第二十九条",
-        "note": "敏感信息单独同意"
+        "note": "敏感信息单独同意",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],
-    "optional": [],
+    "optional": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "不满1万人敏感走标准合同",
+        "equivalents": []
+      }
+    ],
     "must_not_cite": []
   },
   "agent_rubric": {

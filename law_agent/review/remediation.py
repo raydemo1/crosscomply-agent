@@ -802,7 +802,7 @@ def execute_rereview(
             intake={},
             decide=decide or RemediationAgentModel(model_id=model_id),
             search=search,
-            search_navigation=tools.search_navigation if tools is not None else None,
+            search_results=tools.search_results if tools is not None else None,
             read_evidence=tools.read_evidence if tools is not None else None,
             web_search=no_web_search,
             finalize=lambda draft, current: finalize_assessment(draft, packet),

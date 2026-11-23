@@ -26,7 +26,8 @@
     {
       "filename": "评估结果台账.txt",
       "kind": "business_memo",
-      "text": "数据出境安全评估台账\n\n评估结果出具日期：2024年5月10日；准予出境：新加坡母公司数据中心，会员运营场景，过去三年准予出境约200万人。\n2027年起集团计划把东南亚营销业务也接入同一数据中心，预计未来三年出境自然人数量约260万人，接收方不变。\n合规部打算到期前一周再提交延期申请。"
+      "text": "数据出境安全评估台账\n\n评估结果出具日期：2024年5月10日；准予出境：新加坡母公司数据中心，会员运营场景，过去三年准予出境约200万人。\n2027年起集团计划把东南亚营销业务也接入同一数据中心，预计未来三年出境自然人数量约260万人，接收方不变。\n合规部打算到期前一周再提交延期申请。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -68,21 +69,24 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第九条",
-        "note": "有效期3年，届满前60个工作日申请延期"
+        "note": "有效期3年，届满前60个工作日申请延期",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_data_export_policy_qna_2026_07",
         "article_no": null,
-        "note": "延期需同时符合六项条件"
+        "note": "延期需同时符合六项条件",
+        "equivalents": []
       }
     ],
     "optional": [
       {
         "source_id": "cac_data_export_security_assessment_filing_guide_v3_2025",
         "article_no": null,
-        "note": "申报指南（第三版）关于延期"
+        "note": "申报指南（第三版）关于延期",
+        "equivalents": []
       }
     ],
     "must_not_cite": []

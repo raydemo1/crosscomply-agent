@@ -28,7 +28,8 @@
     {
       "filename": "技术方案.txt",
       "kind": "business_memo",
-      "text": "容灾备份方案（技术部）\n\n为满足海外发行的低延迟和容灾需求，计划把国内30万名玩家（去重）的账号、角色和充值记录每日备份到公司在某国际云服务商东京区域开设的账号中，账号归属本公司，境外人员无访问权限。技术部认为数据仍归我们所有，不属于向境外提供。"
+      "text": "容灾备份方案（技术部）\n\n为满足海外发行的低延迟和容灾需求，计划把国内30万名玩家（去重）的账号、角色和充值记录每日备份到公司在某国际云服务商东京区域开设的账号中，账号归属本公司，境外人员无访问权限。技术部认为数据仍归我们所有，不属于向境外提供。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -68,19 +69,48 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "30万人走标准合同或认证"
+        "note": "30万人走标准合同或认证",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_data_export_assessment_qna_2022",
         "article_no": null,
-        "note": "传输、存储至境外属于数据出境活动"
+        "note": "传输、存储至境外属于数据出境活动",
+        "equivalents": [
+          [
+            {
+              "source_id": "cac_data_export_security_assessment_filing_guide_v3_2025",
+              "article_no": null
+            }
+          ],
+          [
+            {
+              "source_id": "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
+              "article_no": null
+            }
+          ]
+        ]
       },
       {
         "source_id": "cac_data_export_security_assessment_filing_guide_v3_2025",
         "article_no": null,
-        "note": "数据出境行为的情形"
+        "note": "数据出境行为的情形",
+        "equivalents": [
+          [
+            {
+              "source_id": "cac_data_export_assessment_qna_2022",
+              "article_no": null
+            }
+          ],
+          [
+            {
+              "source_id": "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
+              "article_no": null
+            }
+          ]
+        ]
       }
     ],
     "optional": [],

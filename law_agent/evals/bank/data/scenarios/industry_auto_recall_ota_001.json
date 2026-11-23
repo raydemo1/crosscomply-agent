@@ -26,7 +26,8 @@
     {
       "filename": "召回工作说明.txt",
       "kind": "business_memo",
-      "text": "召回工作说明\n\n公司已按《缺陷汽车产品召回管理条例》向国家市场监督管理总局备案召回计划，召回方式为OTA升级。需要把备案的OTA升级软件包对应源代码发给德国供应商联合修复。源代码不含个人信息。质量部担心源代码可能属于重要数据，需要先申报评估。"
+      "text": "召回工作说明\n\n公司已按《缺陷汽车产品召回管理条例》向国家市场监督管理总局备案召回计划，召回方式为OTA升级。需要把备案的OTA升级软件包对应源代码发给德国供应商联合修复。源代码不含个人信息。质量部担心源代码可能属于重要数据，需要先申报评估。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -58,14 +59,16 @@
       {
         "source_id": "cac_automotive_data_export_security_guide_2026",
         "article_no": null,
-        "note": "召回已备案OTA升级软件包源代码免予三种机制"
+        "note": "召回已备案OTA升级软件包源代码免予三种机制",
+        "equivalents": []
       }
     ],
     "optional": [
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第三条",
-        "note": "不含个人信息的数据"
+        "note": "不含个人信息的数据",
+        "equivalents": []
       }
     ],
     "must_not_cite": []

@@ -176,6 +176,11 @@ _REFERENCE_NATURE: dict[str, str] = {
     "policy": "政策文件",
     "contract": "合同范本",
 }
+# Where the authority says more than the document type does.
+_AUTHORITY_NATURE: dict[str, str] = {
+    "local_normative_document": "地方规范性文件",
+    "national_standard": "国家标准",
+}
 
 
 
@@ -225,7 +230,8 @@ def _build_scope_note(
     if usage == "conditional_basis":
         return scope
     if usage == "implementation_reference":
-        natures = sorted({_REFERENCE_NATURE.get(chunk.doc_type, "参考材料") for chunk in chunks})
+        natures = sorted({_AUTHORITY_NATURE.get(chunk.authority) or _REFERENCE_NATURE.get(chunk.doc_type, "参考材料")
+                          for chunk in chunks})
         note = f"{'、'.join(natures or ['参考材料'])}，不作为条款级法律依据"
         return f"{note}；{scope}" if scope else note
     if usage == "policy_explanation":

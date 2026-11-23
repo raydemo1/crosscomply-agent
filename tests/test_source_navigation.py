@@ -18,7 +18,6 @@ from law_agent.review.agent import (
     review_context,
 )
 from law_agent.review.agent_context import search_observation_context
-from law_agent.review.agent_tools import ComplianceAgentTools
 from law_agent.review.qa_agent import QAState
 from law_agent.review.qa_context import qa_state_context
 from law_agent.review.remediation import (
@@ -256,7 +255,7 @@ def test_remediation_default_tools_deliver_navigation_and_read_original(monkeypa
     from law_agent.review import remediation
 
     chunks = [_chunk('main', '第一条', '正文' * 80, index=0),
-              _chunk('candidate', '第二条', '需要核对的适用条件。', index=1)]
+              _chunk('candidate', '第二条', '需要核对的适用条件。' * 20, index=1)]
     hits = [hit_from_chunk(c, i).model_copy(update={'score': 100 - i}) for i, c in enumerate(chunks)]
     tools = _search_tools(chunks, lambda *_a, **_kw: [hits], top_k=1)
     closed = []
@@ -268,10 +267,11 @@ def test_remediation_default_tools_deliver_navigation_and_read_original(monkeypa
             return RemediationDecision(action='search_evidence', summary='核对法律条件', max_chunks=1,
                 queries=[RetrievalQuery(query_id='q', text='适用条件', query_type='legal_issue')])
         if not state.reads:
-            source = state.steps[0].observation['candidate_navigation'][0]
-            location = source['locations'][0]
+            source = state.steps[0].observation['results'][0]
+            assert source['locations'][0]['acquired'] and source['locations'][0]['chunk_id'] == 'main'
+            location = source['locations'][1]
             assert location['chunk_id'] == 'candidate'
-            assert location['preview'] == chunks[1].text
+            assert location['preview'] == chunks[1].text[:100]
             assert location['query_matches'][0]['rank'] == 2
             assert {h.chunk_id for h in state.evidence} == {'main'}
             return RemediationDecision(action='read_evidence', summary='取得候选原文',
@@ -310,32 +310,33 @@ def test_source_directory_entry_is_directly_readable_in_review_and_qa(qa):
 
 
 def test_unread_keyword_source_offers_the_same_directory_entry_without_citing_preview():
-    navigation = ComplianceAgentTools._group_search_navigation([{
-        "source_id": "s1", "title": "文件", "source_has_articles": False,
-        "chunk_id": "c0", "article_no": None, "preview": "仅导航预览",
-        "query_matches": [{"query_id": "q", "rank": 1}],
-    }])
+    navigation = [{
+        "source_id": "s1", "title": "文件", "doc_type": "guideline", "source_has_articles": False,
+        "outline_read_request": {"source_id": "s1"},
+        "locations": [{"chunk_id": "c0", "article_no": None, "preview": "仅导航预览",
+                       "query_matches": [{"query_id": "q", "rank": 1}]}],
+    }]
     state = AgentState(goal="查来源", steps=[AgentStep(number=1, action="search_evidence", summary="发现来源",
-        observation={"candidate_navigation": navigation})])
+        observation={"results": navigation})])
     tools = _tools_with([chunk(0, ["原文目录"], can_cite_clause=False)])
     request = EvidenceReadRequest.model_validate(navigation[0]["outline_read_request"])
     result = _read_evidence_request(state, request, read_evidence=tools.read_evidence, checkpoint=lambda _: None)
     assert result["read_mode"] == "outline"
     assert state.evidence == []
-    assert set(navigation[0]) == {"source_id", "title", "source_has_articles", "outline_read_request", "locations"}
+    assert set(navigation[0]) == {"source_id", "title", "doc_type", "source_has_articles", "outline_read_request",
+                                  "locations"}
 
 
-def test_hybrid_navigation_retains_per_query_top8_and_shared_memberships():
-    chunks = [_chunk(f'c{i}', f'第{i}条', f'正文{i}', index=i) for i in range(10)]
-    hits = [hit_from_chunk(c, i) for i, c in enumerate(chunks)]
-    tools = _search_tools(chunks, lambda *_a, **_kw: [[hits[0]], [hits[0]]], top_k=1)
+def test_results_keep_per_query_top8_and_shared_memberships():
+    chunks = [_chunk(f'c{i}', f'第{i}条', f'正文{i}' * 40, index=i) for i in range(10)]
+    hits = [hit_from_chunk(c, i).model_copy(update={'score': 10 - i}) for i, c in enumerate(chunks)]
+    tools = _search_tools(chunks, lambda *_a, **_kw: [hits, hits], top_k=1)
     queries = [RetrievalQuery(query_id=q, query_type='legal_issue', text=q) for q in ['q1', 'q2']]
-    entries = tools._search_navigation_entries(queries, [hits, hits], [hits[0]])
-    assert [e['chunk_id'] for e in entries] == [f'c{i}' for i in range(1, 8)]
-    assert entries[5]['query_matches'] == [{'query_id': 'q1', 'rank': 7}, {'query_id': 'q2', 'rank': 7}]
-    tools._adapters.vector.search_many = lambda *_a, **_kw: [hits, hits]
     tools.search(queries, ReviewFacts())
-    assert any(loc['chunk_id'] == 'c1' for s in tools.search_navigation() for loc in s['locations'])
+    locations = [loc for source in tools.search_results() for loc in source['locations']]
+    assert [loc['chunk_id'] for loc in locations] == [f'c{i}' for i in range(8)]
+    assert locations[0]['acquired'] and all('preview' in loc for loc in locations[1:])
+    assert locations[6]['query_matches'] == [{'query_id': 'q1', 'rank': 7}, {'query_id': 'q2', 'rank': 7}]
 
 
 def test_parallel_reads_merge_in_request_order_and_keep_partial_success():
@@ -390,7 +391,7 @@ def test_query_association_update_does_not_repeat_preview():
     old = {'source_id': 's', 'title': '法', 'locations': [{'chunk_id': 'c', 'preview': '原文',
            'query_matches': [{'query_id': 'q1', 'rank': 6}]}]}
     new = {**old, 'locations': [{**old['locations'][0], 'query_matches': [{'query_id': 'q2', 'rank': 2}]}]}
-    steps = [AgentStep(number=1, action='search_evidence', summary='发现', observation={'candidate_navigation': [old]})]
-    result = search_observation_context({'candidate_navigation': [new]}, steps, [])
-    loc = result['candidate_navigation'][0]['locations'][0]
+    steps = [AgentStep(number=1, action='search_evidence', summary='发现', observation={'results': [old]})]
+    result = search_observation_context({'results': [new]}, steps, [])
+    loc = result['results'][0]['locations'][0]
     assert loc['query_matches'] == [{'query_id': 'q2', 'rank': 2}] and 'preview' not in loc

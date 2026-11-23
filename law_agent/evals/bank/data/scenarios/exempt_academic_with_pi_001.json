@@ -28,7 +28,8 @@
     {
       "filename": "数据包说明.txt",
       "kind": "business_memo",
-      "text": "联合研究数据包说明\n\n数据包包括化合物筛选结果（不含个人信息），以及参与项目的60名研究人员的姓名、单位邮箱和分工，用于署名和联络。研发部认为属于学术合作，可以整体免予。"
+      "text": "联合研究数据包说明\n\n数据包包括化合物筛选结果（不含个人信息），以及参与项目的60名研究人员的姓名、单位邮箱和分工，用于署名和联络。研发部认为属于学术合作，可以整体免予。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -75,17 +76,31 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第三条",
-        "note": "含个人信息不适用"
+        "note": "含个人信息不适用",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "不满10万人免予"
+        "note": "不满10万人免予",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第十条",
-        "note": "仍须履行告知等义务"
+        "note": "仍须履行告知等义务",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第三十九条"
+            },
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第五十五条"
+            }
+          ]
+        ]
       }
     ],
     "must_retrieve": [],

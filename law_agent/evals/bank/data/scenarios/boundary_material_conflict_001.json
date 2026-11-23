@@ -28,12 +28,14 @@
     {
       "filename": "运营部说明.txt",
       "kind": "business_memo",
-      "text": "运营部：今年给新加坡服务商的数据只有玩家ID、等级和登录日志，约9万名玩家，不含实名信息。"
+      "text": "运营部：今年给新加坡服务商的数据只有玩家ID、等级和登录日志，约9万名玩家，不含实名信息。",
+      "sheets": null
     },
     {
       "filename": "技术部接口文档.txt",
       "kind": "business_memo",
-      "text": "技术部：数据同步接口字段包括player_id、level、login_log、real_name、id_card_no（实名认证信息）。今年接口调用覆盖约12万名玩家。"
+      "text": "技术部：数据同步接口字段包括player_id、level、login_log、real_name、id_card_no（实名认证信息）。今年接口调用覆盖约12万名玩家。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -74,12 +76,14 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "不满10万人免予"
+        "note": "不满10万人免予",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "10万以上走标准合同或认证"
+        "note": "10万以上走标准合同或认证",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

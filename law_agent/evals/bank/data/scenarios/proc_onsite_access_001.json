@@ -28,7 +28,8 @@
     {
       "filename": "审计安排.txt",
       "kind": "email",
-      "text": "审计安排\n\n10月20日至24日，新加坡区域总部审计组4人到南京办公室，在本地终端查阅客户合同和联系人数据（约8000人）。审计结束后，审计组要求开通VPN账号，回新加坡后继续远程查询和导出部分资料。"
+      "text": "审计安排\n\n10月20日至24日，新加坡区域总部审计组4人到南京办公室，在本地终端查阅客户合同和联系人数据（约8000人）。审计结束后，审计组要求开通VPN账号，回新加坡后继续远程查询和导出部分资料。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -74,19 +75,35 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "不满10万人免予"
+        "note": "不满10万人免予",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_data_export_policy_qna_2025_10",
         "article_no": null,
-        "note": "境外指访问行为发生在境外"
+        "note": "境外指访问行为发生在境外",
+        "equivalents": []
       },
       {
         "source_id": "cac_data_export_security_assessment_filing_guide_v3_2025",
         "article_no": null,
-        "note": "数据出境行为的三种情形"
+        "note": "数据出境行为的三种情形",
+        "equivalents": [
+          [
+            {
+              "source_id": "cac_data_export_assessment_qna_2022",
+              "article_no": null
+            }
+          ],
+          [
+            {
+              "source_id": "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
+              "article_no": null
+            }
+          ]
+        ]
       }
     ],
     "optional": [],

@@ -28,7 +28,8 @@
     {
       "filename": "对接方案.txt",
       "kind": "business_memo",
-      "text": "澳门客户对接方案\n\n澳门酒店客户（注册于澳门）使用我们的会员SaaS，需要把深圳服务器上为其管理的1.2万名会员资料同步到澳门本地系统。双方均不是关键信息基础设施运营者，数据未被告知为重要数据。"
+      "text": "澳门客户对接方案\n\n澳门酒店客户（注册于澳门）使用我们的会员SaaS，需要把深圳服务器上为其管理的1.2万名会员资料同步到澳门本地系统。双方均不是关键信息基础设施运营者，数据未被告知为重要数据。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -60,7 +61,8 @@
       {
         "source_id": "cac_gba_macao_standard_contract_guide_2024",
         "article_no": null,
-        "note": "内地-澳门标准合同适用条件"
+        "note": "内地-澳门标准合同适用条件",
+        "equivalents": []
       }
     ],
     "optional": [],

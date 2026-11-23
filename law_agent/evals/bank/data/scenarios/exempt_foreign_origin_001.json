@@ -29,7 +29,8 @@
     {
       "filename": "项目说明.txt",
       "kind": "business_memo",
-      "text": "敬业度调研项目说明\n\n客户为新加坡公司，提供其泰国、越南、马来西亚三地2.3万名员工的敬业度问卷数据（含员工编号、部门、岗位、作答）。南京团队在境内服务器完成清洗和分析，分析过程中不引入任何境内个人信息，完成后把明细和报告回传客户。"
+      "text": "敬业度调研项目说明\n\n客户为新加坡公司，提供其泰国、越南、马来西亚三地2.3万名员工的敬业度问卷数据（含员工编号、部门、岗位、作答）。南京团队在境内服务器完成清洗和分析，分析过程中不引入任何境内个人信息，完成后把明细和报告回传客户。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -63,14 +64,16 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第四条",
-        "note": "境外来源数据回传免予"
+        "note": "境外来源数据回传免予",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_cross_border_flow_rules_qna_2024",
         "article_no": null,
-        "note": "问7列明六种免予情形"
+        "note": "问7列明六种免予情形",
+        "equivalents": []
       }
     ],
     "optional": [],

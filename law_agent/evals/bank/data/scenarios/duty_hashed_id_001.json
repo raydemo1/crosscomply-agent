@@ -28,7 +28,8 @@
     {
       "filename": "技术说明.txt",
       "kind": "business_memo",
-      "text": "人群匹配技术说明\n\n对25万名会员的手机号做SHA-256哈希（无加盐）后上传境外广告平台，平台用自己用户的手机号做同样哈希进行匹配，匹配上的用户会被投放广告。市场部认为哈希值不能还原，不属于个人信息。"
+      "text": "人群匹配技术说明\n\n对25万名会员的手机号做SHA-256哈希（无加盐）后上传境外广告平台，平台用自己用户的手机号做同样哈希进行匹配，匹配上的用户会被投放广告。市场部认为哈希值不能还原，不属于个人信息。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -69,17 +70,20 @@
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第七十三条",
-        "note": "去标识化与匿名化区别"
+        "note": "去标识化与匿名化区别",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第四条",
-        "note": "匿名化后才不属个人信息"
+        "note": "匿名化后才不属个人信息",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "25万人走标准合同或认证"
+        "note": "25万人走标准合同或认证",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

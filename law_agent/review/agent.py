@@ -239,7 +239,8 @@ SYSTEM_PROMPT = f"""你是 CrossComply 企业数据合规审查 Agent。围绕 s
 INVESTIGATION_TOOLS = {
     "search_evidence": ToolSpec(("queries", "max_chunks"),
         "检索受控法律知识库中的法规、官方解释及相关资料。用于发现适用规则、条件、例外和规范衔接依据。"
-        "返回实际取得的原文及来源资格；来源的outline_read_request可直接用于read_evidence浏览同一文件目录，candidate_navigation仅为未读候选，预览不可引用；需要时批量读取原文。", ("queries",)),
+        "返回results：按来源分组、按排名列出本次命中的位置。acquired的位置原文已取得、可引用；其余只有preview，预览不可引用，需要时用read_evidence批量读取原文。"
+        "不超过预览长度的完整短条文直接取得，不占max_chunks名额。来源的outline_read_request可直接用于read_evidence浏览同一文件目录。", ("queries",)),
     "read_evidence": ToolSpec(("read_requests",),
         "精确读取法律原文：已知正式法名和条号时可直接传source_title与article_no，无需先搜索；"
         "也可用已发现的source_id读取条文、章节或指定片段。用于核对完整适用条件、例外和引述内容。"
@@ -427,7 +428,7 @@ def _check_evidence_read(
     known_sources.update(
         candidate["source_id"]
         for step in state.steps if step.action == "search_evidence"
-        for candidate in step.observation.get("candidate_navigation", [])
+        for candidate in step.observation.get("results", [])
     )
     if request.source_id is not None and request.source_id not in known_sources:
         raise ValueError(
@@ -544,7 +545,7 @@ def _read_evidence_batch(state, requests, *, read_evidence, checkpoint):
     return results
 
 
-def investigate(state, decision, *, search, search_navigation, read_evidence, web_search, checkpoint):
+def investigate(state, decision, *, search, search_results, read_evidence, web_search, checkpoint):
     """Execute a bounded investigation action shared by review and Q&A."""
     if decision.action == "search_evidence":
         if remaining_budget(state)["searches"] == 0:
@@ -562,16 +563,9 @@ def investigate(state, decision, *, search, search_navigation, read_evidence, we
         state.queries.extend(queries)
         observation = {"chunk_ids": [hit.chunk_id for hit in hits],
                        "citable_count": sum(hit.can_cite_clause for hit in hits),
-                       "source_has_articles": {
-                           hit.source_id: hit.source_has_articles for hit in hits
-                       }}
-        if search_navigation is not None:
-            observation["candidate_navigation"] = search_navigation()
-        observation["query_results"] = [
-            {"query_id": query.query_id, "text": query.text,
-             "chunk_ids": [hit.chunk_id for hit in hits if query.query_id in hit.matched_query_ids]}
-            for query in queries
-        ]
+                       "queries": [{"query_id": query.query_id, "text": query.text} for query in queries]}
+        if search_results is not None:
+            observation["results"] = search_results()
     elif decision.action == "read_evidence":
         if read_evidence is None:
             raise ValueError("本次运行未启用按来源读取证据")
@@ -600,7 +594,7 @@ def run_agent(
     state: AgentState, *, material: str, intake: dict[str, Any],
     decide: Callable[[AgentState, dict[str, Any]], AgentDecision],
     search: Callable[..., list[RetrievalHit]],
-    search_navigation: Callable[[], list[dict[str, Any]]] | None = None,
+    search_results: Callable[[], list[dict[str, Any]]] | None = None,
     read_evidence: Callable[..., EvidenceRead] | None = None,
     web_search: Callable[[list[RetrievalQuery], ReviewFacts, int], WebSearchBatch],
     finalize: Callable[[LLMReviewResultDraft, AgentState], dict[str, Any]],
@@ -660,7 +654,7 @@ def run_agent(
                 observation = execute_python(decision.code, material)
             elif decision.action in {"search_evidence", "read_evidence", "search_web"}:
                 observation = investigate(
-                    state, decision, search=search, search_navigation=search_navigation,
+                    state, decision, search=search, search_results=search_results,
                     read_evidence=read_evidence, web_search=web_search, checkpoint=checkpoint,
                 )
             elif decision.action == "queue_enrichment":

@@ -28,7 +28,8 @@
     {
       "filename": "信息科说明.txt",
       "kind": "business_memo",
-      "text": "信息科说明\n\n2025年我们的票务系统曾收到交通领域主管部门的关键信息基础设施认定通知，但今年系统已拆分迁移，是否仍属于关基未再确认。业务部门填报时选择了“非关基运营者”。本次计划向新加坡母公司提供5万名会员信息。"
+      "text": "信息科说明\n\n2025年我们的票务系统曾收到交通领域主管部门的关键信息基础设施认定通知，但今年系统已拆分迁移，是否仍属于关基未再确认。业务部门填报时选择了“非关基运营者”。本次计划向新加坡母公司提供5万名会员信息。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -74,17 +75,27 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第七条",
-        "note": "CIIO须申报评估"
+        "note": "CIIO须申报评估",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第四十条"
+            }
+          ]
+        ]
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "非CIIO不满10万人免予"
+        "note": "非CIIO不满10万人免予",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b63b935017b7bcc49877e0b",
         "article_no": "第十一条",
-        "note": "较大变化应报告并重新认定"
+        "note": "较大变化应报告并重新认定",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

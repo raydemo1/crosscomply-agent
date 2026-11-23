@@ -514,7 +514,7 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
                     observation = grep_materials(files, decision.pattern, decision.material_version_ids)
                 else:
                     observation = investigate(
-                        state, decision, search=search, search_navigation=tools.search_navigation,
+                        state, decision, search=search, search_results=tools.search_results,
                         read_evidence=read_evidence, web_search=search_web, checkpoint=save,
                     )
             except (ValueError, OSError, RuntimeError) as exc:

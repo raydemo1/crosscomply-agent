@@ -26,6 +26,7 @@
     {
       "filename": "数据样本说明.xlsx",
       "kind": "data_inventory",
+      "text": null,
       "sheets": [
         {
           "name": "数据集",
@@ -57,7 +58,8 @@
     {
       "filename": "研发部说明.txt",
       "kind": "business_memo",
-      "text": "研发部认为数据不到2000小时、车辆不到10万台，不属于重要数据，也没有收到任何部门告知，可以按普通数据传输。"
+      "text": "研发部认为数据不到2000小时、车辆不到10万台，不属于重要数据，也没有收到任何部门告知，可以按普通数据传输。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -103,19 +105,35 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第七条",
-        "note": "重要数据出境申报评估"
+        "note": "重要数据出境申报评估",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+              "article_no": "第三十七条"
+            }
+          ],
+          [
+            {
+              "source_id": "cac_automotive_data_security_provisions_2021",
+              "article_no": "第十一条"
+            }
+          ]
+        ]
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_automotive_data_export_security_guide_2026",
         "article_no": null,
-        "note": "车外真实人脸边界框32像素以上等判定为重要数据；测绘数据需先履行审批"
+        "note": "车外真实人脸边界框32像素以上等判定为重要数据；测绘数据需先履行审批",
+        "equivalents": []
       },
       {
         "source_id": "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
         "article_no": null,
-        "note": "地理信息数据必须境内存储，出境须审批或地图审核"
+        "note": "地理信息数据必须境内存储，出境须审批或地图审核",
+        "equivalents": []
       }
     ],
     "optional": [],

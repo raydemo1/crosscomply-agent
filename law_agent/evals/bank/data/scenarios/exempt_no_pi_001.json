@@ -26,6 +26,7 @@
     {
       "filename": "出境数据清单.xlsx",
       "kind": "data_inventory",
+      "text": null,
       "sheets": [
         {
           "name": "字段",
@@ -104,7 +105,8 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第三条",
-        "note": "不含个人信息或重要数据的免予"
+        "note": "不含个人信息或重要数据的免予",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

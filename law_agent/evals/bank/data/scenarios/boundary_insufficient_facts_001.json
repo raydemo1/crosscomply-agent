@@ -28,7 +28,8 @@
     {
       "filename": "会议记录.txt",
       "kind": "meeting_notes",
-      "text": "管理层会议：海外总部希望共享一些研发和销售相关数据，具体数据范围、接收方和用途待定，请合规部提前评估需要办什么手续。"
+      "text": "管理层会议：海外总部希望共享一些研发和销售相关数据，具体数据范围、接收方和用途待定，请合规部提前评估需要办什么手续。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -67,12 +68,14 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第七条",
-        "note": "评估条件"
+        "note": "评估条件",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "标准合同或认证条件"
+        "note": "标准合同或认证条件",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

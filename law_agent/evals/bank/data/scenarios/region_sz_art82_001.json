@@ -28,7 +28,8 @@
     {
       "filename": "法务问题.txt",
       "kind": "email",
-      "text": "主题：深圳条例第82条\n\n公司注册在深圳前海，不是关键信息基础设施运营者。今年需向新加坡客服供应商提供2万名用户的姓名和工单。有人援引《深圳经济特区数据条例》第八十二条，认为只要向境外提供个人数据都必须申请安全评估。"
+      "text": "主题：深圳条例第82条\n\n公司注册在深圳前海，不是关键信息基础设施运营者。今年需向新加坡客服供应商提供2万名用户的姓名和工单。有人援引《深圳经济特区数据条例》第八十二条，认为只要向境外提供个人数据都必须申请安全评估。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -68,12 +69,14 @@
       {
         "source_id": "shenzhen_data_regulation_2021",
         "article_no": "第八十二条",
-        "note": "按照有关规定申请评估"
+        "note": "按照有关规定申请评估",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "不满10万人免予"
+        "note": "不满10万人免予",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

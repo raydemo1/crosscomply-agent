@@ -28,7 +28,8 @@
     {
       "filename": "合规规划.txt",
       "kind": "business_memo",
-      "text": "2027年合规规划（草稿）\n\n公司明年预计向日本发行合作方提供约25万名玩家信息（非敏感）。考虑到未来可能与多个国家合作方开展业务，希望改为申请个人信息出境认证。规划草稿写着“认证依据为《网络安全标准实践指南—个人信息跨境处理活动安全认证规范》”，请合规部核实。"
+      "text": "2027年合规规划（草稿）\n\n公司明年预计向日本发行合作方提供约25万名玩家信息（非敏感）。考虑到未来可能与多个国家合作方开展业务，希望改为申请个人信息出境认证。规划草稿写着“认证依据为《网络安全标准实践指南—个人信息跨境处理活动安全认证规范》”，请合规部核实。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -79,36 +80,42 @@
       {
         "source_id": "cac_personal_info_export_certification_measures_2025",
         "article_no": "第五条",
-        "note": "认证适用条件"
+        "note": "认证适用条件",
+        "equivalents": []
       },
       {
         "source_id": "cac_personal_info_export_certification_measures_2025",
         "article_no": "第六条",
-        "note": "申请前履行告知、单独同意、影响评估"
+        "note": "申请前履行告知、单独同意、影响评估",
+        "equivalents": []
       },
       {
         "source_id": "cac_personal_info_export_certification_measures_2025",
         "article_no": "第七条",
-        "note": "向专业认证机构申请"
+        "note": "向专业认证机构申请",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_personal_info_export_certification_basis_change_2025",
         "article_no": null,
-        "note": "认证依据标准变更"
+        "note": "认证依据标准变更",
+        "equivalents": []
       },
       {
         "source_id": "cac_data_export_policy_qna_2026_09",
         "article_no": null,
-        "note": "认证适用情形与申请方式"
+        "note": "认证适用情形与申请方式",
+        "equivalents": []
       }
     ],
     "optional": [
       {
         "source_id": "samr_gbt_46068_2025_cross_border_personal_info_certification",
         "article_no": null,
-        "note": "认证要求标准"
+        "note": "认证要求标准",
+        "equivalents": []
       }
     ],
     "must_not_cite": []

@@ -28,7 +28,8 @@
     {
       "filename": "咨询邮件.txt",
       "kind": "email",
-      "text": "主题：浙江自贸区负面清单\n\n我们注册在杭州西湖区（不在自贸区片区内），业务是网络游戏。今年要给新加坡服务商提供30万名玩家数据。有同事说浙江自贸区有负面清单，清单外的数据可以免予，我们能不能用？"
+      "text": "主题：浙江自贸区负面清单\n\n我们注册在杭州西湖区（不在自贸区片区内），业务是网络游戏。今年要给新加坡服务商提供30万名玩家数据。有同事说浙江自贸区有负面清单，清单外的数据可以免予，我们能不能用？",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -74,19 +75,22 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第六条",
-        "note": "仅自贸区内数据处理者"
+        "note": "仅自贸区内数据处理者",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "30万人走标准合同或认证"
+        "note": "30万人走标准合同或认证",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "zhejiang_free_trade_zone_data_export_negative_list_2024",
         "article_no": null,
-        "note": "清单仅适用于电子商务（企业对企业）行业"
+        "note": "清单仅适用于电子商务（企业对企业）行业",
+        "equivalents": []
       }
     ],
     "optional": [],

@@ -28,7 +28,8 @@
     {
       "filename": "咨询.txt",
       "kind": "email",
-      "text": "主题：美国新规\n\n听说美国出台了限制涉及中国的数据交易的规定，我们要给美国营销公司提供5万名会员（去重、非敏感）信息，会不会受影响？中国这边要办什么手续？"
+      "text": "主题：美国新规\n\n听说美国出台了限制涉及中国的数据交易的规定，我们要给美国营销公司提供5万名会员（去重、非敏感）信息，会不会受影响？中国这边要办什么手续？",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -66,12 +67,25 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第五条",
-        "note": "不满10万人免予"
+        "note": "不满10万人免予",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第十条",
-        "note": "仍须履行告知等义务"
+        "note": "仍须履行告知等义务",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第三十九条"
+            },
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第五十五条"
+            }
+          ]
+        ]
       }
     ],
     "must_retrieve": [],

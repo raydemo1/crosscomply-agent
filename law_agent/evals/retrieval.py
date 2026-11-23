@@ -8,7 +8,10 @@ Every labeled provision is scored at three levels of what the Agent receives:
 
 * source — some body from the right source is returned (it knows which law to read);
 * article — the labeled article itself is returned as a body (no extra read needed);
-* discoverable — the article is a body or a navigation entry (it can see it and read it).
+* discoverable — the article is acquired or listed with a preview in the search results (it can see it and read it).
+
+A label also counts when one of its listed equivalent article groups is found
+at that level. Query targets are scored on the labeled article itself.
 
 Separately, each query is scored on the provisions it targets: the rank of the
 target in that query's own fused ranking, before the batch shares out the
@@ -27,14 +30,14 @@ from law_agent.data.schemas import StrictModel
 from law_agent.evals.bank.schema import Provision, Scenario, render_materials
 from law_agent.review.schemas import RetrievalHit
 
-NAVIGATION_DEPTH = 8  # matches ComplianceAgentTools._search_navigation_entries
-RANK_CUTOFFS = (3, NAVIGATION_DEPTH)
+RESULT_DEPTH = 8  # matches agent_tools.RESULT_DEPTH
+RANK_CUTOFFS = (3, RESULT_DEPTH)
 
 
 @dataclass
 class SearchOutcome:
     hits: list[RetrievalHit]
-    navigation: list[dict[str, Any]] = field(default_factory=list)
+    results: list[dict[str, Any]] = field(default_factory=list)  # ComplianceAgentTools.search_results()
     per_query: list[list[RetrievalHit]] = field(default_factory=list)
 
 
@@ -56,7 +59,7 @@ def production_search(chunks_path: Path, *, rerank_mode: str | None = None) -> S
             queries = [RetrievalQuery(query_id=f"q{i + 1}", query_type="legal_issue", text=query.text)
                        for i, query in enumerate(scenario.retrieval.queries)]
             hits = tools.search(queries, facts)
-            return SearchOutcome(hits=hits, navigation=tools.search_navigation(),
+            return SearchOutcome(hits=hits, results=tools.search_results(),
                                  per_query=tools.last_query_candidates())
         finally:
             tools.close()
@@ -65,20 +68,21 @@ def production_search(chunks_path: Path, *, rerank_mode: str | None = None) -> S
 
 
 def _matches(hit: RetrievalHit, provision: Provision) -> bool:
-    return hit.source_id == provision.source_id and (
-        provision.article_no is None or hit.article_no == provision.article_no
-    )
+    return _in_hits([hit])(provision.source_id, provision.article_no)
 
 
-def _in_navigation(navigation: Sequence[dict[str, Any]], provision: Provision) -> bool:
-    for group in navigation:
-        if group["source_id"] != provision.source_id:
-            continue
-        if provision.article_no is None or any(
-            loc.get("article_no") == provision.article_no for loc in group["locations"]
-        ):
-            return True
-    return False
+def _in_hits(hits: Sequence[RetrievalHit]) -> Callable[[str, str | None], bool]:
+    return lambda source_id, article_no: any(
+        h.source_id == source_id and (article_no is None or h.article_no == article_no) for h in hits)
+
+
+def _in_results(results: Sequence[dict[str, Any]]) -> Callable[[str, str | None], bool]:
+    def present(source_id: str, article_no: str | None) -> bool:
+        return any(group["source_id"] == source_id and (
+            article_no is None or any(loc.get("article_no") == article_no for loc in group["locations"]))
+            for group in results)
+
+    return present
 
 
 class LabelResult(StrictModel):
@@ -110,12 +114,13 @@ def score_scenario(scenario: Scenario, outcome: SearchOutcome) -> ScenarioRetrie
     labels = scenario.retrieval
     hits = outcome.hits
     results: list[LabelResult] = []
+    in_hits, in_nav = _in_hits(hits), _in_results(outcome.results)
     for kind in ("must_cite", "must_retrieve"):
         for p in getattr(labels, kind):
-            article = any(_matches(h, p) for h in hits)
             results.append(LabelResult(
-                kind=kind, key=p.key, source=any(h.source_id == p.source_id for h in hits),
-                article=article, discoverable=article or _in_navigation(outcome.navigation, p),
+                kind=kind, key=p.key, source=p.satisfied(lambda source_id, _article: in_hits(source_id, None)),
+                article=p.satisfied(in_hits),
+                discoverable=p.satisfied(lambda s, a: in_hits(s, a) or in_nav(s, a)),
             ))
     provisions = {p.key: p for p in (*labels.must_cite, *labels.must_retrieve, *labels.optional)}
     targets: list[QueryTargetResult] = []

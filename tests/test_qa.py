@@ -198,7 +198,7 @@ class Tools:
     def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=(), max_chunks=None):
         return [_hit()]
 
-    def search_navigation(self):
+    def search_results(self):
         return []
 
     def read_evidence(self, *args, **kwargs):

@@ -28,7 +28,8 @@
     {
       "filename": "隐私政策节选.txt",
       "kind": "privacy_policy",
-      "text": "五、信息共享\n我们可能与境外合作伙伴共享您的信息，以提供更好的服务。合作伙伴均受严格的保密义务约束。"
+      "text": "五、信息共享\n我们可能与境外合作伙伴共享您的信息，以提供更好的服务。合作伙伴均受严格的保密义务约束。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -66,12 +67,14 @@
       {
         "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
         "article_no": "第二十一条",
-        "note": "以清单形式列明接收方"
+        "note": "以清单形式列明接收方",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第三十九条",
-        "note": "告知境外接收方名称和联系方式"
+        "note": "告知境外接收方名称和联系方式",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

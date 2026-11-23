@@ -13,6 +13,7 @@ from law_agent.evals.bank.checks import CorpusIndex, check_bank, completeness_er
 from law_agent.evals.bank.loader import load_personas, load_scenarios, materialize
 from law_agent.evals.bank.schema import (
     AgentRubric,
+    ArticleRef,
     MaterialFile,
     RetrievalLabels,
     Scenario,
@@ -286,9 +287,9 @@ def test_retrieval_scoring_separates_source_article_navigation_and_query_rank() 
                             rank=rank, score=1.0, can_cite_clause=cite, citation_role="primary_legal_basis")
 
     bodies = [hit("old", "第四条", 0), hit(FLOW, "第八条", 1)]
-    navigation = [{"source_id": FLOW, "locations": [{"article_no": "第七条"}]}]
+    listed = [{"source_id": FLOW, "locations": [{"article_no": "第七条"}]}]
     ranked = [*bodies, *[hit("noise", str(i), i) for i in range(5)], hit(FLOW, "第七条", 9)]
-    row = score_scenario(labelled, SearchOutcome(hits=bodies, navigation=navigation, per_query=[ranked]))
+    row = score_scenario(labelled, SearchOutcome(hits=bodies, results=listed, per_query=[ranked]))
     by_key = {label.key: label for label in row.labels}
     assert by_key[f"{FLOW} 第八条"].article and by_key[f"{FLOW} 第七条"].source
     assert not by_key[f"{FLOW} 第七条"].article and by_key[f"{FLOW} 第七条"].discoverable
@@ -349,6 +350,14 @@ def test_qa_eval_scores_gathered_evidence_and_citations_with_the_shared_scorer()
     assert summary["must_cite_retrieved"] == 1.0 and summary["must_cite_cited"] == 0.5
     assert "证据召回" in qa_report(qa_aggregate([run]), {})
 
+    # A label change rescores the saved run without calling the Agent again.
+    from law_agent.evals.qa_eval import QARun, rescore
+
+    relabelled = labelled.model_copy(deep=True)
+    relabelled.retrieval.must_cite[1].equivalents = [[ArticleRef(source_id="old", article_no="第四条")]]
+    saved = QARun.model_validate_json(run.model_dump_json())
+    assert [label.cited for label in rescore(saved, relabelled).evidence.labels] == [True, True]
+
 
 def test_qa_eval_records_a_crash_without_stopping() -> None:
     from law_agent.evals.qa_eval import run_scenario
@@ -361,3 +370,108 @@ def test_qa_eval_records_a_crash_without_stopping() -> None:
 
     run = run_scenario(labelled, chunks_path=Path("unused"), execute=boom)
     assert run.status == "failed" and "502" in run.error
+
+
+def test_equivalent_articles_satisfy_a_label_only_as_a_whole_group() -> None:
+    from law_agent.evals.bank.schema import RetrievalLabels
+    from law_agent.evals.evidence import score_evidence
+
+    pipl = "flk_npc_ff8081817b6472a3017b656cc2040044"
+    labels = RetrievalLabels.model_validate({
+        "queries": [{"text": "义务", "targets": [f"{FLOW} 第十条"]}],
+        "must_cite": [{"source_id": FLOW, "article_no": "第十条", "note": "告知、单独同意、影响评估",
+                       "equivalents": [[{"source_id": pipl, "article_no": "第三十九条"},
+                                        {"source_id": pipl, "article_no": "第五十五条"}]]}],
+    })
+    both = [{"source_id": pipl, "article_no": "第三十九条"}, {"source_id": pipl, "article_no": "第五十五条"}]
+    score = score_evidence(labels, evidence=both[:1], citations=both)
+    assert [(label.retrieved, label.cited) for label in score.labels] == [(False, True)]
+
+    with pytest.raises(ValidationError, match="等价条款"):
+        RetrievalLabels.model_validate({
+            "queries": [{"text": "q", "targets": [f"{FLOW} 第十条"]}],
+            "must_cite": [{"source_id": FLOW, "article_no": "第十条", "note": "n"}],
+            "optional": [{"source_id": pipl, "article_no": "第三十九条", "note": "n",
+                          "equivalents": [[{"source_id": pipl, "article_no": "第五十五条"}]]}],
+        })
+
+
+def test_qa_eval_records_where_each_read_came_from() -> None:
+    from law_agent.evals.qa_eval import aggregate as qa_aggregate
+    from law_agent.evals.qa_eval import qa_report, run_scenario
+
+    labelled = scenario(retrieval={"queries": [{"text": "q", "targets": [f"{FLOW} 第八条"]}],
+                                   "must_cite": [{"source_id": FLOW, "article_no": "第八条", "note": "n"}]})
+
+    def read(source, article=None, chunk=None, offset=0, returned=()):
+        return {"read_request": {"source_id": source, "article_no": article, "chunk_id": chunk, "offset": offset},
+                "resolved_source_id": source, "chunk_ids": list(returned)}
+
+    steps = [
+        {"action": "search_evidence", "observation": {
+            "chunk_ids": ["old4"],
+            "results": [{"source_id": FLOW, "locations": [{"chunk_id": "f8", "article_no": "第八条", "preview": "p"}]},
+                        {"source_id": "old", "locations": [{"chunk_id": "old4", "article_no": "第四条", "acquired": True}]}]}},
+        {"action": "read_evidence", "observation": {"read_results": [
+            read(FLOW, "第八条", returned=["f8"]),          # listed with a preview
+            read(FLOW, "第十三条", returned=["f13"]),       # shown with the old source
+            read("old", "第五条", returned=["old5"]),        # another article of a returned source
+            read("old", "第五条", offset=5),                 # paging
+            read("pipl", "第三十九条"),                       # named by the Agent itself
+        ]}},
+    ]
+    evidence = [{"chunk_id": "old4", "source_id": "old", "article_no": "第四条",
+                 "later_provisions": [{"source_id": FLOW, "article_no": "第十三条"}]},
+                {"chunk_id": "f8", "source_id": FLOW, "article_no": "第八条"},
+                {"chunk_id": "f13", "source_id": FLOW, "article_no": "第十三条"},
+                {"chunk_id": "old5", "source_id": "old", "article_no": "第五条"}]
+
+    def fake_execute(conversation, run, *, checkpoint, chunks_path, current_date):
+        checkpoint(state={"evidence": evidence, "steps": steps, "searches": 1, "reads": 5, "turns": 3})
+        checkpoint(result={"answer": "答", "citations": []})
+
+    run = run_scenario(labelled, chunks_path=Path("unused"), execute=fake_execute)
+    assert [r.origin for r in run.read_records] == [
+        "preview", "later_provision", "returned_source", "continuation", "direct"]
+    origins = qa_aggregate([run])["overall"]["read_origins"]
+    assert origins == {"preview": 1, "later_provision": 1, "returned_source": 1, "continuation": 1, "direct": 1}
+    assert "来自检索结果的预览 | 1" in qa_report(qa_aggregate([run]), {})
+
+
+def test_query_replay_ranks_each_label_at_its_best_query_and_groups_at_their_worst_member(tmp_path) -> None:
+    from law_agent.evals.query_replay import QuerySet, export_queries, replay_report, run_replay
+
+    pipl = "flk_npc_ff8081817b6472a3017b656cc2040044"
+    labelled = scenario(retrieval={
+        "queries": [{"text": "q", "targets": [f"{FLOW} 第八条", f"{FLOW} 第十条"]}],
+        "must_cite": [{"source_id": FLOW, "article_no": "第八条", "note": "n"},
+                      {"source_id": FLOW, "article_no": "第十条", "note": "n", "equivalents": [[
+                          {"source_id": pipl, "article_no": "第三十九条"},
+                          {"source_id": pipl, "article_no": "第五十五条"}]]}],
+    })
+
+    def hit(source, article):
+        return RetrievalHit(chunk_id=f"{source}:{article}", doc_id=source, source_id=source, title="t", text="x",
+                            article_no=article, source_url="https://x", retriever="hybrid", rank=0, score=1.0,
+                            can_cite_clause=True, citation_role="primary_legal_basis")
+
+    noise = [hit("noise", str(i)) for i in range(10)]
+    rankings = {"甲": [*noise[:5], hit(FLOW, "第八条"), hit(pipl, "第三十九条")],   # 第八条 6th, 39 7th
+                "乙": [hit(FLOW, "第八条"), *noise[:8], hit(pipl, "第五十五条")]}  # 第八条 1st, 55 10th
+
+    results, summary = run_replay([labelled], QuerySet(source_run="r", base_commit="c", queries={
+        labelled.scenario_id: ["甲", "乙"]}), lambda _s, texts: [rankings[t] for t in texts])
+    assert [(label.rank, label.query) for label in results[0].labels] == [(1, "乙"), (10, "乙")]
+    assert summary["must_cite@3"] == 0.5 and summary["must_cite@12"] == 1.0
+    assert "前8名" in replay_report(summary, {}, QuerySet(source_run="r", base_commit="c", queries={}))
+
+    run_dir = tmp_path / "qa_dev_x"
+    (run_dir / "qa" / "s1").mkdir(parents=True)
+    (run_dir / "manifest.json").write_text('{"base_commit": "abc"}', encoding="utf-8")
+    (run_dir / "qa" / "s1" / "result.json").write_text(json.dumps(
+        {"scenario_id": "s1", "split": "dev", "queries": ["甲", "甲", "乙"]}), encoding="utf-8")
+    assert export_queries(run_dir).queries == {"s1": ["甲", "乙"]}
+    (run_dir / "qa" / "s1" / "result.json").write_text(json.dumps(
+        {"scenario_id": "s1", "split": "test", "queries": ["甲"]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="test"):
+        export_queries(run_dir)

@@ -28,7 +28,8 @@
     {
       "filename": "数据管理计划.txt",
       "kind": "business_memo",
-      "text": "临床数据管理计划\n\n公司在南昌注册，作为申办方开展多中心临床试验，今年约2.5万名受试者的受试者识别码、出生日期、诊疗记录和检验报告需传至瑞士合作方全球数据库。数据管理部听说北京有放宽到5万人的负面清单，认为可以签标准合同。"
+      "text": "临床数据管理计划\n\n公司在南昌注册，作为申办方开展多中心临床试验，今年约2.5万名受试者的受试者识别码、出生日期、诊疗记录和检验报告需传至瑞士合作方全球数据库。数据管理部听说北京有放宽到5万人的负面清单，认为可以签标准合同。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -68,12 +69,14 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第七条",
-        "note": "1万人以上敏感申报评估"
+        "note": "1万人以上敏感申报评估",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第六条",
-        "note": "负面清单仅适用于区内处理者"
+        "note": "负面清单仅适用于区内处理者",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

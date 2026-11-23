@@ -26,7 +26,8 @@
     {
       "filename": "咨询邮件.txt",
       "kind": "email",
-      "text": "主题：赴港上市是否需要网络安全审查\n\n公司约800万注册用户，现考虑改为在香港联交所上市。券商说“国外上市”才需要审查，香港不算国外。请法务确认。"
+      "text": "主题：赴港上市是否需要网络安全审查\n\n公司约800万注册用户，现考虑改为在香港联交所上市。券商说“国外上市”才需要审查，香港不算国外。请法务确认。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -71,17 +72,20 @@
       {
         "source_id": "cac_cybersecurity_review_measures_2022",
         "article_no": "第七条",
-        "note": "强制申报仅指国外上市"
+        "note": "强制申报仅指国外上市",
+        "equivalents": []
       },
       {
         "source_id": "cac_cybersecurity_review_measures_2022",
         "article_no": "第二条",
-        "note": "影响或可能影响国家安全的数据处理活动"
+        "note": "影响或可能影响国家安全的数据处理活动",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
         "article_no": "第十三条",
-        "note": "影响国家安全的应进行国家安全审查"
+        "note": "影响国家安全的应进行国家安全审查",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],

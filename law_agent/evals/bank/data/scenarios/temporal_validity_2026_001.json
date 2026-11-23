@@ -26,7 +26,8 @@
     {
       "filename": "评估结果.txt",
       "kind": "business_memo",
-      "text": "公司向新加坡母公司数据中心提供会员数据的出境场景已通过数据出境安全评估，评估结果出具日期为2025年3月18日，出境场景和接收方至今未变化。"
+      "text": "公司向新加坡母公司数据中心提供会员数据的出境场景已通过数据出境安全评估，评估结果出具日期为2025年3月18日，出境场景和接收方至今未变化。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -64,7 +65,8 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第九条",
-        "note": "有效期3年，届满前60个工作日内可申请延长"
+        "note": "有效期3年，届满前60个工作日内可申请延长",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],
@@ -73,8 +75,9 @@
       {
         "source_id": "cac_data_export_security_assessment_measures_2022",
         "article_no": "第十四条",
-        "reason": "conflict_rule_overridden",
-        "note": "有效期规定已被2024规定取代"
+        "note": "有效期规定已被2024规定取代",
+        "equivalents": [],
+        "reason": "conflict_rule_overridden"
       }
     ]
   },

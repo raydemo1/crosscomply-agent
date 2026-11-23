@@ -28,7 +28,8 @@
     {
       "filename": "业务说明.txt",
       "kind": "business_memo",
-      "text": "宁瀚咨询自2022年1月1日起累计向新加坡区域总部提供约15万名客户联系人的姓名、职务和联系方式（去重，非敏感），用于区域客户关系管理。公司不是关键信息基础设施运营者，没有重要数据。"
+      "text": "宁瀚咨询自2022年1月1日起累计向新加坡区域总部提供约15万名客户联系人的姓名、职务和联系方式（去重，非敏感），用于区域客户关系管理。公司不是关键信息基础设施运营者，没有重要数据。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -72,12 +73,14 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第八条",
-        "note": "现行门槛"
+        "note": "现行门槛",
+        "equivalents": []
       },
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第十三条",
-        "note": "与2022年办法不一致的适用本规定"
+        "note": "与2022年办法不一致的适用本规定",
+        "equivalents": []
       }
     ],
     "must_retrieve": [],
@@ -86,8 +89,9 @@
       {
         "source_id": "cac_data_export_security_assessment_measures_2022",
         "article_no": "第四条",
-        "reason": "conflict_rule_overridden",
-        "note": "已被2024规定确立的门槛取代"
+        "note": "已被2024规定确立的门槛取代",
+        "equivalents": [],
+        "reason": "conflict_rule_overridden"
       }
     ]
   },

@@ -28,7 +28,8 @@
     {
       "filename": "合规规划.txt",
       "kind": "business_memo",
-      "text": "公司计划以个人信息保护认证方式向日本发行合作方提供约25万名玩家（非敏感）信息，请确认适用的规则和认证依据标准。"
+      "text": "公司计划以个人信息保护认证方式向日本发行合作方提供约25万名玩家（非敏感）信息，请确认适用的规则和认证依据标准。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -72,19 +73,22 @@
       {
         "source_id": "cac_personal_info_export_certification_measures_2025",
         "article_no": "第五条",
-        "note": "认证适用条件"
+        "note": "认证适用条件",
+        "equivalents": []
       },
       {
         "source_id": "cac_personal_info_export_certification_measures_2025",
         "article_no": "第七条",
-        "note": "向专业认证机构申请"
+        "note": "向专业认证机构申请",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "cac_personal_info_export_certification_basis_change_2025",
         "article_no": null,
-        "note": "依据标准变更为GB/T 35273、GB/T 46068"
+        "note": "依据标准变更为GB/T 35273、GB/T 46068",
+        "equivalents": []
       }
     ],
     "optional": [],

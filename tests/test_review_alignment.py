@@ -149,12 +149,12 @@ def test_review_navigation_deduplicates_model_input_but_keeps_raw_audit_and_nati
     client = FakeClient(outputs=outputs)
     model = AgentModel(model_id="test", client=client)
     state = run_agent(AgentState(goal="审查"), material="原始材料", intake={}, decide=model,
-                      search=lambda *_, **_kwargs: [], search_navigation=lambda: [source],
+                      search=lambda *_, **_kwargs: [], search_results=lambda: [source],
                       web_search=lambda *_: [], finalize=lambda *_: {"ok": True}, checkpoint=lambda _: None)
     observations = [json.loads(next(m.content for m in reversed(call) if m.role == "tool"))["observation"] for call in client.calls[1:]]
-    assert observations[0]["candidate_navigation"] == [source]
-    assert observations[1]["candidate_navigation"] == []
-    assert all(step.observation["candidate_navigation"] == [source] for step in state.steps[:2])
+    assert observations[0]["results"] == [source]
+    assert observations[1]["results"] == []
+    assert all(step.observation["results"] == [source] for step in state.steps[:2])
     assert [m.reasoning_content for m in client.calls[-1] if m.role == "assistant"] == [
         "provider-thought-0", "provider-thought-1",
     ]

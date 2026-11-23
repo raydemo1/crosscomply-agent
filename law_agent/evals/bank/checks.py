@@ -13,7 +13,7 @@ from collections import Counter, defaultdict
 from pydantic import ValidationError
 
 from law_agent.data.schemas import Chunk
-from law_agent.evals.bank.schema import Provision, Scenario
+from law_agent.evals.bank.schema import ArticleRef, Provision, Scenario
 from law_agent.review.http.schemas import IntakePayload
 from law_agent.review.retrieval.neighbors import hit_from_chunk
 from law_agent.review.retrieval.temporal import filter_hits_as_of
@@ -26,7 +26,7 @@ class CorpusIndex:
         for chunk in chunks:
             self.by_source[chunk.source_id].append(chunk)
 
-    def article(self, provision: Provision) -> list[Chunk]:
+    def article(self, provision: Provision | ArticleRef) -> list[Chunk]:
         chunks = self.by_source.get(provision.source_id, [])
         if provision.article_no is None:
             return chunks
@@ -93,6 +93,13 @@ def corpus_errors(scenario: Scenario, corpus: CorpusIndex) -> list[str]:
                 errors.append(f"{label} 可作为条款引用，应放入 must_cite")
             if group == "must_not_cite" and item.reason == "version_superseded" and citable:
                 errors.append(f"{label} 标为已被取代，但在 {scenario.as_of_date} 仍可引用")
+            for ref in (r for g in item.equivalents for r in g):
+                ref_chunks = corpus.article(ref)
+                if ref.article_no is None:  # a whole guide or Q&A standing in for a must_retrieve source
+                    if not ref_chunks:
+                        errors.append(f"{label} 的等价来源 {ref.key} 在语料中不存在")
+                elif not corpus.citable_at(ref_chunks, scenario):
+                    errors.append(f"{label} 的等价条款 {ref.key} 不存在或在 {scenario.as_of_date} 不可引用")
     rubric = scenario.agent_rubric
     referenced = [*scenario.answer_leak_sources]
     if rubric:

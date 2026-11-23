@@ -28,7 +28,8 @@
     {
       "filename": "退款流程说明.txt",
       "kind": "business_memo",
-      "text": "跨境退款流程说明\n\n境外商品退款需由法国支付团队处理，今年涉及约5000名会员，需提供完整信用卡号、有效期和持卡人姓名。财务部认为会员数据都在上海负面清单放宽范围内，5000人远低于门槛，可以免予。"
+      "text": "跨境退款流程说明\n\n境外商品退款需由法国支付团队处理，今年涉及约5000名会员，需提供完整信用卡号、有效期和持卡人姓名。财务部认为会员数据都在上海负面清单放宽范围内，5000人远低于门槛，可以免予。",
+      "sheets": null
     }
   ],
   "judgment_points": [
@@ -74,19 +75,22 @@
       {
         "source_id": "cac_cross_border_data_flow_rules_2024",
         "article_no": "第六条",
-        "note": "负面清单制度"
+        "note": "负面清单制度",
+        "equivalents": []
       },
       {
         "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
         "article_no": "第二十八条",
-        "note": "金融账户属于敏感个人信息"
+        "note": "金融账户属于敏感个人信息",
+        "equivalents": []
       }
     ],
     "must_retrieve": [
       {
         "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
         "article_no": null,
-        "note": "信用卡信息仅限后四位和有效期；其他个人信息按第6项"
+        "note": "信用卡信息仅限后四位和有效期；其他个人信息按第6项",
+        "equivalents": []
       }
     ],
     "optional": [],
