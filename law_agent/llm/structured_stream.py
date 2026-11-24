@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 import anyio
 import httpx
+import json_repair
 from anyio.from_thread import start_blocking_portal
 
 from law_agent.config import LLMConfig
@@ -226,7 +227,14 @@ def receive_json_response(
         with start_blocking_portal() as portal:
             content = portal.call(_receive, payload, config, accounting, on_answer_delta)
         accounting.stage = "decode_json"
-        result = json.loads(content)
+        try:
+            result = json.loads(content)
+        except json.JSONDecodeError:
+            repaired = json_repair.loads(content)
+            if isinstance(repaired, dict) and repaired:
+                result = repaired
+            else:
+                raise
         status = "completed"
         return result
     except Exception as exc:

@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from law_agent.config import (
@@ -88,3 +90,79 @@ def test_reasoning_nodes_default_to_low_and_reject_nonexistent_medium_level(monk
     monkeypatch.setenv("LAWAGENT_SEMANTIC_REASONING_EFFORT", "medium")
     with pytest.raises(RuntimeError, match="LAWAGENT_SEMANTIC_REASONING_EFFORT"):
         require_semantic_llm_config()
+
+
+def test_named_profile_uses_its_own_endpoint_and_preserves_service_settings(monkeypatch, tmp_path):
+    from law_agent.config import load_service_config
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(os, "environ", os.environ.copy())
+    monkeypatch.delenv("CROSSCOMPLY_LLM_PROFILE", raising=False)
+    monkeypatch.delenv("ES_URL", raising=False)
+    (tmp_path / ".env").write_text(
+        "CROSSCOMPLY_LLM_PROFILE=lab\n"
+        "OPENAI_COMPATIBLE_API_KEY=base-key\n"
+        "OPENAI_COMPATIBLE_BASE_URL=https://base.invalid\n"
+        "OPENAI_COMPATIBLE_MODEL=base-model\n"
+        "ES_URL=http://test-es:9200\n",
+        encoding="utf-8",
+    )
+    profile_dir = tmp_path / "model-profiles"
+    profile_dir.mkdir()
+    (profile_dir / ".env.lab").write_text(
+        "OPENAI_COMPATIBLE_API_KEY=lab-key\n"
+        "OPENAI_COMPATIBLE_BASE_URL=https://lab.invalid/v1\n"
+        "OPENAI_COMPATIBLE_MODEL=lab-model\n"
+        "LAWAGENT_AGENT_REASONING_EFFORT=none\n",
+        encoding="utf-8",
+    )
+    # Compose injects the base endpoint and model overrides into the process.
+    with monkeypatch.context() as injected:
+        for name, value in {
+            "OPENAI_COMPATIBLE_API_KEY": "base-key",
+            "OPENAI_COMPATIBLE_BASE_URL": "https://base.invalid",
+            "OPENAI_COMPATIBLE_BETA_BASE_URL": "https://base.invalid/beta",
+            "OPENAI_COMPATIBLE_MODEL": "base-model",
+            "OPENAI_COMPATIBLE_TIMEOUT_SECONDS": "25",
+            "OPENAI_COMPATIBLE_STRUCTURED_OUTPUT": "strict_tool",
+            "LAWAGENT_AGENT_REASONING_EFFORT": "max",
+            "LAWAGENT_SEMANTIC_MODEL": "base-verifier",
+        }.items():
+            injected.setenv(name, value)
+        config = require_agent_llm_config()
+        assert (config.env_profile, config.base_url, config.api_key, config.model) == (
+            "lab", "https://lab.invalid/v1", "lab-key", "lab-model",
+        )
+        assert config.beta_base_url == "https://lab.invalid/v1/beta"
+        assert config.structured_output_mode == "json_object"
+        assert config.timeout_seconds == 60
+        assert config.reasoning_effort == "none"
+        assert require_semantic_llm_config().model == "lab-model"
+        assert load_service_config().elasticsearch.url == "http://test-es:9200"
+
+        injected.setenv("CROSSCOMPLY_LLM_PROFILE", "default")
+        base = require_llm_config()
+        assert (base.env_profile, base.model, base.structured_output_mode) == (
+            "default", "base-model", "strict_tool",
+        )
+
+
+def test_named_profile_requires_its_own_credentials(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "base-key")
+    monkeypatch.setenv("CROSSCOMPLY_LLM_PROFILE", "lab")
+    with pytest.raises(FileNotFoundError, match=r"\.env\.lab"):
+        require_llm_config()
+
+    profile_dir = tmp_path / "model-profiles"
+    profile_dir.mkdir()
+    (profile_dir / ".env.lab").write_text(
+        "OPENAI_COMPATIBLE_BASE_URL=https://lab.invalid\nOPENAI_COMPATIBLE_MODEL=lab-model\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="OPENAI_COMPATIBLE_API_KEY"):
+        require_llm_config()
+
+    monkeypatch.setenv("CROSSCOMPLY_LLM_PROFILE", "../lab")
+    with pytest.raises(ValueError, match="CROSSCOMPLY_LLM_PROFILE"):
+        require_llm_config()

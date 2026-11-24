@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
@@ -14,6 +15,7 @@ from law_agent.data.schemas import StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, _loads_tool_arguments
 from law_agent.llm.usage import usage_scope
 from law_agent.review.llm import ReviewWorkflowFailed
+from law_agent.review.retrieval.scopes import SCOPE_NATIONAL
 from law_agent.review.telemetry import record_llm_call, record_retry
 
 CONTEXT_PROMPT = """
@@ -120,9 +122,26 @@ def _parameters(schema: dict, names: tuple[str, ...], required: tuple[str, ...])
     return parameters
 
 
+def _inject_query_scopes(parameters: dict[str, Any], scopes: Sequence[str]) -> dict[str, Any]:
+    defs = parameters.get("$defs")
+    if isinstance(defs, dict) and isinstance(defs.get("RetrievalQuery"), dict):
+        props = defs["RetrievalQuery"].get("properties")
+        if isinstance(props, dict) and "scope" in props:
+            props["scope"] = {
+                "type": "string",
+                "enum": list(scopes),
+                "default": SCOPE_NATIONAL if SCOPE_NATIONAL in scopes else scopes[0],
+                "description": (
+                    "本条查询的检索域，默认“全国通用”（仅全国通用法规与全国指南/问答，不含地方与行业专项）；"
+                    "选择“地区:*”或“行业:*”时会在全国通用上位法基础上叠加该地区或行业专项。"
+                ),
+            }
+    return parameters
+
+
 class ToolCallingAgent:
     def __init__(self, *, client, model_id, decision_model, specs: dict[str, ToolSpec], shared=("summary",),
-                 phase="investigation"):
+                 phase="investigation", query_scopes: Sequence[str] | None = None):
         self.client = client
         self.model_id = model_id
         self.decision_model = decision_model
@@ -130,11 +149,17 @@ class ToolCallingAgent:
         self.shared = shared
         self.phase = phase
         self.max_retries = 1
+        self._query_scopes = tuple(query_scopes) if query_scopes else ()
+        self._query_scope_set = frozenset(self._query_scopes)
         schema = decision_model.model_json_schema()
-        self.tools = [{"type": "function", "function": {
-            "name": name, "description": spec.description,
-            "parameters": _parameters(schema, (*shared, *spec.fields), spec.required),
-        }} for name, spec in specs.items()]
+        self.tools = []
+        for name, spec in specs.items():
+            parameters = _parameters(schema, (*shared, *spec.fields), spec.required)
+            if name == "search_evidence" and self._query_scopes:
+                parameters = _inject_query_scopes(parameters, self._query_scopes)
+            self.tools.append({"type": "function", "function": {
+                "name": name, "description": spec.description, "parameters": parameters,
+            }})
 
     def messages(self, session: ToolSession, *, prompt: str) -> list[ChatMessage]:
         return [ChatMessage(role="system", content=prompt + CONTEXT_PROMPT),
@@ -198,6 +223,20 @@ class ToolCallingAgent:
             arguments = _loads_tool_arguments(call["function"]["arguments"], allow_repair=name != "finish")
             if not isinstance(arguments, dict) or set(arguments) - {*self.shared, *self.specs[name].fields}:
                 raise ValueError("工具参数必须是该工具定义内的字段")
-            return self.decision_model.model_validate_json(json.dumps({"action": name, **arguments}), strict=True)
+            decision = self.decision_model.model_validate_json(json.dumps({"action": name, **arguments}), strict=True)
+            if name == "search_evidence" and self._query_scopes:
+                default_scope = SCOPE_NATIONAL if SCOPE_NATIONAL in self._query_scope_set else None
+                normalized_queries = []
+                for item in decision.queries:
+                    scope = default_scope if item.scope is None else item.scope
+                    if scope is not None and scope not in self._query_scope_set:
+                        raise ValueError(
+                            f"查询 scope={scope!r} 不在当前知识库可选检索域内；可选值：{list(self._query_scopes)}"
+                        )
+                    normalized_queries.append(
+                        item.model_copy(update={"scope": scope}) if scope != item.scope else item
+                    )
+                decision = decision.model_copy(update={"queries": normalized_queries})
+            return decision
         except ValueError as exc:
             raise InvalidToolCall(str(exc)[:2000]) from exc

@@ -78,3 +78,20 @@ def test_each_query_keeps_its_best_locations_against_a_broad_query():
     selected = [h.chunk_id for h in select_evidence([*broad, *narrow], max_chunks=5)]
     assert selected == ["broad0", "narrow0", "broad1", "narrow1", "broad2"]
 
+
+def test_selection_respects_post_spread_rank_and_keeps_deferred_hits_behind_listed_hits():
+    # A deferred FAQ keeps its high raw score (0.98) but was moved to rank 8 (>= listed_depth).
+    # Promoted formal clauses at rank 0..2 with lower scores must take the body slots first.
+    promoted = [
+        hit(f"law{i}", score=0.80 - i / 100, rank=i, article_no=f"第{i + 1}条", matched_query_ids=["q1"])
+        for i in range(3)
+    ]
+    deferred_faq = hit(
+        "faq_deferred", score=0.98, rank=8, source_id="faq", can_cite_clause=False,
+        citation_role="interpretation_auxiliary", matched_query_ids=["q1"],
+    )
+    q2_law = hit("q2_law", score=0.75, rank=0, source_id="other", article_no="第十条", matched_query_ids=["q2"])
+    selected = [h.chunk_id for h in select_evidence([*promoted, deferred_faq, q2_law], max_chunks=4, listed_depth=8)]
+    assert "faq_deferred" not in selected
+    assert set(selected) == {"law0", "law1", "law2", "q2_law"}
+

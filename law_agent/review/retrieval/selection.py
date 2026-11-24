@@ -16,11 +16,16 @@ DEFAULT_PER_QUERY_FLOOR = 2
 
 
 def select_evidence(
-    candidate_hits: Sequence[RetrievalHit], *, max_chunks: int, per_query_floor: int = DEFAULT_PER_QUERY_FLOOR,
+    candidate_hits: Sequence[RetrievalHit],
+    *,
+    max_chunks: int,
+    per_query_floor: int = DEFAULT_PER_QUERY_FLOOR,
+    listed_depth: int | None = None,
 ) -> list[RetrievalHit]:
     if type(max_chunks) is not int or max_chunks < 1:
         raise ValueError("max_chunks须为正整数")
     best: dict[str, RetrievalHit] = {}
+    best_rank: dict[str, int] = {}
     memberships: dict[str, list[str]] = {}
     per_query: dict[str, list[RetrievalHit]] = {}
     for hit in candidate_hits:
@@ -28,8 +33,17 @@ def select_evidence(
         for query_id in hit.matched_query_ids:
             per_query.setdefault(query_id, []).append(hit)
         previous = best.get(hit.chunk_id)
-        if previous is None or hit.score > previous.score:
+        if previous is None:
             best[hit.chunk_id] = hit
+        elif listed_depth is not None:
+            hit_listed = hit.rank < listed_depth
+            prev_listed = previous.rank < listed_depth
+            if hit_listed > prev_listed or (hit_listed == prev_listed and hit.score > previous.score):
+                best[hit.chunk_id] = hit
+        elif hit.score > previous.score:
+            best[hit.chunk_id] = hit
+        if hit.chunk_id not in best_rank or hit.rank < best_rank[hit.chunk_id]:
+            best_rank[hit.chunk_id] = hit.rank
 
     selected: list[RetrievalHit] = []
     units: set[tuple] = set()
@@ -43,13 +57,23 @@ def select_evidence(
         units.add(unit)
         return True
 
-    queues = [sorted(hits, key=lambda h: (-h.score, h.rank, h.chunk_id)) for hits in per_query.values()]
+    # Respect each query's post-spread rank order first so deferred items do not
+    # reclaim the per-query floor slots over promoted legal clauses.
+    queues = [sorted(hits, key=lambda h: (h.rank, -h.score, h.chunk_id)) for hits in per_query.values()]
     if len(queues) > 1:
         for _ in range(min(per_query_floor, max_chunks // len(queues))):
             for queue in queues:
                 while queue and len(selected) < max_chunks and not take(queue.pop(0)):
                     pass
-    for hit in sorted(best.values(), key=lambda h: (-h.score, h.rank, h.chunk_id)):
+    for hit in sorted(
+        best.values(),
+        key=lambda h: (
+            0 if listed_depth is None or best_rank[h.chunk_id] < listed_depth else 1,
+            -h.score,
+            best_rank[h.chunk_id],
+            h.chunk_id,
+        ),
+    ):
         if len(selected) >= max_chunks:
             break
         take(hit)

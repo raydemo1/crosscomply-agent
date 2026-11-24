@@ -19,6 +19,8 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
+from pydantic import Field
+
 from law_agent.data.schemas import StrictModel
 from law_agent.evals.bank.schema import Provision, Scenario, render_materials
 from law_agent.review.schemas import RetrievalHit
@@ -27,14 +29,15 @@ QUERY_SETS_DIR = Path(__file__).parent / "bank" / "data" / "agent_queries"
 RANK_CUTOFFS = (3, 8, 12, 50)
 BATCH = 4  # queries per search, as the Agent's search tool allows
 
-# One ranking per query: scenario, query texts -> per query, its fused ranking.
-Rank = Callable[[Scenario, list[str]], list[list[RetrievalHit]]]
+# One ranking per query: scenario, query texts (and optional scopes) -> per query, its fused ranking.
+Rank = Callable[..., list[list[RetrievalHit]]]
 
 
 class QuerySet(StrictModel):
     source_run: str
     base_commit: str
     queries: dict[str, list[str]]  # scenario_id -> the Agent's query texts, in order
+    query_scopes: dict[str, list[str | None]] = Field(default_factory=dict)
 
 
 def export_queries(run_dir: Path) -> QuerySet:
@@ -42,20 +45,28 @@ def export_queries(run_dir: Path) -> QuerySet:
 
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     queries: dict[str, list[str]] = {}
+    query_scopes: dict[str, list[str | None]] = {}
     for path in sorted((run_dir / "qa").glob("*/result.json")):
         run = json.loads(path.read_text(encoding="utf-8"))
         if run["split"] != "dev":
             raise ValueError(f"{run['scenario_id']}: 只导出 dev 场景的查询，test 集不用于调参")
         if run["queries"]:
-            queries[run["scenario_id"]] = list(dict.fromkeys(run["queries"]))
-    return QuerySet(source_run=run_dir.name, base_commit=manifest.get("base_commit", ""), queries=queries)
+            raw_scopes = run.get("query_scopes") or []
+            if len(raw_scopes) == len(run["queries"]) and any(scope is not None for scope in raw_scopes):
+                pairs = list(dict.fromkeys(zip(run["queries"], raw_scopes, strict=True)))
+                queries[run["scenario_id"]] = [text for text, _ in pairs]
+                query_scopes[run["scenario_id"]] = [scope for _, scope in pairs]
+            else:
+                queries[run["scenario_id"]] = list(dict.fromkeys(run["queries"]))
+    return QuerySet(source_run=run_dir.name, base_commit=manifest.get("base_commit", ""),
+                    queries=queries, query_scopes=query_scopes)
 
 
 def production_rank(chunks_path: Path) -> Rank:
     from law_agent.review.agent_tools import ComplianceAgentTools
     from law_agent.review.schemas import RetrievalQuery, ReviewFacts
 
-    def rank(scenario: Scenario, texts: list[str]) -> list[list[RetrievalHit]]:
+    def rank(scenario: Scenario, texts: list[str], scopes: list[str | None] | None = None) -> list[list[RetrievalHit]]:
         tools = ComplianceAgentTools(chunks_path=chunks_path, question=scenario.question,
                                      material_text=render_materials(scenario))
         try:
@@ -63,10 +74,12 @@ def production_rank(chunks_path: Path) -> Rank:
                 **{k: v for k, v in scenario.intake.items() if k in ReviewFacts.model_fields},
                 "as_of_date": scenario.as_of_date,
             })
+            aligned_scopes = scopes if scopes is not None and len(scopes) == len(texts) else [None] * len(texts)
             ranked: list[list[RetrievalHit]] = []
             for start in range(0, len(texts), BATCH):
-                batch = [RetrievalQuery(query_id=f"q{start + i}", query_type="legal_issue", text=text)
-                         for i, text in enumerate(texts[start:start + BATCH])]
+                batch = [RetrievalQuery(query_id=f"q{start + i}", query_type="legal_issue", text=text, scope=scope)
+                         for i, (text, scope) in enumerate(zip(texts[start:start + BATCH],
+                                                               aligned_scopes[start:start + BATCH], strict=True))]
                 tools.search(batch, facts)
                 ranked += tools.last_query_candidates()
             return ranked
@@ -110,10 +123,11 @@ def _label_rank(provision: Provision, ranked, texts) -> tuple[int, str] | None:
     return min(found, key=lambda m: m[0]) if found else None
 
 
-def replay_scenario(scenario: Scenario, texts: list[str], rank: Rank, *, attempts: int = 3) -> ScenarioReplay:
+def replay_scenario(scenario: Scenario, texts: list[str], rank: Rank, *,
+                    scopes: list[str | None] | None = None, attempts: int = 3) -> ScenarioReplay:
     for attempt in range(attempts):
         try:
-            ranked = rank(scenario, texts)
+            ranked = rank(scenario, texts, scopes) if scopes is not None else rank(scenario, texts)
             break
         except RuntimeError:  # a transient backend error (e.g. a truncated embedding response) must not end the run
             if attempt == attempts - 1:
@@ -141,7 +155,8 @@ def run_replay(scenarios: Sequence[Scenario], query_set: QuerySet, rank: Rank,
                ) -> tuple[list[ScenarioReplay], dict[str, Any]]:
     """Scenarios without frozen queries (or without labels) are skipped and counted in the report."""
 
-    results = [replay_scenario(s, query_set.queries[s.scenario_id], rank)
+    results = [replay_scenario(s, query_set.queries[s.scenario_id], rank,
+                               scopes=query_set.query_scopes.get(s.scenario_id))
                for s in scenarios if s.retrieval is not None and s.scenario_id in query_set.queries]
     return results, aggregate(results)
 

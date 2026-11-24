@@ -19,9 +19,10 @@ import json_repair
 from pydantic import BaseModel
 
 from law_agent.config import LLMConfig
-from law_agent.llm.structured_stream import receive_json_response
 from law_agent.llm.retry_budget import RetryBudget
+from law_agent.llm.structured_stream import receive_json_response
 from law_agent.llm.usage import UsageRequest
+
 
 def _is_connect_failure(exc: BaseException) -> bool:
     """连接建立阶段的瞬时失败（TLS 握手被断开、连接被重置），请求尚未得到任何响应。
@@ -147,7 +148,7 @@ class OpenAICompatibleClient:
         tool_name: str = "structured_output",
         model: str | None = None,
         structured_output_mode: str | None = None,
-        stream: bool = False,
+        stream: bool = True,
         on_answer_delta: Callable[[str], None] | None = None,
         on_stream_reset: Callable[[], None] | None = None,
     ) -> dict:
@@ -164,9 +165,9 @@ class OpenAICompatibleClient:
 
         mode = structured_output_mode or self.config.structured_output_mode
         if mode == "strict_tool" and output_model is not None:
-            if stream:
+            if on_answer_delta is not None:
                 raise ValueError("Internal JSON streaming requires json_object output")
-            return self._chat_strict_tool(messages, output_model, tool_name, model=model)
+            return self._chat_strict_tool(messages, output_model, tool_name, model=model, stream=stream)
 
         payload = {
             "model": model or self.config.model,
@@ -310,6 +311,7 @@ class OpenAICompatibleClient:
         tool_name: str,
         *,
         model: str | None = None,
+        stream: bool = True,
     ) -> dict:
         schema = _schema_for_strict_tool(output_model)
         payload: dict[str, Any] = {
@@ -338,9 +340,11 @@ class OpenAICompatibleClient:
                 "use json_object output or reasoning_effort=none"
             )
         payload["thinking"] = {"type": "disabled"}
-        data = self._post_chat(payload, self.config.beta_base_url)
-
-        message = data["choices"][0]["message"]
+        if stream:
+            message = self._stream_tools(payload, lambda _delta: None)
+        else:
+            data = self._post_chat(payload, self.config.beta_base_url)
+            message = data["choices"][0]["message"]
         tool_calls = message.get("tool_calls") or []
         if not tool_calls:
             raise RuntimeError("LLM strict tool response did not include tool_calls")

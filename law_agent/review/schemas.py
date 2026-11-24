@@ -217,6 +217,7 @@ class RetrievalQuery(StrictModel):
     query_type: RetrievalQueryType
     text: str
     pathway: str | None = None
+    scope: str | None = None
 
 
 class RetrievalHit(StrictModel):

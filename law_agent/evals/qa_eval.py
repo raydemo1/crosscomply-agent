@@ -62,11 +62,21 @@ class QARun(StrictModel):
     reads: int
     web_searches: int
     queries: list[str]
+    query_scopes: list[str | None] = Field(default_factory=list)
     answer: str
     citations: list[dict[str, Any]]
     evidence_refs: list[dict[str, Any]]  # what was gathered, so a label change can be rescored without a rerun
     read_records: list[ReadRecord] = Field(default_factory=list)
     evidence: EvidenceScore
+    # The answer as drafted before the completeness review, scored the same way, and what the review found:
+    # one run shows what the review added.
+    completeness_status: Literal["completed", "skipped", "failed"] | None = None
+    completeness_failed_stage: str | None = None
+    completeness_gaps: list[dict[str, str | None]] = Field(default_factory=list)
+    draft_answer: str | None = None
+    draft_citations: list[dict[str, Any]] | None = None
+    draft_evidence_refs: list[dict[str, Any]] | None = None
+    draft_evidence: EvidenceScore | None = None
 
 
 def read_records(state: dict[str, Any], *, turn: int) -> list[ReadRecord]:
@@ -118,14 +128,24 @@ def read_records(state: dict[str, Any], *, turn: int) -> list[ReadRecord]:
     return records
 
 
+def _refs(evidence: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{"chunk_id": e.get("chunk_id"), "source_id": e.get("source_id"), "article_no": e.get("article_no")}
+            for e in evidence]
+
+
 def score_run(scenario: Scenario, *, evidence: Sequence[dict[str, Any]], citations: Sequence[dict[str, Any]],
-              **fields: Any) -> QARun:
+              draft_evidence: Sequence[dict[str, Any]] | None = None,
+              draft_citations: Sequence[dict[str, Any]] | None = None, **fields: Any) -> QARun:
+    draft = draft_evidence is not None and draft_citations is not None
     return QARun(
         scenario_id=scenario.scenario_id, split=scenario.split, judgment_points=list(scenario.judgment_points),
         answer_leak=bool(scenario.answer_leak_sources), citations=list(citations),
-        evidence_refs=[{"chunk_id": e.get("chunk_id"), "source_id": e.get("source_id"),
-                        "article_no": e.get("article_no")} for e in evidence],
-        evidence=score_evidence(scenario.retrieval, evidence=evidence, citations=citations), **fields,
+        evidence_refs=_refs(evidence),
+        evidence=score_evidence(scenario.retrieval, evidence=evidence, citations=citations),
+        draft_citations=list(draft_citations) if draft else None,
+        draft_evidence_refs=_refs(draft_evidence) if draft else None,
+        draft_evidence=score_evidence(scenario.retrieval, evidence=draft_evidence, citations=draft_citations)
+        if draft else None, **fields,
     )
 
 
@@ -142,8 +162,12 @@ def run_scenario(scenario: Scenario, *, chunks_path: Path, execute: Executor | N
     evidence: dict[str, dict[str, Any]] = {}
     totals = {"turns": 0, "searches": 0, "reads": 0, "web_searches": 0}
     queries: list[str] = []
+    query_scopes: list[str | None] = []
     reads: list[ReadRecord] = []
     status, error, answer, citations = "failed", None, "", []
+    draft_evidence = draft_citations = None
+    gaps: list[dict[str, str | None]] = []
+    draft_answer = completeness_status = failed_stage = None
     for index, question in enumerate(turns):
         run: dict[str, Any] = {"id": f"r{index + 1}", "question": question, "attempt": 1,
                                "material_ids": [m["id"] for m in materials], "status": "running",
@@ -163,11 +187,13 @@ def run_scenario(scenario: Scenario, *, chunks_path: Path, execute: Executor | N
             references = getattr(exc, "references", None)
             failure = f"{type(exc).__name__}: {exc}" + (f" {references}" if references else "")
         state = run["state"] or {}  # kept on failure too, so the gathered evidence still counts
+        prior_evidence_ids = set(evidence)
         for hit in state.get("evidence", []):
             evidence.setdefault(hit["chunk_id"], hit)
         for key in totals:
             totals[key] += state.get(key, 0)
         queries += [q["text"] for q in state.get("queries", [])]
+        query_scopes += [q.get("scope") for q in state.get("queries", [])]
         reads += read_records(state, turn=index + 1)
         if failure is not None:
             status, error = "failed", failure[:1000]
@@ -178,16 +204,34 @@ def run_scenario(scenario: Scenario, *, chunks_path: Path, execute: Executor | N
             continue
         status = "asked_user" if result.get("questions") else "completed"
         answer, citations = result.get("answer") or run["answer"], result.get("citations", [])
+        if (completeness := result.get("completeness")) is not None:
+            drafted = prior_evidence_ids.union(completeness.get("draft_evidence_ids", []))
+            draft_evidence = [hit for chunk_id, hit in evidence.items() if chunk_id in drafted]
+            draft_citations = completeness.get("draft_citations", [])
+            draft_answer = completeness.get("draft_answer")
+            gaps = completeness.get("gaps", [])
+            failed_stage = completeness.get("failed_stage")
+            if failed_stage or completeness.get("error"):
+                completeness_status = "failed"
+            else:
+                completeness_status = "completed" if completeness.get("checked") else "skipped"
         break
     return score_run(scenario, evidence=list(evidence.values()), citations=citations, status=status, error=error,
-                     answer=answer, queries=queries, read_records=reads, **totals)
+                     answer=answer, queries=queries, query_scopes=query_scopes, read_records=reads,
+                     draft_evidence=draft_evidence, draft_citations=draft_citations, draft_answer=draft_answer,
+                     completeness_gaps=gaps, completeness_status=completeness_status,
+                     completeness_failed_stage=failed_stage, **totals)
 
 
 def rescore(run: QARun, scenario: Scenario) -> QARun:
     """Score a saved run against the scenario's current labels, without calling the Agent again."""
 
-    return run.model_copy(update={"evidence": score_evidence(
-        scenario.retrieval, evidence=run.evidence_refs, citations=run.citations)})
+    update: dict[str, Any] = {"evidence": score_evidence(
+        scenario.retrieval, evidence=run.evidence_refs, citations=run.citations)}
+    if run.draft_evidence_refs is not None and run.draft_citations is not None:
+        update["draft_evidence"] = score_evidence(
+            scenario.retrieval, evidence=run.draft_evidence_refs, citations=run.draft_citations)
+    return run.model_copy(update=update)
 
 
 def aggregate(runs: Sequence[QARun]) -> dict[str, Any]:
@@ -197,11 +241,23 @@ def aggregate(runs: Sequence[QARun]) -> dict[str, Any]:
                                "asked_user": sum(r.status == "asked_user" for r in rows),
                                "failed": len(rows) - len(scored),
                                **summarize_evidence(r.evidence for r in scored)}
+        reviews = [r.completeness_status for r in rows if r.completeness_status is not None]
+        if reviews:
+            out["review_outcomes"] = {status: reviews.count(status) for status in ("completed", "skipped", "failed")}
+        drafted = [r for r in scored if r.completeness_status == "completed" and r.draft_evidence is not None]
+        if drafted:
+            # Before the completeness review, on the runs that had one; the same runs after it for comparison.
+            out["before_review"] = summarize_evidence(r.draft_evidence for r in drafted)
+            out["after_review"] = summarize_evidence(r.evidence for r in drafted)
+            out["review_gap_runs"] = sum(bool(r.completeness_gaps) for r in drafted)
         for key in ("searches", "reads", "turns"):
             out[f"median_{key}"] = median([getattr(r, key) for r in scored]) if scored else None
         records = [record for r in scored for record in r.read_records]
         out["read_origins"] = {origin: sum(record.origin == origin for record in records)
                                for origin in get_args(ReadOrigin)}
+        scopes = [scope or "(未指定)" for r in scored for scope in r.query_scopes]
+        if scopes:
+            out["scope_counts"] = {scope: scopes.count(scope) for scope in sorted(set(scopes), key=lambda s: (-scopes.count(s), s))}
         return out
 
     return {
@@ -244,9 +300,26 @@ def qa_report(aggregate_: dict[str, Any], manifest: dict[str, Any]) -> str:
               "证据召回：标签条款（或其列明的等价条款）出现在本次检索或精读拿到的全部证据中；回答引用：最终回答引用了该条或其等价条款。"), "",
              *header, row("全部", aggregate_["overall"]), row("不含直接答案场景", aggregate_["without_answer_leak"])]
     lines += [row(f"split={k}", v) for k, v in aggregate_["by_split"].items()]
+    overall = aggregate_["overall"]
+    if "review_outcomes" in overall:
+        counts = overall["review_outcomes"]
+        lines += ["", "## 完整性复核前后", "",
+                  f"完成 {counts['completed']} 个，跳过 {counts['skipped']} 个，失败 {counts['failed']} 个。"]
+    if "before_review" in overall:
+        before, after = overall["before_review"], overall["after_review"]
+        lines += ["",
+                  (f"只对成功完成复核的 {before['scored_runs']} 个场景配对计分，"
+                   f"其中 {overall['review_gap_runs']} 个发现了缺口。"), "",
+                  "| 阶段 | 必引条款证据召回 | 必引条款回答引用 | 必检来源召回 | 必检来源引用 |", "| --- | ---: | ---: | ---: | ---: |",
+                  *(f"| {name} | {fmt(v, 'must_cite_retrieved')} | {fmt(v, 'must_cite_cited')} | "
+                    f"{fmt(v, 'must_retrieve_retrieved')} | {fmt(v, 'must_retrieve_cited')} |"
+                    for name, v in (("复核前（草稿）", before), ("复核后（最终回答）", after)))]
     origins = aggregate_["overall"]["read_origins"]
     names = {"preview": "来自检索结果的预览", "later_provision": "来自新规关联条款", "returned_source": "已返回来源的其他部分",
              "continuation": "续读或展开目录", "direct": "Agent 自行指定"}
     lines += ["", "## 精读从哪里来", "", "| 来源 | 次数 |", "| --- | ---: |",
               *(f"| {names[k]} | {v} |" for k, v in origins.items())]
+    if scope_counts := aggregate_["overall"].get("scope_counts"):
+        lines += ["", "## 检索域选择分布", "", "| 检索域 | 查询数 |", "| --- | ---: |",
+                  *(f"| {k} | {v} |" for k, v in scope_counts.items())]
     return "\n".join(lines) + "\n"

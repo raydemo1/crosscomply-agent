@@ -6,13 +6,29 @@
 
 ## 模型（OpenAI 兼容）
 
+在仓库根目录，把聊天端点写到 Git 忽略的 `model-profiles/.env.<名字>`。例如 `model-profiles/.env.infistar`：
+
+```dotenv
+OPENAI_COMPATIBLE_BASE_URL=https://infistar.cc/v1
+OPENAI_COMPATIBLE_API_KEY=<填写该端点的密钥>
+OPENAI_COMPATIBLE_MODEL=deepseek-v4.1-flash
+OPENAI_COMPATIBLE_STRUCTURED_OUTPUT=json_object
+LAWAGENT_AGENT_REASONING_EFFORT=none
+LAWAGENT_SEMANTIC_REASONING_EFFORT=none
+```
+
+- 在项目的 `.env` 中设 `CROSSCOMPLY_LLM_PROFILE=infistar`，或在启动命令的进程环境里临时指定。设为 `default` 或省略选择器时，使用原来的 `.env` 和进程环境。
+- 命名档独立提供聊天端点的 URL、密钥和模型。档案不存在或缺少必填项时直接报错。该模式下地址、模型、超时、输出模式、思考强度和模型使用边界都由档内设置及程序默认值决定。Embedding、Rerank、数据库和飞书仍从原来的配置读取。
+- Compose 会把 `model-profiles/` 只读挂载到 API、审查 Worker 和知识库 Worker。切换容器见[部署说明](deployment.md#切换聊天端点)。
+
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
+| `CROSSCOMPLY_LLM_PROFILE` | `default` | 聊天端点配置档 |
 | `OPENAI_COMPATIBLE_BASE_URL` | `https://api.deepseek.com` | |
 | `OPENAI_COMPATIBLE_BETA_BASE_URL` | `<BASE_URL>/beta` | `strict_tool` 模式使用 |
 | `OPENAI_COMPATIBLE_API_KEY` | — | 审查、问答、事实抽取必需 |
 | `OPENAI_COMPATIBLE_MODEL` | `deepseek-flash` | |
-| `OPENAI_COMPATIBLE_STRUCTURED_OUTPUT` | `strict_tool` | `strict_tool` 或 `json_object` |
+| `OPENAI_COMPATIBLE_STRUCTURED_OUTPUT` | `strict_tool`（默认端点）、`json_object`（命名档） | `strict_tool` 或 `json_object` |
 | `OPENAI_COMPATIBLE_REASONING_EFFORT` | `none` | 通用结构化节点；`strict_tool` 下必须为 none |
 | `LAWAGENT_AGENT_REASONING_EFFORT` | `low` | 主 Agent 与案件问答 |
 | `LAWAGENT_SEMANTIC_MODEL` | 继承任务模型 | 独立语义校验使用的模型 |
@@ -40,7 +56,7 @@
 | `RERANK_BASE_URL` / `RERANK_API_KEY` / `RERANK_MODEL` | 继承 Embedding | 留空即继承；模型按 Embedding 配对，bge-m3 对应 bge-reranker-v2-m3 |
 | `RERANK_TIMEOUT_SECONDS` | 继承 Embedding | |
 | `RERANK_WINDOW` | `50` | |
-| `RERANK_BLEND_WEIGHT` | `0.7` | 重排分在最终排序中的权重，其余为融合分 |
+| `RERANK_BLEND_WEIGHT` | `0.85` | 重排校准分在最终排序中的权重，其余为固定上界缩放后的融合分 |
 
 ## 检索服务
 
@@ -60,7 +76,7 @@
 | --- | --- | --- |
 | `CROSSCOMPLY_SESSION_TTL_HOURS` | `12` | 登录会话有效期 |
 | `CROSSCOMPLY_COOKIE_SECURE` | 自动 | 显式指定会话 Cookie 的 Secure 标记 |
-| `CROSSCOMPLY_MODEL_BOUNDARY` | `enterprise-approved-api` | 记录在审查结果中的模型使用边界说明 |
+| `CROSSCOMPLY_MODEL_BOUNDARY` | `enterprise-approved-api`（默认端点）、`external-api`（命名档） | 记录在审查结果中的模型使用边界说明 |
 | `CROSSCOMPLY_PUBLIC_BASE_URL` | — | 飞书消息中的工作台链接 |
 | `CROSSCOMPLY_BOOTSTRAP_ADMIN_PASSWORD` | — | 仅 `bootstrap_admin` 使用 |
 | `CROSSCOMPLY_WORKER_ID` | `主机名-PID` | |
@@ -96,7 +112,7 @@
 | `SEAWEEDFS_VOLUME_SIZE_LIMIT_MB` / `SEAWEEDFS_VOLUME_MAX` | `64` / `20` | 总容量约为两者之积；不要去掉上限，否则可能占满磁盘 |
 | `CROSSCOMPLY_HTTP_PORT` | `8080` | nginx 对外端口 |
 | `CROSSCOMPLY_CORPUS_DIR` | `./data/corpus/legal_docs_20260702` | 挂载到后端的语料目录 |
-| `CROSSCOMPLY_ENV_FILE` | `.env` | |
+| `CROSSCOMPLY_ENV_FILE` | `.env` | Compose 的通用后端环境文件 |
 | `ES_JAVA_OPTS` | `-Xms512m -Xmx512m` | |
 | `NPM_REGISTRY` | `https://registry.npmjs.org` | 前端镜像构建使用的 npm 源 |
 

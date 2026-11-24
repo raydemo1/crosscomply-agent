@@ -36,6 +36,7 @@ from law_agent.review.material_search import (
     read_materials,
 )
 from law_agent.review.qa_citations import (
+    DISPLAY_REF_RE,
     CitationReferenceError,
     apply_citation_repairs,
     citation_repair_tool,
@@ -50,6 +51,7 @@ from law_agent.review.qa_context import (
 )
 from law_agent.review.qa_store import QAConflict
 from law_agent.review.result_builder import MaterialEvidenceDraft
+from law_agent.review.retrieval.scopes import SCOPE_ALL, SCOPE_NATIONAL
 from law_agent.review.schemas import (
     FACT_USAGE_GUIDANCE,
     LEGAL_ANALYSIS_GUIDANCE,
@@ -202,7 +204,7 @@ current_date 是当前日期；用户指定历史或假设时点时按其范围�
 
 PROMPT = ROLE_PROMPT + """
 ## 调查
-围绕用户当前要判断的事项调查，已有原文足以支持结论及关键条件、例外时直接作答，finish 为可选收口工具。只为会改变当前答复的法源缺口补查，已知法名和条号时可直接精读；不为可省略的延伸内容扩大调查。业务事实未知时保留条件分支，确实阻塞答复时使用 ask_user，不反复检索代替事实确认；工具失败不等于没有相关规则。
+围绕用户当前要判断的事项调查，已有原文足以支持结论及关键条件、例外时直接作答，finish 为可选收口工具。只为会改变当前答复的法源缺口补查，已知法名和条号时可直接精读。问题或材料涉及某省市、自贸区、粤港澳大湾区或特定行业，且 search_evidence 的 scope 枚举包含对应专项域时，应使用该 地区:* 或 行业:* 检索（其会在全国通用上位法基础上叠加该专项，不会遗漏上位法），核查是否存在负面清单、便利化机制或特别规定。检索返回的 scope_catalog 列出该域在当前时点已收录的正式法规或专项文件，若发现与案情高度相关的新规或专项文件尚未命中，可直接按 source_id 精读目录或补充检索。业务事实未知时保留条件分支，确实阻塞答复时使用 ask_user，不反复检索代替事实确认；工具失败不等于没有相关规则。
 
 ## 对话与来源
 结合 history 理解追问，沿用未被改变的用户陈述，更正以本轮为准。旧模型回答仅作对话背景，法律依据以本轮取得的来源为准。
@@ -214,6 +216,134 @@ history 中 previous_model_questions 的题干及备选项由模型提出，不�
 先用一两句回答核心问题，再说明决定该判断的依据、必要条件和例外。确定性结论及义务要求应有已取得原文和用户事实支持；前提未知时给条件分支，无依据的非必要延伸直接省略。实践建议说明其建议性质，不写成法定要求。
 直接输出 Markdown，按需使用短段落、要点或简短比较，一般以200—400字为宜，复杂比较或用户要求详细说明时再展开。这是普通问答，不生成正式报告、风险评级或审批结果。
 """
+
+
+COMPLETENESS_GAPS = 2
+COMPLETENESS_MAX_MATERIAL_CHARS = 8000
+COMPLETENESS_MAX_EVIDENCE_CHARS = 12000
+COMPLETENESS_UNCITED_EXCERPT_CHARS = 500
+COMPLETENESS_PROMPT = """你是合规问答的复核人。根据用户问题、对话历史、上传材料（如有）、已知事实和 acquired 中的来源正文检查回答草稿。
+只检查三点：结论、义务和数量门槛是否有依据；适用条件、例外和前提是否说全；各个子问题是否答到。
+上传材料或对话历史中已经写明的业务事实属于已知输入，不要误判为“无依据”。
+只报告会改变答复的缺口，最多两个。已有原文足以修订，或应改为条件性表述、删除无依据结论时，query 填 null。
+只有确实缺少可补查的法规原文时，才填一条检索语句，写法规会怎么表述，不写案件细节，不重复已有查询。
+没有缺口时返回 {"gaps": []}。只输出 JSON：{"gaps": [{"issue": "缺口是什么", "query": null}]}。"""
+COMPLETENESS_REVISE = ("按完整性复核的缺口修订草稿，依据已取得的原文和上传材料，保留正确内容和所有仍有依据的法条引用（不要无故删去已有有效引用）。"
+                       "没有依据的结论改为条件性表述或省略，不要猜测。直接输出完整的修订后回答，引用规则不变。")
+
+
+def review_completeness(client, *, question: str, facts: ReviewFacts, answer: str,
+                        evidence: list[dict], queries: list[str],
+                        materials: str = "", history: list[dict] | None = None) -> list[dict[str, str | None]]:
+    """Review the draft once and request a search only for gaps that lack evidence."""
+
+    from law_agent.llm.openai_compatible import ChatMessage
+
+    payload: dict = {"question": question, "facts": facts.model_dump(mode="json", exclude_none=True),
+                     "draft_answer": answer, "acquired": evidence, "queries_already_run": queries}
+    if history:
+        payload["history"] = history
+    if materials.strip():
+        payload["materials"] = materials[:COMPLETENESS_MAX_MATERIAL_CHARS]
+    data = client.chat_json(
+        [ChatMessage(role="system", content=COMPLETENESS_PROMPT),
+         ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False))],
+        stream=True,
+    )
+    gaps = data.get("gaps") if isinstance(data, dict) else None
+    if not isinstance(gaps, list):
+        raise TypeError("复核结果缺少有效的 gaps 列表")
+    checked = []
+    for gap in gaps[:COMPLETENESS_GAPS]:
+        if not isinstance(gap, dict) or not isinstance(issue := gap.get("issue"), str) or not issue.strip():
+            raise ValueError("复核缺口缺少有效的说明")
+        query = gap.get("query")
+        if query is not None and not isinstance(query, str):
+            raise ValueError("复核缺口的 query 必须是文本或 null")
+        checked.append({"issue": issue.strip()[:300], "query": (query or "").strip()[:300] or None})
+    return checked
+
+
+def _completeness_materials(state: QAState, material_text: str) -> str:
+    """Keep completeness/revision material context bounded to avoid TTFT timeouts."""
+
+    stripped = material_text.strip()
+    if not stripped:
+        return ""
+    if len(stripped) <= COMPLETENESS_MAX_MATERIAL_CHARS:
+        return stripped
+    read_passages: list[str] = []
+    for step in state.steps:
+        if step.action not in {"read_materials", "grep_materials"}:
+            continue
+        for item in step.observation.get("passages", []):
+            text = (item.get("text") or "").strip()
+            if text:
+                filename = item.get("filename") or ""
+                read_passages.append(f"[{filename}]\n{text}" if filename else text)
+        for item in step.observation.get("matches", []):
+            snippet = (item.get("snippet") or "").strip()
+            if snippet:
+                filename = item.get("filename") or ""
+                read_passages.append(f"[{filename}] {snippet}" if filename else snippet)
+    if read_passages:
+        combined = "\n\n".join(dict.fromkeys(read_passages))
+        return combined[:COMPLETENESS_MAX_MATERIAL_CHARS]
+    return stripped[:COMPLETENESS_MAX_MATERIAL_CHARS]
+
+
+def _completeness_sources(
+    citations: list[dict],
+    *,
+    priority_chunk_ids: set[str] | None = None,
+    max_total_chars: int = COMPLETENESS_MAX_EVIDENCE_CHARS,
+    uncited_excerpt_chars: int = COMPLETENESS_UNCITED_EXCERPT_CHARS,
+) -> list[dict]:
+    """Pack acquired sources for completeness review/revision within a token budget.
+
+    Cited and newly supplemented chunks keep their full excerpts; uncited chunks
+    are trimmed to compact snippets so prefill stays fast while keeping every
+    acquired source discoverable and citable.
+    """
+
+    priority = priority_chunk_ids or set()
+    kept_keys = (
+        "ref", "citation_marker", "chunk_id", "title", "article_no", "kind", "excerpt",
+        "can_cite_clause", "available_at_answer_date", "published_after_as_of", "excerpt_truncated",
+    )
+    ordered = sorted(
+        citations,
+        key=lambda c: 0 if (c.get("chunk_id") in priority or c.get("kind") == "web") else 1,
+    )
+    packed: list[dict] = []
+    used_chars = 0
+    for citation in ordered:
+        entry = {key: citation[key] for key in kept_keys if key in citation}
+        is_priority = citation.get("chunk_id") in priority or citation.get("kind") == "web"
+        excerpt = entry.get("excerpt") or ""
+        if not is_priority:
+            remaining = max(0, max_total_chars - used_chars)
+            limit = min(uncited_excerpt_chars, remaining)
+            if len(excerpt) > limit:
+                entry["excerpt"] = (excerpt[:limit].rstrip() + "……") if limit > 0 else ""
+                entry["excerpt_truncated"] = True
+        used_chars += len(entry.get("excerpt") or "")
+        packed.append(entry)
+    return packed
+
+
+def _completeness_search_scope(state: QAState) -> str:
+    """Inherit the investigation's scope for completeness gap-fill searches."""
+
+    specialized = list(dict.fromkeys(
+        query.scope for query in state.queries
+        if query.scope and query.scope not in {SCOPE_NATIONAL, SCOPE_ALL}
+    ))
+    if len(specialized) == 1:
+        return specialized[0]
+    if len(specialized) > 1 or any(query.scope == SCOPE_ALL for query in state.queries):
+        return SCOPE_ALL
+    return SCOPE_NATIONAL
 
 
 def source_citations(state, *, tools=None):
@@ -297,8 +427,9 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
                     *(material["parsed_text"] for material in materials)]
     owned_tools = tools is None
     tools = tools or ComplianceAgentTools(chunks_path=chunks_path, question=run["question"], material_text=material_text)
+    query_scopes = tools.available_scopes() if hasattr(tools, "available_scopes") else None
     protocol = ToolCallingAgent(client=client, model_id=None, decision_model=QADecision, phase="qa_investigation",
-        shared=("summary",), specs={
+        shared=("summary",), query_scopes=query_scopes, specs={
             **{name: ToolSpec((*spec.fields, "date_context"), spec.description +
                 "首次调查确认date_context，后续省略沿用。", spec.required)
                for name, spec in INVESTIGATION_TOOLS.items()},
@@ -427,6 +558,144 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
         finally:
             save(state)
 
+    def stream_answer(citations, result, *, publish=True, messages=None, tools_spec=None):
+        """Read one answer; publish deltas only when there is no accepted draft to preserve."""
+        answer = ""
+        last_flush = time.monotonic()
+        prompt_messages = protocol.messages(state.tool_session, prompt=PROMPT) if messages is None else messages
+        stream_tools = protocol.tools if messages is None and tools_spec is None else tools_spec
+        try:
+            with usage_scope("qa_answer", account), closing(client.stream_text(
+                    prompt_messages, tools=stream_tools)) as stream:
+                for delta in stream:
+                    answer += delta
+                    if len(answer) > 60000:
+                        raise RuntimeError("回答超过当前容量")
+                    if is_tool_call_text(answer):
+                        raise RuntimeError("回答返回了工具调用格式，未取得回答正文")
+                    prefix = answer.lstrip()[:12].replace("｜", "|")
+                    if any(marker.startswith(prefix) for marker in _RAW_TOOL_PREFIXES):
+                        continue
+                    if publish and time.monotonic() - last_flush >= 0.15:
+                        displayed, used = render_qa_citations(answer, citations, final=False)
+                        checkpoint(answer=displayed, result={**result, "citations": used})
+                        last_flush = time.monotonic()
+        finally:
+            save(state)
+        if not answer.strip():
+            raise RuntimeError("未取得回答正文")
+        if any(marker.startswith(answer.strip().replace("｜", "|")) for marker in _RAW_TOOL_PREFIXES):
+            raise RuntimeError("回答返回了不完整的工具调用格式")
+        return answer
+
+    def check_and_revise(displayed, used, result):
+        """Check the draft once and keep it available until a valid revision is ready."""
+        from law_agent.llm.openai_compatible import ChatMessage
+
+        record = {"checked": False, "gaps": [], "draft_answer": displayed, "draft_citations": used,
+                  "draft_evidence_ids": [hit.chunk_id for hit in state.evidence]}
+        if limitations["budget_exhausted"]:
+            return displayed, used, record
+
+        def failed(stage, exc):
+            logging.getLogger(__name__).warning("Q&A completeness %s failed: %s: %s",
+                                                stage, type(exc).__name__, str(exc)[:200])
+            record.update(failed_stage=stage, error=type(exc).__name__)
+            return displayed, used, record
+
+        draft_result = {**result, "citations": used, "completeness": record}
+        checkpoint(answer=displayed, progress="正在检查回答完整性", result=draft_result)
+        cited_chunk_ids = {c["chunk_id"] for c in used if "chunk_id" in c}
+        bounded_materials = _completeness_materials(state, material_text)
+        try:
+            record_llm_call()
+            cited_urls = {c.get("url") for c in used if c.get("kind") == "web"}
+            acquired = _completeness_sources(
+                [c for c in source_citations(state, tools=tools)
+                 if "chunk_id" in c or c.get("url") in cited_urls],
+                priority_chunk_ids=cited_chunk_ids,
+            )
+            with usage_scope("qa_completeness", account):
+                gaps = review_completeness(client, question=run["question"], facts=query_facts(state.facts),
+                                           answer=displayed, evidence=acquired,
+                                           queries=[query.text for query in state.queries],
+                                           materials=bounded_materials, history=history)
+        except QAConflict:
+            raise
+        except Exception as exc:  # noqa: BLE001 - optional model check must preserve the draft
+            return failed("review", exc)
+        finally:
+            save(state)
+        record.update(checked=True, gaps=gaps)
+        if not gaps:
+            return displayed, used, record
+
+        existing = {" ".join(query.text.split()) for query in state.queries}
+        queries = list(dict.fromkeys(" ".join(gap["query"].split()) for gap in gaps if gap["query"]))
+        new_queries = [query for query in queries if query not in existing]
+        supplemental_chunk_ids: set[str] = set()
+        if new_queries:
+            state.turns += 1
+            state.max_searches += 1
+            inherited_scope = _completeness_search_scope(state)
+            decision = QADecision(action="search_evidence", summary="完整性复核：补查缺口", queries=[
+                RetrievalQuery(query_id=f"completeness_{index}", query_type="legal_issue",
+                               text=query, scope=inherited_scope)
+                for index, query in enumerate(new_queries)])
+            try:
+                observation = investigate(state, decision, search=search, search_results=tools.search_results,
+                                          read_evidence=read_evidence, web_search=search_web, checkpoint=save)
+            except QAConflict:
+                raise
+            except Exception as exc:  # noqa: BLE001 - retrieval adapters use different error types
+                return failed("search", exc)
+            as_of = state.facts.as_of_date or state.current_date
+            for chunk_id in observation.get("chunk_ids", []):
+                supplemental_chunk_ids.add(chunk_id)
+                dates = state.evidence_as_of_dates.setdefault(chunk_id, [])
+                if as_of not in dates:
+                    dates.append(as_of)
+            state.steps.append(AgentStep(number=state.turns, action="search_evidence", summary=decision.summary,
+                                         observation=observation))
+
+        # Run revision as a self-contained text completion without tool definitions so the model
+        # cannot emit stray tool calls or duplicate the full tool transcript.
+        try:
+            citations = source_citations(state, tools=tools)
+            markers = {f"[{citation['ref']}]": citation["citation_marker"] for citation in citations}
+            revision_draft = DISPLAY_REF_RE.sub(lambda match: markers.get(match[0], match[0]), displayed)
+            revision_packet: dict = {
+                "question": run["question"],
+                "draft_answer": revision_draft,
+                "completeness_review": gaps,
+                "citation_registry": _completeness_sources(
+                    citations, priority_chunk_ids=cited_chunk_ids | supplemental_chunk_ids,
+                ),
+                "instruction": COMPLETENESS_REVISE,
+            }
+            if history:
+                revision_packet["history"] = history
+            if bounded_materials:
+                revision_packet["materials"] = bounded_materials
+            revision_messages = [
+                ChatMessage(role="system", content=PROMPT),
+                ChatMessage(role="user", content=json.dumps(revision_packet, ensure_ascii=False)),
+            ]
+            checkpoint(progress="正在根据复核修订回答", result={**draft_result, "completeness": record})
+            record_llm_call()
+            revised = stream_answer(citations, result, publish=False, messages=revision_messages, tools_spec=None)
+            # Validate before replacing the draft. Citation repair here would
+            # publish partial state and add another model call.
+            revised_displayed, revised_used = render_qa_citations(revised, citations)
+        except QAConflict:
+            raise
+        except Exception as exc:  # noqa: BLE001 - an optional rewrite must preserve the draft
+            return failed("revision", exc)
+        else:
+            return revised_displayed, revised_used, record
+        finally:
+            save(state)
+
     try:
         while remaining_budget(state)["turns"] > 0:
             state.turns += 1
@@ -516,6 +785,7 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
                     observation = investigate(
                         state, decision, search=search, search_results=tools.search_results,
                         read_evidence=read_evidence, web_search=search_web, checkpoint=save,
+                        scope_catalog=getattr(tools, "scope_catalog", None),
                     )
             except (ValueError, OSError, RuntimeError) as exc:
                 observation = {"error": str(exc)[:1000]}
@@ -560,7 +830,9 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
             if any(marker.startswith(direct_answer.strip().replace("｜", "|")) for marker in _RAW_TOOL_PREFIXES):
                 raise RuntimeError("回答返回了不完整的工具调用格式")
             save(state)
-            checkpoint(answer=displayed_answer, result={**result, "answer": displayed_answer, "generation_status": "completed"},
+            displayed_answer, citations, completeness = check_and_revise(displayed_answer, citations, result)
+            checkpoint(answer=displayed_answer, result={**result, "answer": displayed_answer, "citations": citations,
+                                                        "completeness": completeness, "generation_status": "completed"},
                        progress="回答完成", status="completed")
             return
         control = {"ready_to_answer": True,
@@ -578,32 +850,12 @@ def execute_qa(conversation, run, *, checkpoint, chunks_path, client=None, tools
             state.tool_session.messages.append({"role": "user", "content": json.dumps(control, ensure_ascii=False)})
         save(state)
         checkpoint(progress="正在生成回答", result={**result, "citations": all_citations})
-        answer = ""
-        last_flush = time.monotonic()
-        try:
-            with usage_scope("qa_answer", account), closing(client.stream_text(
-                    protocol.messages(state.tool_session, prompt=PROMPT), tools=protocol.tools)) as stream:
-                for delta in stream:
-                    answer += delta
-                    if len(answer) > 60000:
-                        raise RuntimeError("回答超过当前容量")
-                    if is_tool_call_text(answer):
-                        raise RuntimeError("回答返回了工具调用格式，未取得回答正文")
-                    prefix = answer.lstrip()[:12].replace("｜", "|")
-                    if any(marker.startswith(prefix) for marker in _RAW_TOOL_PREFIXES):
-                        continue
-                    if time.monotonic() - last_flush >= 0.15:
-                        displayed, used = render_qa_citations(answer, all_citations, final=False)
-                        checkpoint(answer=displayed, result={**result, "citations": used})
-                        last_flush = time.monotonic()
-        finally:
-            save(state)
-        if not answer.strip():
-            raise RuntimeError("未取得回答正文")
-        if any(marker.startswith(answer.strip().replace("｜", "|")) for marker in _RAW_TOOL_PREFIXES):
-            raise RuntimeError("回答返回了不完整的工具调用格式")
+        answer = stream_answer(all_citations, result)
+        state.tool_session.messages.append({"role": "assistant", "content": answer})
         displayed, used = render_answer(answer, all_citations)
-        checkpoint(answer=displayed, result={**result, "answer": displayed, "citations": used, "generation_status": "completed"},
+        displayed, used, completeness = check_and_revise(displayed, used, result)
+        checkpoint(answer=displayed, result={**result, "answer": displayed, "citations": used,
+                                             "completeness": completeness, "generation_status": "completed"},
                    progress="回答完成", status="completed")
     finally:
         if owned_tools:

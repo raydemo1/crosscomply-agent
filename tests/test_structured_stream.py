@@ -114,6 +114,11 @@ def test_complete_but_invalid_json_is_a_format_failure(monkeypatch):
     assert records[0]["error_stage"] == "decode_json"
 
 
+def test_complete_stream_repairs_minor_json_breakage(monkeypatch):
+    mock_response(monkeypatch, packet({"content": '{"gaps": [{"issue": "缺口", "query": null,}],}'}, "stop") + b"data: [DONE]\n\n")
+    assert call() == {"gaps": [{"issue": "缺口", "query": None}]}
+
+
 @pytest.mark.parametrize("status,ctype", [(503, "application/json"), (200, "application/json")])
 def test_http_errors_and_wrong_response_types_are_not_parsed_as_a_verdict(monkeypatch, status, ctype):
     mock_response(monkeypatch, b'{}', content_type=ctype, status=status)

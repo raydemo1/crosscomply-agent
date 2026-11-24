@@ -3,17 +3,39 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from law_agent.config import RerankConfig, RerankMode, require_rerank_config
+from law_agent.data.schemas import Chunk
+from law_agent.review.retrieval.fusion import DEFAULT_RRF_K
 from law_agent.review.schemas import RetrievalHit, RetrievalQuery, ReviewFacts
 
 MAX_RERANK_QUERY_CHARS = 1200
 MAX_RERANK_DOCUMENT_CHARS = 1400
+
+_DOC_TYPE_LABELS: dict[str, str] = {
+    "law": "法律",
+    "regulation": "法规规章",
+    "policy": "政策文件",
+    "faq": "官方问答",
+    "guideline": "指引指南",
+    "standard": "国家标准",
+    "judicial_interpretation": "司法解释",
+    "contract": "合同范本",
+}
+
+_CITATION_ROLE_LABELS: dict[str, str] = {
+    "primary_legal_basis": "核心法定依据",
+    "conditional_local_basis": "地方专项依据",
+    "conditional_industry_basis": "行业专项依据",
+    "implementation_reference": "实施参考",
+    "interpretation_auxiliary": "官方解读",
+}
 
 
 @dataclass(frozen=True)
@@ -128,6 +150,7 @@ def rerank_hits(
     config: RerankConfig | None = None,
     reranker: Reranker | None = None,
     query_text: str | None = None,
+    chunks_by_id: Mapping[str, Chunk] | None = None,
 ) -> RerankOutcome:
     """Optionally rerank fused hits and return a traceable outcome."""
 
@@ -154,7 +177,10 @@ def rerank_hits(
         facts=facts,
         queries=queries,
     )
-    documents = [_build_rerank_document(hit) for hit in window_hits]
+    documents = [
+        _build_rerank_document(hit, chunks_by_id.get(hit.chunk_id) if chunks_by_id else None)
+        for hit in window_hits
+    ]
     scores = reranker.rerank(query=query, documents=documents, top_n=window)
 
     ordered_hits = _apply_rerank_scores(
@@ -179,6 +205,9 @@ def rerank_hits(
     return RerankOutcome(hits=selected, info=info)
 
 
+_MAX_RRF_SCORE = 2.0 / DEFAULT_RRF_K
+
+
 def _apply_rerank_scores(
     hits: Sequence[RetrievalHit],
     scores: Sequence[RerankScore],
@@ -191,15 +220,13 @@ def _apply_rerank_scores(
             continue
         rerank_by_index[result.index] = result.score
 
-    original_scores = [hit.score for hit in hits]
-    rerank_scores = [rerank_by_index.get(index, 0.0) for index, _hit in enumerate(hits)]
-    original_norm = _minmax_normalize(original_scores)
-    rerank_norm = _minmax_normalize(rerank_scores)
+    original_norm = _normalize_original_scores([hit.score for hit in hits])
+    rerank_cal = _calibrate_rerank_scores(rerank_by_index, len(hits))
 
     scored_hits: list[tuple[float, int, RetrievalHit]] = []
     for index, hit in enumerate(hits):
         final_score = (
-            blend_weight * rerank_norm[index] + (1.0 - blend_weight) * original_norm[index]
+            blend_weight * rerank_cal[index] + (1.0 - blend_weight) * original_norm[index]
         )
         scored_hits.append(
             (
@@ -213,14 +240,42 @@ def _apply_rerank_scores(
     return [hit for _score, _index, hit in scored_hits]
 
 
-def _minmax_normalize(values: Sequence[float]) -> list[float]:
+def _calibrate_rerank_scores(rerank_by_index: Mapping[int, float], count: int) -> list[float]:
+    """Preserve calibrated ``[0, 1]`` cross-encoder probabilities across queries.
+
+    Standard ``/rerank`` endpoints (such as ``bge-reranker-v2-m3``) return
+    sigmoid probabilities in ``[0, 1]``. Independent per-query min-max scaling
+    would stretch a low-confidence query's top hit to ``1.0`` and break
+    cross-query body allocation. If a provider returns unbounded logits outside
+    ``[0, 1]``, apply a logistic sigmoid so scores remain comparable.
+    """
+
+    if count <= 0:
+        return []
+    returned = list(rerank_by_index.values())
+    use_sigmoid = any(value < 0.0 or value > 1.0 for value in returned)
+    calibrated: list[float] = []
+    for index in range(count):
+        if index not in rerank_by_index:
+            calibrated.append(0.0)
+            continue
+        raw = rerank_by_index[index]
+        if use_sigmoid:
+            calibrated.append(1.0 / (1.0 + math.exp(-max(-60.0, min(60.0, raw)))))
+        else:
+            calibrated.append(max(0.0, min(1.0, raw)))
+    return calibrated
+
+
+def _normalize_original_scores(values: Sequence[float]) -> list[float]:
+    """Scale pre-rerank RRF scores against the fixed theoretical RRF maximum."""
+
     if not values:
         return []
-    minimum = min(values)
-    maximum = max(values)
-    if maximum == minimum:
-        return [1.0 for _value in values]
-    return [(value - minimum) / (maximum - minimum) for value in values]
+    scale = max(_MAX_RRF_SCORE, max(values))
+    if scale <= 0.0:
+        return [0.0 for _value in values]
+    return [max(0.0, min(1.0, value / scale)) for value in values]
 
 
 def _build_rerank_query(
@@ -252,11 +307,25 @@ def _build_rerank_query(
     return "\n".join(parts)[:MAX_RERANK_QUERY_CHARS]
 
 
-def _build_rerank_document(hit: RetrievalHit) -> str:
+def _build_rerank_document(hit: RetrievalHit, chunk: Chunk | None = None) -> str:
+    title = f"{hit.title}（{hit.article_no}）" if hit.article_no else hit.title
+    doc_type = _DOC_TYPE_LABELS.get(hit.doc_type, hit.doc_type)
+    role = _CITATION_ROLE_LABELS.get(hit.citation_role, hit.citation_role)
     parts = [
-        f"标题：{hit.title}",
-        f"证据角色：{hit.citation_role}",
-        f"查询类型：{hit.matched_query_type or 'unknown'}",
-        f"正文：{hit.text}",
+        f"标题：{title}",
+        f"类型：{doc_type}；证据角色：{role}",
     ]
+    headings = [part for part in hit.heading_path if part and part != hit.title and part != hit.article_no]
+    if headings:
+        parts.append(f"章节：{' / '.join(headings[:4])}")
+    if chunk is not None:
+        scope_parts: list[str] = []
+        region = (chunk.applicable_region or "").strip()
+        if region:
+            scope_parts.append("全国" if region == "CN" else region)
+        if chunk.applicable_subjects:
+            scope_parts.append("、".join(chunk.applicable_subjects[:4]))
+        if scope_parts:
+            parts.append(f"适用范围：{'；'.join(scope_parts)}")
+    parts.append(f"正文：{hit.text}")
     return "\n".join(parts)[:MAX_RERANK_DOCUMENT_CHARS]

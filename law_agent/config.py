@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import socket
 import urllib.parse
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, cast
@@ -20,10 +22,19 @@ _PROXY_ENV_VARS = (
 )
 _DEFAULT_PROXY_PORTS = {"http": 80, "https": 443}
 ReasoningEffort = Literal["none", "low", "high", "max"]
+LLM_PROFILE_ENV = "CROSSCOMPLY_LLM_PROFILE"
+_LLM_PROFILE_NAME = re.compile(r"[a-z0-9][a-z0-9_-]{0,31}")
+_LLM_PROFILE_REQUIRED = (
+    "OPENAI_COMPATIBLE_API_KEY",
+    "OPENAI_COMPATIBLE_BASE_URL",
+    "OPENAI_COMPATIBLE_MODEL",
+)
 
 
-def _reasoning_effort(name: str, default: ReasoningEffort) -> ReasoningEffort:
-    value = os.getenv(name, default)
+def _reasoning_effort(
+    settings: Mapping[str, str], name: str, default: ReasoningEffort
+) -> ReasoningEffort:
+    value = settings.get(name, default)
     if value not in ("none", "low", "high", "max"):
         raise RuntimeError(f"{name} must be none, low, high, or max")
     return cast(ReasoningEffort, value)
@@ -65,18 +76,24 @@ def drop_unreachable_proxy() -> list[str]:
     return dropped
 
 
+def _read_env_file(path: Path) -> dict[str, str]:
+    entries: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip():
+            entries.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+    return entries
+
+
 def load_env_file(path: str | Path = ".env") -> None:
     """Load simple KEY=VALUE lines into the process environment."""
 
     env_path = Path(path)
     if env_path.exists():
-        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
+        for key, value in _read_env_file(env_path).items():
             os.environ.setdefault(key, value)
     # Proxy settings never come from .env, so a dead one here was inherited from
     # the surrounding environment and has to be dealt with before any request.
@@ -98,6 +115,8 @@ class LLMConfig:
     total_timeout_seconds: float = 120
     # 连接阶段一次网络中断最多等待多久（秒），见 law_agent/llm/retry_budget.py。
     connect_retry_seconds: float = 45
+    env_profile: str = "default"
+    model_boundary: str = "enterprise-approved-api"
 
     def __post_init__(self):
         for name in ("timeout_seconds", "read_timeout_seconds", "total_timeout_seconds", "connect_retry_seconds"):
@@ -109,34 +128,58 @@ class LLMConfig:
         return bool(self.api_key)
 
 
-def load_llm_config() -> LLMConfig:
-    """Load LLM settings from environment variables."""
-
+def _llm_settings() -> tuple[str, Mapping[str, str]]:
     load_env_file()
-    base_url = os.getenv("OPENAI_COMPATIBLE_BASE_URL", "https://api.deepseek.com").rstrip("/")
-    timeout = os.getenv("OPENAI_COMPATIBLE_TIMEOUT_SECONDS", "60")
-    structured_output_mode = os.getenv("OPENAI_COMPATIBLE_STRUCTURED_OUTPUT", "strict_tool")
+    profile = os.getenv(LLM_PROFILE_ENV, "").strip().lower() or "default"
+    if profile == "default":
+        return profile, os.environ
+    if not _LLM_PROFILE_NAME.fullmatch(profile):
+        raise ValueError(f"{LLM_PROFILE_ENV} must be a short profile name")
+    path = Path("model-profiles") / f".env.{profile}"
+    if not path.is_file():
+        raise FileNotFoundError(f"LLM profile {profile!r} requires {path.as_posix()}")
+    settings = _read_env_file(path)
+    missing = [key for key in _LLM_PROFILE_REQUIRED if not settings.get(key, "").strip()]
+    if missing:
+        raise ValueError(f"{path.as_posix()} must provide {', '.join(missing)}")
+    # Compose and dotenv launchers can put the base file's credentials into
+    # os.environ. Read a named profile in isolation to avoid mixing endpoints.
+    return profile, settings
+
+
+def _llm_config(profile: str, settings: Mapping[str, str]) -> LLMConfig:
+    base_url = settings.get("OPENAI_COMPATIBLE_BASE_URL", "https://api.deepseek.com").rstrip("/")
+    timeout = settings.get("OPENAI_COMPATIBLE_TIMEOUT_SECONDS", "60")
+    output_default = "strict_tool" if profile == "default" else "json_object"
+    structured_output_mode = settings.get("OPENAI_COMPATIBLE_STRUCTURED_OUTPUT", output_default)
     if structured_output_mode not in ("json_object", "strict_tool"):
         raise RuntimeError("OPENAI_COMPATIBLE_STRUCTURED_OUTPUT must be json_object or strict_tool")
-    reasoning_effort = _reasoning_effort("OPENAI_COMPATIBLE_REASONING_EFFORT", "none")
     return LLMConfig(
         base_url=base_url,
-        beta_base_url=os.getenv("OPENAI_COMPATIBLE_BETA_BASE_URL", f"{base_url}/beta").rstrip("/"),
-        api_key=os.getenv("OPENAI_COMPATIBLE_API_KEY") or None,
-        model=os.getenv("OPENAI_COMPATIBLE_MODEL", "deepseek-flash"),
+        beta_base_url=settings.get("OPENAI_COMPATIBLE_BETA_BASE_URL", f"{base_url}/beta").rstrip("/"),
+        api_key=settings.get("OPENAI_COMPATIBLE_API_KEY") or None,
+        model=settings.get("OPENAI_COMPATIBLE_MODEL", "deepseek-flash"),
         timeout_seconds=int(timeout),
-        read_timeout_seconds=float(os.getenv("OPENAI_COMPATIBLE_READ_TIMEOUT_SECONDS", "60")),
-        total_timeout_seconds=float(os.getenv("OPENAI_COMPATIBLE_TOTAL_TIMEOUT_SECONDS", "120")),
-        connect_retry_seconds=float(os.getenv("OPENAI_COMPATIBLE_CONNECT_RETRY_SECONDS", "45")),
-        structured_output_mode=structured_output_mode,  # type: ignore[arg-type]
-        reasoning_effort=reasoning_effort,
+        read_timeout_seconds=float(settings.get("OPENAI_COMPATIBLE_READ_TIMEOUT_SECONDS", "60")),
+        total_timeout_seconds=float(settings.get("OPENAI_COMPATIBLE_TOTAL_TIMEOUT_SECONDS", "120")),
+        connect_retry_seconds=float(settings.get("OPENAI_COMPATIBLE_CONNECT_RETRY_SECONDS", "45")),
+        structured_output_mode=structured_output_mode,
+        reasoning_effort=_reasoning_effort(settings, "OPENAI_COMPATIBLE_REASONING_EFFORT", "none"),
+        env_profile=profile,
+        model_boundary=settings.get(
+            "CROSSCOMPLY_MODEL_BOUNDARY",
+            "enterprise-approved-api" if profile == "default" else "external-api",
+        ),
     )
 
 
-def require_llm_config() -> LLMConfig:
-    """Load LLM settings and fail if mandatory values are missing."""
+def load_llm_config() -> LLMConfig:
+    """Load the selected chat endpoint configuration."""
 
-    config = load_llm_config()
+    return _llm_config(*_llm_settings())
+
+
+def _require_llm_config(config: LLMConfig) -> LLMConfig:
     if not config.base_url:
         raise RuntimeError("OPENAI_COMPATIBLE_BASE_URL is required")
     if config.structured_output_mode == "strict_tool" and not config.beta_base_url:
@@ -148,17 +191,29 @@ def require_llm_config() -> LLMConfig:
     return config
 
 
+def require_llm_config() -> LLMConfig:
+    """Load LLM settings and fail if mandatory values are missing."""
+
+    return _require_llm_config(load_llm_config())
+
+
 def require_agent_llm_config() -> LLMConfig:
-    config = require_llm_config()
-    return replace(config, reasoning_effort=_reasoning_effort("LAWAGENT_AGENT_REASONING_EFFORT", "low"))
+    profile, settings = _llm_settings()
+    config = _require_llm_config(_llm_config(profile, settings))
+    return replace(
+        config,
+        reasoning_effort=_reasoning_effort(settings, "LAWAGENT_AGENT_REASONING_EFFORT", "low"),
+    )
 
 
 def require_semantic_llm_config(*, model_id: str | None = None) -> LLMConfig:
-    config = require_llm_config()
+    profile, settings = _llm_settings()
+    config = _require_llm_config(_llm_config(profile, settings))
+    semantic_model = settings.get("LAWAGENT_SEMANTIC_MODEL", "").strip()
     return replace(
         config,
-        model=os.getenv("LAWAGENT_SEMANTIC_MODEL", "").strip() or model_id or config.model,
-        reasoning_effort=_reasoning_effort("LAWAGENT_SEMANTIC_REASONING_EFFORT", "low"),
+        model=semantic_model or model_id or config.model,
+        reasoning_effort=_reasoning_effort(settings, "LAWAGENT_SEMANTIC_REASONING_EFFORT", "low"),
     )
 
 
@@ -169,7 +224,7 @@ def require_semantic_llm_config(*, model_id: str | None = None) -> LLMConfig:
 EmbeddingProvider = Literal["openai_compatible", "sentence_transformers"]
 RerankMode = Literal["off", "cross_encoder"]
 DEFAULT_RERANK_WINDOW = 50
-DEFAULT_RERANK_BLEND_WEIGHT = 0.7
+DEFAULT_RERANK_BLEND_WEIGHT = 0.85
 
 
 @dataclass(frozen=True)

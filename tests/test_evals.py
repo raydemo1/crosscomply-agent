@@ -336,7 +336,8 @@ def test_qa_eval_scores_gathered_evidence_and_citations_with_the_shared_scorer()
         seen.update(current_date=current_date, materials=len(conversation["materials"]))
         checkpoint(state={"evidence": [{"chunk_id": "c8", "source_id": FLOW, "article_no": "第八条"},
                                        {"chunk_id": "c7", "source_id": FLOW, "article_no": "第七条"}],
-                          "searches": 2, "reads": 1, "turns": 4, "queries": [{"text": "门槛"}]})
+                          "searches": 2, "reads": 1, "turns": 4,
+                          "queries": [{"text": "门槛", "scope": "全国通用"}, {"text": "北京临床", "scope": "地区:北京"}]})
         checkpoint(result={"answer": "答", "citations": [
             {"source_id": FLOW, "article_no": "第八条", "can_cite_clause": True},
             {"source_id": "old", "article_no": "第四条", "can_cite_clause": True}]})
@@ -344,11 +345,51 @@ def test_qa_eval_scores_gathered_evidence_and_citations_with_the_shared_scorer()
     run = run_scenario(labelled, chunks_path=Path("unused"), execute=fake_execute)
     assert seen["current_date"] == labelled.as_of_date and seen["materials"] == len(labelled.materials)
     assert run.status == "completed" and run.searches == 2
+    assert run.query_scopes == ["全国通用", "地区:北京"]
     assert [(label.retrieved, label.cited) for label in run.evidence.labels] == [(True, True), (True, False)]
     assert run.evidence.excluded_citations == ["old 第四条"]
     summary = qa_aggregate([run])["overall"]
     assert summary["must_cite_retrieved"] == 1.0 and summary["must_cite_cited"] == 0.5
-    assert "证据召回" in qa_report(qa_aggregate([run]), {})
+    assert summary["scope_counts"] == {"全国通用": 1, "地区:北京": 1}
+    report = qa_report(qa_aggregate([run]), {})
+    assert "证据召回" in report and "检索域选择分布" in report and "| 地区:北京 | 1 |" in report
+
+
+def test_qa_eval_scores_the_draft_before_the_completeness_review_on_the_same_run() -> None:
+    from law_agent.evals.qa_eval import aggregate as qa_aggregate
+    from law_agent.evals.qa_eval import qa_report, run_scenario
+
+    labelled = scenario(retrieval={
+        "queries": [{"text": "门槛", "targets": [f"{FLOW} 第八条", f"{FLOW} 第七条"]}],
+        "must_cite": [{"source_id": FLOW, "article_no": "第八条", "note": "n"},
+                      {"source_id": FLOW, "article_no": "第七条", "note": "n"}],
+    }, scripted_answers=[{"answer": "人数已确认"}])
+
+    def fake_execute(conversation, run, *, checkpoint, chunks_path, current_date):
+        if run["id"] == "r1":
+            checkpoint(state={"evidence": [{"chunk_id": "c8", "source_id": FLOW, "article_no": "第八条"}]},
+                       result={"questions": [{"question": "人数？"}]})
+            return
+        checkpoint(state={"evidence": [{"chunk_id": "c7", "source_id": FLOW, "article_no": "第七条"}],
+                          "searches": 2, "reads": 0, "turns": 3, "queries": [{"text": "门槛"}]})
+        checkpoint(result={"answer": "修订", "citations": [
+            {"source_id": FLOW, "article_no": "第八条", "can_cite_clause": True},
+            {"source_id": FLOW, "article_no": "第七条", "can_cite_clause": True}],
+            "completeness": {"checked": True, "gaps": [{"issue": "缺第七条", "query": "申报评估"}],
+                             "draft_evidence_ids": [], "draft_answer": "草稿",
+                             "draft_citations": [{"source_id": FLOW, "article_no": "第八条", "can_cite_clause": True}]}})
+
+    run = run_scenario(labelled, chunks_path=Path("unused"), execute=fake_execute)
+    assert [(label.retrieved, label.cited) for label in run.draft_evidence.labels] == [(True, True), (False, False)]
+    assert [(label.retrieved, label.cited) for label in run.evidence.labels] == [(True, True), (True, True)]
+    assert run.draft_answer == "草稿"
+    failed = run.model_copy(update={"completeness_status": "failed"})
+    skipped = run.model_copy(update={"completeness_status": "skipped"})
+    summary = qa_aggregate([run, failed, skipped])["overall"]
+    assert summary["review_outcomes"] == {"completed": 1, "skipped": 1, "failed": 1}
+    assert summary["before_review"]["scored_runs"] == 1
+    assert summary["before_review"]["must_cite_cited"] == 0.5 and summary["after_review"]["must_cite_cited"] == 1.0
+    assert summary["review_gap_runs"] == 1 and "完整性复核前后" in qa_report(qa_aggregate([run]), {})
 
     # A label change rescores the saved run without calling the Agent again.
     from law_agent.evals.qa_eval import QARun, rescore
@@ -469,8 +510,17 @@ def test_query_replay_ranks_each_label_at_its_best_query_and_groups_at_their_wor
     (run_dir / "qa" / "s1").mkdir(parents=True)
     (run_dir / "manifest.json").write_text('{"base_commit": "abc"}', encoding="utf-8")
     (run_dir / "qa" / "s1" / "result.json").write_text(json.dumps(
-        {"scenario_id": "s1", "split": "dev", "queries": ["甲", "甲", "乙"]}), encoding="utf-8")
-    assert export_queries(run_dir).queries == {"s1": ["甲", "乙"]}
+        {"scenario_id": "s1", "split": "dev", "queries": ["甲", "甲", "乙"],
+         "query_scopes": ["全国通用", "全国通用", "地区:北京"]}), encoding="utf-8")
+    exported = export_queries(run_dir)
+    assert exported.queries == {"s1": ["甲", "乙"]}
+    assert exported.query_scopes == {"s1": ["全国通用", "地区:北京"]}
+    seen_scopes = []
+    run_replay([labelled], QuerySet(source_run="r", base_commit="c",
+                                    queries={labelled.scenario_id: ["甲", "乙"]},
+                                    query_scopes={labelled.scenario_id: ["全国通用", "地区:北京"]}),
+               lambda _s, texts, scopes=None: (seen_scopes.append(scopes), [rankings[t] for t in texts])[1])
+    assert seen_scopes == [["全国通用", "地区:北京"]]
     (run_dir / "qa" / "s1" / "result.json").write_text(json.dumps(
         {"scenario_id": "s1", "split": "test", "queries": ["甲"]}), encoding="utf-8")
     with pytest.raises(ValueError, match="test"):

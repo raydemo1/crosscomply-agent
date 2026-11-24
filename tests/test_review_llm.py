@@ -209,11 +209,11 @@ def test_strict_tool_json_errors_remain_format_failures_when_retried(monkeypatch
     arguments = iter(["[]", json.dumps(_valid_facts_payload())])
     requests = []
 
-    def respond(payload, _base_url):
+    def respond(payload, _on_text):
         requests.append(payload)
-        return {"choices": [{"message": {"tool_calls": [{"function": {"arguments": next(arguments)}}]}}]}
+        return {"role": "assistant", "content": None, "tool_calls": [{"function": {"arguments": next(arguments)}}]}
 
-    monkeypatch.setattr(client, "_post_chat", respond)
+    monkeypatch.setattr(client, "_stream_tools", respond)
     node = StructuredLLMNode(node_name="fact_extraction", output_model=ReviewFacts, client=client, max_retries=1)
     assert node.run([ChatMessage(role="user", content="原文")]).cross_border_transfer is True
     assert "上一轮 JSON 解析失败" in requests[1]["messages"][-1]["content"]
@@ -247,10 +247,10 @@ def client(effort):
 def test_json_reasoning_payload_has_no_forced_tool_or_token_cap(monkeypatch, effort):
     instance = client(effort)
     calls = []
-    def post(payload, url):
-        calls.append((payload, url))
-        return {"choices": [{"message": {"content": json.dumps({"ok": True})}}]}
-    monkeypatch.setattr(instance, "_post_chat", post)
+    def receive(payload, cfg, **_kwargs):
+        calls.append((payload, cfg.base_url))
+        return {"ok": True}
+    monkeypatch.setattr("law_agent.llm.openai_compatible.receive_json_response", receive)
     assert instance.chat_json([ChatMessage("user", "json")], structured_output_mode="json_object") == {"ok": True}
     payload, url = calls[0]
     assert url == instance.config.base_url
@@ -262,6 +262,7 @@ def test_json_reasoning_payload_has_no_forced_tool_or_token_cap(monkeypatch, eff
 
 def test_forced_named_tool_rejects_thinking_before_network(monkeypatch):
     instance = client("low")
+    monkeypatch.setattr(instance, "_stream_tools", lambda *_: pytest.fail("unexpected network call"))
     monkeypatch.setattr(instance, "_post_chat", lambda *_: pytest.fail("unexpected network call"))
     with pytest.raises(RuntimeError, match="forced named tool_choice"):
         instance.chat_json([ChatMessage("user", "json")], output_model=ReviewFacts)

@@ -78,17 +78,25 @@ def compute_boost_for_hit(
     chunk: Chunk,
     facts: ReviewFacts,
     query_type: RetrievalQueryType | None = None,
+    *,
+    query_scope: str | None = None,
 ) -> float:
     """Compute a multiplicative boost factor for a single hit.
 
     Returns 1.0 when no applicability or query-purpose weight applies.
+    When ``query_scope`` explicitly selects a retrieval scope (other than ``全库``),
+    local/industry scope filtering has already been applied at the query level, so
+    fact-level cross-pool penalties and boosts are skipped to avoid contradicting
+    the explicit query scope (e.g. inspecting a local FTZ list to refute it when
+    ``in_free_trade_zone`` is ``False``).
     """
 
     boost = 1.0
     role = hit.citation_role
+    explicit_scoped = query_scope is not None and query_scope != "全库"
 
     # Conditional local basis: boost when any explicit region matches
-    if role == "conditional_local_basis":
+    if not explicit_scoped and role == "conditional_local_basis":
         fact_regions = _specific_regions(facts.regions)
         chunk_region = _normalize_region(chunk.applicable_region)
         if fact_regions and _is_specific_region(chunk_region):
@@ -101,7 +109,8 @@ def compute_boost_for_hit(
 
     # Conditional industry basis: boost when industry matches
     if (
-        role == "conditional_industry_basis"
+        not explicit_scoped
+        and role == "conditional_industry_basis"
         and facts.industry
         and _industry_matches(chunk, facts.industry)
     ):
@@ -150,6 +159,8 @@ def apply_boosts_to_hits(
     chunks_by_id: dict[str, Chunk],
     facts: ReviewFacts,
     query_type: RetrievalQueryType | None = None,
+    *,
+    query_scope: str | None = None,
 ) -> list[RetrievalHit]:
     """Apply metadata boosts to a list of hits, returning updated copies.
 
@@ -164,7 +175,7 @@ def apply_boosts_to_hits(
         if chunk is None:
             boosted.append(hit)
             continue
-        factor = compute_boost_for_hit(hit, chunk, facts, query_type)
+        factor = compute_boost_for_hit(hit, chunk, facts, query_type, query_scope=query_scope)
         boosted.append(hit.model_copy(update={"score": round(hit.score * factor, 6)}))
     return boosted
 
