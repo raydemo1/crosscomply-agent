@@ -10,6 +10,7 @@ from law_agent.review.agent import (
     _read_evidence_request,
 )
 from law_agent.review.agent_context import search_observation_context
+from law_agent.review.agent_tools import PREVIEW_CHARS
 from law_agent.review.qa_agent import (
     QADateContext,
     QADecision,
@@ -103,13 +104,13 @@ def test_short_whole_clause_in_the_results_is_acquired_without_a_read():
 
 def test_search_limit_requires_explicit_read_for_an_unselected_complete_article():
     main = _chunk("main", "第一条", "主要命中", index=0)
-    target = _chunk("target", "第五十六条", "第五十六条 完整的条件、要求及例外。" * 8, index=0).model_copy(update={"source_id": "other"})
+    target = _chunk("target", "第五十六条", "第五十六条 完整的条件、要求及例外。" * 16, index=0).model_copy(update={"source_id": "other"})
     hits = [hit_from_chunk(c, i) for i, c in enumerate([main, target])]
     tools = _search_tools([main, target], lambda *_a, **_k: [hits], top_k=1)
     qa = tools.search([query()], ReviewFacts(), coarse_scope=True)
     assert [h.chunk_id for h in qa] == ["main"]
     location = tools.search_results()[1]["locations"][0]
-    assert location["chunk_id"] == "target" and location["preview"] == target.text[:100]
+    assert location["chunk_id"] == "target" and location["preview"] == target.text[:PREVIEW_CHARS]
     read = tools.read_evidence("other", "第五十六条", None, ReviewFacts())
     assert read.hits[0].text == target.text and read.hits[0].can_cite_clause == target.can_cite_clause
     citations, _ = prepare_citations(QAState(goal="q", evidence=qa + read.hits),

@@ -165,6 +165,15 @@ export default function KnowledgeEnrichmentReview(): JSX.Element | null {
           <p>原件指纹：<code>{selected.raw_sha256 || '未记录'}</code> · <a href={`/api/admin/knowledge-enrichment-jobs/${encodeURIComponent(selected.id)}/raw`}>下载核对原件</a></p>
           {selected.parsed_excerpt ? <pre className="knowledge-preview__text">{selected.parsed_excerpt}</pre> : null}
           {selected.draft_json?.reader === 'rules' ? <div className="knowledge-alert">模型不可用，以下元数据为规则推断，请逐项核对。</div> : null}
+          {selected.draft_json?.unresolved.includes('page_kind') ? <div className="knowledge-alert">模型无法确定本页是文件本身还是只印发附件的通知；若正文在附件里，请驳回本页并改用附件地址补库。</div> : null}
+          {selected.draft_json?.attachments?.length ? (
+            <div className="knowledge-alert">
+              本页附件：
+              {selected.draft_json.attachments.map((item) => (
+                <span key={item.url}> <a href={item.url} target="_blank" rel="noreferrer">{item.name}</a>{item.follow ? '（模型建议入库）' : ''}；</span>
+              ))}
+            </div>
+          ) : null}
           {selected.draft_json?.evidence.note ? <div className="knowledge-alert">模型说明：{selected.draft_json.evidence.note}</div> : null}
           {selected.draft_json?.supersedes.length ? <div className="knowledge-alert">将取代：{selected.draft_json.supersedes.map((item) => `${item.title}（${item.date ?? '日期未知'}）`).join('；')}；批准后旧版自动设置失效日期。</div> : null}
           {selected.error ? <div className="knowledge-alert knowledge-alert--error">{selected.error}</div> : null}

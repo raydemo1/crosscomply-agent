@@ -263,11 +263,17 @@ class KnowledgeBaseAdminService:
 
         A metadata edit (provenance, dates, law status, citation role) does not
         touch the body: the stored chunks keep their identity and their cached
-        vectors, so this must not go through ``ingest_file``.
+        vectors, so this must not go through ``ingest_file``. A new document type
+        is the exception: it decides how the body is chunked (by article or by
+        section), so the stored original is chunked again under it.
         """
         if self.read_only:
             raise RuntimeError("知识库当前为只读挂载")
         require_consistent_metadata(source)
+        current = next((item.source for item in self.list_sources() if item.source.source_id == source.source_id), None)
+        raw_files = sorted((self.corpus / "raw" / source.source_id).glob("source.*"))
+        if current is not None and current.doc_type != source.doc_type and raw_files:
+            return self.ingest_file(source, raw_files[0])
         with self._mutation_lock, corpus_mutation_lock():
             config = require_service_config()
             index = ServiceGenerationIndex(config)

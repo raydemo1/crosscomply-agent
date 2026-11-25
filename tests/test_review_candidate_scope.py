@@ -99,7 +99,7 @@ def test_both_routes_contribute_to_bounded_candidates_before_body_selection():
     from law_agent.review.retrieval.neighbors import hit_from_chunk
     from tests.test_review_agent import _search_tools
 
-    chunks = [_chunk(str(i), f"第{i + 1}条", f"原文{i}" * 40, index=i) for i in range(100)]
+    chunks = [_chunk(str(i), f"第{i + 1}条", f"原文{i}" * 100, index=i) for i in range(100)]
     keyword, vector = [[hit_from_chunk(c, i).model_copy(update={"score": 100 - i})
                         for i, c in enumerate(batch)] for batch in [chunks[:50], chunks[50:]]]
     tools = _search_tools(chunks, lambda *a, **k: [keyword], top_k=1)
@@ -151,7 +151,7 @@ def test_vector_only_hits_take_article_metadata_from_the_corpus():
     from law_agent.review.retrieval.neighbors import hit_from_chunk
     from tests.test_review_agent import _search_tools
 
-    chunks = [_chunk(str(i), f"第{i + 1}条", f"原文{i}" * 40, index=i) for i in range(3)]
+    chunks = [_chunk(str(i), f"第{i + 1}条", f"原文{i}" * 100, index=i) for i in range(3)]
     # The vector index returns rows without article numbers or headings.
     bare = [hit_from_chunk(c, i).model_copy(update={"article_no": None, "heading_path": [], "score": 3 - i})
             for i, c in enumerate(chunks)]

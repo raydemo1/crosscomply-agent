@@ -1,6 +1,5 @@
 """Explicit applicant confirmation replaces frozen facts, never a running report."""
 
-import os
 from dataclasses import asdict
 from uuid import uuid4
 
@@ -25,7 +24,8 @@ def queue_review(*, cases, enterprise, case, user, material_snapshot, intake_sna
         portfolio_snapshot_id=frozen.id if frozen else None,
         data_boundary_summary={
             "base_url": config.base_url,
-            "deployment": os.getenv("CROSSCOMPLY_MODEL_BOUNDARY", "enterprise-approved-api"),
+            "deployment": config.model_boundary,
+            "env_profile": config.env_profile,
         },
     )
     if task.status not in {"queued", "running", "waiting_input"}:

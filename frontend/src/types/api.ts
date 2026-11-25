@@ -534,7 +534,8 @@ export interface KnowledgeEnrichmentJobApi {
   id: string;
   url: string;
   title: string;
-  status: 'queued' | 'running' | 'awaiting_review' | 'approved' | 'published' | 'unchanged' | 'rejected' | 'failed';
+  /** expanded：页面只是印发通知，已按附件拆成子任务，通知本身不入库。 */
+  status: 'queued' | 'running' | 'awaiting_review' | 'approved' | 'published' | 'unchanged' | 'rejected' | 'failed' | 'expanded';
   source_json: KnowledgeSourceRecordApi | null;
   source_id: string | null;
   raw_sha256: string | null;
@@ -550,6 +551,10 @@ export interface KnowledgeEnrichmentJobApi {
 export interface KnowledgeSourceDraftApi {
   /** model：模型读取；rules：模型不可用，按规则推断，需逐项确认。 */
   reader: 'model' | 'rules';
+  /** document：本页就是材料正文；issuing_notice：本页只是印发通知，正文在附件里。 */
+  page_kind: 'document' | 'issuing_notice';
+  /** 本页链接的附件，follow 为模型判断应当入库的。 */
+  attachments: { name: string; url: string; follow: boolean }[];
   source: KnowledgeSourceRecordApi;
   evidence: Record<string, string>;
   unresolved: string[];

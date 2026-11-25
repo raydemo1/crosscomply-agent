@@ -841,7 +841,7 @@ def test_omitted_keyword_source_is_discoverable_but_requires_reading_before_cita
     from law_agent.review.schemas import GroundedClaim
 
     primary = _chunk("primary", "第一条", "主要命中", index=0)
-    target = _chunk("target", "第二条", "关键词命中的条件" * 20, index=0).model_copy(update={"source_id": "other"})
+    target = _chunk("target", "第二条", "关键词命中的条件" * 40, index=0).model_copy(update={"source_id": "other"})
     duplicate = target.model_copy(update={"chunk_id": "duplicate", "chunk_index": 1})
     future = target.model_copy(update={"chunk_id": "future", "source_id": "future-source",
                                        "publish_date": "2027-01-01", "effective_date": "2027-01-01"})
@@ -888,8 +888,8 @@ def test_search_results_keep_omitted_articles_in_an_already_returned_source():
         for index, (name, article, text) in enumerate([
             ("primary", "第一条", "一般义务"),
             ("target", "第二条", "义务例外" * 100),
-            ("generic1", "第三条", "一般范围" * 30),
-            ("generic2", "第四条", "通用范围" * 30),
+            ("generic1", "第三条", "一般范围" * 80),
+            ("generic2", "第四条", "通用范围" * 80),
         ])
     ]
     keyword = [hit_from_chunk(c, 1) for c in (primary, target, generic1, generic2)]

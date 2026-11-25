@@ -48,6 +48,18 @@
 
 入口为 `http://<主机>:8080`。
 
+## 切换聊天端点
+
+把命名配置档放进 `model-profiles/`，在 Compose 项目的 `.env` 中设置
+`CROSSCOMPLY_LLM_PROFILE=<名字>`。等待正在处理的聊天模型任务结束后，重建三个后端服务：
+
+```bash
+docker compose up -d --build --force-recreate api worker knowledge-worker
+```
+
+也可在该条命令的环境中临时设置 `CROSSCOMPLY_LLM_PROFILE`。三个服务统一使用这次选择。
+要切回原端点，设为 `default` 后执行同一条命令。具体文件格式见[配置参考](configuration.md#模型openai-兼容)。
+
 ## 持续审查升级
 
 升级已有实例前先备份数据库，停止 API、审查 Worker 和知识库 Worker。使用新版本镜像运行迁移和主体键回填：

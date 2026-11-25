@@ -1,6 +1,15 @@
 name: crosscomply
 
+x-model-profiles: &model-profiles
+  type: bind
+  source: ./model-profiles
+  target: /app/model-profiles
+  read_only: true
+  bind:
+    create_host_path: false
+
 x-backend-environment: &backend-environment
+  CROSSCOMPLY_LLM_PROFILE: ${CROSSCOMPLY_LLM_PROFILE:-default}
   ES_URL: http://elasticsearch:9200
   ES_INDEX: ${ES_INDEX:-lawagent_chunks}
   ES_VERIFY_CERTS: "false"
@@ -111,6 +120,7 @@ services:
         required: false
     environment: *backend-environment
     volumes:
+      - *model-profiles
       - ${CROSSCOMPLY_CORPUS_DIR:-./data/corpus/legal_docs_20260702}:/app/data/corpus/legal_docs_20260702:rw
     command: ["uvicorn", "law_agent.review.api:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
     depends_on:
@@ -139,6 +149,7 @@ services:
         required: false
     environment: *backend-environment
     volumes:
+      - *model-profiles
       - ${CROSSCOMPLY_CORPUS_DIR:-./data/corpus/legal_docs_20260702}:/app/data/corpus/legal_docs_20260702:rw
     command: ["python", "-m", "law_agent.review.worker"]
     depends_on:
@@ -166,6 +177,7 @@ services:
         required: false
     environment: *backend-environment
     volumes:
+      - *model-profiles
       - ${CROSSCOMPLY_CORPUS_DIR:-./data/corpus/legal_docs_20260702}:/app/data/corpus/legal_docs_20260702:rw
     command: ["python", "-m", "law_agent.kb.enrichment_worker"]
     depends_on:

@@ -8,6 +8,7 @@
 .env
 .env.*
 !.env.example
+model-profiles/
 *.log
 __pycache__
 *.py[cod]

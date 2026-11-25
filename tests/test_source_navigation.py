@@ -18,6 +18,7 @@ from law_agent.review.agent import (
     review_context,
 )
 from law_agent.review.agent_context import search_observation_context
+from law_agent.review.agent_tools import PREVIEW_CHARS
 from law_agent.review.qa_agent import QAState
 from law_agent.review.qa_context import qa_state_context
 from law_agent.review.remediation import (
@@ -255,7 +256,7 @@ def test_remediation_default_tools_deliver_navigation_and_read_original(monkeypa
     from law_agent.review import remediation
 
     chunks = [_chunk('main', '第一条', '正文' * 80, index=0),
-              _chunk('candidate', '第二条', '需要核对的适用条件。' * 20, index=1)]
+              _chunk('candidate', '第二条', '需要核对的适用条件。' * 30, index=1)]
     hits = [hit_from_chunk(c, i).model_copy(update={'score': 100 - i}) for i, c in enumerate(chunks)]
     tools = _search_tools(chunks, lambda *_a, **_kw: [hits], top_k=1)
     closed = []
@@ -271,7 +272,7 @@ def test_remediation_default_tools_deliver_navigation_and_read_original(monkeypa
             assert source['locations'][0]['acquired'] and source['locations'][0]['chunk_id'] == 'main'
             location = source['locations'][1]
             assert location['chunk_id'] == 'candidate'
-            assert location['preview'] == chunks[1].text[:100]
+            assert location['preview'] == chunks[1].text[:PREVIEW_CHARS]
             assert location['query_matches'][0]['rank'] == 2
             assert {h.chunk_id for h in state.evidence} == {'main'}
             return RemediationDecision(action='read_evidence', summary='取得候选原文',
@@ -328,7 +329,7 @@ def test_unread_keyword_source_offers_the_same_directory_entry_without_citing_pr
 
 
 def test_results_keep_per_query_top8_and_shared_memberships():
-    chunks = [_chunk(f'c{i}', f'第{i}条', f'正文{i}' * 40, index=i) for i in range(10)]
+    chunks = [_chunk(f'c{i}', f'第{i}条', f'正文{i}' * 100, index=i) for i in range(10)]
     hits = [hit_from_chunk(c, i).model_copy(update={'score': 10 - i}) for i, c in enumerate(chunks)]
     tools = _search_tools(chunks, lambda *_a, **_kw: [hits, hits], top_k=1)
     queries = [RetrievalQuery(query_id=q, query_type='legal_issue', text=q) for q in ['q1', 'q2']]

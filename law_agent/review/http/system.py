@@ -57,6 +57,7 @@ def register_system_routes(app: FastAPI, *, current_user, admin_only) -> None:
                 "configured": llm_config.enabled,
                 "reachable": llm_config.enabled,
                 "model": llm_config.model,
+                "env_profile": llm_config.env_profile,
                 "base_url": llm_config.base_url,
             },
             services=services,

@@ -9,6 +9,11 @@ article is: drop elements that are chrome by tag (``nav``, ``header``,
 still holds most of the page's prose. Tables are emitted as ``<table>`` rows
 so the table-aware chunker reads them as tables.
 
+Responsive pages carry the article twice (a desktop copy and a mobile copy,
+one of them hidden by CSS), so a line already emitted is not emitted again.
+A notice whose instrument is an attached file names it in a link: those links
+are read from the same main element (:func:`attachment_links`).
+
 Standard library only (``html.parser``), tolerant of unclosed tags.
 """
 
@@ -18,6 +23,8 @@ import re
 from dataclasses import dataclass, field
 from html import escape
 from html.parser import HTMLParser
+from pathlib import PurePosixPath
+from urllib.parse import unquote, urljoin, urlsplit
 
 SKIP_TAGS = frozenset({
     "script", "style", "noscript", "iframe", "svg", "nav", "header", "footer", "form", "select",
@@ -40,6 +47,9 @@ CHROME_NAME_RE = re.compile(
 )
 PROSE_MIN_CHARS = 15
 MAIN_SHARE = 0.8
+# A repeated line this long is the page's second copy of the article, not a repeated phrase.
+DUPLICATE_LINE_MIN_CHARS = 12
+ATTACHMENT_SUFFIXES = frozenset({".pdf", ".docx", ".doc", ".wps", ".ofd", ".xls", ".xlsx", ".zip", ".rar", ".txt"})
 
 
 @dataclass
@@ -158,12 +168,49 @@ def _descendants(node: _Node, tag: str) -> list[_Node]:
     return found
 
 
-def extract_main_text(raw: str) -> str:
+def _tree(raw: str) -> _Node:
     builder = _TreeBuilder()
     builder.feed(raw)
     builder.close()
+    return builder.root
+
+
+def extract_main_text(raw: str) -> str:
     out: list[str] = []
-    _render(_main_node(builder.root), out)
-    text = "".join(out)
-    lines = [re.sub(r"[ \t ]+", " ", line).strip() for line in text.splitlines()]
+    _render(_main_node(_tree(raw)), out)
+    seen: set[str] = set()
+    lines: list[str] = []
+    for line in "".join(out).splitlines():
+        line = re.sub(r"[ \t\u00a0]+", " ", line).strip()
+        if len(line) >= DUPLICATE_LINE_MIN_CHARS:
+            if line in seen:
+                continue
+            seen.add(line)
+        lines.append(line)
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def attachment_links(raw: str, base_url: str) -> list[tuple[str, str]]:
+    """``(name, absolute url)`` of each file the page's main text links to, in page order, each once."""
+
+    found: dict[str, str] = {}
+    for anchor in _descendants_all(_main_node(_tree(raw)), "a"):
+        href = anchor.attrs.get("href", "").strip()
+        if not href or href.startswith(("javascript:", "mailto:", "#")):
+            continue
+        url = urljoin(base_url, href)
+        path = PurePosixPath(unquote(urlsplit(url).path))
+        if path.suffix.lower() not in ATTACHMENT_SUFFIXES or url in found:
+            continue
+        found[url] = re.sub(r"\s+", " ", _inline(anchor)).strip() or path.name
+    return [(name, url) for url, name in found.items()]
+
+
+def _descendants_all(node: _Node, tag: str) -> list[_Node]:
+    found: list[_Node] = []
+    for child in node.children:
+        if isinstance(child, _Node) and not child.chrome:
+            if child.tag == tag:
+                found.append(child)
+            found.extend(_descendants_all(child, tag))
+    return found
