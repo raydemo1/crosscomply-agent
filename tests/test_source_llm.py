@@ -94,3 +94,62 @@ def test_a_publication_date_from_the_address_or_the_search_result_needs_no_quote
     client = _Client(_answer(publish_date=_field("2025-05-28", None)))
     reading = _read(client, url="https://www.pbc.gov.cn/x/2025052819185580666/t20250528_1.html")
     assert "publish_date" not in reading.rejected
+
+
+def test_full_text_threshold_sends_whole_body_under_16k_and_slices_over_16k():
+    import json
+
+    from law_agent.kb.source_llm import FULL_TEXT_THRESHOLD, HEAD_CHARS, TAIL_CHARS
+
+    medium = TEXT + "\n" + ("合规条款正文。" * 1000)  # ~7000 chars: well under 16k, over old 5k
+    assert 5000 < len(medium) <= FULL_TEXT_THRESHOLD
+    c1 = _Client(_answer())
+    _read(c1, text=medium)
+    sent1 = json.loads(c1.calls[0][-1].content)["text"]
+    assert sent1 == medium and "中间略" not in sent1
+
+    huge = TEXT + "\n" + ("长标准条文。" * 4000) + "\n附则：自发布之日起施行。"
+    assert len(huge) > FULL_TEXT_THRESHOLD
+    c2 = _Client(_answer())
+    _read(c2, text=huge)
+    sent2 = json.loads(c2.calls[0][-1].content)["text"]
+    assert "中间略" in sent2 and sent2.startswith(huge[:HEAD_CHARS]) and sent2.endswith(huge[-TAIL_CHARS:])
+
+
+def test_web_body_trimming_and_verified_precedence_relations():
+    from law_agent.kb.source_llm import trim_web_body
+
+    raw_web = (
+        "* !Image 1\n* 首页\n* 时政要闻\n"
+        "国家网信办关于变更认证标准的公告\n"
+        "2025年第53号\n"
+        "自本公告发布之日起，《个人信息保护认证实施规则》中涉及跨境处理活动的依据标准调整为GB/T 46068。\n"
+        "2025年12月12日\n"
+        "京公网安备11040102700108号\n!Image 16"
+    )
+    client = _Client(_answer(
+        body_start_quote="国家网信办关于变更认证标准的公告",
+        body_end_quote="2025年12月12日",
+        precedence_relations=[
+            {"target_title": "《个人信息保护认证实施规则》", "quote": "《个人信息保护认证实施规则》中涉及跨境处理活动的依据标准调整为GB/T 46068"},
+            {"target_title": "虚构旧规", "quote": "正文中并不存在的句子"},
+        ],
+    ))
+    reading = _read(client, text=raw_web)
+    assert reading.inference.body_start_quote == "国家网信办关于变更认证标准的公告"
+    assert reading.inference.body_end_quote == "2025年12月12日"
+    assert [(r.target_title, r.quote) for r in reading.inference.source.precedence_relations] == [
+        ("个人信息保护认证实施规则", "《个人信息保护认证实施规则》中涉及跨境处理活动的依据标准调整为GB/T 46068"),
+    ]
+
+    trimmed = trim_web_body(
+        raw_web,
+        start_quote=reading.inference.body_start_quote,
+        end_quote=reading.inference.body_end_quote,
+        file_format="html",
+    )
+    assert trimmed.startswith("国家网信办关于变更认证标准的公告")
+    assert trimmed.endswith("2025年12月12日")
+    assert "!Image" not in trimmed and "京公网安备" not in trimmed
+    # Attachments (pdf/docx/xlsx) are never sliced by web body trimming.
+    assert trim_web_body(raw_web, start_quote="国家网信办关于变更认证标准的公告", end_quote="2025年12月12日", file_format="pdf") == raw_web

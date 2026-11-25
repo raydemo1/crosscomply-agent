@@ -171,7 +171,10 @@ def catalog_sources_for_scope(chunks: Sequence[Chunk], scope: str) -> list[dict[
     for source_id, source_chunks in grouped.items():
         rep = source_chunks[0]
         if normalized == SCOPE_NATIONAL:
-            if not (_is_national_general(rep) and any(c.can_cite_clause for c in source_chunks)):
+            if not (
+                _is_national_general(rep)
+                and (any(c.can_cite_clause for c in source_chunks) or rep.doc_type == "policy")
+            ):
                 continue
         else:
             if _is_national_general(rep) or not chunk_in_scope(rep, normalized):

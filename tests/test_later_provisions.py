@@ -31,6 +31,44 @@ def test_only_precedence_language_in_a_later_document_links_back():
     assert index_later_provisions(_corpus()) == {"scc_2023": ["new13"]}
 
 
+def test_official_policy_notice_with_change_language_links_back_while_faq_does_not():
+    old_rules = _chunk("rules0", "", "实施规则正文", index=0).model_copy(update={
+        "source_id": "cert_rules_2022", "title": "个人信息保护认证实施规则",
+        "article_no": None, "heading_path": ["个人信息保护认证实施规则"],
+        "doc_type": "policy", "can_cite_clause": False,
+        "publish_date": "2022-11-18", "effective_date": "2022-11-18",
+    })
+    notice = _chunk(
+        "notice0", "",
+        "《个人信息保护认证实施规则》中涉及跨境处理活动的认证依据标准变更为GB/T 35273、GB/T 46068。",
+        index=0,
+    ).model_copy(update={
+        "source_id": "cert_notice_2025", "title": "关于变更个人信息出境认证依据标准的公告",
+        "article_no": None, "heading_path": ["关于变更个人信息出境认证依据标准的公告"],
+        "doc_type": "policy", "can_cite_clause": False,
+        "publish_date": "2025-12-25", "effective_date": "2025-12-25",
+    })
+    faq = notice.model_copy(update={"chunk_id": "faq0", "source_id": "faq_2026", "doc_type": "faq"})
+    assert index_later_provisions([old_rules, notice, faq]) == {"cert_rules_2022": ["notice0"]}
+    tools = _tools_with([old_rules, notice, faq])
+    read = tools.read_evidence("cert_rules_2022", None, "rules0", ReviewFacts(as_of_date=date(2026, 10, 15)))
+    assert [p["source_id"] for p in read.hits[0].later_provisions] == ["cert_notice_2025"]
+
+
+def test_model_verified_precedence_relations_work_without_regex_keywords():
+    from law_agent.data.schemas import PrecedenceRelation
+
+    old = _chunk("old0", "第一条", "旧规正文", index=0).model_copy(update={
+        "source_id": "old_rule", "title": "旧版管理规范", "publish_date": "2022-01-01",
+    })
+    # Deliberately uses wording ("不再执行") outside the fallback regex PRECEDENCE_WORDS.
+    newer = _chunk("new0", "第十条", "本办法施行后，原规范不再执行。", index=0).model_copy(update={
+        "source_id": "new_rule", "title": "新版管理办法", "publish_date": "2026-01-01",
+        "precedence_relations": [PrecedenceRelation(target_title="旧版管理规范", quote="本办法施行后，原规范不再执行。")],
+    })
+    assert index_later_provisions([old, newer]) == {"old_rule": ["new0"]}
+
+
 def test_reading_an_old_article_shows_the_later_provision_in_force_at_the_review_date():
     tools = _tools_with(_corpus())
     read = tools.read_evidence("scc_2023", "第四条", None, ReviewFacts(as_of_date=date(2026, 10, 15)))
@@ -44,7 +82,7 @@ def test_reading_an_old_article_shows_the_later_provision_in_force_at_the_review
 
 def test_search_results_carry_later_provisions_and_name_the_document_type():
     chunks = _corpus()
-    filler = _chunk("filler", "第二条", "其他规则" * 40, index=1).model_copy(update={"doc_type": "faq",
+    filler = _chunk("filler", "第二条", "其他规则" * 80, index=1).model_copy(update={"doc_type": "faq",
                                                                                  "can_cite_clause": False})
     ranked = [hit_from_chunk(c, i).model_copy(update={"score": 10 - i}) for i, c in enumerate([chunks[0], filler])]
     tools = _search_tools([*chunks, filler], lambda *_a, **_k: [ranked], top_k=1)

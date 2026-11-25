@@ -23,17 +23,19 @@ import logging
 import re
 from dataclasses import dataclass, replace
 from datetime import date
+from pathlib import PurePosixPath
 from typing import Any, get_args
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field
 
-from law_agent.data.schemas import SourceRecord
+from law_agent.data.schemas import PrecedenceRelation, SourceRecord
 from law_agent.kb.source_inference import (
     _URL_DATE_RES,
     AGENCY_ALIASES,
     DATE_RE,
-    ORDER_RE,
     ISO_DATE_RE,
+    ORDER_RE,
     REGION_CODES,
     SourceInference,
     arabic_dates,
@@ -44,9 +46,12 @@ from law_agent.kb.source_inference import (
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "source-metadata-v5"
-HEAD_CHARS = 3500
-TAIL_CHARS = 1500
+PROMPT_VERSION = "source-metadata-v7"
+FULL_TEXT_THRESHOLD = 16_000
+HEAD_CHARS = 6_000
+TAIL_CHARS = 4_000
+NOTICE_CHARS = 2_000
+WEB_TRIM_FORMATS = frozenset({"html", "htm", "md", "txt"})
 NORM_DOC_TYPES = {"law", "regulation", "judicial_interpretation"}
 # What an enacted norm's quote must show: the form of enactment, not just a name.
 ENACTMENT_RE = {
@@ -93,6 +98,18 @@ applicable_region 指文件的适用地域，不是发布机关所在地：全�
 - publish_date：文件首次公开的日期，YYYY-MM-DD。优先用页面发布日期或签署、公布日期；国家标准用“发布”日期。page_date_from_search 是检索引擎给的页面日期，只在正文和网址都没有日期时作参考。
 - effective_date：施行、实施或生效日期。“自发布之日起施行”时等于发布日期。文本是修正后版本而修改决定的施行日期未写明时，填 null。问答、解读一般没有生效日期，填 null。
 
+## 页面本身，还是印发通知
+page_kind：document 表示本页（本文件）就载有材料正文，包括文件全文、问答、解读，以及正文就在本页或同一文件里的“通知加附件”；issuing_notice 表示本页只有发布令、印发或公布通知（如“现予公布”“现将《……》印发给你们”），被发布的文件条文在附件里，本页没有这些条文。只看到令号、签署人和施行日期、却没有条文的页面，也是 issuing_notice。quote 摘能说明这一点的原文。
+attachments 是本页链接的附件（编号、名称、格式）。page_kind 为 issuing_notice 时，逐个判断附件：kind 写它是什么（被印发的文件、解读或说明、合同范本、填报表格、同一文件的其他格式版本、其他），follow 表示是否入库。被印发的文件、官方解读或说明、合同范本这类有实质内容的材料入库；空白填报表格、同一文件的其他格式版本（已有 PDF 或 Word 版时不再收 OFD、WPS 版）不入库。此时其余字段可以都填 null，附件会单独读取。
+拿不准是不是印发通知时，把 page_kind 放进 uncertain。
+
+## 印发通知
+issuing_notice 不为空时，是印发这份文件的通知原文：文件本身常不写发布机关、文号和日期，可从通知中读取，quote 可以摘自通知。
+
+## 正文边界与新旧衔接
+- body_start_quote / body_end_quote：仅对网页抓取文本（非 PDF/DOCX 附件）且正文前后明显夹带导航栏、面包屑、分享栏、图片占位符或网站备案页脚时填写，分别逐字摘取正式文件正文第一句（如标题或第一条）和最后一句（如落款日期或附则末句），由程序按此精准裁去页面外框；附件或无杂讯时填 null。
+- precedence_relations：若本文件明确声明覆盖、修订、废止或变更某份在先官方文件的适用/依据标准（如“与本规定不一致的，适用本规定”“依据标准变更为……”），逐条列出 {"target_title": "在先文件正式名称（去书名号）", "quote": "逐字摘取原文（不超过120字）"}；没有则填 []。
+
 ## 取值表（只能用这些英文值）
 - doc_type：law、regulation、judicial_interpretation、policy、guideline、standard、faq、contract
 - authority（效力层级，不是机关名称）：national_law、administrative_regulation、departmental_rule、local_regulation、judicial_interpretation、ministry_policy、local_normative_document、technical_guidance、public_interpretation、national_standard
@@ -100,7 +117,7 @@ applicable_region 指文件的适用地域，不是发布机关所在地：全�
 - title：文件本身的名称，去掉网站名、令号或公告号前缀、外层书名号、“（全文）”。
 quote 要逐字照抄一段连续原文，不要用省略号拼接；全国适用（CN）不需要 quote。
 
-输出 JSON：{"title": {"value": ..., "quote": ...}, "doc_type": {...}, "authority": {...}, "citation_role": {...}, "applicable_region": {...}, "issuing_body": {...}, "publish_date": {...}, "effective_date": {...}, "uncertain": [拿不准的字段名], "note": "拿不准的原因，没有就填 null"}"""
+输出 JSON：{"title": {"value": ..., "quote": ...}, "doc_type": {...}, "authority": {...}, "citation_role": {...}, "applicable_region": {...}, "issuing_body": {...}, "publish_date": {...}, "effective_date": {...}, "page_kind": {"value": "document 或 issuing_notice", "quote": ...}, "attachments": [{"index": 编号, "kind": "...", "follow": true 或 false}], "body_start_quote": null, "body_end_quote": null, "precedence_relations": [], "uncertain": [拿不准的字段名], "note": "拿不准的原因，没有就填 null"}"""
 
 
 class _Field(BaseModel):
@@ -117,6 +134,10 @@ class _Answer(BaseModel):
     issuing_body: _Field = Field(default_factory=_Field)
     publish_date: _Field = Field(default_factory=_Field)
     effective_date: _Field = Field(default_factory=_Field)
+    page_kind: _Field = Field(default_factory=_Field)
+
+
+PAGE_KINDS = ("document", "issuing_notice")
 
 
 @dataclass(frozen=True)
@@ -188,13 +209,74 @@ def _check(name: str, value: str | None, quote: str | None, haystack: str, answe
     return None
 
 
+def trim_web_body(
+    text: str,
+    *,
+    start_quote: str | None,
+    end_quote: str | None,
+    file_format: str,
+) -> str:
+    """Deterministically slice webpage chrome using model-supplied verbatim quotes.
+
+    Only applies to web formats (``html``/``htm``/``md``/``txt``); attachments
+    (PDF/DOCX/XLSX) are returned untouched. Falls back to the original text if
+    either anchor is missing, ambiguous, or would cut away too much of the body.
+    """
+
+    if file_format.lower() not in WEB_TRIM_FORMATS or not text.strip():
+        return text
+    start_idx = 0
+    end_idx = len(text)
+    if start_quote and start_quote.strip():
+        needle = start_quote.strip()
+        first = text.find(needle)
+        if first != -1 and text.find(needle, first + 1) == -1 and first <= int(len(text) * 0.6):
+            start_idx = first
+    if end_quote and end_quote.strip():
+        needle = end_quote.strip()
+        last = text.rfind(needle)
+        if last != -1 and text.find(needle) == last and last >= int(len(text) * 0.4):
+            end_idx = last + len(needle)
+    if start_idx >= end_idx or (start_idx == 0 and end_idx == len(text)):
+        return text
+    trimmed = text[start_idx:end_idx].strip()
+    if len(trimmed) < min(80, int(len(text) * 0.35)):
+        return text
+    return trimmed
+
+
+def _verified_precedence_relations(raw_relations: Any, haystack: str) -> list[PrecedenceRelation]:
+    if not isinstance(raw_relations, list):
+        return []
+    verified: list[PrecedenceRelation] = []
+    seen: set[tuple[str, str]] = set()
+    for item in raw_relations:
+        if not isinstance(item, dict):
+            continue
+        target = item.get("target_title")
+        quote = item.get("quote")
+        if not isinstance(target, str) or not isinstance(quote, str):
+            continue
+        target_clean = clean_title(target).strip()
+        quote_clean = quote.strip()
+        if not target_clean or len(quote_clean) < 6 or _squash(quote_clean) not in haystack:
+            continue
+        key = (target_clean, quote_clean[:120])
+        if key in seen:
+            continue
+        seen.add(key)
+        verified.append(PrecedenceRelation(target_title=target_clean, quote=quote_clean[:200]))
+    return verified
+
+
 def _reading(data: dict[str, Any], *, source_id: str, title: str, text: str, url: str, source_site: str,
-             file_format: str, today: date, published_hint: str | None) -> ModelReading:
+             file_format: str, today: date, published_hint: str | None, context: str | None = None,
+             attachments: int = 0) -> ModelReading:
     """Check every quote of one answer and build the draft record from what holds."""
 
     page_dates = _dates_in(url) | ({published_hint[:10]} if published_hint else set())
     answer = _Answer.model_validate({key: value for key, value in data.items() if isinstance(value, dict)})
-    haystack = _squash(f"{title}\n{url}\n{text}")
+    haystack = _squash(f"{title}\n{url}\n{context or ''}\n{text}")
     rejected: dict[str, str] = {}
     evidence: dict[str, str] = {}
     for name in _Answer.model_fields:
@@ -234,12 +316,27 @@ def _reading(data: dict[str, Any], *, source_id: str, title: str, text: str, url
     elif doc_type not in NORM_DOC_TYPES and publish:
         law_status = "effective"
     clean = clean_title(value("title") or title)
+    relations = _verified_precedence_relations(data.get("precedence_relations"), haystack)
+    raw_start = data.get("body_start_quote")
+    raw_end = data.get("body_end_quote")
+    body_start = (
+        raw_start.strip()
+        if file_format.lower() in WEB_TRIM_FORMATS and isinstance(raw_start, str) and raw_start.strip()
+        and _squash(raw_start.strip()) in haystack
+        else None
+    )
+    body_end = (
+        raw_end.strip()
+        if file_format.lower() in WEB_TRIM_FORMATS and isinstance(raw_end, str) and raw_end.strip()
+        and _squash(raw_end.strip()) in haystack
+        else None
+    )
     source = SourceRecord(
         source_id=source_id, library_kind="legal", title=clean, source_url=url, source_site=source_site,
         doc_type=doc_type, authority=authority, citation_role=citation_role,
         law_status=law_status, publish_date=publish, effective_date=effective,
         issuing_body=value("issuing_body"), applicable_region=region, instrument_key=instrument_key(clean),
-        file_format=file_format, include_in_mvp=True,
+        file_format=file_format, include_in_mvp=True, precedence_relations=relations,
     )
     note = data.get("note")
     if isinstance(note, str) and note.strip() and note.strip().lower() != "null":
@@ -253,29 +350,62 @@ def _reading(data: dict[str, Any], *, source_id: str, title: str, text: str, url
         missing.append("effective_date")
     elif doc_type not in NORM_DOC_TYPES and not (publish or effective):
         missing.append("publish_date")
+    page_kind = answer.page_kind.value or "document"
+    if page_kind not in PAGE_KINDS:
+        rejected["page_kind"] = f"“{page_kind}”不是有效取值"
+        page_kind = "document"
+    follow = tuple(sorted({item["index"] for item in data.get("attachments") or []
+                           if isinstance(item, dict) and item.get("follow") is True
+                           and isinstance(item.get("index"), int) and 1 <= item["index"] <= attachments}))
+    if attachments and answer.page_kind.value is None:
+        missing.append("page_kind")
+    if page_kind == "issuing_notice":
+        # The notice's own fields do not matter: each followed attachment is read on its own.
+        missing = [name for name in missing if name == "page_kind"]
+        uncertain = [name for name in uncertain if name == "page_kind"]
+        rejected = {name: why for name, why in rejected.items() if name == "page_kind"}
+        if not follow:
+            evidence["page_kind"] = "模型判断为印发通知，但没有选出要入库的附件"
     unresolved = list(dict.fromkeys([*rejected, *uncertain, *missing]))
     return ModelReading(
-        inference=SourceInference(source=source, evidence=evidence, unresolved=unresolved, reader="model"),
-        answer=answer.model_dump() | {key: data[key] for key in ("uncertain", "note") if key in data},
+        inference=SourceInference(source=source, evidence=evidence, unresolved=unresolved, reader="model",
+                                  page_kind=page_kind, follow=follow,
+                                  body_start_quote=body_start, body_end_quote=body_end),
+        answer=answer.model_dump() | {key: data[key] for key in ("attachments", "uncertain", "note", "precedence_relations") if key in data},
         rejected=rejected,
     )
 
 
 def read_with_model(
     *, client, source_id: str, title: str, text: str, url: str, source_site: str, file_format: str,
-    published_hint: str | None = None, today: date | None = None,
+    published_hint: str | None = None, today: date | None = None, context: str | None = None,
+    raw_text: str | None = None, attachments: list[tuple[str, str]] | None = None,
 ) -> ModelReading:
-    """``client`` is an :class:`~law_agent.llm.openai_compatible.OpenAICompatibleClient`."""
+    """``client`` is an :class:`~law_agent.llm.openai_compatible.OpenAICompatibleClient`; ``context`` is the
+    text of the notice that issued the document, when the document came as its attachment. ``raw_text``
+    is the parse before cleaning: it keeps the page's filing card (文号、成文日期、发布日期), so the model
+    reads it, and quotes may come from either version."""
 
     from law_agent.llm.openai_compatible import ChatMessage
 
     today = today or date.today()
-    excerpt = text if len(text) <= HEAD_CHARS + TAIL_CHARS else f"{text[:HEAD_CHARS]}\n……（中间略）……\n{text[-TAIL_CHARS:]}"
-    prompt = {"title": title, "url": url, "page_date_from_search": published_hint, "text": excerpt}
+    shown = raw_text or text
+    excerpt = (
+        shown
+        if len(shown) <= FULL_TEXT_THRESHOLD
+        else f"{shown[:HEAD_CHARS]}\n……（中间略）……\n{shown[-TAIL_CHARS:]}"
+    )
+    prompt = {"title": title, "url": url, "page_date_from_search": published_hint,
+              "issuing_notice": (context or "")[:NOTICE_CHARS] or None,
+              "attachments": [{"index": number, "name": name,
+                               "format": PurePosixPath(urlsplit(link).path).suffix.lstrip(".")}
+                              for number, (name, link) in enumerate(attachments or [], start=1)],
+              "text": excerpt}
     data = client.chat_json([ChatMessage(role="system", content=SYSTEM),
                              ChatMessage(role="user", content=json.dumps(prompt, ensure_ascii=False))])
-    return _reading(data, source_id=source_id, title=title, text=text, url=url, source_site=source_site,
-                    file_format=file_format, today=today, published_hint=published_hint)
+    return _reading(data, source_id=source_id, title=title, text=f"{raw_text or ''}\n{text}", url=url,
+                    source_site=source_site, file_format=file_format, today=today, published_hint=published_hint,
+                    context=context, attachments=len(attachments or []))
 
 
 def metadata_client():
@@ -294,20 +424,22 @@ def metadata_client():
 def read_source_metadata(
     *, client, source_id: str, title: str, text: str, url: str, source_site: str, file_format: str,
     raw_text: str | None = None, published_hint: str | None = None, today: date | None = None,
+    context: str | None = None, attachments: list[tuple[str, str]] | None = None,
 ) -> SourceInference:
     """The model's reading of a new source; the rules' when the model is not configured or fails.
 
     A rules draft is only a prefill: it is marked as such and never publishes without a reviewer.
     """
 
-    common = dict(source_id=source_id, title=title, text=text, url=url, source_site=source_site,
-                  file_format=file_format, published_hint=published_hint, today=today)
+    common = {"source_id": source_id, "title": title, "text": text, "url": url, "source_site": source_site,
+              "file_format": file_format, "published_hint": published_hint, "today": today}
     reason = "未配置模型"
     if client is not None:
         try:
-            return read_with_model(client=client, **common).inference
+            return read_with_model(client=client, context=context, raw_text=raw_text, attachments=attachments,
+                                   **common).inference
         except Exception as exc:  # noqa: BLE001 - any model failure falls back to the rules for review
             logger.warning("模型读取元数据失败，改用规则推断：%s", exc)
             reason = f"模型读取失败（{type(exc).__name__}）"
-    inference = infer_source(raw_text=raw_text, **common)
+    inference = infer_source(raw_text=raw_text, attachments=attachments, **common)
     return replace(inference, evidence={**inference.evidence, "reader": f"{reason}，以下为规则推断，需人工确认"})

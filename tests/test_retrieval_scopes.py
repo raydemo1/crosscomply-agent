@@ -218,13 +218,16 @@ def test_search_passes_per_query_overlay_allowed_ids_and_applies_national_cap():
         _make_chunk(f"law{i}", source_id="flow_rules", article_no=f"第{i + 5}条", index=i)
         for i in range(4)
     ]
+    nat_policy = _make_chunk("pol0", source_id="cert_notice", article_no=None,
+                             doc_type="policy", citation_role="implementation_reference",
+                             can_cite_clause=False)
     sh_list = _make_chunk("sh0", source_id="sh_list", article_no=None,
                           citation_role="conditional_local_basis", can_cite_clause=False,
                           applicable_region="CN-SH")
     bj_list = _make_chunk("bj0", source_id="bj_list", article_no=None,
                           citation_role="conditional_local_basis", can_cite_clause=False,
                           applicable_region="CN-BJ")
-    chunks = [*nat_faqs, *nat_laws, sh_list, bj_list]
+    chunks = [*nat_faqs, *nat_laws, nat_policy, sh_list, bj_list]
     tools = _mock_tools(chunks, national_non_clause_slots=3)
 
     seen_allowed: list[list[str]] = []
@@ -261,9 +264,9 @@ def test_search_passes_per_query_overlay_allowed_ids_and_applies_national_cap():
     nat_ranked = [h.chunk_id for h in tools.last_query_candidates()[0]]
     assert nat_ranked[:7] == ["faq0", "faq1", "faq2", "law0", "law1", "law2", "law3"]
 
-    # First search announces scope_catalog once per newly-seen scope (citable national + specialized local).
+    # First search announces scope_catalog once per newly-seen scope (citable national + national policy + specialized local).
     catalog = tools.scope_catalog()
-    assert [e["source_id"] for e in catalog[SCOPE_NATIONAL]] == ["flow_rules"]
+    assert {e["source_id"] for e in catalog[SCOPE_NATIONAL]} == {"flow_rules", "cert_notice"}
     assert [e["source_id"] for e in catalog["地区:上海"]] == ["sh_list"]
     # Second search in the same scopes does not repeat the catalog.
     tools.search(

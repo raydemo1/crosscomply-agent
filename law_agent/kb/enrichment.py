@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import replace
+import re
+import ssl
 import urllib.error
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -15,6 +17,8 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from law_agent.data.html_content import attachment_links
+from law_agent.data.normalize import _decode_html
 from law_agent.data.schemas import SourceRecord
 from law_agent.data.source_rules import metadata_problems, require_consistent_metadata
 from law_agent.kb.admin import KnowledgeBaseAdminService
@@ -34,7 +38,7 @@ from law_agent.kb.source_inference import (
     supersession_problem,
     version_date,
 )
-from law_agent.kb.source_llm import read_source_metadata
+from law_agent.kb.source_llm import read_source_metadata, trim_web_body
 from law_agent.review.web_research import (
     WebFinding,
     canonical_url,
@@ -47,6 +51,16 @@ MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 # whose clause-level citability a wrong guess would grant. Everything else waits for one click.
 AUTO_PUBLISH_DOC_TYPES = frozenset({"law", "regulation", "judicial_interpretation"})
 DRAFT_CHUNK_SAMPLES = 6
+# What a notice-only page's attachment can be parsed as.
+PARSEABLE_ATTACHMENTS = frozenset({".pdf", ".docx", ".txt"})
+_ATTACHMENT_PREFIX_RE = re.compile(r"^(?:附件\s*\d*\s*[:：.、．]?\s*|\d+\s*[.、．]\s*)")
+
+
+def attachment_title(name: str) -> str:
+    """"附件1：证券期货业网络和信息安全管理办法.pdf" → "证券期货业网络和信息安全管理办法"."""
+
+    name = re.sub(r"\.(?:pdf|docx?|ofd|wps|txt|xlsx?|zip|rar)$", "", name.strip(), flags=re.IGNORECASE)
+    return clean_title(_ATTACHMENT_PREFIX_RE.sub("", name))
 
 
 class PostgresEnrichmentStore:
@@ -81,6 +95,45 @@ class PostgresEnrichmentStore:
             )
             return job_id
 
+    def expand(self, job_id: str, *, attachments: list[tuple[str, str]], context_text: str,
+               published_date: str | None) -> list[str]:
+        """Queue one child job per attached file of a notice and retire the notice itself.
+
+        The cases waiting on the notice wait on its attachments instead: their links are copied to
+        each child, and the notice's own links stop asking for a recheck."""
+
+        children: list[str] = []
+        with psycopg.connect(self.dsn) as conn, conn.cursor(row_factory=dict_row) as cur:
+            for title, url in attachments:
+                cur.execute(
+                    """INSERT INTO knowledge_enrichment_jobs
+                       (id, canonical_url, candidate_hash, url, title, excerpt, published_date, parent_job_id,
+                        context_text)
+                       VALUES (%s, %s, %s, %s, %s, '', %s, %s, %s)
+                       ON CONFLICT (canonical_url, candidate_hash) DO UPDATE SET updated_at = now()
+                       RETURNING id""",
+                    (f"enrich_{uuid4().hex}", canonical_url(url),
+                     hashlib.sha256(f"{title}\x1f{job_id}".encode()).hexdigest(), url, title, published_date,
+                     job_id, context_text),
+                )
+                child = cur.fetchone()["id"]
+                children.append(child)
+                cur.execute(
+                    """INSERT INTO knowledge_enrichment_cases
+                       (job_id, case_id, review_task_id, material, recheck_status, notification_status)
+                       SELECT %s, case_id, review_task_id, material, recheck_status, notification_status
+                       FROM knowledge_enrichment_cases WHERE job_id = %s
+                       ON CONFLICT (job_id, case_id) DO NOTHING""",
+                    (child, job_id),
+                )
+            cur.execute(
+                """UPDATE knowledge_enrichment_cases SET material = false, recheck_status = 'not_required',
+                       notification_status = 'not_required' WHERE job_id = %s""", (job_id,))
+            cur.execute(
+                """UPDATE knowledge_enrichment_jobs SET status = 'expanded', worker_id = NULL,
+                       lease_expires_at = NULL, error = NULL, updated_at = now() WHERE id = %s""", (job_id,))
+        return children
+
     def mark_impact(self, *, case_id: str, review_task_id: str, urls: list[str]) -> None:
         if not urls:
             return
@@ -92,8 +145,10 @@ class PostgresEnrichmentStore:
                    FROM knowledge_enrichment_jobs j
                    WHERE ec.job_id = j.id AND ec.case_id = %s AND ec.review_task_id = %s
                      AND ec.recheck_status IN ('not_required', 'waiting_source')
-                     AND j.canonical_url = ANY(%s)""",
-                (case_id, review_task_id, [canonical_url(url) for url in urls]),
+                     AND j.status <> 'expanded'
+                     AND (j.canonical_url = ANY(%s) OR j.parent_job_id IN (
+                          SELECT id FROM knowledge_enrichment_jobs WHERE canonical_url = ANY(%s)))""",
+                (case_id, review_task_id, keys := [canonical_url(url) for url in urls], keys),
             )
             cur.execute(
                 """INSERT INTO case_events (id, case_id, event_type, payload_json)
@@ -311,11 +366,36 @@ class PostgresEnrichmentStore:
             return dict(row)
 
 
+def _tls_contexts() -> list[ssl.SSLContext]:
+    """The default handshake, then the two that older government servers accept, all verifying certificates.
+
+    Some provincial sites answer the default key exchange with a malformed curve point (BAD_ECPOINT)
+    or drop it; they complete it when offered only P-256, or only TLS 1.2 with RSA key exchange."""
+
+    p256 = ssl.create_default_context()
+    p256.set_ecdh_curve("prime256v1")
+    rsa = ssl.create_default_context()
+    rsa.maximum_version = ssl.TLSVersion.TLSv1_2
+    rsa.set_ciphers("AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA")
+    return [ssl.create_default_context(), p256, rsa]
+
+
+def _open(url: str):
+    request = urllib.request.Request(url, headers={"User-Agent": "LawAgent/0.1"})
+    contexts = _tls_contexts() if urlsplit(url).scheme == "https" else [None]
+    for index, context in enumerate(contexts):
+        try:
+            return urllib.request.urlopen(request, timeout=30, context=context)
+        except urllib.error.URLError as exc:
+            if index == len(contexts) - 1 or not isinstance(exc.reason, ssl.SSLError):
+                raise
+    raise AssertionError("unreachable")
+
+
 def _download(url: str, path: Path) -> None:
     if not is_official_url(url):
         raise ValueError("来源不在官方域名范围")
-    request = urllib.request.Request(url, headers={"User-Agent": "LawAgent/0.1"})
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with _open(url) as response:
         if not is_official_url(response.url):
             raise ValueError("官方来源重定向至非受信地址")
         data = response.read(MAX_DOWNLOAD_BYTES + 1)
@@ -350,8 +430,11 @@ def _chunk_samples(prepared: PreparedSource) -> list[dict[str, str]]:
 
 
 def _draft(inference: SourceInference, prepared: PreparedSource, editions: list[SourceRecord],
-           problem: str | None) -> dict[str, Any]:
+           problem: str | None, attachments: list[tuple[str, str]] = ()) -> dict[str, Any]:
     return {
+        "page_kind": inference.page_kind,
+        "attachments": [{"name": name, "url": url, "follow": number in inference.follow}
+                        for number, (name, url) in enumerate(attachments, start=1)],
         "source": inference.source.model_dump(mode="json"),
         "evidence": inference.evidence,
         "unresolved": inference.unresolved,
@@ -427,6 +510,39 @@ def process_enrichment_job(
         store.record_raw(
             job["id"], path=path, sha256=raw_hash, parsed_excerpt=document.text,
         )
+        source_file_format = path.suffix.lstrip(".")
+        attachments: list[tuple[str, str]] = []
+        inference: SourceInference | None = None
+        if not job.get("source_json"):
+            # One reading of the page: its metadata, and whether it only issues attached files.
+            if path.suffix in {".html", ".htm"}:
+                attachments = attachment_links(_decode_html(path.read_bytes()), job["url"])
+            inference = read_source_metadata(
+                client=client, source_id=review_source_id(job["id"]), title=job["title"], text=document.text,
+                raw_text=parsed.text, url=job["url"], source_site=host_of(job["url"]),
+                file_format=source_file_format, published_hint=job.get("published_date"),
+                context=job.get("context_text"), attachments=attachments,
+            )
+            if inference.page_kind == "issuing_notice" and "page_kind" not in inference.unresolved:
+                # The page only issues attached files: index the ones chosen, never the notice.
+                chosen = [attachments[number - 1] for number in inference.follow]
+                usable = [(attachment_title(name), url) for name, url in chosen
+                          if Path(urlsplit(url).path).suffix.lower() in PARSEABLE_ATTACHMENTS and is_official_url(url)]
+                if not usable:
+                    raise ValueError("页面只是印发通知，正文在附件中，" + (
+                        "但选中的附件不是可解析的官方文件：" + "；".join(f"{name}（{url}）" for name, url in chosen)
+                        if chosen else "但没有可入库的附件（页面上没有附件链接，或附件都不需要入库），请人工核对"))
+                store.expand(job["id"], attachments=usable, context_text=document.text,
+                             published_date=job.get("published_date"))
+                return
+            trimmed_body = trim_web_body(
+                document.text,
+                start_quote=inference.body_start_quote,
+                end_quote=inference.body_end_quote,
+                file_format=source_file_format,
+            )
+            if trimmed_body != document.text:
+                document = document.model_copy(update={"text": trimmed_body})
         published = [item.source for item in service.list_sources() if item.source.library_kind == "legal"]
         same_url = [item for item in published if canonical_url(item.source_url) == canonical_url(job["url"])]
         content_hash = normalized_content_hash(document.text)
@@ -445,7 +561,6 @@ def process_enrichment_job(
                 store.transition(job["id"], status="unchanged", source=matching)
                 return
 
-        source_file_format = path.suffix.lstrip(".")
         if job.get("source_json"):
             # Approved by a reviewer: the record is theirs; editions are still matched and retired.
             source = SourceRecord.model_validate(job["source_json"]).model_copy(
@@ -456,11 +571,7 @@ def process_enrichment_job(
             _publish(source, path, editions, job=job, store=store, service=service, impact=impact)
             return
 
-        inference = read_source_metadata(
-            client=client, source_id=review_source_id(job["id"]), title=job["title"], text=document.text,
-            raw_text=parsed.text, url=job["url"], source_site=host_of(job["url"]),
-            file_format=source_file_format, published_hint=job.get("published_date"),
-        )
+        assert inference is not None
         source = inference.source
         if same_url:
             # A changed body at a known address is a new edition of what is published there.
@@ -469,7 +580,7 @@ def process_enrichment_job(
         problem = supersession_problem(source, editions) if editions else None
         prepared = prepare_bound_document(document, source)
         inference = replace(inference, source=source)
-        store.record_draft(job["id"], _draft(inference, prepared, editions, problem))
+        store.record_draft(job["id"], _draft(inference, prepared, editions, problem, attachments))
         auto = (inference.settled and source.doc_type in AUTO_PUBLISH_DOC_TYPES and problem is None
                 and not metadata_problems(source)
                 and not prepared.blocks_publish and _has_clause_structure(prepared))

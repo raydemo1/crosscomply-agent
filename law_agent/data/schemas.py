@@ -94,6 +94,13 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class PrecedenceRelation(StrictModel):
+    """A verified precedence/amendment relation declared by a later source."""
+
+    target_title: str
+    quote: str
+
+
 class SourceRecord(StrictModel):
     """A candidate source row before ingestion."""
 
@@ -111,6 +118,7 @@ class SourceRecord(StrictModel):
     effective_date: str | None = None
     valid_to: str | None = None
     instrument_key: str | None = None
+    precedence_relations: list[PrecedenceRelation] = Field(default_factory=list)
     issuing_body: str | None = None
     owning_department: str | None = None
     internal_status: InternalPolicyStatus | None = None
@@ -205,6 +213,7 @@ class Document(StrictModel):
     effective_date: str | None = None
     valid_to: str | None = None
     instrument_key: str | None = None
+    precedence_relations: list[PrecedenceRelation] = Field(default_factory=list)
     issuing_body: str | None = None
     owning_department: str | None = None
     internal_status: InternalPolicyStatus | None = None
@@ -287,6 +296,7 @@ class Chunk(StrictModel):
     effective_date: str | None = None
     valid_to: str | None = None
     instrument_key: str | None = None
+    precedence_relations: list[PrecedenceRelation] = Field(default_factory=list)
     source_url: str
     applicable_region: str = "CN"
     issuing_body: str | None = None

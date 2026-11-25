@@ -126,6 +126,12 @@ class SourceInference:
     evidence: dict[str, str] = field(default_factory=dict)
     unresolved: list[str] = field(default_factory=list)
     reader: str = "rules"  # "model", or "rules" when the model was unavailable
+    # "document": the page carries the material itself; "issuing_notice": it only issues attached files.
+    page_kind: str = "document"
+    follow: tuple[int, ...] = ()  # 1-based positions of the attachments to index instead of the notice
+    # Optional verbatim anchors (web pages only) for deterministic body trimming when page chrome leaked in.
+    body_start_quote: str | None = None
+    body_end_quote: str | None = None
 
     @property
     def settled(self) -> bool:
@@ -209,9 +215,22 @@ def _industry(title: str) -> str | None:
     return next((industry for industry in INDUSTRIES if industry in title), None)
 
 
+# The fallback reading of a page that only issues attached files: short, no articles of its own, and
+# linking a file or saying it issues one ("现将《……》印发给你们").
+NOTICE_SHELL_MAX_CHARS = 2000
+_ARTICLE_LINE_RE = re.compile(r"(?m)^\s*第[一二三四五六七八九十百零〇\d]+条")
+_ISSUING_RE = re.compile(r"印发给你们|印发给你单位|现予印发|现印发|随文印发")
+
+
+def notice_shell(text: str, attachments: list[tuple[str, str]]) -> bool:
+    return (len(text) <= NOTICE_SHELL_MAX_CHARS and not _ARTICLE_LINE_RE.search(text)
+            and (bool(attachments) or bool(_ISSUING_RE.search(text))))
+
+
 def infer_source(
     *, source_id: str, title: str, text: str, url: str, source_site: str, file_format: str,
     raw_text: str | None = None, published_hint: str | None = None, today: date | None = None,
+    attachments: list[tuple[str, str]] | None = None,
 ) -> SourceInference:
     """Draft a ``SourceRecord`` for a legal source.
 
@@ -371,6 +390,11 @@ def infer_source(
         applicable_region=region_code(region, title), instrument_key=instrument_key(title),
         file_format=file_format, include_in_mvp=True,
     )
+    attachments = attachments or []
+    if notice_shell(text, attachments):
+        evidence["page_kind"] = "页面短、没有自己的条文，且带附件或写明印发：按印发通知处理"
+        return SourceInference(source=source, evidence=evidence, unresolved=unresolved, page_kind="issuing_notice",
+                               follow=tuple(range(1, len(attachments) + 1)))
     return SourceInference(source=source, evidence=evidence, unresolved=unresolved)
 
 

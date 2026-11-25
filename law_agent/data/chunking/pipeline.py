@@ -12,7 +12,7 @@ MAX_MERGED_CHUNK_CHARS = 650
 # Bumped whenever the splits below change the chunks a source is published
 # with. ``processing_signature`` reads it so cached vectors cannot outlive the
 # layout they were embedded for.
-CHUNKING_VERSION = "legal-structure-v6"  # v6: table rows carry their section path; guides split by article
+CHUNKING_VERSION = "legal-structure-v7"  # v7: contract templates split by article
 
 # Instruments that are article-based by definition.
 LAW_DOC_TYPES = frozenset({"law", "regulation"})
@@ -21,7 +21,7 @@ LAW_DOC_TYPES = frozenset({"law", "regulation"})
 # splitting it by article drops everything outside the quotation. A guideline
 # written in articles (the Greater Bay Area implementation guidelines) is split
 # by article for its locators; it stays uncitable as a clause all the same.
-ARTICLE_STRUCTURE_DOC_TYPES = frozenset({"policy", "judicial_interpretation", "guideline"})
+ARTICLE_STRUCTURE_DOC_TYPES = frozenset({"policy", "judicial_interpretation", "guideline", "contract"})
 
 
 def should_chunk_as_law(document: Document) -> bool:
@@ -41,7 +41,11 @@ def chunk_document(document: Document) -> list[Chunk]:
         chunks = _normalize_tiny_chunks(document, chunk_structured_document(document))
     return [
         chunk.model_copy(
-            update={"valid_to": document.valid_to, "instrument_key": document.instrument_key}
+            update={
+                "valid_to": document.valid_to,
+                "instrument_key": document.instrument_key,
+                "precedence_relations": document.precedence_relations,
+            }
         )
         for chunk in chunks
     ]
@@ -79,6 +83,7 @@ def republish_source_metadata(source: SourceRecord, chunks: list[Chunk]) -> list
                     "effective_date": source.effective_date,
                     "valid_to": source.valid_to,
                     "instrument_key": source.instrument_key,
+                    "precedence_relations": source.precedence_relations,
                     "source_url": source.source_url,
                     "applicable_region": source.applicable_region,
                     "issuing_body": source.issuing_body,
