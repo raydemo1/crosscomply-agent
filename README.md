@@ -2,17 +2,19 @@
 
 # CrossComply
 
-**面向企业数据出境合规的自主调查 Agent 与审查工作台**
+**面向企业数据出境合规的有状态调查 Agent 与全流程审查工作台**
 
-*Controlled Legal Retrieval · Temporal Precedence · Multi-Round Investigation · Verifiable Citations*
+*Stateful Compliance Agent · Controlled Legal RAG · Verifiable Citation Gate · Enterprise Governance*
 
 [![CI](https://github.com/raydemo1/crosscomply-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/raydemo1/crosscomply-agent/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi&logoColor=white)
 ![React + Vite](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?logo=react&logoColor=111)
-![ES + pgvector](https://img.shields.io/badge/Retrieval-Elasticsearch%20%2B%20pgvector-005571)
+![ES + pgvector](https://img.shields.io/badge/Hybrid%20Search-Elasticsearch%20%2B%20pgvector-005571)
+![PostgreSQL](https://img.shields.io/badge/Storage-PostgreSQL%20%2B%20SeaweedFS-336791?logo=postgresql&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
-[架构概览](#系统架构) · [评测表现](#评测表现) · [快速开始](#快速开始) · [完整技术深潜](docs/retrieval-qa-and-eval-deep-dive.md) · [评测报告](EVALUATION_REPORT.md)
+[为什么做 CrossComply](#为什么做-crosscomply) · [完整能力全景](#完整能力全景) · [系统架构](#系统架构) · [关键技术设计](#关键技术设计) · [实测表现](#实测表现) · [快速开始](#快速开始)
 
 </div>
 
@@ -20,148 +22,200 @@
 
 ## 为什么做 CrossComply？
 
-通用大模型回答法律合规问题时，最危险的不是“完全不知道”，而是**自信地引用已废止旧规、编造条号，或在事实矛盾时强行下结论**：
+企业数据出境合规（安全评估、标准合同备案、个人信息保护认证、自贸区负面清单豁免）是典型的高风险法律决策场景。直接拿通用大模型或普通 RAG 去做合规审查，往往会撞上四道硬墙：
 
-- 2024 年《促进和规范数据跨境流动规定》已将数据出境安全评估有效期从 **2 年延长至 3 年且可申请延长**，裸模型仍常按 2022 旧规给出确定性错误结论；
-- 2025 年第 53 号公告已将个人信息跨境认证技术依据从旧版 **TC260 实践指南** 替换为 **GB/T 46068**，通用模型仍频繁沿用旧标准；
-- 在 36 道真实企业出境合规场景盲测中，同底座裸模型有 **72.2%** 的回答存在法条/条号错误或遗漏。
-
-**CrossComply** 通过「受控法规库 + 查询级多域混合检索 + 新旧法衔接关联 + 多轮自主精读与完整性复核 + 硬性引用门禁」，把合规问答与案件审查做成**可追溯、可暂停追问、证据不足不瞎猜**的工程闭环。
+| 痛点 | 通用大模型 / 普通 RAG 的常见表现 | CrossComply 的工程解法 |
+| --- | --- | --- |
+| **时效与新旧法幻觉** | 2024 年规定已将安全评估有效期从 2 年延至 3 年、2025 年第 53 号公告已将认证依据从 TC260 换为 GB/T 46068，裸模型仍自信输出废止旧规 | 每轮绑定审查时点 `as_of_date`；入库抽取新旧法 `precedence_relations`，读到旧规时自动挂载现行新规条款供 Agent 精读 |
+| **条号错引与伪造依据** | 36 题跨模型盲测中同底座裸模型 **72.2%** 存在法条/条号错误，或把政策问答/指南当成法定条款引用 | **引用资格三层模型** + **确定性引用门禁**：所有条款引用必须来自本次已取得的有效法条原文，辅助材料禁止冒充法条 |
+| **事实不清时强行下结论** | 遇到部门材料矛盾、缺少 CIIO 或重要数据确认时直接拍脑袋给“免予申报”等危险结论 | **可暂停恢复的有状态 Agent** + **事实来源账本**：信息不足时持久化暂停追问申请人，不编造、不越权改写事实 |
+| **缺少企业级治理闭环** | 只能聊几句天，无法处理同主体跨业务累计人数、法规更新后的历史审批复审、法务审批与整改留痕 | 内置不可变快照、同主体累计台账、法规变更影响自动标红、飞书验签审批、SHA-256 PDF 决策报告与整改追踪 |
 
 ---
 
-## 核心特性
+## 完整能力全景
 
-| 能力 | 设计亮点 |
-| --- | --- |
-| **多域混合检索与校准重排** | 覆盖 65 份官方法规/标准/指南（2,119 分块、46.9 万字），按全国通用 / 地方自贸区（沪京津深、粤港澳大湾区）/ 行业（汽车、工信等）构建查询级 overlay 检索池；ES BM25 + pgvector 融合并经 Cross-Encoder 校准重排（单查询 P50 1.37s） |
-| **时效与新旧法衔接** | 每轮绑定审查时点 `as_of_date`，自动过滤未生效/已废止条文；入库阶段“模型优先、规则兜底”抽取网页正文与 `precedence_relations`，让 Agent 读到旧规时顺藤摸瓜精读现行新规 |
-| **多轮自主调查与完整性复核** | Agent 自主规划查询、按条精读、必要时暂停向申请人追问并在补充事实后恢复；作答后执行完整性复核（识别覆盖缺口 → 继承检索域补搜 → 修订定稿），全链路 SSE 流式返回 |
-| **硬性引用门禁与语义校验** | 回答与报告中的每个条款引用必须来自本次已取得的有效证据原文，问答/指南类辅助来源禁止冒充法定条款引用；案件审查额外经过独立语义核验 |
-| **企业工作台与审批闭环** | 支持独立合规问答（可一键转正式案件）、多文件/Excel 材料解析、原文批注、PDF 决策报告、整改跟踪、飞书验签审批与在线知识库治理 |
-| **防泄漏评测体系** | 内置 `dev`（42 题）/ 锁定 `test`（36 题）场景库，支持离线检索回放、条款级多轮召回与跨模型双盲评测 |
+CrossComply 采用**“合规即时问答 + 正式案件审查 + 持续业务与知识治理”**三位一体设计，清晰划定 **Agent（调查与起草） / 程序（冻结、门禁与持久化） / 人（事实确认、审批与治理）** 三方边界：
+
+### 1. 合规问答工作台（Compliance Q&A）
+- 无需建案即可发起专业合规咨询，支持上传多份业务说明与多工作表 Excel 数据清单；
+- Agent 自主规划查询、按条精读法规、必要时向用户追问，经 **SSE 流式推送**实时展示调查轨迹与回答；
+- 答后自动执行**完整性复核（缺口检测 → 继承检索域补查 → 修订定稿）**，每个 `[依据N]` 均可点击溯源法条原文；
+- 复杂咨询可**一键转为正式审查案件**，对话与材料无缝继承。
+
+### 2. 有状态案件审查与双层门禁（Case Review）
+- **不可变快照冻结**：立案提交审查时，冻结材料版本快照（`MaterialSnapshot`）、申报事实快照（`IntakeSnapshot`）与同主体自然年累计台账（`PortfolioSnapshot`）；
+- **10 类受控调查工具**：分页读取材料与 Excel 工作表、`grep_materials` 精确搜索、**WASI Python 沙箱**做数据统计核算、受控多域混合检索、按条精读、受限官方 Web 调查、提交在线补库、持久化暂停追问申请人、提交结构化报告草稿；
+- **硬性双层门禁**：报告草稿必须依次通过**确定性引用门禁**（法律效力 + 条款定位 + 材料原文精确命中 + 时效校验）与**独立语义校验器**（`SemanticGroundingVerifier` 逐条核验主张、路径、地域/行业边界与事实充分性），不通过则带诊断反馈退回 Agent 修订；
+- **案件内问答与批注**：绑定当前快照与已审报告，支持法务原文批注、修改建议与受控案件问答；新事实仅作为待确认建议，经申请人事务化确认后触发重审。
+
+### 3. 企业治理、审批与法规变更监测
+- **飞书验签审批闭环**：审查人复核后发起飞书审批，审批终态**仅由验签且幂等的飞书回调事件写回**（Agent 绝无对外审批或发消息权限）；
+- **带校验和的决策交付**：自动生成含 SHA-256 摘要的 PDF 合规决策报告与整改动作清单，支持整改证据提交与验收；
+- **持续出境业务与同主体累计**：按主体与自然年聚合持续业务的已批基线，自动预警跨档风险（如累计人数逼近 10 万 / 100 万门槛）；
+- **法规变更影响自动标红**：知识库发布新规或版本变更时，自动比对历史审批基线与待审报告的引用条款，阻断级变更拦截送审并提醒法务复审；
+- **在线知识库治理与纠错回流**：Agent 发现的新官方来源可提交补库核验队列，经人工审定后入库；线上人工纠错经法务脱敏后可回流为 `field` 评测场景。
 
 ---
 
 ## 系统架构
 
 ```mermaid
-flowchart LR
-    subgraph KB["受控法规库与治理"]
-        A["官方法规 / 标准 / 指南 / 问答"] --> B["模型优先去噪 + 结构化分块<br/>+ 新旧法 precedence_relations"]
-        B --> C[("Elasticsearch<br/>+ PostgreSQL / pgvector")]
+flowchart TB
+    subgraph Client["前端工作台 (React + Vite)"]
+        UI1["合规问答<br/>SSE 流式 + 原文溯源"]
+        UI2["案件审查<br/>快照 / 追问 / 批注 / PDF"]
+        UI3["企业治理<br/>待办 / 持续业务 / 知识库"]
     end
 
-    subgraph RET["多域混合检索层"]
-        D["查询级 Scope 路由<br/>全国 / 地方自贸区 / 行业 Overlay"] --> E["BM25 + 向量 RRF 融合<br/>+ 校准重排 (w=0.85)"]
-        E --> F["Rank-Aware 正文选取<br/>+ Top-8 预览 & 新规关联"]
+    subgraph Control["API 与持久化控制面"]
+        API["FastAPI (law_agent.review.api)<br/>认证 / 领域写操作 / 事务化事实确认 / 飞书回调验签"]
+        PG[("PostgreSQL<br/>案件 / 快照 / 租约任务 / 事实账本 / 审批 / 影响标记")]
+        S3[("SeaweedFS (S3)<br/>材料原件 / PDF 决策报告")]
+        FS["飞书审批 & 待办提醒"]
     end
 
-    subgraph AGENT["有状态合规 Agent"]
-        G["多轮自主调查<br/>search / read / ask_user"] --> H["初稿生成 + 完整性复核<br/>缺口补搜与定稿修订"]
-        H --> I["硬性引用门禁<br/>(+ 案件独立语义校验)"]
+    subgraph Runtime["异步执行面 (Worker + Knowledge Worker)"]
+        W["Review & QA Worker<br/>30 分钟租约 + Checkpoint 断点续跑"]
+        AG["Compliance Agent / QA Agent<br/>自主调查循环 + WASI 沙箱 + 完整性复核"]
+        GATE["双层硬门禁<br/>确定性引用门禁 + 独立语义校验器"]
+        KW["Knowledge Worker<br/>官方补库核验 / 法规变更影响检测 / 飞书提醒"]
     end
 
-    subgraph APP["企业审查工作台"]
-        J["合规问答 SSE 流式界面<br/>可点击法条原文溯源"]
-        K["案件审查 / PDF 决策报告<br/>整改追踪 / 飞书审批"]
+    subgraph Retrieval["受控法规库与多域混合检索"]
+        ES[("Elasticsearch<br/>BM25 倒排 + 结构化过滤")]
+        PGV[("pgvector<br/>bge-m3 语义向量")]
+        RR["查询级 Overlay Scope 池<br/>RRF 融合 + 校准重排 (w=0.85)<br/>+ 时效过滤 & later_provisions"]
+        EXA["Exa 受限 Web 调查<br/>(仅官方域名，作上下文不作引用)"]
     end
 
-    C <--> E
-    F --> G
-    G --> D
-    I --> J
-    I --> K
+    UI1 & UI2 & UI3 --> API
+    API <--> PG
+    API <--> S3
+    API <--> FS
+    PG -->|领取任务| W
+    W --> AG
+    AG <--> RR
+    AG -.->|受限外查| EXA
+    RR <--> ES & PGV
+    AG --> GATE
+    GATE -->|不通过退回修改| AG
+    GATE -->|通过写回| PG
+    KW <--> PG
+    KW --> ES & PGV
+    KW --> FS
 ```
-
-> 想深入了解检索公式、多轮状态机、完整性复核与三层评测的代码级实现？请阅读 **[检索、问答与评测完整技术深潜](docs/retrieval-qa-and-eval-deep-dive.md)**。
 
 ---
 
-## 评测表现
+## 关键技术设计
 
-以下结果全部来自**从未用于调参的锁定测试集 `test`（36 题，36/36 完成）**，完整记录见 [EVALUATION_REPORT.md](EVALUATION_REPORT.md)：
+### 1. 受控数据治理与引用资格三层模型
+- **六阶段可审计离线流水线**：`Source Manifest → Fetch → 多格式解析（JSON / DOCX 纵向合并单元格还原 / HTML 响应式去重 / PDF 跨页表与 Docling OCR）→ 确定性清洗 → LLM 语义增强 → 结构感知分块`。
+- **按文档类型精细分块**：法律法规按“条/款”切分并保留编章节路径；自贸区负面清单表格按“分节路径 + 列名 + 单行”拼装，确保任意一行独立召回后仍完整保留行业与触发程序上下文；官方问答按“一问一答”切块。
+- **引用资格三层解耦**：将**法律效力**（正式法规 vs 指南/问答/标准）、**条款定位**（是否存在明确条号）与**案件适用性**（地域/行业/时点）解耦，从入库阶段即决定 `can_cite_clause`，杜绝把辅助解读包装为法条。
+- **模型优先、规则兜底的在线入库**：正文 ≤ 16,000 字直读全文（`FULL_TEXT_THRESHOLD = 16_000`），网页正文通过模型抽取原文逐字起止锚点精确去噪（绝不改写条文），同步抽取新旧法 `precedence_relations` 并以规则兜底。
+
+### 2. 查询级多域混合检索与校准重排
+- **动态 Overlay 检索池**：根据当前语料动态生成合法 `scope` 枚举注入工具 Schema（`全国通用`、`地区:上海/北京/天津/深圳/粤港澳大湾区(香港/澳门)`、`行业:汽车/工信`、`全库`）。选定专门域时在全国上位法之上叠加该专门域，同时排除无关地方/行业干扰；全国通用池对非条款类文件设 `NATIONAL_NON_CLAUSE_SLOTS = 3` 上限，保障正式法条席位。
+- **跨查询可比校准重排**：ES BM25 与 pgvector（`bge-m3`）各取 Top-50 经 RRF 融合，送入 `bge-reranker-v2-m3` 并附带文件类型、章节路径与适用地域元数据，按 `0.85 × rerank + 0.15 × fused` 保留跨查询可比打分（摒弃易失真的单查询 min-max 拉伸）。
+- **正文 + Top-8 预览 + 新规线索**：单批最多返回 10 段正文（≤ 250 字短条文直接全量返回不占名额），其余 Top-8 以查询相关句预览呈现，并在旧规来源上自动挂载现行 `later_provisions` 引导按条精读。
+
+### 3. 状态机、租约持久化与防泄漏评测
+- **可恢复长任务**：审查任务经 `queued → running → waiting_input → succeeded / failed / superseded` 流转，30 分钟租约配合每次 Checkpoint 自动续约，进程重启可从最近检查点续跑；申请人确认事实采用单事务原子落库，失败整体回滚。
+- **独立三层防泄漏评测**：构建 78 个企业出境合规场景（`dev` 42 题调优、`test` 36 题散列锁定），分离离线查询回放（消融调参）、多轮条款级证据召回（支持等价条款组与 `no-leak` 去直接答案子集）和跨模型双盲最终回答评测。
+
+---
+
+## 实测表现
+
+以下全部数据均在**锁定测试集 `test`（36 题，从未用于调参，36/36 完成）**与 **65 份官方受控语料（2,119 分块、46.9 万字）**上测得：
 
 ### 1. 多轮自主问答证据召回（锁定 `test` 36 题）
 
-| 范围 | 必引条款证据召回 | 必引条款回答引用 | 必检来源召回 | 确定性引用门禁 |
+| 评测范围 | 必引条款证据召回 | 必引条款回答引用 | 必检来源召回 | 确定性引用门禁 |
 | --- | ---: | ---: | ---: | ---: |
-| **全部场景（36 题）** | **90.5%** | **85.1%** | **90.0%** | **97.2% (35/36)** |
-| **不含直接答案子集（31 题）** | **88.9%** | **84.1%** | **92.3%** | **96.8% (30/31)** |
+| **全部场景（36 题，74 条必引条款）** | **90.5%** | **85.1%** | **90.0%** | **97.2% (35/36)** |
+| **不含直接答案子集（31 题，63 条）** | **88.9%** | **84.1%** | **92.3%** | **96.8% (30/31)** |
 
-### 2. 端到端回答质量跨模型双盲对照（同底座 DeepSeek，裁判：`claude-opus-5.5`）
+### 2. 端到端回答质量跨模型双盲对照（72 条匿名盲评）
+> 同一底座模型（DeepSeek）分别以 CrossComply 问答 Agent 与裸模型 `direct` 作答，72 条交付匿名打乱并剥离系统标识，由独立第三方模型 **`claude-opus-5.5`** 按 `agent_rubric` 逐条盲评：
 
-| 指标（36 题 × 2 系统 = 72 条匿名打乱盲评） | CrossComply 问答 Agent | 同底座裸模型 (`direct`) | 提升 |
+| 评测指标（锁定 `test` 36 题） | CrossComply 问答 Agent | 同底座裸模型 (`direct`) | 差值 |
 | --- | ---: | ---: | ---: |
 | **总体通过率（`overall_pass`）** | **97.2% (35/36)** | 86.1% (31/36) | **+11.1 pp** |
+| **不含直接答案子集通过率（31 题）** | **96.8% (30/31)** | 87.1% (27/31) | **+9.7 pp** |
 | **法律准确性完全无瑕（`legal_correctness = pass`）** | **77.8% (28/36)** | 13.9% (5/36) | **+63.9 pp** |
 | **法条/条号小错率（`minor_issue`）** | **19.4% (7/36)** | 72.2% (26/36) | **-52.8 pp** |
 | **危险错误率（`wrong_definite`）** | **0.0% (0/36)** | 2.8% (1/36) | **-2.8 pp** |
 
-### 3. 工程延迟与成本画像（官方默认 `deepseek-flash`）
-- **生产混合检索（ES + pgvector + 重排）**：单查询 **P50 1.37s / P95 1.51s**；批量查询（2.3 条/批）**P50 2.44s / P95 3.40s**。
-- **端到端多轮问答**：中位数 **1 次检索 / 4 次精读**，端到端 **P50 54.1s**，单次深度合规问答成本约 **¥0.10–0.29**。
+### 3. 工程延迟与单次问答成本（官方默认 `deepseek-flash`）
+
+| 维度 | 实测指标 |
+| --- | --- |
+| **生产混合检索（ES + pgvector + 重排）** | 单查询 **P50 1.37 s / P95 1.51 s**；批量查询（2.3 条/批）**P50 2.44 s / P95 3.40 s** |
+| **端到端多轮问答（含完整性复核）** | 中位数 **1 次检索 / 4 次精读**，端到端 **P50 54.1 s / P95 76.0 s** |
+| **单次深度合规问答估算成本** | 无缓存上限均值 **¥0.29**（叠加官方 Prefix Cache 后实际约 **¥0.10–0.18 / 次**） |
 
 ---
 
 ## 快速开始
 
-需要 **Python 3.11+**、**Node.js 22.12+**、**Docker**。
+### 环境要求
+- **Python 3.11+**、**Node.js 22.12+**、**Docker & Docker Compose**
+- OpenAI 兼容大模型 API、Embedding 服务（默认 `bge-m3`）与 Rerank 服务（默认 `bge-reranker-v2-m3`）
+
+### 一键容器启动
 
 ```bash
-# 1. 安装后端依赖
+# 1. 安装 Python 依赖（如需本地运行 CLI 或测试）
 pip install -e ".[dev,service]"
 
-# 2. 配置环境变量（数据库、对象存储密码与模型密钥，见 docs/configuration.md）
+# 2. 复制环境变量模板并填入数据库、SeaweedFS、大模型与检索服务配置
 cp .env.example .env
 
-# 3. 启动全套服务（PostgreSQL/pgvector、Elasticsearch、MinIO、API、Worker、Frontend）
+# 3. 启动全部基础设施与应用容器（PostgreSQL/pgvector、Elasticsearch、SeaweedFS、API、Worker、Knowledge-Worker、Frontend）
 docker compose up -d --build
+
+# 4. 执行数据库迁移并初始化管理员账号
+python -m alembic upgrade head
+python -m law_agent.review.bootstrap_admin
 ```
 
-首次部署需创建管理员并建立检索索引，详见 [部署指南](docs/deployment.md)；宿主机本地开发（API + Worker + Vite 热重载）见 [开发指南](docs/development.md)。
-
-### 运行测试
+### 本地开发与测试
 
 ```bash
+# 后端 API / Worker / Knowledge-Worker（三进程独立启动）
+uvicorn law_agent.review.api:app --reload
+python -m law_agent.review.worker
+python -m law_agent.kb.enrichment_worker
+
+# 前端开发服务器
+cd frontend && npm install && npm run dev
+
+# 全量自动化测试（后端 1,149+ 单测 + 前端测试与构建）
 pytest
 cd frontend && npm test && npm run build
 ```
-
-CI（`.github/workflows/ci.yml`）在每次推送与 PR 上运行相同检查（后端 1,149+ 单测 + 前端测试与构建）。
-
----
-
-## 文档导航
-
-| 文档 | 适合阅读的场景 |
-| --- | --- |
-| **[检索、问答与评测完整技术深潜](docs/retrieval-qa-and-eval-deep-dive.md)** | 全面理解语料入库、多域混合检索、多轮问答状态机、完整性复核与三层评测的代码级实现 |
-| **[评测全记录报告](EVALUATION_REPORT.md)** | 查看锁定 `test` 集全量指标、离线检索消融与证伪记录、性能延迟与成本数据 |
-| **[系统架构](docs/architecture.md)** | 了解案件审查状态机、Agent 动作与预算、程序保证与人工审批边界 |
-| **[数据治理](docs/data-governance.md)** | 了解法律知识如何进入受控证据库、引用资格规则、分块与解析器 |
-| **[评测手册](docs/evaluation.md)** | 场景库规范、审定锁定流程与各评测子命令用法 |
-| **[开发指南](docs/development.md)** / **[部署指南](docs/deployment.md)** / **[配置参考](docs/configuration.md)** | 本地调试、语料迁移、生产部署与环境变量说明 |
 
 ---
 
 ## 仓库结构
 
 <details>
-<summary>点击展开目录说明</summary>
+<summary>点击展开核心模块地图</summary>
 
-| 路径 | 用途 |
+| 目录 | 核心职责 |
 | --- | --- |
-| `law_agent/review/` | 生产 Agent runtime、问答与案件 Worker、FastAPI 路由（`http/`）、混合检索与重排（`retrieval/`） |
-| `law_agent/kb/` | 在线知识库入库、模型优先网页去噪与新旧法关系抽取、补库核验 Worker |
-| `law_agent/data/` | 离线数据治理流水线、引用资格策略（`citation_policy.py`）与数据结构定义 |
-| `law_agent/llm/` | OpenAI 兼容流式客户端、Embedding、重试预算与 Token 用量统计 |
-| `law_agent/evals/` | 独立评测系统：场景库、离线查询回放、多轮问答计分、跨系统盲评与报告 |
-| `frontend/` | React + Vite 企业审查工作台（含公开演示站虚构数据 `src/demo/`） |
-| `alembic/` | PostgreSQL 数据库迁移脚本 |
-| `docker/` | 容器镜像、Nginx 配置与 PDF 报告字体 |
-| `scripts/` | 语料打包/恢复、本地 `.env` 初始化与法规变更离线演示脚本 |
-| `tests/` | pytest 测试套件 |
+| `law_agent/review/` | 案件审查与合规问答核心：`agent.py`（决策循环与预算）、`agent_runtime.py`（任务组装）、`agent_tools.py`（受控工具与引用门禁）、`semantic_grounding.py`（独立语义校验）、`qa_agent.py`（合规问答与完整性复核）、`matter_agent.py`（案件问答）、`portfolio.py`（同主体累计）、`impact.py`（法规变更影响）、`feishu.py`（审批回调验签）、`reports.py`（PDF 决策报告）、`worker.py`（租约任务执行）、`http/`（FastAPI 业务路由） |
+| `law_agent/review/retrieval/` | 混合检索引擎：`scopes.py`（Overlay 检索域）、`hybrid.py`（ES + pgvector）、`fusion.py`（RRF）、`boosts.py`（软加权）、`rerank.py`（校准重排）、`selection.py`（Rank-Aware 选文）、`temporal.py`（时效过滤）、`later_provisions.py`（新旧法关联） |
+| `law_agent/data/` | 离线数据治理六阶段流水线、多格式文档解析（DOCX/PDF/HTML/Docling OCR）、结构感知分块与引用资格三层模型（`citation_policy.py`、`source_rules.py`） |
+| `law_agent/kb/` | 在线知识库管理、模型优先网页去噪与新旧法关系抽取（`source_llm.py`）、法规变更检测（`change_detection.py`）与补库核验 Worker（`enrichment_worker.py`） |
+| `law_agent/llm/` | OpenAI 兼容统一流式客户端、`json_repair` 兜底、重试预算与 Token/TTFT 用量统计（`usage.py`） |
+| `law_agent/evals/` | 独立评测框架：78 题场景库与散列锁定、离线查询回放、多轮证据召回计分、跨系统盲评与 Wilson 区间报告 |
+| `frontend/` | React + Vite 企业审查与合规问答工作台 |
+| `alembic/` & `docker/` & `scripts/` | 数据库迁移、容器编排、Nginx/中文字体与语料迁移脚本 |
+| `tests/` | 1,149+ 自动化单元测试与集成测试 |
 
 > `data/`（语料、模型缓存、评测产物）、`output/`、`tmp/` 与 `model-profiles/` 均不进 Git。
 
