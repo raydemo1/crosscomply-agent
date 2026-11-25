@@ -76,7 +76,6 @@ def _mock_tools(chunks: list[Chunk], *, national_non_clause_slots: int | None = 
     tools._candidate_hits = {}
     tools._search_results = []
     tools._last_query_candidates = []
-    tools._last_query_pre_spread = []
     tools._web_research = None
     tools._semantic_verifier = None
     return tools

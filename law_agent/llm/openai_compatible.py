@@ -167,7 +167,7 @@ class OpenAICompatibleClient:
         if mode == "strict_tool" and output_model is not None:
             if on_answer_delta is not None:
                 raise ValueError("Internal JSON streaming requires json_object output")
-            return self._chat_strict_tool(messages, output_model, tool_name, model=model, stream=stream)
+            return self._chat_strict_tool(messages, output_model, tool_name, model=model)
 
         payload = {
             "model": model or self.config.model,
@@ -311,7 +311,6 @@ class OpenAICompatibleClient:
         tool_name: str,
         *,
         model: str | None = None,
-        stream: bool = True,
     ) -> dict:
         schema = _schema_for_strict_tool(output_model)
         payload: dict[str, Any] = {
@@ -340,11 +339,7 @@ class OpenAICompatibleClient:
                 "use json_object output or reasoning_effort=none"
             )
         payload["thinking"] = {"type": "disabled"}
-        if stream:
-            message = self._stream_tools(payload, lambda _delta: None)
-        else:
-            data = self._post_chat(payload, self.config.beta_base_url)
-            message = data["choices"][0]["message"]
+        message = self._stream_tools(payload, lambda _delta: None)
         tool_calls = message.get("tool_calls") or []
         if not tool_calls:
             raise RuntimeError("LLM strict tool response did not include tool_calls")

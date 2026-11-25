@@ -388,7 +388,6 @@ class ComplianceAgentTools:
         self._candidate_hits: dict[str, RetrievalHit] = {}
         self._search_results: list[dict[str, Any]] = []
         self._last_query_candidates: list[list[RetrievalHit]] = []
-        self._last_query_pre_spread: list[list[RetrievalHit]] = []
         self._announced_scopes: set[str] = set()
         self._last_scope_catalog: dict[str, list[dict[str, str]]] = {}
         self._adapters = build_service_adapters(require_service_config())
@@ -460,7 +459,6 @@ class ComplianceAgentTools:
         keyword = self._search_with_fallback(self._adapters.keyword, query_pairs, candidate_top_k, allowed_chunk_ids)
         vector = self._search_with_fallback(self._adapters.vector, query_pairs, candidate_top_k, allowed_chunk_ids)
         candidates: list[list[RetrievalHit]] = []
-        pre_spread: list[list[RetrievalHit]] = []
         non_clause_cap = getattr(self, "_national_non_clause_slots", NATIONAL_NON_CLAUSE_SLOTS)
         for query, scope, keyword_hits, vector_hits in zip(queries, scopes, keyword, vector, strict=True):
             keyword_hits = filter_hits_as_of(keyword_hits, self._chunks_by_id, as_of=as_of)
@@ -502,7 +500,6 @@ class ComplianceAgentTools:
             fused_query = [enrich_hit_for_citation(hit, self._chunks_by_id) for hit in fused_query]
             if self._rerank_mode != "off":
                 fused_query = self._rerank_or_keep(fused_query, facts, query, candidate_top_k)
-            pre_spread.append(list(fused_query))
             candidates.append(
                 _spread_sources(
                     fused_query,
@@ -518,7 +515,6 @@ class ComplianceAgentTools:
         ]
         self._candidate_hits.update({hit.chunk_id: hit for hit in query_candidates})
         self._last_query_candidates = candidates
-        self._last_query_pre_spread = pre_spread
         bodies = select_evidence(
             query_candidates,
             max_chunks=max_chunks if max_chunks is not None else self._top_k,

@@ -263,6 +263,5 @@ def test_json_reasoning_payload_has_no_forced_tool_or_token_cap(monkeypatch, eff
 def test_forced_named_tool_rejects_thinking_before_network(monkeypatch):
     instance = client("low")
     monkeypatch.setattr(instance, "_stream_tools", lambda *_: pytest.fail("unexpected network call"))
-    monkeypatch.setattr(instance, "_post_chat", lambda *_: pytest.fail("unexpected network call"))
     with pytest.raises(RuntimeError, match="forced named tool_choice"):
         instance.chat_json([ChatMessage("user", "json")], output_model=ReviewFacts)
