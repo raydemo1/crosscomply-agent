@@ -61,8 +61,6 @@ def pack(corpus: Path, output: Path) -> dict:
     paths = [corpus / name for name in (
         "chunks.jsonl", "source_manifest.csv", ".knowledge_base_state.json",
     )]
-    if (corpus / "retrieval_cases.jsonl").exists():
-        paths.append(corpus / "retrieval_cases.jsonl")
     paths.extend(sorted(path for path in (corpus / "raw").rglob("*") if path.is_file()))
     files = []
     for path in paths:

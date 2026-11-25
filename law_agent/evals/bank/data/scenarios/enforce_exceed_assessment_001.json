@@ -1,0 +1,111 @@
+{
+  "scenario_id": "enforce_exceed_assessment_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "评估结果说我们有几个字段出境必要性不足，没批，但集团说不传这些字段系统跑不起来，能先继续传吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "新加坡母公司数据中心",
+    "destination_region": "新加坡",
+    "processing_purpose": "集团会员运营",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "评估结果通知摘要.txt",
+      "kind": "business_memo",
+      "text": "评估结果通知摘要\n\n准予出境：会员ID、姓名、手机号、会员等级、订单号。\n不予准予（出境必要性不足）：身份证号、常用住址、紧急联系人。\n\n集团IT表示系统字段已固定，暂时无法删除这三个字段，建议先照常同步，后续再改。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "procedure.assessment"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "enforcement",
+    "urls": [
+      "https://www.secrss.com/articles/87969"
+    ],
+    "public_facts": "上海2025年典型案例：一家酒店管理企业收到评估结果通知，相关数据项出境必要性不足，但仍继续出境，被责令改正并罚款。",
+    "synthesized": "主体、字段和集团IT意见均为虚构。"
+  },
+  "selection_reason": "改编公开执法案例：通过评估后出境不得超出评估明确的范围和种类。",
+  "reference_basis": [
+    "网络数据安全管理条例第三十八条；2025年4月问答第4问（必要性评估）。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "通过数据出境安全评估后 不得超出评估时明确的数据出境目的 范围和种类",
+        "targets": [
+          "flk_npc_ff808181927f0e7b0192949a1da4355d 第三十八条"
+        ]
+      },
+      {
+        "text": "个人信息出境必要性 评估要点",
+        "targets": [
+          "cac_data_export_policy_qna_2025_04"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+        "article_no": "第三十八条",
+        "note": "不得超出评估明确的范围、种类",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_04",
+        "article_no": null,
+        "note": "必要性评估要点",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "flk_npc_ff808181927f0e7b0192949a1da4355d"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_04"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "评估结果未准予的身份证号、住址和紧急联系人不得出境，继续传输属于超出评估范围的违法出境；应在系统层面停止这些字段的同步，只按准予范围出境。"
+    ],
+    "forbidden_judgments": [
+      "认定可以先继续传输、后续再整改。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

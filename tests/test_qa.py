@@ -198,7 +198,7 @@ class Tools:
     def search(self, queries, facts, *, coarse_scope=False, excluded_scope_terms=(), max_chunks=None):
         return [_hit()]
 
-    def search_navigation(self):
+    def search_results(self):
         return []
 
     def read_evidence(self, *args, **kwargs):
@@ -629,3 +629,143 @@ def test_clarification_cannot_be_handed_to_formal_review(api):
         "material_text": "待补充业务事实", "intake": {}})
     assert response.status_code == 409
     assert "补充业务事实" in response.json()["detail"]
+
+
+@pytest.mark.completeness
+@pytest.mark.parametrize("query,failed_stage", [
+    ("个人信息保护影响评估", None),
+    (None, None),
+    (" 数据出境 ", None),
+    ("个人信息保护影响评估", "search"),
+    (None, "revision"),
+])
+def test_completeness_revises_with_evidence_or_keeps_the_draft(query, failed_stage):
+    supplement = query == "个人信息保护影响评估"
+    new_text = "补查原文：应开展个人信息保护影响评估。"
+
+    class ReviewTools(Tools):
+        searches = 0
+
+        def search(self, queries, facts, **kwargs):
+            self.searches += 1
+            if self.searches > 1 and failed_stage == "search":
+                raise TimeoutError("search timed out")
+            return [_hit()] if self.searches == 1 else [_hit("c2", text=new_text)]
+
+    class Client(StreamingClient):
+        streams = 0
+
+        def chat_json(self, messages, **kwargs):
+            assert kwargs.get("stream") is True
+            payload = json.loads(messages[-1].content)
+            assert payload["acquired"][0]["excerpt"] == _hit().text
+            assert payload["queries_already_run"] == ["数据出境"]
+            assert "上传事实：2026年5月通知" in payload["materials"]
+            return super().chat_json(messages, **kwargs)
+
+        def stream_text(self, messages, **kwargs):
+            self.streams += 1
+            if self.streams == 2:
+                assert kwargs.get("tools") is None
+                assert len(messages) == 2
+                packet = json.loads(messages[-1].content)
+                assert packet["completeness_review"][0]["query"] == (query.strip() if query else None)
+                assert "[[cite:" in packet["draft_answer"] and "[依据1]" not in packet["draft_answer"]
+                assert "上传事实：2026年5月通知" in packet["materials"]
+                passages = {c["chunk_id"]: c["excerpt"] for c in packet["citation_registry"]}
+                assert passages["c1"] == _hit().text
+                assert passages.get("c2") == (new_text if supplement else None)
+                yield "修订后的回答。"
+                if failed_stage == "revision":
+                    raise TimeoutError("rewrite timed out")
+                source = "c2" if supplement else "c1"
+                yield next(c["citation_marker"] for c in packet["citation_registry"] if c["chunk_id"] == source)
+                return
+            yield from super().stream_text(messages, **kwargs)
+
+    client = Client(outputs=[
+        tool_message(("call_1", "search_evidence", {"summary": "检索", "queries": [
+            {"query_id": "q1", "text": "数据出境", "query_type": "legal_issue"}], "date_context": {"as_of_date": None}})),
+        tool_message(("call_2", "finish", {"summary": "完成", "chunk_ids": ["c1"]})),
+        {"gaps": [{"issue": "没有讲出境前的个人信息保护影响评估", "query": query}]},
+    ])
+    store, updates, tools = InMemoryQAStore(), [], ReviewTools()
+    conversation = store.create("owner")
+    store.add_material(conversation["id"], {"id": "m1", "filename": "通知.txt", "parsed_text": "上传事实：2026年5月通知"})
+    run = store.enqueue(conversation["id"], question="出境要做什么", material_ids=["m1"], request_id="1")
+    execute_qa(store.get(conversation["id"]), run, checkpoint=lambda **changes: updates.append(changes),
+               chunks_path="unused", client=client, tools=tools)
+    final = updates[-1]
+    assert final["status"] == "completed"
+    assert client.streams == (1 if failed_stage == "search" else 2)
+    completeness = final["result"]["completeness"]
+    assert completeness["checked"] and completeness["gaps"][0]["issue"].startswith("没有讲")
+    assert completeness["draft_answer"].startswith("根据具体业务判断") and completeness["draft_evidence_ids"]
+    assert tools.searches == (2 if supplement else 1)
+    state = next(u["state"] for u in reversed(updates) if "state" in u)
+    assert state["searches"] == tools.searches
+    if supplement and failed_stage is None:
+        assert state["steps"][-1]["summary"] == "完整性复核：补查缺口"
+    if failed_stage is not None:
+        assert final["answer"] == completeness["draft_answer"]
+        assert final["result"]["citations"] == completeness["draft_citations"]
+        assert completeness["failed_stage"] == failed_stage
+        assert not any(u.get("answer") == "修订后的回答。" for u in updates)
+    else:
+        assert final["answer"] == "修订后的回答。[" + ("依据2]" if supplement else "依据1]")
+        assert final["result"]["citations"][0]["chunk_id"] == ("c2" if supplement else "c1")
+
+
+@pytest.mark.completeness
+def test_a_complete_draft_is_delivered_as_it_is():
+    client = StreamingClient(outputs=[
+        tool_message(("call_1", "search_evidence", {"summary": "检索", "queries": [
+            {"query_id": "q1", "text": "数据出境", "query_type": "legal_issue"}], "date_context": {"as_of_date": None}})),
+        tool_message(("call_2", "finish", {"summary": "完成", "chunk_ids": ["c1"]})),
+        {"gaps": []},
+    ])
+    store, updates = InMemoryQAStore(), []
+    conversation = store.create("owner")
+    run = store.enqueue(conversation["id"], question="什么条件", material_ids=[], request_id="1")
+    execute_qa(store.get(conversation["id"]), run, checkpoint=lambda **changes: updates.append(changes),
+               chunks_path="unused", client=client, tools=Tools())
+    final = updates[-1]
+    assert final["answer"] == "根据具体业务判断。[依据1]"
+    assert final["result"]["completeness"]["checked"] and final["result"]["completeness"]["gaps"] == []
+
+
+@pytest.mark.completeness
+def test_completeness_bounds_evidence_materials_and_inherits_search_scope():
+    from law_agent.review.agent import AgentStep
+    from law_agent.review.qa_agent import (
+        COMPLETENESS_MAX_MATERIAL_CHARS,
+        _completeness_materials,
+        _completeness_search_scope,
+        _completeness_sources,
+    )
+    from law_agent.review.schemas import RetrievalQuery
+
+    cited = {"chunk_id": "c_cited", "ref": "依据1", "citation_marker": "[[cite:c_cited]]",
+             "title": "主法", "kind": "legal", "excerpt": "甲" * 1200}
+    uncited = {"chunk_id": "c_other", "ref": "依据2", "citation_marker": "[[cite:c_other]]",
+               "title": "附法", "kind": "context", "excerpt": "乙" * 1200}
+    packed = _completeness_sources([uncited, cited], priority_chunk_ids={"c_cited"},
+                                   max_total_chars=1500, uncited_excerpt_chars=200)
+    assert packed[0]["chunk_id"] == "c_cited" and len(packed[0]["excerpt"]) == 1200
+    assert packed[1]["chunk_id"] == "c_other" and len(packed[1]["excerpt"]) <= 202
+    assert packed[1]["excerpt_truncated"] is True
+
+    long_mat = "冗余背景" * 3000
+    state = QAState(goal="g", steps=[AgentStep(
+        number=1, action="read_materials", summary="读材料",
+        observation={"passages": [{"filename": "通知.txt", "text": "核心事实：2026年5月通知"}]},
+    )])
+    bounded = _completeness_materials(state, long_mat)
+    assert "核心事实：2026年5月通知" in bounded and len(bounded) <= COMPLETENESS_MAX_MATERIAL_CHARS
+
+    q_nat = RetrievalQuery(query_id="q1", query_type="legal_issue", text="门槛", scope="全国通用")
+    q_sh = RetrievalQuery(query_id="q2", query_type="region_condition", text="上海", scope="地区:上海")
+    q_auto = RetrievalQuery(query_id="q3", query_type="industry_condition", text="汽车", scope="行业:汽车")
+    assert _completeness_search_scope(QAState(goal="g", queries=[q_nat])) == "全国通用"
+    assert _completeness_search_scope(QAState(goal="g", queries=[q_nat, q_sh])) == "地区:上海"
+    assert _completeness_search_scope(QAState(goal="g", queries=[q_sh, q_auto])) == "全库"

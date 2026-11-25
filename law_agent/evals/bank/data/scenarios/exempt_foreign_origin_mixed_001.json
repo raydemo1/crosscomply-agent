@@ -1,0 +1,110 @@
+{
+  "scenario_id": "exempt_foreign_origin_mixed_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "同一个客户项目这次要把中国区员工的数据也合并进去分析后一起回传，还能按境外数据回传免予吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡客户",
+    "destination_region": "新加坡",
+    "processing_purpose": "员工敬业度分析回传",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "项目变更说明.txt",
+      "kind": "business_memo",
+      "text": "敬业度调研项目变更\n\n客户新增要求：把其中国子公司约4000名员工的问卷（由我们在境内直接收集）合并到东南亚数据中一起分析，回传明细时不再区分来源。项目经理认为“都是这个客户的数据，仍然属于境外数据回传”。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "exemption.foreign_origin",
+    "mechanism.threshold"
+  ],
+  "noise_types": [
+    "business_legal_claim",
+    "mixed_population"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验处理过程中引入境内个人信息后，第四条豁免不再适用于混入部分。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验处理过程中引入境内个人信息后，第四条豁免不再适用于混入部分。",
+  "reference_basis": [
+    "2024规定第四条、第五条第一款第四项。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "处理过程中没有引入境内个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第四条"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第四条",
+        "note": "引入境内个人信息则不适用",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "境内部分按累计人数判断",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "混入在境内收集的中国区员工数据后，这部分不能适用第四条；若能分离，东南亚数据仍可按第四条回传，中国区4000人按累计人数判断（不满10万人可免予，需结合公司当年其他出境累计），并履行告知、同意和影响评估。"
+    ],
+    "forbidden_judgments": [
+      "认定合并后的全部数据仍按境外数据回传免予。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

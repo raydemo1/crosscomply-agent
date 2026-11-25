@@ -1,0 +1,119 @@
+{
+  "scenario_id": "duty_hk_listing_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "如果改成去香港上市，还必须申报网络安全审查吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "（上市相关）",
+    "destination_region": "中国香港",
+    "processing_purpose": "香港上市",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
+  },
+  "materials": [
+    {
+      "filename": "咨询邮件.txt",
+      "kind": "email",
+      "text": "主题：赴港上市是否需要网络安全审查\n\n公司约800万注册用户，现考虑改为在香港联交所上市。券商说“国外上市”才需要审查，香港不算国外。请法务确认。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "duty.cybersecurity_review"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验第七条强制申报只针对国外上市；赴港上市需按影响国家安全的一般规定判断。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验第七条强制申报只针对国外上市；赴港上市需按影响国家安全的一般规定判断。",
+  "reference_basis": [
+    "网络安全审查办法第二、七条；网络数据安全管理条例第十三条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "赴国外上市 申报网络安全审查",
+        "targets": [
+          "cac_cybersecurity_review_measures_2022 第七条"
+        ]
+      },
+      {
+        "text": "网络数据处理活动 影响或者可能影响国家安全 国家安全审查",
+        "targets": [
+          "flk_npc_ff808181927f0e7b0192949a1da4355d 第十三条"
+        ]
+      },
+      {
+        "text": "网络平台运营者开展数据处理活动 影响国家安全 网络安全审查 当事人",
+        "targets": [
+          "cac_cybersecurity_review_measures_2022 第二条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cybersecurity_review_measures_2022",
+        "article_no": "第七条",
+        "note": "强制申报仅指国外上市",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cybersecurity_review_measures_2022",
+        "article_no": "第二条",
+        "note": "影响或可能影响国家安全的数据处理活动",
+        "equivalents": []
+      },
+      {
+        "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+        "article_no": "第十三条",
+        "note": "影响国家安全的应进行国家安全审查",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cybersecurity_review_measures_2022"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "第七条的强制申报针对赴国外上市，赴港上市不直接适用；但网络平台运营者的数据处理活动影响或可能影响国家安全的，仍应按网络安全审查办法第二条、网络数据安全管理条例第十三条进行审查，需要结合数据规模、类型和上市安排评估，必要时向主管部门咨询。"
+    ],
+    "forbidden_judgments": [
+      "认定赴港上市必须依第七条申报。",
+      "认定赴港上市与网络安全审查完全无关。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

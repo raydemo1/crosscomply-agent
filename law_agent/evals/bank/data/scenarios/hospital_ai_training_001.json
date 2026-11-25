@@ -1,0 +1,123 @@
+{
+  "scenario_id": "hospital_ai_training_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "hospital_wuhan",
+  "as_of_date": "2026-10-15",
+  "question": "境外AI公司想用我们2万名患者的去标识化影像训练模型，签个合作协议就行吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "0",
+    "annual_sensitive_count": "20000",
+    "overseas_recipient": "美国医疗AI公司",
+    "destination_region": "美国",
+    "processing_purpose": "AI模型训练",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
+  },
+  "materials": [
+    {
+      "filename": "合作意向书.txt",
+      "kind": "contract_excerpt",
+      "text": "合作意向书（摘要）\n\n医院向美国医疗AI公司提供2万名患者的CT影像（DICOM头信息已去除姓名、住院号，保留年龄、性别和诊断），用于训练肺结节检测模型。医院获得模型免费使用权。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "mechanism.sensitive",
+    "duty.deidentification"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验去标识化医疗影像仍是敏感个人信息，2万人须申报安全评估。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验去标识化医疗影像仍是敏感个人信息，2万人须申报安全评估。",
+  "reference_basis": [
+    "个人信息保护法第四、二十八、七十三条；2024规定第七条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "去标识化 个人信息 匿名化",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第七十三条"
+        ]
+      },
+      {
+        "text": "1万人以上敏感个人信息 申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "医疗健康 敏感个人信息 定义",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十八条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第七十三条",
+        "note": "去标识化不等于匿名化",
+        "equivalents": []
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第二十八条",
+        "note": "医疗健康信息敏感",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "1万人以上敏感申报评估",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "flk_npc_ff8081817b6472a3017b656cc2040044",
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "去除姓名、住院号的影像仍保留可关联的诊断等信息，属于去标识化的敏感个人信息；2万人超过1万人，应申报数据出境安全评估，并取得患者单独同意、开展影响评估；合作协议不能替代出境程序。"
+    ],
+    "forbidden_judgments": [
+      "认定去标识化影像不属于个人信息。",
+      "认定签订合作协议即可出境。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

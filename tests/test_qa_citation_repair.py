@@ -74,7 +74,7 @@ def test_exact_acquired_chunk_identifier_is_repaired_but_ambiguous_suffix_is_not
 
 
 @pytest.mark.parametrize("patches", [
-    [], [{"old": "[[cite:wrong]]", "new": "[[cite:foreign]]"}],
+    [{"old": "[[cite:wrong]]", "new": "[[cite:foreign]]"}],
     [{"old": "[[cite:wrong]]", "new": ""}],
     [{"old": "原始正文", "new": "[[cite:valid]]"}],
     [{"old": "[[cite:wrong]]", "new": "[[cite:valid]]", "answer": "重写"}],
@@ -130,19 +130,30 @@ def test_one_strict_patch_preserves_original_answer_history_and_metadata(mode):
     assert [s["action"] for s in state["steps"]][-2:] == ["citation_error", "citation_repair"]
 
 
+def test_an_empty_patch_leaves_the_text_for_the_unverified_markers_to_be_dropped():
+    error = CitationReferenceError("未取得", ["[[cite:wrong]]"])
+    assert apply_citation_repairs("原始正文[[cite:wrong]]", error, [{"citation_marker": "[[cite:valid]]"}], []) \
+        == "原始正文[[cite:wrong]]"
+
+
 @pytest.mark.parametrize("mode", ["bad_patch", "no_patch", "budget_exhausted"])
-def test_failed_or_unavailable_patch_still_blocks_and_never_loops(monkeypatch, mode):
+def test_unverifiable_markers_are_not_shown_and_the_answer_is_still_delivered(monkeypatch, mode):
     if mode == "budget_exhausted":
         monkeypatch.setattr("law_agent.review.qa_agent.QAState", lambda **kw: QAState(**kw, max_turns=2))
     llm = FakeClient(outputs=[tool_message(("search", "search_evidence", {"summary": "查依据", "queries": [
         {"query_id": "q", "text": "规则", "query_type": "legal_issue"}], "date_context": {"as_of_date": None}})),
-        {"content": "原始正文[[cite:wrong]]"},
+        {"content": "原始正文[[cite:wrong]]，以及未写完的[[cite:ab"},
         tool_message(("patch", "repair_citations", {"replacements": [] if mode == "no_patch" else [
             {"old": "[[cite:wrong]]", "new": "[[cite:unacquired]]"}]})),
     ])
-    with pytest.raises(CitationReferenceError):
-        run_qa(llm, Tools())
+    updates = run_qa(llm, Tools())
     assert len(llm.calls) == (2 if mode == "budget_exhausted" else 3)
+    assert updates[-1]["status"] == "completed"
+    assert updates[-1]["answer"] == "原始正文，以及未写完的"
+    assert updates[-1]["result"]["citations"] == []
+    state = [u["state"] for u in updates if "state" in u][-1]
+    dropped = [s for s in state["steps"] if s["action"] == "citation_dropped"]
+    assert dropped and "[[cite:wrong]]" in dropped[-1]["observation"]["removed"]
 
 
 @pytest.mark.parametrize("effort", ["none", "low"])

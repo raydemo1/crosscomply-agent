@@ -1,0 +1,121 @@
+{
+  "scenario_id": "mech_sensitive_near_threshold_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "hospital_wuhan",
+  "as_of_date": "2026-10-15",
+  "question": "罕见病登记项目已经向境外提供了9800名患者信息，年底前还会再增加，现在签的标准合同够用吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "0",
+    "annual_sensitive_count": "9800",
+    "overseas_recipient": "瑞士罕见病国际登记平台",
+    "destination_region": "瑞士",
+    "processing_purpose": "罕见病国际登记研究",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
+  },
+  "materials": [
+    {
+      "filename": "项目进展.txt",
+      "kind": "business_memo",
+      "text": "罕见病国际登记项目进展（2026年10月）\n\n已与瑞士登记平台订立标准合同并备案。今年已上传9800名患者的诊断与基因检测摘要，预计12月前新增约600人。项目组认为合同已经备案，人数增加不影响。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "mechanism.sensitive",
+    "procedure.standard_contract"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验敏感个人信息将跨过1万人时，标准合同不再适用，应提前申报安全评估。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验敏感个人信息将跨过1万人时，标准合同不再适用，应提前申报安全评估。",
+  "reference_basis": [
+    "2024规定第七、八条；2026年1月问答第1问。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2026_01"
+  ],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "不满1万人敏感个人信息 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      },
+      {
+        "text": "累计1万人以上敏感个人信息 申报安全评估 已订立标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条",
+          "cac_data_export_policy_qna_2026_01"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "1万人以上敏感申报评估",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "不满1万人敏感走标准合同",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2026_01",
+        "article_no": null,
+        "note": "超过门槛后应申报评估并纳入此前出境部分",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2026_01"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "目前9800人仍在标准合同范围内；预计年内超过1万人，应在超过前申报安全评估并把当年已出境部分纳入申报，否则需控制在1万人以内。基因检测摘要可能涉及人类遗传资源规定，受控法律库未收录，需另行核实。"
+    ],
+    "forbidden_judgments": [
+      "认定已备案的标准合同可以覆盖超过1万人的敏感个人信息。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

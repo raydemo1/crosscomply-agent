@@ -1,0 +1,94 @@
+{
+  "scenario_id": "proc_contract_change_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "已经备案的标准合同里，境外接收方要把数据转存到美国的数据中心，还要做什么吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "120000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡区域总部",
+    "destination_region": "新加坡、美国",
+    "processing_purpose": "客户关系管理",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "变更通知.txt",
+      "kind": "email",
+      "text": "发件人：新加坡区域总部IT\n主题：CRM系统迁移\n\n明年一季度起，区域CRM将迁移到美国弗吉尼亚的数据中心，客户联系人数据（中国区约12万人）将存储在美国，新加坡团队继续使用。请中国公司知悉。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "procedure.standard_contract"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验标准合同期内保存地点变化须重新评估、补充或重新订立并备案。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验标准合同期内保存地点变化须重新评估、补充或重新订立并备案。",
+  "reference_basis": [
+    "标准合同办法第八条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "标准合同有效期内 保存地点发生变化 重新开展影响评估 重新订立 备案",
+        "targets": [
+          "cac_personal_info_export_standard_contract_measures_2023 第八条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_personal_info_export_standard_contract_measures_2023",
+        "article_no": "第八条",
+        "note": "保存地点变化须重新评估、补充或重新订立并备案",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_personal_info_export_standard_contract_measures_2023"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "境外保存地点变更为美国，应重新开展个人信息保护影响评估（包括美国法律环境），补充或重新订立标准合同并办理备案，同时更新对个人的告知。"
+    ],
+    "forbidden_judgments": [
+      "认定接收方不变就无需任何处理。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

@@ -89,9 +89,9 @@ def test_review_and_qa_allow_five_web_calls_per_round(state_type):
     decision = AgentDecision(action="search_web", summary="查当前争点", queries=[query()])
     calls = []
     for _ in range(5):
-        investigate(state, decision, search=None, search_navigation=None, read_evidence=None,
+        investigate(state, decision, search=None, search_results=None, read_evidence=None,
                     web_search=lambda *_: calls.append(1) or WebSearchBatch(), checkpoint=lambda _: None)
     with pytest.raises(ValueError, match="Web 搜索预算已用尽"):
-        investigate(state, decision, search=None, search_navigation=None, read_evidence=None,
+        investigate(state, decision, search=None, search_results=None, read_evidence=None,
                     web_search=lambda *_: pytest.fail("sixth web call"), checkpoint=lambda _: None)
     assert len(calls) == state.web_searches == state.max_web_searches == 5

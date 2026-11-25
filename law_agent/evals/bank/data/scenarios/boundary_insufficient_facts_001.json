@@ -1,0 +1,110 @@
+{
+  "scenario_id": "boundary_insufficient_facts_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "pharma_nanchang",
+  "as_of_date": "2026-10-15",
+  "question": "总部说要“共享一些数据”给海外，具体什么数据、给谁还没定，我们需要办什么手续？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": null,
+    "annual_non_sensitive_count": "",
+    "annual_sensitive_count": "",
+    "overseas_recipient": "",
+    "destination_region": "",
+    "processing_purpose": "",
+    "regions": [
+      "江西"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
+  },
+  "materials": [
+    {
+      "filename": "会议记录.txt",
+      "kind": "meeting_notes",
+      "text": "管理层会议：海外总部希望共享一些研发和销售相关数据，具体数据范围、接收方和用途待定，请合规部提前评估需要办什么手续。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "boundary.missing_fact"
+  ],
+  "noise_types": [
+    "missing_fact"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验关键事实全部缺失时不下确定结论，列明需要补充的事实与判断框架。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验关键事实全部缺失时不下确定结论，列明需要补充的事实与判断框架。",
+  "reference_basis": [
+    "2024规定第三、五、七、八条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "申报数据出境安全评估 情形 100万人 1万人敏感个人信息",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "标准合同 认证 10万人以上不满100万人 不满1万人敏感个人信息",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "评估条件",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "标准合同或认证条件",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [
+      "询问拟出境数据的类型、是否含个人信息或重要数据、人数、接收方和用途。"
+    ],
+    "allowed_judgments": [
+      "数据范围、是否含个人信息或重要数据、人数、接收方和用途均未确定，无法确定出境路径；应列明需补充的事实，并说明不同情形下的路径框架（不含个人信息与重要数据可免予；个人信息按人数和敏感程度；重要数据须评估）。"
+    ],
+    "forbidden_judgments": [
+      "在事实未知时给出确定的出境路径。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

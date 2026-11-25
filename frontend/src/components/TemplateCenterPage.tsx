@@ -15,7 +15,7 @@ const EMPTY_INTAKE: CaseIntake = {
   business_entity: '', business_activity: '', data_types: [], contains_personal_information: null, sensitive_personal_info: null, cross_border_transfer: null,
   important_data_status: 'unknown', ciio_status: 'unknown', annual_non_sensitive_count: '',
   count_period: 'unknown',
-  annual_sensitive_count: '', overseas_recipient: '', destination_region: '', processing_purpose: '',
+  annual_sensitive_count: '', overseas_recipient: '', destination_region: '', regions: [], in_free_trade_zone: null, industry: null, processing_purpose: '',
   transfer_mechanism: '', vendor_name: '', contract_status: '', legal_basis_or_consent: '', exemption_facts: '', followup_answers: {}, notes: '',
 };
 
@@ -64,7 +64,6 @@ function asExportPayload(template: CaseTemplateApi): Record<string, unknown> {
     description: template.description,
     question: template.question,
     intake: template.intake,
-    rerank_mode: template.rerank_mode,
   };
 }
 

@@ -1,0 +1,131 @@
+{
+  "scenario_id": "boundary_ciio_conflict_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "填报写的我们不是关基运营者，但信息科说收到过认定通知，出境该按哪个判断？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "50000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡母公司",
+    "destination_region": "新加坡",
+    "processing_purpose": "集团运营",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "信息科说明.txt",
+      "kind": "business_memo",
+      "text": "信息科说明\n\n2025年我们的票务系统曾收到交通领域主管部门的关键信息基础设施认定通知，但今年系统已拆分迁移，是否仍属于关基未再确认。业务部门填报时选择了“非关基运营者”。本次计划向新加坡母公司提供5万名会员信息。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "boundary.material_conflict",
+    "mechanism.ciio"
+  ],
+  "noise_types": [
+    "material_conflict"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验确认填报与材料对CIIO身份矛盾时保留冲突，身份决定路径。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验确认填报与材料对CIIO身份矛盾时保留冲突，身份决定路径。",
+  "reference_basis": [
+    "2024规定第五条第一款第四项、第七条第一款第一项；关基条例第十、十一条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "关键信息基础设施运营者 向境外提供个人信息 申报安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "关键信息基础设施运营者以外的数据处理者 累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "关键信息基础设施 较大变化 重新认定",
+        "targets": [
+          "flk_npc_ff8081817b63b935017b7bcc49877e0b 第十一条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "CIIO须申报评估",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第四十条"
+            }
+          ]
+        ]
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "非CIIO不满10万人免予",
+        "equivalents": []
+      },
+      {
+        "source_id": "flk_npc_ff8081817b63b935017b7bcc49877e0b",
+        "article_no": "第十一条",
+        "note": "较大变化应报告并重新认定",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [
+      "要求核实关基认定通知的现行有效性及重新认定情况。"
+    ],
+    "allowed_judgments": [
+      "填报与材料对关基身份矛盾，身份决定路径：若认定仍有效，向境外提供个人信息须申报安全评估；若经报告重新认定不再是关基，5万人非敏感个人信息可免予三种机制。应核实认定状态，系统拆分属于较大变化，应向保护工作部门报告。"
+    ],
+    "forbidden_judgments": [
+      "直接按填报认定为非关基并免予。",
+      "不说明冲突直接认定须申报评估。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

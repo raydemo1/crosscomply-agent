@@ -1,0 +1,123 @@
+{
+  "scenario_id": "region_sh_card_number_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "retail_shanghai_ftz",
+  "as_of_date": "2026-10-15",
+  "question": "跨境退款需要把5000名会员的完整信用卡号发给法国支付团队，这也在上海负面清单的放宽范围里吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "0",
+    "annual_sensitive_count": "5000",
+    "overseas_recipient": "法国母公司支付团队",
+    "destination_region": "法国",
+    "processing_purpose": "跨境退款",
+    "regions": [
+      "上海"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "退款流程说明.txt",
+      "kind": "business_memo",
+      "text": "跨境退款流程说明\n\n境外商品退款需由法国支付团队处理，今年涉及约5000名会员，需提供完整信用卡号、有效期和持卡人姓名。财务部认为会员数据都在上海负面清单放宽范围内，5000人远低于门槛，可以免予。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "region.ftz",
+    "mechanism.sensitive"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验上海清单只放宽信用卡号后四位和有效期，完整卡号属于“除第1、2项以外的个人信息”，按1万人敏感门槛管理。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验上海清单只放宽信用卡号后四位和有效期，完整卡号属于“除第1、2项以外的个人信息”，按1万人敏感门槛管理。",
+  "reference_basis": [
+    "2024规定第六条；上海数据出境负面清单（2025版）商贸领域第2、3、5、6项；个人信息保护法第二十八条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "上海 负面清单 信用卡信息 仅限后四位和有效期",
+        "targets": [
+          "shanghai_free_trade_zone_data_export_negative_list_2025"
+        ]
+      },
+      {
+        "text": "自由贸易试验区 负面清单外的数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      },
+      {
+        "text": "金融账户 敏感个人信息 定义",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第二十八条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第六条",
+        "note": "负面清单制度",
+        "equivalents": []
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第二十八条",
+        "note": "金融账户属于敏感个人信息",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+        "article_no": null,
+        "note": "信用卡信息仅限后四位和有效期；其他个人信息按第6项",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "完整信用卡号超出清单列明的“后四位和有效期”，属于清单第6项“除第4、5项以外的个人信息”中不满1万人的敏感个人信息，应订立标准合同或通过认证；可考虑只提供后四位以落入放宽范围，并取得单独同意。"
+    ],
+    "forbidden_judgments": [
+      "认定完整信用卡号属于会员管理放宽字段，可以免予。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

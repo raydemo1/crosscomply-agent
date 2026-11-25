@@ -1,0 +1,107 @@
+{
+  "scenario_id": "proc_group_filing_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "集团下面三家游戏子公司都要把数据给同一个新加坡分析平台，必须三家分别申报吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "1300000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡数据分析平台",
+    "destination_region": "新加坡",
+    "processing_purpose": "玩家行为分析",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
+  },
+  "materials": [
+    {
+      "filename": "集团说明.txt",
+      "kind": "business_memo",
+      "text": "集团合规说明\n\n星屿互动旗下三家游戏子公司（杭州、成都、厦门）均向同一家新加坡数据分析平台提供玩家行为数据，业务场景和数据字段一致，三家合计去重约130万人。合规部担心要准备三套申报材料。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "procedure.assessment"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验同一集团场景相似的子公司可由集团合并申报。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验同一集团场景相似的子公司可由集团合并申报。",
+  "reference_basis": [
+    "2025年4月问答第8问；2024规定第七条。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2025_04"
+  ],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "集团公司 子公司 业务场景相似 合并申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条",
+          "cac_data_export_policy_qna_2025_04"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "100万人以上申报评估",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_04",
+        "article_no": null,
+        "note": "集团可作为申报主体合并申报",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_04"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "三家子公司同属一个集团且出境场景相似，可以由集团公司作为申报主体合并申报数据出境安全评估；合计去重约130万人，达到申报评估门槛。"
+    ],
+    "forbidden_judgments": [
+      "认定必须由三家子公司分别申报。",
+      "认定每家子公司人数不足100万就可以各自走标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

@@ -11,7 +11,6 @@ from law_agent.data.chunking.pipeline import chunk_document
 from law_agent.data.cleaners.common import clean_text
 from law_agent.data.cleaners.pipeline import clean_document
 from law_agent.data.enrichment.generator import enrich_document
-from law_agent.data.evalset.build_cases import build_retrieval_cases
 from law_agent.data.fetchers.generic import fetch_source
 from law_agent.data.io import read_jsonl, read_manifest, write_json, write_jsonl, write_manifest
 from law_agent.data.manifest import build_manifest
@@ -131,14 +130,6 @@ def _cmd_chunk(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_evalset_build(args: argparse.Namespace) -> int:
-    chunks = read_jsonl(Path(args.chunks), Chunk)
-    cases = build_retrieval_cases(chunks, limit=args.limit)
-    count = write_jsonl(Path(args.output), cases)
-    print(f"Wrote {count} retrieval cases to {args.output}")
-    return 0
-
-
 def _cmd_report_governance(args: argparse.Namespace) -> int:
     build_data_governance_report(
         documents=read_jsonl(Path(args.normalized), Document),
@@ -158,7 +149,6 @@ def _cmd_pipeline_run(args: argparse.Namespace) -> int:
     cleaned_path = Path(args.cleaned)
     enriched_path = Path(args.enriched)
     chunks_path = Path(args.chunks)
-    eval_path = Path(args.eval_output)
     report_path = Path(args.report_output)
 
     _cmd_fetch(
@@ -180,9 +170,6 @@ def _cmd_pipeline_run(args: argparse.Namespace) -> int:
     _cmd_clean(argparse.Namespace(input=str(normalized_path), output=str(cleaned_path)))
     _cmd_enrich(argparse.Namespace(input=str(cleaned_path), output=str(enriched_path)))
     _cmd_chunk(argparse.Namespace(input=str(enriched_path), output=str(chunks_path)))
-    _cmd_evalset_build(
-        argparse.Namespace(chunks=str(chunks_path), output=str(eval_path), limit=args.limit)
-    )
     _cmd_report_governance(
         argparse.Namespace(
             normalized=str(normalized_path),
@@ -284,14 +271,6 @@ def build_parser() -> argparse.ArgumentParser:
     chunk.add_argument("--output", default="data/chunks/chunks.jsonl")
     chunk.set_defaults(func=_cmd_chunk)
 
-    evalset = subparsers.add_parser("evalset", help="Build evaluation candidates")
-    evalset_sub = evalset.add_subparsers(dest="evalset_command")
-    evalset_build = evalset_sub.add_parser("build", help="Build retrieval cases")
-    evalset_build.add_argument("--chunks", default="data/chunks/chunks.jsonl")
-    evalset_build.add_argument("--output", default="data/eval/retrieval_cases.jsonl")
-    evalset_build.add_argument("--limit", type=int, default=60)
-    evalset_build.set_defaults(func=_cmd_evalset_build)
-
     report = subparsers.add_parser("report", help="Build reports")
     report_sub = report.add_subparsers(dest="report_command")
     report_governance = report_sub.add_parser("governance", help="Build data governance report")
@@ -311,10 +290,8 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline_run.add_argument("--cleaned", default="data/cleaned/documents.cleaned.jsonl")
     pipeline_run.add_argument("--enriched", default="data/enriched/documents.enriched.jsonl")
     pipeline_run.add_argument("--chunks", default="data/chunks/chunks.jsonl")
-    pipeline_run.add_argument("--eval-output", default="data/eval/retrieval_cases.jsonl")
     pipeline_run.add_argument("--report-output", default="data/reports/data_governance_report.md")
     pipeline_run.add_argument("--timeout-seconds", type=int, default=30)
-    pipeline_run.add_argument("--limit", type=int, default=60)
     pipeline_run.add_argument(
         "--parser",
         choices=["auto", "plain", "docx", "docling", "mineru"],

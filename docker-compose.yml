@@ -6,11 +6,11 @@ x-backend-environment: &backend-environment
   ES_VERIFY_CERTS: "false"
   PG_DSN: postgresql://${POSTGRES_USER:-lawagent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lawagent}
   PG_TABLE: ${PG_TABLE:-lawagent_chunks}
-  CROSSCOMPLY_MINIO_ENDPOINT: minio:9000
-  CROSSCOMPLY_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-crosscomply}
-  CROSSCOMPLY_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-  CROSSCOMPLY_MINIO_BUCKET: ${MINIO_BUCKET:-crosscomply-materials}
-  CROSSCOMPLY_MINIO_SECURE: "false"
+  CROSSCOMPLY_S3_ENDPOINT: objectstore:8333
+  CROSSCOMPLY_S3_ACCESS_KEY: ${S3_ACCESS_KEY:-crosscomply}
+  CROSSCOMPLY_S3_SECRET_KEY: ${S3_SECRET_KEY}
+  CROSSCOMPLY_S3_BUCKET: ${S3_BUCKET:-crosscomply-materials}
+  CROSSCOMPLY_S3_SECURE: "false"
   CROSSCOMPLY_PUBLIC_BASE_URL: ${CROSSCOMPLY_PUBLIC_BASE_URL:-http://127.0.0.1:8080}
 
 services:
@@ -62,36 +62,26 @@ services:
     restart: unless-stopped
     networks: [backend]
 
-  minio:
-    image: ${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z}
-    command: server /data --console-address ":9001"
+  objectstore:
+    # SeaweedFS serves the S3 API for material originals and PDF reports; the
+    # application creates its bucket on first use.
+    image: ${SEAWEEDFS_IMAGE:-chrislusf/seaweedfs:3.80}
+    entrypoint: ["/bin/sh", "/bootstrap/seaweedfs-start.sh"]
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-crosscomply}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-crosscomply}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in .env}
+      SEAWEEDFS_VOLUME_SIZE_LIMIT_MB: ${SEAWEEDFS_VOLUME_SIZE_LIMIT_MB:-64}
+      SEAWEEDFS_VOLUME_MAX: ${SEAWEEDFS_VOLUME_MAX:-20}
     volumes:
-      - miniodata:/data
+      - objectdata:/data
+      - ./docker/seaweedfs-start.sh:/bootstrap/seaweedfs-start.sh:ro
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8333/healthz"]
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 10s
+      start_period: 15s
     restart: unless-stopped
-    networks: [backend]
-
-  minio-init:
-    image: ${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-08T15-39-49Z}
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-crosscomply}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
-      MINIO_BUCKET: ${MINIO_BUCKET:-crosscomply-materials}
-    entrypoint: ["/bin/sh", "/bootstrap/create-minio-bucket.sh"]
-    volumes:
-      - ./docker/create-minio-bucket.sh:/bootstrap/create-minio-bucket.sh:ro
-    restart: "no"
     networks: [backend]
 
   migrate:
@@ -128,8 +118,8 @@ services:
         condition: service_completed_successfully
       elasticsearch:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
+      objectstore:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
       interval: 15s
@@ -156,8 +146,8 @@ services:
         condition: service_completed_successfully
       elasticsearch:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
+      objectstore:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
       interval: 30s
@@ -232,7 +222,7 @@ services:
 volumes:
   esdata:
   pgdata:
-  miniodata:
+  objectdata:
 
 networks:
   frontend:

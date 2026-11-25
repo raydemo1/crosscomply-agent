@@ -32,6 +32,7 @@ from law_agent.review.http.schemas import (
     MaterialSnapshotRequest,
 )
 from law_agent.review.object_store import MaterialObjectStore
+from law_agent.review.retrieval.boosts import normalize_industry
 from law_agent.review.schemas import ReviewFacts
 from law_agent.review.workflow import CaseStatus, review_requires_retry, validate_case_transition
 
@@ -84,6 +85,8 @@ def _intake_from_extraction(facts: ReviewFacts) -> IntakePayload:
         annual_sensitive_count=facts.annual_sensitive_count or "",
         count_period=facts.count_period,
         destination_region=facts.destination_region or "",
+        regions=list(facts.regions),
+        industry=normalize_industry(facts.industry),
         exemption_facts=facts.exemption_facts or "",
         overseas_recipient=facts.overseas_recipient or "",
         processing_purpose=facts.processing_purpose or "",
@@ -208,7 +211,6 @@ def register_case_routes(
         material_text: str = Form(default=""),
         material_source: str | None = Form(default=None),
         intake_json: str = Form(default="{}"),
-        rerank_mode: str = Form(default="off"),
         file: UploadFile | None = File(default=None),
     ) -> dict[str, Any]:
         if (
@@ -232,7 +234,6 @@ def register_case_routes(
                     material_text=material_text,
                     material_source=material_source,
                     intake=IntakePayload.model_validate_json(intake_json or "{}"),
-                    rerank_mode=rerank_mode,
                 )
             except ValidationError as exc:
                 raise HTTPException(status_code=422, detail=exc.errors()) from exc
@@ -242,7 +243,6 @@ def register_case_routes(
             material_text=payload.material_text,
             material_source=payload.material_source,
             intake=payload.intake.model_dump(mode="json"),
-            rerank_mode=payload.rerank_mode,
             created_by=user.id,
             owner_id=user.id,
         )

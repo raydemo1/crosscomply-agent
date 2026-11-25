@@ -82,8 +82,8 @@ def test_nonstream_usage_scope_is_inherited_and_restored(monkeypatch):
     records = []
     with usage_scope("outer", records.append):
         with usage_scope("qa_eval_judge"):
-            client().chat_json([ChatMessage(role="user", content="问题")])
-        client().chat_json([ChatMessage(role="user", content="问题")])
+            client().chat_json([ChatMessage(role="user", content="问题")], stream=False)
+        client().chat_json([ChatMessage(role="user", content="问题")], stream=False)
     assert [r["phase"] for r in records] == ["qa_eval_judge", "outer"]
     assert all(r["cache_miss_tokens"] == 40 for r in records)
     assert records[0]["message_hashes"] == records[1]["message_hashes"]
@@ -95,7 +95,7 @@ def test_http_failure_is_recorded_without_assuming_zero_tokens(monkeypatch):
     monkeypatch.setattr("urllib.request.urlopen", fail)
     records = []
     with usage_scope("investigation", records.append), pytest.raises(RuntimeError):
-        client().chat_json([ChatMessage(role="user", content="问题")])
+        client().chat_json([ChatMessage(role="user", content="问题")], stream=False)
     assert records[0]["status"] == "failed" and records[0]["error"] == "HTTPError"
     assert records[0]["prompt_tokens"] is None
 

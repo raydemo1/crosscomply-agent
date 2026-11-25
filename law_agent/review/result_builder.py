@@ -1,16 +1,13 @@
-"""LLM-driven structured review result builder.
+"""Structured review report contract shared by the Agent and its gates.
 
-Generates governed ``ReviewResult`` via DeepSeek with Pydantic strict
-validation. Includes schema definitions, prompt builders, evidence
-grounding validation, and citation injection.  Risk level, conclusion,
-claims, trigger reasons, recommended actions, and risk boundaries are
-all produced by the LLM under schema constraints — there is no
-rule-based fallback path.
+Defines the report draft the Agent submits, the validators the citation gate
+applies (grounded claims, legal-basis gaps, business questions, summaries),
+citation reference attachment and citation marker injection. The report is
+produced by the Agent itself; there is no rule-based fallback path.
 """
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Sequence
 from html import escape
@@ -19,28 +16,16 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
-from law_agent.config import require_llm_config
-from law_agent.data.schemas import Chunk, StrictModel
-from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
-from law_agent.review.agent_context import compact_evidence_context
-from law_agent.review.citations import group_citations
-from law_agent.review.dates import business_today
-from law_agent.review.llm import ReviewWorkflowFailed, StructuredLLMNode
+from law_agent.data.schemas import StrictModel
 from law_agent.review.report_markdown import REPORT_WRITING_GUIDANCE, report_markdown
 from law_agent.review.schemas import (
     LEGAL_BASIS_GAP_GUIDANCE,
-    Citation,
     CitationGroup,
-    EvidenceSelfCheck,
     GroundedClaim,
     GroundedClaimDraft,
     IssueKind,
     RetrievalHit,
-    RetrievalQuery,
-    ReviewFacts,
-    ReviewResult,
     RiskLevel,
-    SourceEvidencePacket,
 )
 from law_agent.review.web_research import canonical_url
 
@@ -329,8 +314,7 @@ def _longest_common_substring_len(a: str, b: str) -> int:
         for j in range(1, len(b) + 1):
             if ai == b[j - 1]:
                 current[j] = previous[j - 1] + 1
-                if current[j] > best:
-                    best = current[j]
+                best = max(best, current[j])
         previous = current
     return best
 
@@ -392,193 +376,3 @@ def report_evidence(
     if unknown:
         raise ValueError(f"报告引用了本轮未取得的资料：{sorted(unknown)}")
     return [hit for hit in evidence_hits if hit.chunk_id in used]
-
-
-
-def build_result_generation_messages(
-    *,
-    facts: ReviewFacts,
-    self_check: EvidenceSelfCheck,
-    evidence_hits: list[RetrievalHit],
-    question: str | None = None,
-    material_text: str | None = None,
-    retrieval_queries: list[RetrievalQuery] | None = None,
-    second_retrieval: dict[str, object] | None = None,
-    source_evidence_packets: list[SourceEvidencePacket] | None = None,
-) -> list[ChatMessage]:
-    """Provide original evidence and a schema, without legal-answer examples."""
-
-    output_model = LLMReviewResultDraft
-    evidence_context = compact_evidence_context({"evidence": [hit.model_dump(mode="json") for hit in evidence_hits]})
-    today = business_today()
-    payload = {
-        "current_date": today.isoformat(),
-        "review_date": (facts.as_of_date or today).isoformat(),
-        "question": question,
-        "material_excerpt": material_text or "",
-        "review_facts": facts.model_dump(mode="json"),
-        "evidence_self_check": self_check.model_dump(mode="json"),
-        "retrieval_queries": [query.model_dump(mode="json") for query in (retrieval_queries or [])],
-        "second_retrieval": second_retrieval or {},
-        "source_evidence_packets": [{
-            "source_id": packet.source_id,
-            "representative_chunk_id": packet.representative_chunk.chunk_id,
-            "supporting_chunk_ids": [hit.chunk_id for hit in packet.supporting_chunks],
-            "neighbor_chunk_ids": [hit.chunk_id for hit in packet.neighbor_chunks],
-        } for packet in (source_evidence_packets or [])],
-        **evidence_context,
-        "citable_chunk_ids": [hit.chunk_id for hit in evidence_hits if hit.can_cite_clause],
-    }
-    system = """你是CrossComply企业数据合规审查结果生成助手。根据当前问题、本案材料和实际取得的原文，返回符合output_schema的JSON报告。
-先回答当前审查目标，说明决定性的事实、适用规则和限制。材料、事实投影和模型判断保留来源区别；未知不作为否定，推断不补作事实。
-原文与同源evidence_sources合并理解，完整原文和full_article_text中的条件、例外及适用范围一起使用。代表命中、同源支持和相邻内容的来源身份相同，不因检索位置而改变法律效力。依据不足时如实说明，不以自检sufficient或已存在一些业务信息为由强行确定路径、风险或义务。
-关键前提不足以支持本次个案判断时，risk_level为insufficient_evidence、legal_path留空，正文仍可给有依据的条件分支。范围外缺口不阻塞已经确定的限定结论。不得用medium/high/low代替未知，也不得增加材料未提供的人数、持续时间或身份。
-结论、摘要、理由、清单和建议在明确关联的条件下保持一致，不必逐句重复条件；不能用末段的待确认事项挽救前面的无条件结论。区分处理依据、程序机制和具体义务，各自结合适用条件及例外。参考标准与政策解释可支持说明或建议，不独立创设法定义务。
-claims关联关键法律判断所在的完整段落、独立列表项或表格单元格，不要求逐句拆分；尽量保留正文原表述以便定位。supporting_chunk_ids只复制实际取得且can_cite_clause=true的原文标识，按实际支持关系选择，不为分散来源更换引用。正文实际使用的解释、标准等资料登记reference_chunk_ids；没有使用的资料不登记。编号、来源信息及展示位置由程序处理，不自行编排引用编号或HTML标记。
-decision_summary为单段纯文本，直接回答当前目标，保留决定性限制，不引入正文与材料没有的新事实。建议、待确认事实和已确认法律问题分别表达，不为填满栏目生成整改事项。仅依据当前中国数据合规语料，问题超出范围或缺少适用法源时说明限制，不补造其他法域规则。
-"""
-    system += "review_date是审查时点，current_date是运行日期。法律依据缺口写legal_basis_gaps，不让申请人确认法条内容或规则适用关系。\n"
-    system += "完整业务待确认清单写questions，每个问题及回答类型只填一次；issues通过question_indexes关联，只由questions生成事实确认任务。\n"
-    system += "output_schema=" + json.dumps(output_model.model_json_schema(), ensure_ascii=False)
-    return [ChatMessage(role="system", content=system),
-            ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False))]
-
-
-def build_review_result_with_deepseek(
-    *,
-    review_result_id: str,
-    review_case_id: str,
-    trace_id: str,
-    facts: ReviewFacts,
-    self_check: EvidenceSelfCheck,
-    evidence_hits: list[RetrievalHit],
-    chunks_by_id: dict[str, Chunk] | None = None,
-    question: str | None = None,
-    material_text: str | None = None,
-    retrieval_queries: list[RetrievalQuery] | None = None,
-    second_retrieval: dict[str, object] | None = None,
-    source_evidence_packets: list[SourceEvidencePacket] | None = None,
-    client: OpenAICompatibleClient | None = None,
-    max_retries: int | None = None,
-) -> ReviewResult:
-    """Build a governed ReviewResult using DeepSeek for result content."""
-
-    if chunks_by_id is None:
-        chunks_by_id = {}
-    if client is None:
-        client = OpenAICompatibleClient(require_llm_config())
-
-    node_mode = None
-    output_model = LLMReviewResultDraft
-
-    node = StructuredLLMNode(
-        node_name="result_generation",
-        output_model=output_model,
-        client=client,
-        max_retries=max_retries,
-        trace_id=trace_id,
-        structured_output_mode=node_mode,
-    )
-    try:
-
-        def validate_draft_grounding(draft_to_validate):
-            validate_legal_basis_gaps(draft_to_validate)
-            if draft_to_validate.risk_level == "insufficient_evidence" and draft_to_validate.legal_path is not None:
-                raise ValueError("证据不足时不能确定法律路径")
-            validated_claims = validate_grounded_claims(
-                draft_to_validate.claims,
-                evidence_hits,
-            )
-            report_evidence(evidence_hits, claims=validated_claims,
-                            reference_chunk_ids=draft_to_validate.reference_chunk_ids,
-                            additional_chunk_ids=[cid for issue in getattr(draft_to_validate, "issues", [])
-                                                  for cid in issue.supporting_chunk_ids])
-            complete_review = draft_to_validate.conclusion
-
-            supported_summary_text = "\n".join([
-                complete_review,
-                material_text or "",
-                json.dumps(facts.model_dump(), ensure_ascii=False),
-                *[f"{hit.title}\n{hit.text}" for hit in evidence_hits],
-            ])
-            decision_summary = validate_decision_summary(
-                draft_to_validate.decision_summary,
-                supported_text=supported_summary_text,
-            )
-            return draft_to_validate.model_copy(
-                update={
-                    "claims": validated_claims,
-                    "decision_summary": decision_summary,
-                }
-            )
-
-        draft = node.run(
-            build_result_generation_messages(
-                facts=facts,
-                self_check=self_check,
-                evidence_hits=evidence_hits,
-                question=question,
-                material_text=material_text,
-                retrieval_queries=retrieval_queries,
-                second_retrieval=second_retrieval,
-                source_evidence_packets=source_evidence_packets,
-            ),
-            post_validate=validate_draft_grounding,
-            post_validation_reason="claim_grounding_validation_failed",
-            post_validation_hint=(
-                "请确保每个 claim 至少引用一个允许且可作为法条依据的 supporting_chunk_id。"
-            ),
-        )
-        selected = report_evidence(evidence_hits, claims=draft.claims,
-                                   reference_chunk_ids=draft.reference_chunk_ids,
-                                   additional_chunk_ids=[cid for issue in draft.issues
-                                                         for cid in issue.supporting_chunk_ids])
-        citation_groups, _ = group_citations(selected, facts, chunks_by_id)
-        citation_ref_by_chunk_id = {c.chunk_id: c.citation_ref for g in citation_groups for c in g.citations}
-        decision_summary = draft.decision_summary.strip()
-        conclusion = draft.conclusion
-        claims = validate_grounded_claims(draft.claims, evidence_hits)
-        claims = attach_citation_refs(claims, citation_groups)
-        conclusion = inject_citation_markers(conclusion, claims, citation_ref_by_chunk_id)
-        trigger_reasons = draft.trigger_reasons
-        risk_level = draft.risk_level
-        missing_information = draft.missing_information
-        missing_answer_types = draft.missing_answer_types
-        recommended_actions = draft.recommended_actions
-        risk_boundaries = draft.risk_boundaries
-    except ValueError as exc:
-        raise ReviewWorkflowFailed(
-            failed_node="result_generation",
-            reason="claim_grounding_validation_failed",
-            message=str(exc),
-            attempts=1,
-            trace_id=trace_id,
-        ) from exc
-
-    # The structured draft owns the disclaimer in its risk-boundary/report
-    # section. Do not append a second fixed sentence to every conclusion.
-    conclusion = conclusion.rstrip()
-
-    all_citations: list[Citation] = []
-    for group in citation_groups:
-        all_citations.extend(group.citations)
-
-    return ReviewResult(
-        review_result_id=review_result_id,
-        review_case_id=review_case_id,
-        trace_id=trace_id,
-        risk_level=risk_level,
-        legal_path=draft.legal_path,
-        decision_summary=decision_summary,
-        conclusion=conclusion,
-        review_facts=facts,
-        trigger_reasons=trigger_reasons,
-        missing_information=missing_information,
-        legal_basis_gaps=draft.legal_basis_gaps,
-        missing_answer_types=missing_answer_types,
-        recommended_actions=recommended_actions,
-        risk_boundaries=risk_boundaries,
-        claims=claims,
-        citations=all_citations,
-        applicable_evidence=citation_groups,
-    )

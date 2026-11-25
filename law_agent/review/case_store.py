@@ -53,7 +53,6 @@ class MemoryCase:
     material_source: str | None
     intake: dict[str, Any]
     status: CaseStatus
-    rerank_mode: str
     created_by: str
     owner_id: str | None = None
     facts_confirmed: bool = False
@@ -120,7 +119,6 @@ def _row_case(row: dict[str, Any]) -> dict[str, Any]:
         "material_source": row["material_source"],
         "intake": row.get("intake_json") or {},
         "status": row["status"],
-        "rerank_mode": row["rerank_mode"],
         "created_by": row["created_by"],
         "owner_id": row["owner_id"],
         "facts_confirmed": row["facts_confirmed"],
@@ -312,9 +310,9 @@ class PostgresCaseStore:
             """
             INSERT INTO review_cases (
                 id, case_number, title, question, material_text, material_source, intake_json,
-                status, rerank_mode, created_by, owner_id,
+                status, created_by, owner_id,
                 facts_confirmed, created_at, updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
             """,
             (
@@ -326,7 +324,6 @@ class PostgresCaseStore:
                 kwargs.get("material_source"),
                 _jsonb(kwargs.get("intake")),
                 kwargs.get("status", "draft"),
-                kwargs.get("rerank_mode", "off"),
                 kwargs["created_by"],
                 kwargs.get("owner_id"),
                 kwargs.get("facts_confirmed", False),
@@ -361,7 +358,7 @@ class PostgresCaseStore:
         # 列表只需摘要字段：不携带材料正文与完整审查结果（数 MB 级大列）
         columns = (
             "id, case_number, title, question, material_source, intake_json, status,"
-            " rerank_mode, created_by, owner_id, facts_confirmed, risk_level, trace_id,"
+            " created_by, owner_id, facts_confirmed, risk_level, trace_id,"
             " NULL::text AS material_text, NULL::jsonb AS response_json,"
             " created_at, updated_at"
         )
@@ -380,7 +377,6 @@ class PostgresCaseStore:
             "material_source",
             "intake_json",
             "status",
-            "rerank_mode",
             "owner_id",
             "facts_confirmed",
             "risk_level",
@@ -988,7 +984,6 @@ class InMemoryCaseStore:
             "material_source": item.material_source,
             "intake": item.intake,
             "status": item.status,
-            "rerank_mode": item.rerank_mode,
             "created_by": item.created_by,
             "owner_id": item.owner_id,
             "facts_confirmed": item.facts_confirmed,
@@ -1010,7 +1005,6 @@ class InMemoryCaseStore:
             material_source=kwargs.get("material_source"),
             intake=kwargs.get("intake") or {},
             status=kwargs.get("status", "draft"),
-            rerank_mode=kwargs.get("rerank_mode", "off"),
             created_by=kwargs["created_by"],
             owner_id=kwargs.get("owner_id"),
             facts_confirmed=kwargs.get("facts_confirmed", False),

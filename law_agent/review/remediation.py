@@ -25,7 +25,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import Field, model_validator
 
-from law_agent.config import RerankMode, require_llm_config
+from law_agent.config import require_llm_config
 from law_agent.data.schemas import StrictModel
 from law_agent.llm.openai_compatible import ChatMessage, OpenAICompatibleClient
 from law_agent.review.agent import (
@@ -772,7 +772,6 @@ def execute_rereview(
     state: AgentState | None,
     model_id: str,
     chunks_path: Path | str,
-    rerank_mode: RerankMode = "off",
     decide: Callable[[AgentState, dict[str, Any]], RemediationDecision] | None = None,
     search: Callable[..., list[Any]] | None = None,
 ) -> AgentState:
@@ -790,7 +789,6 @@ def execute_rereview(
             question=goal,
             material_text=packet.text,
             material_versions=(),
-            rerank_mode=rerank_mode,
         )
         search = tools.search
 
@@ -804,7 +802,7 @@ def execute_rereview(
             intake={},
             decide=decide or RemediationAgentModel(model_id=model_id),
             search=search,
-            search_navigation=tools.search_navigation if tools is not None else None,
+            search_results=tools.search_results if tools is not None else None,
             read_evidence=tools.read_evidence if tools is not None else None,
             web_search=no_web_search,
             finalize=lambda draft, current: finalize_assessment(draft, packet),

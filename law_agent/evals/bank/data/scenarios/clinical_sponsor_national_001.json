@@ -1,0 +1,109 @@
+{
+  "scenario_id": "clinical_sponsor_national_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "pharma_nanchang",
+  "as_of_date": "2026-10-15",
+  "question": "我们作为申办方，今年要把2.5万名受试者数据传到瑞士的全球数据库，标准合同可以吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "0",
+    "annual_sensitive_count": "25000",
+    "overseas_recipient": "瑞士合作方全球临床数据库",
+    "destination_region": "瑞士",
+    "processing_purpose": "药物临床试验数据管理",
+    "regions": [
+      "江西"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
+  },
+  "materials": [
+    {
+      "filename": "数据管理计划.txt",
+      "kind": "business_memo",
+      "text": "临床数据管理计划\n\n公司在南昌注册，作为申办方开展多中心临床试验，今年约2.5万名受试者的受试者识别码、出生日期、诊疗记录和检验报告需传至瑞士合作方全球数据库。数据管理部听说北京有放宽到5万人的负面清单，认为可以签标准合同。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "mechanism.sensitive",
+    "region.ftz"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验不在负面清单适用地区的处理者不能套用北京清单门槛，1万人以上敏感个人信息须申报评估。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验不在负面清单适用地区的处理者不能套用北京清单门槛，1万人以上敏感个人信息须申报评估。",
+  "reference_basis": [
+    "2024规定第六、七条；北京“两区”负面清单仅适用于在北京登记注册的处理者。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "累计1万人以上敏感个人信息 申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "自由贸易试验区 负面清单 适用范围",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "1万人以上敏感申报评估",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第六条",
+        "note": "负面清单仅适用于区内处理者",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "公司注册在南昌，不能适用北京“两区”负面清单；2.5万名受试者的诊疗信息属于1万人以上敏感个人信息，应申报数据出境安全评估，不能以标准合同代替。"
+    ],
+    "forbidden_judgments": [
+      "套用北京负面清单的5万人门槛，认定可以订立标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

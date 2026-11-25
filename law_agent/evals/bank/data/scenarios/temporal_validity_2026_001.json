@@ -1,0 +1,107 @@
+{
+  "scenario_id": "temporal_validity_2026_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "我们通过的数据出境安全评估结果有效期是多久？什么时候要重新申报或续期？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "新加坡母公司数据中心",
+    "destination_region": "新加坡",
+    "processing_purpose": "集团会员运营",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "评估结果.txt",
+      "kind": "business_memo",
+      "text": "公司向新加坡母公司数据中心提供会员数据的出境场景已通过数据出境安全评估，评估结果出具日期为2025年3月18日，出境场景和接收方至今未变化。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "temporal.version",
+    "procedure.assessment"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：安全评估结果有效期在2024年由2年延长为3年并增加延期机制。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "安全评估结果有效期在2024年由2年延长为3年并增加延期机制。",
+  "reference_basis": [
+    "数据出境安全评估办法第十四条（2022）；2024规定第九、十三条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "数据出境安全评估结果有效期",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第九条"
+        ]
+      },
+      {
+        "text": "有效期届满 重新申报 延长评估结果有效期",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第九条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第九条",
+        "note": "有效期3年，届满前60个工作日内可申请延长",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": [
+      {
+        "source_id": "cac_data_export_security_assessment_measures_2022",
+        "article_no": "第十四条",
+        "note": "有效期规定已被2024规定取代",
+        "equivalents": [],
+        "reason": "conflict_rule_overridden"
+      }
+    ]
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "按现行规定，结果有效期3年，自2025年3月18日起算；需要继续出境且未发生需重新申报的情形，可在届满前60个工作日内申请延长3年。"
+    ],
+    "forbidden_judgments": [
+      "认定有效期为2年、只能重新申报。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

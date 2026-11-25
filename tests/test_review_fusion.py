@@ -247,12 +247,43 @@ def test_rerank_hits_reorders_window_and_keeps_missing_candidates() -> None:
 
     assert [hit.chunk_id for hit in outcome.hits] == ["c", "a", "b"]
     assert [hit.rank for hit in outcome.hits] == [0, 1, 2]
-    assert outcome.hits[0].score == 1.0
+    assert outcome.hits[0].score == 0.96
     assert outcome.info["mode"] == "embedding"
     assert outcome.info["model"] == "BAAI/bge-reranker-v2-m3"
     assert outcome.info["blend_weight"] == 0.4
     assert "业务事实" in fake.seen_query
     assert "证据角色" in fake.seen_documents[0]
+
+
+def test_rerank_hits_preserves_calibrated_cross_query_confidence_and_handles_logits() -> None:
+    # Low-confidence query (rerank=0.05) must NOT inflate to 1.0 like per-query min-max did.
+    low_hits = [_hit("low_a", 0, score=1.0 / 60), _hit("low_b", 1, score=1.0 / 61)]
+    high_hits = [_hit("high_a", 0, score=1.0 / 60), _hit("high_b", 1, score=1.0 / 61)]
+    cfg = RerankConfig(
+        mode="cross_encoder", base_url="https://example.test/v1", api_key="sk-test",
+        model="BAAI/bge-reranker-v2-m3", timeout_seconds=30, window=5, blend_weight=0.85,
+    )
+    low_out = rerank_hits(
+        low_hits, question="q", material_text="", facts=ReviewFacts(), queries=[], top_k=2,
+        mode="cross_encoder", config=cfg,
+        reranker=_FakeReranker([RerankScore(index=0, score=0.05), RerankScore(index=1, score=0.01)]),
+    )
+    high_out = rerank_hits(
+        high_hits, question="q", material_text="", facts=ReviewFacts(), queries=[], top_k=2,
+        mode="cross_encoder", config=cfg,
+        reranker=_FakeReranker([RerankScore(index=0, score=0.92), RerankScore(index=1, score=0.85)]),
+    )
+    assert low_out.hits[0].score < 0.2
+    assert high_out.hits[1].score > low_out.hits[0].score
+
+    # Unbounded logits outside [0, 1] are mapped cleanly via logistic sigmoid.
+    logit_out = rerank_hits(
+        low_hits, question="q", material_text="", facts=ReviewFacts(), queries=[], top_k=2,
+        mode="cross_encoder", config=cfg,
+        reranker=_FakeReranker([RerankScore(index=0, score=-2.0), RerankScore(index=1, score=3.0)]),
+    )
+    assert [h.chunk_id for h in logit_out.hits] == ["low_b", "low_a"]
+    assert 0.8 < logit_out.hits[0].score < 1.0 and logit_out.hits[1].score < 0.3
 
 
 def test_rerank_hits_off_preserves_original_order() -> None:

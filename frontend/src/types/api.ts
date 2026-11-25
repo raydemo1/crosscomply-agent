@@ -539,9 +539,25 @@ export interface KnowledgeEnrichmentJobApi {
   source_id: string | null;
   raw_sha256: string | null;
   parsed_excerpt: string | null;
+  draft_json: KnowledgeSourceDraftApi | null;
+  published_date: string | null;
   error: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** 采集任务读出的待审元数据：每项附原文依据，unresolved 为模型拿不准、读不出或引文不成立、需要审核人确认的字段。 */
+export interface KnowledgeSourceDraftApi {
+  /** model：模型读取；rules：模型不可用，按规则推断，需逐项确认。 */
+  reader: 'model' | 'rules';
+  source: KnowledgeSourceRecordApi;
+  evidence: Record<string, string>;
+  unresolved: string[];
+  supersedes: { source_id: string; title: string; date: string | null }[];
+  supersession_problem: string | null;
+  chunk_count: number;
+  chunks: { heading: string; text: string }[];
+  publish_blocked: boolean;
 }
 
 export interface CaseKnowledgeRecheckApi {
@@ -981,6 +997,10 @@ export interface CaseIntake {
   count_period: 'unknown' | 'current_year_cumulative' | 'annual_estimate' | 'other';
   overseas_recipient: string;
   destination_region: string;
+  /** Provinces where the processor is registered or operates; decides which local rules and FTZ lists apply. */
+  regions: string[];
+  in_free_trade_zone: boolean | null;
+  industry: IntakeIndustry | null;
   processing_purpose: string;
   transfer_mechanism: string;
   vendor_name: string;
@@ -992,13 +1012,15 @@ export interface CaseIntake {
 }
 
 /** A reusable new-case field preset. Materials and review results never belong to a template. */
+export const INTAKE_INDUSTRIES = ['汽车', '金融', '工业和信息化', '医疗健康', '跨境电商', '教育', '其他'] as const;
+export type IntakeIndustry = typeof INTAKE_INDUSTRIES[number];
+
 export interface CaseTemplateApi {
   id: string;
   name: string;
   description: string;
   question: string;
   intake: CaseIntake;
-  rerank_mode: 'off' | 'embedding';
   created_by: string;
   created_by_user?: WorkbenchUser | null;
   updated_by?: string | null;
@@ -1012,7 +1034,6 @@ export interface CaseTemplatePayload {
   description?: string;
   question: string;
   intake: CaseIntake;
-  rerank_mode?: 'off' | 'embedding';
 }
 
 
@@ -1067,7 +1088,6 @@ export interface CaseRecordApi extends CaseSummaryApi {
   material_text: string;
   material_source: string | null;
   intake: CaseIntake;
-  rerank_mode: 'off' | 'embedding';
   trace_id: string | null;
   response: ReviewApiResponse | null;
 }

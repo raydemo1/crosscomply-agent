@@ -1,0 +1,129 @@
+{
+  "scenario_id": "exempt_contract_overreach_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "境外酒店预订属于豁免，那我们顺便把客户历史订单和偏好也一起推给酒店集团，可以吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "210000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "欧洲连锁酒店集团",
+    "destination_region": "法国",
+    "processing_purpose": "境外酒店预订及会员营销",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "合作方案.txt",
+      "kind": "business_memo",
+      "text": "与欧洲连锁酒店集团的合作方案（市场部）\n\n1. 用户预订该集团境外酒店时，推送入住人姓名、证件号、入住日期（履约所需）。\n2. 酒店集团希望同时获得预订用户近三年在我们平台的全部酒店订单和偏好标签，用于其会员营销。今年预计涉及21万名用户。\n\n市场部认为整个合作都基于酒店预订，可以整体免予。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "exemption.contract"
+  ],
+  "noise_types": [
+    "mixed_population",
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验合同履行豁免只覆盖确需部分，营销用途的额外数据不在豁免范围内。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验合同履行豁免只覆盖确需部分，营销用途的额外数据不在豁免范围内。",
+  "reference_basis": [
+    "2024规定第五条第一款第一项、第八条；2025年10月问答第1问。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2025_10"
+  ],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "机票酒店预订 确需 最小必要 豁免",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条",
+          "cac_data_export_policy_qna_2025_10",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第六条"
+        ]
+      },
+      {
+        "text": "累计10万人以上 标准合同 认证",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "豁免限于确需",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "不在豁免内的部分按门槛",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_10",
+        "article_no": null,
+        "note": "确需按最小必要判断",
+        "equivalents": []
+      }
+    ],
+    "optional": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第六条",
+        "note": "最小必要",
+        "equivalents": []
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_10"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "履约所需的入住信息可适用合同履行豁免；历史订单和偏好标签用于酒店集团营销，不属于确需，不适用豁免，应计入累计人数并按21万人订立标准合同或通过认证，同时取得单独同意。"
+    ],
+    "forbidden_judgments": [
+      "认定整个合作因酒店预订而整体免予。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

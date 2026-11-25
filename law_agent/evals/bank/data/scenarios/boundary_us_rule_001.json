@@ -1,0 +1,118 @@
+{
+  "scenario_id": "boundary_us_rule_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "我们给美国一家营销公司提供会员数据，美国那边有没有限制中国数据的新规定会影响我们？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "50000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "美国营销公司",
+    "destination_region": "美国",
+    "processing_purpose": "海外营销",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "咨询.txt",
+      "kind": "email",
+      "text": "主题：美国新规\n\n听说美国出台了限制涉及中国的数据交易的规定，我们要给美国营销公司提供5万名会员（去重、非敏感）信息，会不会受影响？中国这边要办什么手续？",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "boundary.out_of_corpus",
+    "mechanism.threshold"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验不就受控库外的外国法给出结论，但完成中国法下的判断。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验不就受控库外的外国法给出结论，但完成中国法下的判断。",
+  "reference_basis": [
+    "2024规定第五条第一款第四项、第十条；受控法律库未收录美国法规。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "累计不满10万人个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "向境外提供个人信息 告知 单独同意 影响评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第十条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "不满10万人免予",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第十条",
+        "note": "仍须履行告知等义务",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第三十九条"
+            },
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第五十五条"
+            }
+          ]
+        ]
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "受控法律库未收录美国相关法规，无法判断其对交易的影响，应建议咨询美国法律顾问；中国法下5万人非敏感个人信息可免予三种机制，仍须告知、单独同意和影响评估。"
+    ],
+    "forbidden_judgments": [
+      "凭模型记忆具体陈述美国法规内容并作为确定结论。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

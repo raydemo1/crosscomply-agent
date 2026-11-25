@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from law_agent.review.evalset.agent_review import case_hash
-from law_agent.review.evalset.field_cases import export_ready, load_field_cases
+from law_agent.evals.bank.schema import scenario_hash
+from law_agent.evals.field import export_ready, load_field_scenarios
 from tests.test_work_inbox_transfers import client_for, make_app, signed_case, user_for
 
 
@@ -67,29 +67,29 @@ def test_export_dry_run_and_hash_conflict(setup, tmp_path, monkeypatch):
     reviewer.patch(route, json=sanitized())
     assert reviewer.post(f"{route}/ready").status_code == 200
     records = app.state.eval_draft_store
-    output = tmp_path / "field.json"
-    assert load_field_cases(output) == []
+    output = tmp_path / "field"
+    assert load_field_scenarios(output) == []
     assert export_ready(records, output, set(), dry_run=True) == 1
     assert not output.exists() and records.get(created["id"])["status"] == "ready"
     assert export_ready(records, output, set()) == 1
-    candidate, = load_field_cases(output)
-    assert candidate.review_status == "candidate"
-    assert records.get(created["id"])["exported_sha256"] == case_hash(candidate)
+    scenario, = load_field_scenarios(output)
+    assert scenario.split == "field" and scenario.label_status == "draft"
+    assert scenario.materials[0].kind == "case_export"
+    assert records.get(created["id"])["exported_sha256"] == scenario_hash(scenario)
     assert export_ready(records, output, set()) == 0
-    from law_agent.review.evalset import agent_review, field_cases
-    from law_agent.review.evalset.agent_cases import get_agent_cases
+    from law_agent.evals.bank.loader import load_scenarios
+    from law_agent.evals.review import export_review_package
 
-    monkeypatch.setattr(field_cases, "load_field_cases", lambda path=output: load_field_cases(path))
-    assert get_agent_cases("field")[0] == candidate
-    bundle = tmp_path / "review"
-    assert agent_review.export_review_package(bundle, group="field")["case_counts"] == {"field": 1}
-    line = json.loads(output.read_text(encoding="utf-8"))
-    line[0]["question"] = "被改动的题目"
+    assert load_scenarios(field_dir=output, ids=[scenario.scenario_id]) == [scenario]
+    assert export_review_package([scenario], tmp_path / "review")["counts"] == {"field": 1}
+    path = output / f"{scenario.scenario_id}.json"
+    line = json.loads(path.read_text(encoding="utf-8"))
+    line["question"] = "被改动的题目"
     original = json.dumps(line, ensure_ascii=False)
-    output.write_text(original, encoding="utf-8")
+    path.write_text(original, encoding="utf-8")
     with pytest.raises(ValueError, match="已变化"):
         export_ready(records, output, set())
-    assert output.read_text(encoding="utf-8") == original
+    assert path.read_text(encoding="utf-8") == original
 
 
 def test_quality_denominators_and_role_filter(setup):

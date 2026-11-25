@@ -228,7 +228,7 @@ SYSTEM_PROMPT = f"""你是 CrossComply 企业数据合规审查 Agent。围绕 s
 {LEGAL_ANALYSIS_GUIDANCE}
 
 ## 自主调查
-围绕当前审查目标确定必要争点，已有原文足以支持报告结论及关键条件、例外时收口。只为会改变本案结论、风险判断或必要措施的法源缺口补查，已知法名和条号时可直接精读。业务事实未知时保留条件分支，确实阻塞审查时再追问，不用泛搜代替事实确认；必要缺口已调查仍无法解决时，提交明确限定的证据不足报告。
+围绕当前审查目标确定必要争点，已有原文足以支持报告结论及关键条件、例外时收口。只为会改变本案结论、风险判断或必要措施的法源缺口补查，已知法名和条号时可直接精读。案情或材料涉及某省市、自贸区、粤港澳大湾区或特定行业，且 search_evidence 的 scope 枚举包含对应专项域时，应使用该 地区:* 或 行业:* 检索（其会在全国通用上位法基础上叠加该专项，不会遗漏上位法），核查是否存在负面清单、便利化机制或特别规定。检索返回的 scope_catalog 列出该域在当前时点已收录的正式法规或专项文件，若发现与案情高度相关的新规或专项文件尚未命中，可直接按 source_id 精读目录或补充检索。若已取得来源附带 later_provisions 提示新规覆盖或变更了旧规，需要引用该新规条款时应先用 read_evidence 取得正文后再引用。业务事实未知时保留条件分支，确实阻塞审查时再追问，不用泛搜代替事实确认；必要缺口已调查仍无法解决时，提交明确限定的证据不足报告。
 
 ## 报告交付
 报告各栏目采用一致的事实前提、规则分支和证据支持强度。确定性判断及义务要求须有已取得原文和来源清楚的事实支持；区分法定义务与实践建议，只展开当前审查目标所需的风险和措施，不为无依据的延伸增加问题项或行动项。尚缺的业务事实登记在 questions，法律依据缺口登记在 legal_basis_gaps；legal_gap 用于证据已支持的不合规问题。通过 finish 提交结构化报告接受核验，未通过时根据反馈修订或补充调查。报告提交不代表审批通过。
@@ -239,7 +239,9 @@ SYSTEM_PROMPT = f"""你是 CrossComply 企业数据合规审查 Agent。围绕 s
 INVESTIGATION_TOOLS = {
     "search_evidence": ToolSpec(("queries", "max_chunks"),
         "检索受控法律知识库中的法规、官方解释及相关资料。用于发现适用规则、条件、例外和规范衔接依据。"
-        "返回实际取得的原文及来源资格；来源的outline_read_request可直接用于read_evidence浏览同一文件目录，candidate_navigation仅为未读候选，预览不可引用；需要时批量读取原文。", ("queries",)),
+        "每条查询可指定 scope（默认“全国通用”，仅全国通用法规与全国指南/问答；涉及特定地区/自贸区/大湾区或特定行业时选对应“地区:*”或“行业:*”，会在全国通用上位法基础上叠加该专项）。"
+        "返回results：按来源分组、按排名列出本次命中的位置。acquired的位置原文已取得、可引用；其余只有preview，预览不可引用，需要时用read_evidence批量读取原文。"
+        "不超过预览长度的完整短条文直接取得，不占max_chunks名额。来源的outline_read_request可直接用于read_evidence浏览同一文件目录。", ("queries",)),
     "read_evidence": ToolSpec(("read_requests",),
         "精确读取法律原文：已知正式法名和条号时可直接传source_title与article_no，无需先搜索；"
         "也可用已发现的source_id读取条文、章节或指定片段。用于核对完整适用条件、例外和引述内容。"
@@ -271,7 +273,7 @@ def review_context(state, intake):
 
 class AgentModel:
     def __init__(self, *, model_id: str, client: OpenAICompatibleClient | None = None,
-                 python_enabled: bool = False):
+                 python_enabled: bool = False, query_scopes: Sequence[str] | None = None):
         specs = {
             **INVESTIGATION_TOOLS,
             "propose_plan": ToolSpec(("plan",),
@@ -295,7 +297,8 @@ class AgentModel:
                 "在独立的Python沙箱中核对数字或处理表格。material是本次冻结材料的全文字符串，"
                 "用print输出所需结果。", ("code",))
         self.protocol = ToolCallingAgent(client=client or OpenAICompatibleClient(require_agent_llm_config()),
-                                         model_id=model_id, decision_model=AgentDecision, specs=specs)
+                                         model_id=model_id, decision_model=AgentDecision, specs=specs,
+                                         query_scopes=query_scopes)
 
     def __call__(self, state: AgentState, intake: dict[str, Any]) -> AgentDecision:
         return self.protocol.decide(state.tool_session, prompt=SYSTEM_PROMPT, context=review_context(state, intake),
@@ -427,7 +430,13 @@ def _check_evidence_read(
     known_sources.update(
         candidate["source_id"]
         for step in state.steps if step.action == "search_evidence"
-        for candidate in step.observation.get("candidate_navigation", [])
+        for candidate in step.observation.get("results", [])
+    )
+    known_sources.update(
+        entry["source_id"]
+        for step in state.steps if step.action == "search_evidence"
+        for entries in step.observation.get("scope_catalog", {}).values()
+        for entry in entries
     )
     if request.source_id is not None and request.source_id not in known_sources:
         raise ValueError(
@@ -544,7 +553,8 @@ def _read_evidence_batch(state, requests, *, read_evidence, checkpoint):
     return results
 
 
-def investigate(state, decision, *, search, search_navigation, read_evidence, web_search, checkpoint):
+def investigate(state, decision, *, search, search_results, read_evidence, web_search, checkpoint,
+                scope_catalog=None):
     """Execute a bounded investigation action shared by review and Q&A."""
     if decision.action == "search_evidence":
         if remaining_budget(state)["searches"] == 0:
@@ -562,16 +572,13 @@ def investigate(state, decision, *, search, search_navigation, read_evidence, we
         state.queries.extend(queries)
         observation = {"chunk_ids": [hit.chunk_id for hit in hits],
                        "citable_count": sum(hit.can_cite_clause for hit in hits),
-                       "source_has_articles": {
-                           hit.source_id: hit.source_has_articles for hit in hits
-                       }}
-        if search_navigation is not None:
-            observation["candidate_navigation"] = search_navigation()
-        observation["query_results"] = [
-            {"query_id": query.query_id, "text": query.text,
-             "chunk_ids": [hit.chunk_id for hit in hits if query.query_id in hit.matched_query_ids]}
-            for query in queries
-        ]
+                       "queries": [{"query_id": query.query_id, "text": query.text} for query in queries]}
+        if search_results is not None:
+            observation["results"] = search_results()
+        if scope_catalog is not None:
+            catalog = scope_catalog()
+            if catalog:
+                observation["scope_catalog"] = catalog
     elif decision.action == "read_evidence":
         if read_evidence is None:
             raise ValueError("本次运行未启用按来源读取证据")
@@ -600,7 +607,8 @@ def run_agent(
     state: AgentState, *, material: str, intake: dict[str, Any],
     decide: Callable[[AgentState, dict[str, Any]], AgentDecision],
     search: Callable[..., list[RetrievalHit]],
-    search_navigation: Callable[[], list[dict[str, Any]]] | None = None,
+    search_results: Callable[[], list[dict[str, Any]]] | None = None,
+    scope_catalog: Callable[[], dict[str, list[dict[str, str]]]] | None = None,
     read_evidence: Callable[..., EvidenceRead] | None = None,
     web_search: Callable[[list[RetrievalQuery], ReviewFacts, int], WebSearchBatch],
     finalize: Callable[[LLMReviewResultDraft, AgentState], dict[str, Any]],
@@ -660,8 +668,9 @@ def run_agent(
                 observation = execute_python(decision.code, material)
             elif decision.action in {"search_evidence", "read_evidence", "search_web"}:
                 observation = investigate(
-                    state, decision, search=search, search_navigation=search_navigation,
+                    state, decision, search=search, search_results=search_results,
                     read_evidence=read_evidence, web_search=web_search, checkpoint=checkpoint,
+                    scope_catalog=scope_catalog,
                 )
             elif decision.action == "queue_enrichment":
                 if on_web_findings is None:

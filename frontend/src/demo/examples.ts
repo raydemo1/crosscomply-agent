@@ -81,7 +81,7 @@ export function exampleDetail(scenario: Scenario): CaseDetailApi {
   return {
     case: { id, title: scenario.title, question: scenario.question, status: 'pending_review', risk_level: scenario.risk,
       facts_confirmed: true, created_by: 'demo-visitor', owner_id: null, created_at: DATE, updated_at: DATE, has_result: true,
-      material_text: scenario.material, material_source: '虚构示例材料', intake, rerank_mode: 'off', trace_id: `${id}-trace`,
+      material_text: scenario.material, material_source: '虚构示例材料', intake, trace_id: `${id}-trace`,
       response: { review_case_id: id, trace_id: `${id}-trace`, review_facts: facts, review_result: result,
         evidence_self_check: { status: 'not_checked', second_retrieval_plan: null, triggered_reasons: [], issues: [], second_retrieval_triggered: false },
         citation_groups: groups, second_retrieval_triggered: false, evidence_chunks: [], source_evidence_packets: [] },

@@ -7,9 +7,7 @@ import pytest
 from law_agent.data.io import write_jsonl
 from law_agent.data.schemas import Chunk
 from law_agent.review.retrieval.corpus import CorpusError, load_corpus
-from law_agent.review.retrieval.hits import merge_hits_by_chunk_id
 from law_agent.review.retrieval.text import normalize_text, tokenize
-from law_agent.review.schemas import RetrievalHit
 
 # ---------------------------------------------------------------------------
 # Chunk fixtures mirroring real corpus structure
@@ -146,83 +144,6 @@ def test_tokenize_single_cjk_char_kept_as_unigram() -> None:
 # ---------------------------------------------------------------------------
 # Merge hits tests
 # ---------------------------------------------------------------------------
-
-
-def test_merge_hits_deduplicates_by_chunk_id() -> None:
-    hit_a = RetrievalHit(
-        chunk_id="chunk_1",
-        doc_id="d1",
-        source_id="s1",
-        title="t1",
-        text="x",
-        score=2.0,
-        rank=0,
-        retriever="keyword",
-        citation_role="primary_legal_basis",
-        can_cite_clause=True,
-        source_url="u1",
-        matched_query_type="legal_issue",
-    )
-    hit_b = RetrievalHit(
-        chunk_id="chunk_1",
-        doc_id="d1",
-        source_id="s1",
-        title="t1",
-        text="x",
-        score=3.0,
-        rank=1,
-        retriever="keyword",
-        citation_role="primary_legal_basis",
-        can_cite_clause=True,
-        source_url="u1",
-        matched_query_type="material_fact",
-    )
-    hit_c = RetrievalHit(
-        chunk_id="chunk_2",
-        doc_id="d2",
-        source_id="s2",
-        title="t2",
-        text="y",
-        score=1.0,
-        rank=0,
-        retriever="keyword",
-        citation_role="primary_legal_basis",
-        can_cite_clause=True,
-        source_url="u2",
-        matched_query_type="legal_issue",
-    )
-
-    merged = merge_hits_by_chunk_id([[hit_a], [hit_b], [hit_c]], top_k=10)
-
-    assert len(merged) == 2
-    assert merged[0].chunk_id == "chunk_1"
-    assert merged[0].score == 3.0  # best score kept
-    assert merged[1].chunk_id == "chunk_2"
-    assert merged[0].rank == 0
-    assert merged[1].rank == 1
-
-
-def test_merge_hits_respects_top_k() -> None:
-    hits = [
-        [
-            RetrievalHit(
-                chunk_id=f"chunk_{i}",
-                doc_id=f"d{i}",
-                source_id=f"s{i}",
-                title=f"t{i}",
-                text="x",
-                score=float(i),
-                rank=0,
-                retriever="keyword",
-                citation_role="primary_legal_basis",
-                can_cite_clause=True,
-                source_url=f"u{i}",
-            )
-        ]
-        for i in range(5)
-    ]
-    merged = merge_hits_by_chunk_id(hits, top_k=3)
-    assert len(merged) == 3
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,125 @@
+{
+  "scenario_id": "hr_candidates_background_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "合伙人级别候选人的面试由新加坡总部决定录用，需要把候选人简历发过去，这样可以吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "40",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡区域总部",
+    "destination_region": "新加坡",
+    "processing_purpose": "高级岗位录用决策",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "招聘流程.txt",
+      "kind": "internal_policy",
+      "text": "高级岗位招聘流程\n\n合伙人和总监岗位由新加坡区域总部合伙人委员会面试并作出录用决定。今年约40名候选人进入终面，需要提供简历、面试评估表。普通岗位由南京公司自行决定录用。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "exemption.hr",
+    "duty.notice_consent"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验境外总部参与录用决策时，求职者简历出境具备必要性但须最小化并履行出境程序。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验境外总部参与录用决策时，求职者简历出境具备必要性但须最小化并履行出境程序。",
+  "reference_basis": [
+    "2026年7月问答第3问；2024规定第五条第一款第四项；个人信息保护法第三十九条。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2026_07"
+  ],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "招聘场景 求职者简历出境 必要性 境外总部参与录用决策",
+        "targets": [
+          "cac_data_export_policy_qna_2026_07"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "向境外提供个人信息 告知境外接收方 单独同意",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "不满10万人免予",
+        "equivalents": []
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十九条",
+        "note": "告知与单独同意",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2026_07",
+        "article_no": null,
+        "note": "境外参与录用决策时，出境限于决策所需最小数量和范围",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2026_07"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "新加坡总部直接参与录用决策，向其提供终面候选人简历具备必要性，但应限于决策所需的最小人数和数据项；40人非敏感个人信息可免予三种机制（需结合公司当年累计），仍须告知并取得候选人单独同意、开展影响评估。普通岗位候选人简历不应出境。"
+    ],
+    "forbidden_judgments": [
+      "认定候选人属于员工，适用跨境人力资源管理豁免。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

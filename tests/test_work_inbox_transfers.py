@@ -250,7 +250,7 @@ def test_transfer_portfolio_keeps_frozen_input_after_additional_registration(tmp
     monkeypatch.setattr(agent_runtime, "sandbox_from_env", lambda: None)
     monkeypatch.setattr(agent_runtime, "make_claim_repairer", lambda **_kwargs: None)
     monkeypatch.setattr(agent_runtime, "ComplianceAgentTools", lambda **_kwargs: SimpleNamespace(
-        search=None, search_navigation=None, read_evidence=None, search_web=None, close=lambda: None,
+        search=None, search_results=None, read_evidence=None, search_web=None, close=lambda: None,
     ))
     agent_runtime.execute_agent_task(task, store=enterprise, goal=case["question"], material="业务材料")
     paused = enterprise.pause_task(task.id, state=enterprise.get_task(task.id).agent_state)

@@ -1,0 +1,109 @@
+{
+  "scenario_id": "crossborder_customs_consignee_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "logistics_tianjin",
+  "as_of_date": "2026-10-15",
+  "question": "国际快件清关要把个人收件人信息报给境外承运商，这属于豁免吗？企业收件人的信息呢？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "45000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "境外承运商",
+    "destination_region": "多国",
+    "processing_purpose": "国际运输与清关",
+    "regions": [
+      "天津"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "业务说明.txt",
+      "kind": "business_memo",
+      "text": "国际快件业务说明\n\n今年承运的出口快件中，个人寄件人和收件人约4.5万人；另有大量企业客户货物，只涉及企业名称和企业联系人的姓名、电话。需要把寄收件信息报给境外承运商用于运输和目的国清关。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "exemption.contract",
+    "mechanism.threshold"
+  ],
+  "noise_types": [
+    "mixed_population"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验跨境寄递的个人寄收件人信息属于合同履行豁免，企业联系人信息按一般规则判断。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验跨境寄递的个人寄收件人信息属于合同履行豁免，企业联系人信息按一般规则判断。",
+  "reference_basis": [
+    "2024规定第五条第一款第一项、第四项；第三条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "跨境寄递 确需向境外提供个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      },
+      {
+        "text": "国际贸易 跨境运输 收集和产生的数据 不包含个人信息",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第三条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "跨境寄递豁免与不满10万人免予",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第三条",
+        "note": "不含个人信息的运输数据免予",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "个人寄收件人的必要信息属于跨境寄递的合同履行豁免；企业联系人的姓名电话仍是个人信息，不适用第三条，可按累计人数判断（不满10万人可免予），并履行告知等义务。"
+    ],
+    "forbidden_judgments": [
+      "认定企业客户联系人信息不属于个人信息。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

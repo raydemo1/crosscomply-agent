@@ -8,7 +8,7 @@ from typing import Any
 
 SOURCE_FIELDS = (
     "doc_id", "title", "source_url", "source_has_articles", "doc_type",
-    "authority", "law_status", "publish_date", "effective_date", "issuing_body",
+    "authority", "law_status", "publish_date", "effective_date", "issuing_body", "later_provisions",
 )
 RETRIEVAL_FIELDS = frozenset({"score", "rank", "retriever", "matched_query_type", "matched_query_ids"})
 
@@ -43,28 +43,36 @@ def compact_evidence_context(state_payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def search_observation_context(observation, previous_steps, evidence):
-    if "candidate_navigation" not in observation:
+    """The model's view of a search: unread previews it has already been shown are not repeated.
+
+    Acquired locations always stay, so each query's hits read as one ranked list.
+    A previewed location drops out once its text is in the evidence, and an
+    unchanged repeat from an earlier search is left out or shown without its preview.
+    """
+
+    if "results" not in observation:
         return observation
     seen = {}
     for step in previous_steps:
         if step.action == "search_evidence":
-            for source in step.observation.get("candidate_navigation", []):
+            for source in step.observation.get("results", []):
                 for location in source.get("locations", []):
                     seen[(source["source_id"], location["chunk_id"])] = (source["title"], location)
     read = {hit.chunk_id for hit in evidence}
     read_articles = {(hit.source_id, hit.article_no) for hit in evidence if hit.full_article_text}
-    candidates = []
-    for source in observation.get("candidate_navigation", []):
+    results = []
+    for source in observation["results"]:
         remaining = []
         for location in source["locations"]:
-            if location["chunk_id"] in read or (source["source_id"], location.get("article_no")) in read_articles:
-                continue
-            previous = seen.get((source["source_id"], location["chunk_id"]))
-            if previous == (source["title"], location):
-                continue
-            if previous and previous[0] == source["title"] and previous[1].get("preview") == location.get("preview"):
-                location = {k: v for k, v in location.items() if k != "preview"}
+            if not location.get("acquired"):
+                if location["chunk_id"] in read or (source["source_id"], location.get("article_no")) in read_articles:
+                    continue
+                previous = seen.get((source["source_id"], location["chunk_id"]))
+                if previous == (source["title"], location):
+                    continue
+                if previous and previous[0] == source["title"] and previous[1].get("preview") == location.get("preview"):
+                    location = {k: v for k, v in location.items() if k != "preview"}
             remaining.append(location)
         if remaining:
-            candidates.append({**source, "locations": remaining})
-    return {**observation, "candidate_navigation": candidates}
+            results.append({**source, "locations": remaining})
+    return {**observation, "results": results}

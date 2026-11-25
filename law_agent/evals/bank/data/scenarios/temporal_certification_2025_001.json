@@ -1,0 +1,129 @@
+{
+  "scenario_id": "temporal_certification_2025_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2025-10-15",
+  "question": "我们想通过个人信息保护认证的方式向日本合作方提供25万名玩家信息，按什么规则和标准申请？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "250000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "日本发行合作方",
+    "destination_region": "日本",
+    "processing_purpose": "日服联运",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
+  },
+  "materials": [
+    {
+      "filename": "合规规划.txt",
+      "kind": "business_memo",
+      "text": "公司计划以个人信息保护认证方式向日本发行合作方提供约25万名玩家（非敏感）信息，请确认适用的规则和认证依据标准。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "temporal.version",
+    "procedure.certification"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：认证路径的规则和依据标准在2026年前后发生变化。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "认证路径的规则和依据标准在2026年前后发生变化。",
+  "reference_basis": [
+    "个人信息保护法第三十八条；个人信息保护认证实施规则（2022）；个人信息出境认证办法（2026年施行）；2025年第53号公告。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "个人信息保护认证 跨境处理活动 实施规则 认证规范",
+        "targets": [
+          "cac_personal_info_protection_certification_rules_2022",
+          "tc260_cross_border_certification_spec_2022"
+        ]
+      },
+      {
+        "text": "个人信息出境认证办法 依据标准",
+        "targets": [
+          "tc260_cross_border_certification_spec_2022"
+        ]
+      },
+      {
+        "text": "向境外提供个人信息 个人信息保护认证 条件",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十八条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十八条",
+        "note": "认证是法定出境条件之一",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_personal_info_protection_certification_rules_2022",
+        "article_no": null,
+        "note": "2022年个人信息保护认证实施规则",
+        "equivalents": []
+      },
+      {
+        "source_id": "tc260_cross_border_certification_spec_2022",
+        "article_no": null,
+        "note": "当时的跨境处理活动认证规范",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": [
+      {
+        "source_id": "cac_personal_info_export_certification_measures_2025",
+        "article_no": "第五条",
+        "note": "2026年1月1日才施行",
+        "equivalents": [],
+        "reason": "not_applicable"
+      }
+    ]
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "按审查时点的规则，可依个人信息保护法第三十八条通过个人信息保护认证，按2022年《个人信息保护认证实施规则》及配套的跨境处理活动认证规范申请；《个人信息出境认证办法》尚未施行。"
+    ],
+    "forbidden_judgments": [
+      "引用尚未施行的《个人信息出境认证办法》作为申请依据。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

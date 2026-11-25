@@ -6,13 +6,13 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, JsonValue, field_validator
 
-from law_agent.config import RerankMode
 from law_agent.data.schemas import InternalPolicyStatus, LibraryKind, StrictModel
 from law_agent.review.schemas import (
     CIIOStatus,
     ConfirmableFactField,
     CountPeriod,
     ImportantDataStatus,
+    Industry,
 )
 from law_agent.review.user_admin import UserRole
 
@@ -95,6 +95,11 @@ class IntakePayload(BaseModel):
     count_period: CountPeriod = "unknown"
     overseas_recipient: str = ""
     destination_region: str = ""
+    regions: list[str] = Field(default_factory=list, description=(
+        "数据处理者注册地或主要经营地所在的境内省级地区（如 上海、深圳），决定地方规则和自贸区清单是否适用"
+    ))
+    in_free_trade_zone: bool | None = None
+    industry: Industry | None = None
     processing_purpose: str = ""
     transfer_mechanism: str = ""
     vendor_name: str = ""
@@ -111,7 +116,6 @@ class CaseCreateRequest(BaseModel):
     material_text: str = Field(..., min_length=1)
     material_source: str | None = None
     intake: IntakePayload = Field(default_factory=IntakePayload)
-    rerank_mode: RerankMode = "off"
 
     @field_validator("question", "material_text")
     @classmethod
@@ -291,7 +295,6 @@ class CaseTemplateCreateRequest(BaseModel):
     description: str = Field(default="", max_length=500)
     question: str = Field(..., min_length=1, max_length=4000)
     intake: dict[str, object] = Field(default_factory=dict)
-    rerank_mode: Literal["off", "embedding"] = "off"
 
     @field_validator("name", "question")
     @classmethod
@@ -306,7 +309,6 @@ class CaseTemplateUpdateRequest(BaseModel):
     description: str | None = Field(default=None, max_length=500)
     question: str | None = Field(default=None, min_length=1, max_length=4000)
     intake: dict[str, object] | None = None
-    rerank_mode: Literal["off", "embedding"] | None = None
 
 
 __all__ = [

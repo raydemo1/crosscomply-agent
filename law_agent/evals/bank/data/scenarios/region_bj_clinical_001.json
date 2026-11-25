@@ -1,0 +1,128 @@
+{
+  "scenario_id": "region_bj_clinical_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "cro_beijing",
+  "as_of_date": "2026-10-15",
+  "question": "我们给跨国药企做临床试验，今年要把3万名受试者的数据传到申办方境外数据平台，敏感个人信息超过1万人，必须申报安全评估吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "annual_non_sensitive_count": "0",
+    "annual_sensitive_count": "30000",
+    "overseas_recipient": "跨国药企申办方数据平台",
+    "destination_region": "美国",
+    "processing_purpose": "药物临床试验数据管理",
+    "regions": [
+      "北京"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "医疗健康"
+  },
+  "materials": [
+    {
+      "filename": "项目说明.txt",
+      "kind": "business_memo",
+      "text": "临床试验数据出境说明\n\n公司注册在北京经济技术开发区，作为CRO为跨国药企开展多项药物临床试验。今年需向申办方的境外电子数据采集平台传输约3万名受试者的受试者识别码、出生日期、性别、诊疗记录、检验报告和不良事件信息（按GCP要求处理，不含姓名和联系方式）。公司非关键信息基础设施运营者，未被告知存在重要数据。数据管理部按国家规则认为敏感个人信息超过1万人必须申报安全评估。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "region.ftz",
+    "exemption.ftz_negative_list",
+    "mechanism.sensitive"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "official_qna",
+    "urls": [
+      "https://zwfwj.beijing.gov.cn/zwgk/2024zcjd/202605/t20260511_4645757.html"
+    ],
+    "public_facts": "北京市政务服务和数据管理局2026年5月解读：“两区”负面清单适用范围由自贸试验区扩展至北京全市域，涵盖医药等9个领域。",
+    "synthesized": "CRO主体、试验规模和数据字段均为虚构。"
+  },
+  "selection_reason": "检验北京“两区”负面清单对临床试验受试者信息放宽门槛：1万以上不满5万人走标准合同或认证。",
+  "reference_basis": [
+    "2024规定第六、七条；北京“两区”数据出境负面清单（2025版）医药行业第5、10项；北京市政务服务和数据管理局2026年5月政策解读（适用于全市域，需负面清单使用备案）。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "北京 负面清单 医药行业 临床试验 受试者 个人信息 门槛",
+        "targets": [
+          "beijing_free_trade_zone_data_export_negative_list_2025"
+        ]
+      },
+      {
+        "text": "自由贸易试验区 负面清单 敏感个人信息 1万人",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      },
+      {
+        "text": "累计1万人以上敏感个人信息 申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第六条",
+        "note": "负面清单制度",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "国家规则下1万人以上敏感申报评估（对比）",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "beijing_free_trade_zone_data_export_negative_list_2025",
+        "article_no": null,
+        "note": "医药行业：受试者信息1万以上不满5万人走标准合同或认证，5万人以上评估",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [
+      "提示核实负面清单的使用备案要求。"
+    ],
+    "allowed_judgments": [
+      "公司在北京注册，可依北京“两区”负面清单（需按要求完成负面清单使用备案）：临床试验场景下3万名受试者信息属于1万以上不满5万人，应订立标准合同或通过认证，而不是按国家规则申报安全评估；仍须告知、单独同意和影响评估。"
+    ],
+    "forbidden_judgments": [
+      "不考虑北京负面清单，直接认定必须申报安全评估。",
+      "认定可以免予三种机制。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

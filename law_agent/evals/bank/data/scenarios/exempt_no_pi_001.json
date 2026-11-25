@@ -1,0 +1,139 @@
+{
+  "scenario_id": "exempt_no_pi_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "pharma_nanchang",
+  "as_of_date": "2026-10-15",
+  "question": "生产批次的质量检测数据要发给德国合作方做工艺比对，需要办出境手续吗？",
+  "intake": {
+    "contains_personal_information": false,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "德国研发合作方",
+    "destination_region": "德国",
+    "processing_purpose": "工艺比对",
+    "regions": [
+      "江西"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "医疗健康"
+  },
+  "materials": [
+    {
+      "filename": "出境数据清单.xlsx",
+      "kind": "data_inventory",
+      "text": null,
+      "sheets": [
+        {
+          "name": "字段",
+          "rows": [
+            [
+              "字段",
+              "示例",
+              "说明"
+            ],
+            [
+              "批号",
+              "GY2026-0815",
+              ""
+            ],
+            [
+              "检测项目",
+              "溶出度",
+              ""
+            ],
+            [
+              "检测值",
+              "92.3%",
+              ""
+            ],
+            [
+              "设备编号",
+              "HPLC-03",
+              ""
+            ],
+            [
+              "检测日期",
+              "2026-08-15",
+              ""
+            ]
+          ]
+        },
+        {
+          "name": "说明",
+          "rows": [
+            [
+              "备注"
+            ],
+            [
+              "不含检验人员姓名或工号；数据未被告知为重要数据。"
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "judgment_points": [
+    "exemption.no_personal_info"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验跨国生产制造中不含个人信息和重要数据的数据出境免予。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验跨国生产制造中不含个人信息和重要数据的数据出境免予。",
+  "reference_basis": [
+    "2024规定第三条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "跨国生产制造 收集和产生的数据 不包含个人信息或者重要数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第三条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第三条",
+        "note": "不含个人信息或重要数据的免予",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "质量检测数据不含个人信息、未被告知为重要数据，可依第三条免予三种机制；如涉及出口管制技术资料需另行判断。"
+    ],
+    "forbidden_judgments": [
+      "要求订立个人信息出境标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

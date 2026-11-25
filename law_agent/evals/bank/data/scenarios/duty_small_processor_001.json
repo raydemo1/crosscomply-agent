@@ -1,0 +1,121 @@
+{
+  "scenario_id": "duty_small_processor_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "studyabroad_lanzhou",
+  "as_of_date": "2026-10-15",
+  "question": "我们是8个人的留学中介，要把学生的申请材料发给英国大学，有没有简化的做法？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "600",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "英国多所大学",
+    "destination_region": "英国",
+    "processing_purpose": "留学申请递交",
+    "exemption_facts": "学生委托递交申请。",
+    "regions": [
+      "甘肃"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "教育"
+  },
+  "materials": [
+    {
+      "filename": "业务说明.txt",
+      "kind": "business_memo",
+      "text": "业务说明\n\n本机构今年服务约600名学生，累计处理的个人信息不到1万人。学生委托我们向英国大学递交成绩单、护照信息页、推荐信和个人陈述。老板听说有针对小企业的简化规定，想知道影响评估能不能简化。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "exemption.contract",
+    "duty.pia"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验2026年9月施行的小型处理者简化措施：出境免予情形与简易影响评估表。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验2026年9月施行的小型处理者简化措施：出境免予情形与简易影响评估表。",
+  "reference_basis": [
+    "小型个人信息处理者个人信息保护简化措施规定第二、十、十四条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "小型个人信息处理者 定义 处理不满10万人个人信息",
+        "targets": [
+          "cac_small_pip_processor_simplified_measures_2026 第二条"
+        ]
+      },
+      {
+        "text": "小型个人信息处理者 向境外提供个人信息 免予申报",
+        "targets": [
+          "cac_small_pip_processor_simplified_measures_2026 第十条"
+        ]
+      },
+      {
+        "text": "小型个人信息处理者 个人信息保护影响评估表 简便方式",
+        "targets": [
+          "cac_small_pip_processor_simplified_measures_2026 第十四条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_small_pip_processor_simplified_measures_2026",
+        "article_no": "第二条",
+        "note": "处理不满10万人为小型处理者",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_small_pip_processor_simplified_measures_2026",
+        "article_no": "第十条",
+        "note": "出境免予情形及告知、单独同意义务",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_small_pip_processor_simplified_measures_2026",
+        "article_no": "第十四条",
+        "note": "可用简易影响评估表并保存三年",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_small_pip_processor_simplified_measures_2026"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "机构处理不满10万人个人信息，属于小型个人信息处理者；受学生委托向英国大学递交申请属于合同履行，免予三种机制，仍须告知并取得单独同意；可按规定附件的简易评估表开展影响评估并保存至少三年。"
+    ],
+    "forbidden_judgments": [
+      "认定小型处理者向境外提供无须告知或同意。",
+      "要求订立标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

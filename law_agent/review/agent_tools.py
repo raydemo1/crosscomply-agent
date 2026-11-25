@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from law_agent.config import (
     RerankMode,
-    load_rerank_config,
+    require_rerank_config,
     require_service_config,
 )
 from law_agent.data.chunking.law import article_ordinal
@@ -37,9 +38,25 @@ from law_agent.review.result_builder import (
 from law_agent.review.retrieval.boosts import apply_boosts_to_hits, outside_explicit_scope
 from law_agent.review.retrieval.corpus import DEFAULT_CHUNKS_PATH, load_corpus
 from law_agent.review.retrieval.fusion import rrf_fuse, source_aware_fuse
+from law_agent.review.retrieval.later_provisions import (
+    index_later_provisions,
+    later_provisions_as_of,
+)
 from law_agent.review.retrieval.locator import resolve_source_title
 from law_agent.review.retrieval.neighbors import hit_from_chunk
+from law_agent.review.retrieval.packets import (
+    build_source_evidence_packets,
+    enrich_hit_for_citation,
+)
 from law_agent.review.retrieval.rerank import rerank_hits
+from law_agent.review.retrieval.scopes import (
+    SCOPE_ALL,
+    SCOPE_NATIONAL,
+    available_scopes,
+    catalog_sources_for_scope,
+    chunk_in_scope,
+    validate_scope,
+)
 from law_agent.review.retrieval.selection import select_evidence
 from law_agent.review.retrieval.service_backends import build_service_adapters
 from law_agent.review.retrieval.temporal import filter_hits_as_of
@@ -61,10 +78,6 @@ from law_agent.review.semantic_grounding import (
     SemanticGroundingVerifier,
     SemanticVerdict,
 )
-from law_agent.review.service import (
-    _enrich_hit_for_citation,
-    build_source_evidence_packets,
-)
 from law_agent.review.source_navigation import SourceNavigation
 from law_agent.review.web_research import (
     DEFAULT_WEB_RESULTS,
@@ -85,6 +98,105 @@ if TYPE_CHECKING:
 # after reading the first round of evidence, so that clause has to reach the
 # final evidence set instead of being re-ranked away as one more candidate.
 MAX_READ_CHUNKS = 5
+RESULT_DEPTH = 8  # per query, ranked locations listed in a search's results
+SOURCE_SLOTS = 2  # sections of one non-citable or unarticled document among a query's listed positions
+NATIONAL_NON_CLAUSE_SLOTS = 3  # max non-citable (FAQ/guide/standard) locations in a national query's top RESULT_DEPTH
+PREVIEW_CHARS = 250  # a listed passage this short is handed over whole; longer ones show this much of their most relevant part
+
+
+def _location(hit: RetrievalHit) -> tuple[str, str]:
+    return hit.source_id, hit.article_no or hit.chunk_id
+
+
+def _spread_sources(
+    hits: list[RetrievalHit],
+    *,
+    max_non_clause: int | None = None,
+) -> list[RetrievalHit]:
+    """Keep at most ``SOURCE_SLOTS`` entries of one non-citable or unarticled document in top ``RESULT_DEPTH``.
+
+    A long document split into sections (a regional list, a guide, a Q&A) or a
+    non-citable contract template with numbered clauses can otherwise fill the
+    listed positions and push other sources out of view. Formal citable legal
+    articles (``article_no`` and ``can_cite_clause``) are separate rules and are
+    never deferred. When ``max_non_clause`` is set, non-citable passages are
+    also capped collectively so formal legal clauses retain slots in the top
+    ``RESULT_DEPTH``. Deferred hits keep their order and follow right after the
+    top positions (backfilling if fewer than ``RESULT_DEPTH`` locations qualify).
+    """
+
+    front: list[RetrievalHit] = []
+    deferred: list[RetrievalHit] = []
+    per_source: dict[str, set] = {}
+    locations: set = set()
+    non_clause_locations: set = set()
+    index = 0
+    while index < len(hits) and len(locations) < RESULT_DEPTH:
+        hit = hits[index]
+        index += 1
+        location = _location(hit)
+        is_citable_article = bool(hit.article_no and hit.can_cite_clause)
+        section_key = location if is_citable_article else (hit.source_id, hit.chunk_id)
+        sections = per_source.setdefault(hit.source_id, set())
+        source_ok = is_citable_article or section_key in sections or len(sections) < SOURCE_SLOTS
+        clause_ok = (
+            max_non_clause is None
+            or hit.can_cite_clause
+            or section_key in non_clause_locations
+            or len(non_clause_locations) < max_non_clause
+        )
+        if source_ok and clause_ok:
+            if not is_citable_article:
+                sections.add(section_key)
+            if not hit.can_cite_clause:
+                non_clause_locations.add(section_key)
+            locations.add(location)
+            front.append(hit)
+        else:
+            deferred.append(hit)
+    ordered = front + deferred + hits[index:]
+    return [hit.model_copy(update={"rank": rank}) for rank, hit in enumerate(ordered)]
+
+
+_SENTENCE_END = re.compile(r"(?<=[。；！？\n])")
+
+
+def _bigrams(text: str) -> set[str]:
+    text = re.sub(r"\s+", "", text)
+    return {text[i:i + 2] for i in range(len(text) - 1)}
+
+
+def preview_for(hit: RetrievalHit, query_text: str) -> str:
+    """The part of a passage that bears on the query, so the Agent can judge whether to read it.
+
+    A fixed opening often says nothing: a Q&A section starts with a date line or
+    another question, an article with its generic subject. The preview starts at
+    the sentence sharing the most character pairs with the query; a chunk that
+    continues an earlier section is prefixed with that section's heading.
+    """
+
+    text = hit.text
+    sentences = [part for part in _SENTENCE_END.split(text) if part.strip()]
+    wanted = _bigrams(query_text)
+    start, best = 0, 0
+    offset = 0
+    for sentence in sentences:
+        score = len(_bigrams(sentence) & wanted)
+        if score > best:
+            start, best = offset, score
+        offset += len(sentence)
+    window = text[start:start + PREVIEW_CHARS].strip()
+    heading = hit.heading_path[-1] if hit.heading_path else ""
+    shown = heading and heading != "问答" and not hit.article_no and not text.lstrip().startswith(heading[:12])
+    prefix = f"【{heading}】" if shown else ""
+    return prefix + ("……" if start else "") + window
+
+
+def _whole_and_short(hit: RetrievalHit) -> bool:
+    """The passage is a whole unit (a single-chunk article, or a section chunk) that fits in a preview."""
+
+    return len(hit.text) <= PREVIEW_CHARS and (
+        not hit.full_article_text or hit.full_article_text.strip() == hit.text.strip())
 EXPLICIT_READ_SCORE_MARGIN = 1.0
 
 
@@ -254,8 +366,9 @@ class ComplianceAgentTools:
         question: str = "",
         material_text: str = "",
         material_versions: Sequence[MaterialVersion] = (),
-        rerank_mode: RerankMode = "off",
+        rerank_mode: RerankMode | None = None,
         model_id: str | None = None,
+        national_non_clause_slots: int | None = NATIONAL_NON_CLAUSE_SLOTS,
     ):
         self._chunks = load_corpus(chunks_path)
         self._chunks_by_id = {chunk.chunk_id: chunk for chunk in self._chunks}
@@ -263,17 +376,26 @@ class ComplianceAgentTools:
         self._sources_with_articles = {
             chunk.source_id for chunk in self._chunks if chunk.article_no
         }
+        self._later_provisions = index_later_provisions(self._chunks)
         self._top_k = top_k
+        self._national_non_clause_slots = national_non_clause_slots
         self._question = question
         self._material_text = material_text
         self._material_versions_by_id = {version.id: version for version in material_versions}
-        self._rerank_mode = rerank_mode
-        self._rerank_config = load_rerank_config(mode=rerank_mode)
+        # Deployment setting (RERANK_MODE); ``rerank_mode`` only overrides it for evaluation A/B runs.
+        self._rerank_config = require_rerank_config(mode=rerank_mode)
+        self._rerank_mode = self._rerank_config.mode
         self._candidate_hits: dict[str, RetrievalHit] = {}
-        self._search_navigation: list[dict[str, Any]] = []
+        self._search_results: list[dict[str, Any]] = []
+        self._last_query_candidates: list[list[RetrievalHit]] = []
+        self._announced_scopes: set[str] = set()
+        self._last_scope_catalog: dict[str, list[dict[str, str]]] = {}
         self._adapters = build_service_adapters(require_service_config())
         self._web_research: WebResearch | None = None
         self._semantic_verifier = SemanticGroundingVerifier(model_id=model_id) if model_id else None
+
+    def available_scopes(self) -> list[str]:
+        return available_scopes(self._chunks)
 
     def close(self) -> None:
         self._adapters.close()
@@ -304,7 +426,7 @@ class ComplianceAgentTools:
 
         try:
             return adapter.search_many(query_pairs, top_k=top_k, allowed_chunk_ids=allowed_chunk_ids)
-        except Exception as exc:  # noqa: BLE001 - retrieval outage degrades to a tool error
+        except Exception as exc:
             logging.getLogger(__name__).warning("retrieval adapter %s failed: %s", type(adapter).__name__, exc)
             raise RuntimeError(f"检索后端暂时不可用（{type(adapter).__name__}），请稍后重试或改用其他工具") from exc
 
@@ -315,6 +437,7 @@ class ComplianceAgentTools:
     ) -> list[RetrievalHit]:
         if max_chunks is not None and (type(max_chunks) is not int or max_chunks < 1):
             raise ValueError("max_chunks须为正整数，表示本批查询返回的正文总数上限")
+        scopes = [validate_scope(query.scope) if query.scope is not None else None for query in queries]
         query_pairs = [(query.text, query.query_type) for query in queries]
         candidate_top_k = 50
         as_of = facts.as_of_date or self._default_as_of_date
@@ -322,18 +445,33 @@ class ComplianceAgentTools:
             [hit_from_chunk(chunk, 0) for chunk in self._chunks], self._chunks_by_id, as_of=as_of,
         )
         allowed_chunk_ids = [
-            [hit.chunk_id for hit in available if not (coarse_scope and outside_explicit_scope(
-                self._chunks_by_id[hit.chunk_id], facts, f"{self._question}\n{query.text}",
-                excluded_scope_terms, requested_text=self._question,
-            ))]
-            for query in queries
+            [
+                hit.chunk_id for hit in available
+                if (scope is None or chunk_in_scope(self._chunks_by_id[hit.chunk_id], scope))
+                and not (coarse_scope and outside_explicit_scope(
+                    self._chunks_by_id[hit.chunk_id], facts, f"{self._question}\n{query.text}",
+                    excluded_scope_terms, requested_text=self._question,
+                ))
+            ]
+            for query, scope in zip(queries, scopes, strict=True)
         ]
         # 检索后端一次瞬时故障不应毁掉整次审查：降级为工具错误，让 Agent 改道或重试
         keyword = self._search_with_fallback(self._adapters.keyword, query_pairs, candidate_top_k, allowed_chunk_ids)
         vector = self._search_with_fallback(self._adapters.vector, query_pairs, candidate_top_k, allowed_chunk_ids)
         candidates: list[list[RetrievalHit]] = []
-        for query, keyword_hits, vector_hits in zip(queries, keyword, vector, strict=True):
+        non_clause_cap = getattr(self, "_national_non_clause_slots", NATIONAL_NON_CLAUSE_SLOTS)
+        for query, scope, keyword_hits, vector_hits in zip(queries, scopes, keyword, vector, strict=True):
             keyword_hits = filter_hits_as_of(keyword_hits, self._chunks_by_id, as_of=as_of)
+            vector_hits = filter_hits_as_of(vector_hits, self._chunks_by_id, as_of=as_of)
+            if scope is not None:
+                keyword_hits = [hit for hit in keyword_hits if (
+                    hit.chunk_id in self._chunks_by_id
+                    and chunk_in_scope(self._chunks_by_id[hit.chunk_id], scope)
+                )]
+                vector_hits = [hit for hit in vector_hits if (
+                    hit.chunk_id in self._chunks_by_id
+                    and chunk_in_scope(self._chunks_by_id[hit.chunk_id], scope)
+                )]
             if coarse_scope:
                 scope_text = f"{self._question}\n{query.text}"
                 keyword_hits = [hit for hit in keyword_hits if not (
@@ -349,71 +487,142 @@ class ComplianceAgentTools:
             keyword_hits = apply_boosts_to_hits(
                 keyword_hits,
                 self._chunks_by_id, facts,
+                query_scope=scope,
             )
             vector_hits = apply_boosts_to_hits(
-                filter_hits_as_of(vector_hits, self._chunks_by_id, as_of=as_of),
+                vector_hits,
                 self._chunks_by_id, facts,
+                query_scope=scope,
             )
             fused_query = rrf_fuse(keyword_hits, vector_hits, top_k=candidate_top_k)
+            # The vector index returns only a few columns (no article number, heading or document type),
+            # so every candidate takes its metadata from the corpus before anything reads it.
+            fused_query = [enrich_hit_for_citation(hit, self._chunks_by_id) for hit in fused_query]
             if self._rerank_mode != "off":
-                fused_query = rerank_hits(
+                fused_query = self._rerank_or_keep(fused_query, facts, query, candidate_top_k)
+            candidates.append(
+                _spread_sources(
                     fused_query,
-                    question=self._question,
-                    material_text=self._material_text,
-                    facts=facts,
-                    queries=[query],
-                    top_k=candidate_top_k,
-                    mode=self._rerank_mode,
-                    config=self._rerank_config,
-                    query_text=query.text,
-                ).hits
-            candidates.append(fused_query)
+                    max_non_clause=non_clause_cap if scope == SCOPE_NATIONAL else None,
+                )
+            )
         query_candidates = [
-            _enrich_hit_for_citation(hit, self._chunks_by_id).model_copy(update={
+            hit.model_copy(update={
                 "source_has_articles": hit.source_id in self._sources_with_articles,
                 "matched_query_ids": [query.query_id],
             })
             for query, hits in zip(queries, candidates, strict=True) for hit in hits
         ]
         self._candidate_hits.update({hit.chunk_id: hit for hit in query_candidates})
-        results = select_evidence(query_candidates, max_chunks=max_chunks if max_chunks is not None else self._top_k)
-        navigation = self._search_navigation_entries(queries, candidates, results)
-        self._search_navigation = self._group_search_navigation(navigation)
-        return results
+        self._last_query_candidates = candidates
+        bodies = select_evidence(
+            query_candidates,
+            max_chunks=max_chunks if max_chunks is not None else self._top_k,
+            listed_depth=RESULT_DEPTH,
+        )
+        bodies += self._whole_short_passages(queries, candidates, bodies)
+        self._search_results = self._result_listing(queries, candidates, bodies)
+        self._update_scope_catalog(scopes, [self._chunks_by_id[hit.chunk_id] for hit in available])
+        return self._with_later_provisions(bodies, as_of)
 
-    def _search_navigation_entries(self, queries, candidates, results):
-        returned_locations = {(hit.source_id, hit.article_no or hit.chunk_id) for hit in results}
-        entries = {}
+    def _update_scope_catalog(self, scopes: Sequence[str | None], available_chunks: Sequence[Any]) -> None:
+        announced = getattr(self, "_announced_scopes", None)
+        if announced is None:
+            announced = set()
+            self._announced_scopes = announced
+        catalog: dict[str, list[dict[str, str]]] = {}
+        for scope in scopes:
+            if not scope or scope == SCOPE_ALL or scope in announced:
+                continue
+            entries = catalog_sources_for_scope(available_chunks, scope)
+            if entries:
+                catalog[scope] = entries
+            announced.add(scope)
+        self._last_scope_catalog = catalog
+
+    def scope_catalog(self) -> dict[str, list[dict[str, str]]]:
+        """Newly announced source titles for scopes first queried in the latest search."""
+        return dict(getattr(self, "_last_scope_catalog", {}))
+
+    def _with_later_provisions(self, hits: list[RetrievalHit], as_of: date) -> list[RetrievalHit]:
+        later = later_provisions_as_of([hit.source_id for hit in hits], self._later_provisions,
+                                       self._chunks_by_id, as_of=as_of)
+        return [hit.model_copy(update={"later_provisions": later[hit.source_id]}) if hit.source_id in later else hit
+                for hit in hits]
+
+    def _rerank_or_keep(self, fused, facts, query, top_k):
+        """Rerank one query's fused list; on a reranker failure keep the fused order."""
+
+        import logging
+
+        try:
+            return rerank_hits(
+                fused, question=self._question, material_text=self._material_text, facts=facts,
+                queries=[query], top_k=top_k, mode=self._rerank_mode, config=self._rerank_config,
+                query_text=query.text, chunks_by_id=self._chunks_by_id,
+            ).hits
+        except Exception as exc:  # 重排只改善排序，不可用时不应让整次检索失败
+            logging.getLogger(__name__).warning("rerank failed, keeping fused order: %s", exc)
+            return fused
+
+    def _whole_short_passages(self, queries, candidates, bodies):
+        """Listed passages short enough to show whole are handed over as evidence, outside ``max_chunks``.
+
+        Their full text costs about as much as a preview would; showing it as an
+        uncitable preview would only force a read to get the same words cited.
+        """
+
+        taken = {_location(hit) for hit in bodies}
+        found: dict[tuple, tuple[RetrievalHit, list[str]]] = {}
         for query, hits in zip(queries, candidates, strict=True):
-            for rank, hit in enumerate(hits[:8], start=1):
-                location = (hit.source_id, hit.article_no or hit.chunk_id)
-                if location in returned_locations:
+            for hit in hits[:RESULT_DEPTH]:
+                location = _location(hit)
+                enriched = self._candidate_hits[hit.chunk_id]
+                if location not in taken and _whole_and_short(enriched):
+                    found.setdefault(location, (enriched, []))[1].append(query.query_id)
+        return [hit.model_copy(update={"matched_query_ids": list(dict.fromkeys(ids))}) for hit, ids in found.values()]
+
+    def _result_listing(self, queries, candidates, bodies):
+        """One ranked list per search, grouped by source.
+
+        Each location is either acquired (its text is in the evidence and citable)
+        or listed with a preview to read if needed. Every query contributes its top
+        ``RESULT_DEPTH`` locations, plus wherever its acquired passages ranked.
+        """
+
+        acquired = {_location(hit): hit.chunk_id for hit in bodies}
+        entries: dict[tuple, dict[str, Any]] = {}
+        for query, hits in zip(queries, candidates, strict=True):
+            for rank, hit in enumerate(hits, start=1):
+                location = _location(hit)
+                if rank > RESULT_DEPTH and location not in acquired:
                     continue
                 entry = entries.setdefault(location, {
-                    "source_id": hit.source_id, "title": hit.title,
-                    "article_no": hit.article_no, "chunk_id": hit.chunk_id,
-                    "source_has_articles": hit.source_id in self._sources_with_articles,
-                    "preview": hit.text[:100], "query_matches": [],
+                    "source_id": hit.source_id, "title": hit.title, "doc_type": hit.doc_type,
+                    "location": {"chunk_id": acquired.get(location, hit.chunk_id), "article_no": hit.article_no,
+                                 **({"acquired": True} if location in acquired else
+                                    {"preview": preview_for(hit, query.text)}),
+                                 "query_matches": []},
                 })
-                entry["query_matches"].append({"query_id": query.query_id, "rank": rank})
-        return list(entries.values())
-
-    @staticmethod
-    def _group_search_navigation(entries: list[dict]) -> list[dict]:
-        groups = {}
-        for entry in entries:
+                matches = entry["location"]["query_matches"]
+                if not any(match["query_id"] == query.query_id for match in matches):
+                    matches.append({"query_id": query.query_id, "rank": rank})
+        groups: dict[str, dict[str, Any]] = {}
+        for entry in sorted(entries.values(), key=lambda e: min(m["rank"] for m in e["location"]["query_matches"])):
             group = groups.setdefault(entry["source_id"], {
-                "source_id": entry["source_id"], "title": entry["title"],
-                "source_has_articles": entry["source_has_articles"],
+                "source_id": entry["source_id"], "title": entry["title"], "doc_type": entry["doc_type"],
+                "source_has_articles": entry["source_id"] in self._sources_with_articles,
                 "outline_read_request": {"source_id": entry["source_id"]}, "locations": [],
             })
-            group["locations"].append({key: entry[key] for key in (
-                "chunk_id", "article_no", "preview", "query_matches",
-            )})
+            group["locations"].append(entry["location"])
         return list(groups.values())
 
-    def search_navigation(self) -> list[dict[str, Any]]:
-        return [dict(entry) for entry in self._search_navigation]
+    def search_results(self) -> list[dict[str, Any]]:
+        return [dict(group) for group in self._search_results]
+
+    def last_query_candidates(self) -> list[list[RetrievalHit]]:
+        """Each query's own fused ranking from the latest search, before evidence selection."""
+        return [list(hits) for hits in self._last_query_candidates]
 
     def read_evidence(
         self,
@@ -530,13 +739,13 @@ class ComplianceAgentTools:
             )
         base = max((hit.score for hit in self._candidate_hits.values()), default=0.0)
         return EvidenceRead(
-            hits=[
+            hits=self._with_later_provisions([
                 hit.model_copy(update={
                     "score": round(base + EXPLICIT_READ_SCORE_MARGIN, 6),
                     "source_has_articles": source_id in self._sources_with_articles,
                 })
                 for hit in hits
-            ],
+            ], as_of),
             next_offset=next_offset,
             previous_chunk_id=previous_chunk_id,
             following_chunk_id=following_chunk_id,

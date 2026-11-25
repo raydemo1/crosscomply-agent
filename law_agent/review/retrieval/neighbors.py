@@ -5,7 +5,7 @@ Issue 6: For top-ranked hybrid hits, pull ``prev_chunk_id`` and
 ranked hits — they provide surrounding context (e.g., the rest of a
 multi-paragraph article, related definitions, or a table's header).
 
-Neighbors are added to ``RetrievalTrace.neighbor_chunks`` with
+Neighbors are added to the evidence packets with
 ``retriever="hybrid"`` and a special rank convention: ``-1`` for prev,
 ``-2`` for next, so they can be distinguished from primary results.
 """

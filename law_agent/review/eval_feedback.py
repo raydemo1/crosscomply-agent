@@ -6,8 +6,9 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from law_agent.data.io import read_manifest
-from law_agent.review.evalset.agent_review import review_case_errors
-from law_agent.review.evalset.agent_schemas import AgentCase, AgentRubric
+from law_agent.evals.bank.checks import completeness_errors
+from law_agent.evals.bank.schema import AgentRubric
+from law_agent.evals.field import draft_scenario
 from law_agent.review.http.schemas import IntakePayload
 from law_agent.review.material_search import format_frozen_material
 
@@ -93,17 +94,11 @@ def validate_draft(draft, sources):
 
     case = None
     try:
-        case = AgentCase(
-            case_id=f"field_{draft['id'][-12:]}", review_status="candidate", source_case_id=None,
-            construction_round=1, question=draft["question"], material_text=draft["material_text"],
-            intake=draft["intake"], rubric=draft["rubric"], selection_reason=draft["selection_reason"],
-            reference_basis=draft["reference_basis"],
-            tags=["candidate", "field_feedback", *(signal["kind"] for signal in draft["signals"])],
-        )
+        case = draft_scenario(draft)
     except ValidationError as exc:
         for error in exc.errors(include_input=False, include_context=False):
-            loc = error["loc"]
-            field = str(loc[0])
+            loc = [str(part) for part in error["loc"]]
+            field = {"agent_rubric": "rubric", "materials": "material_text"}.get(loc[0], loc[0])
             if field == "rubric" and len(loc) > 1 and loc[1] in AgentRubric.model_fields:
                 field += f".{loc[1]}"
             add(field, "字段类型或取值无效")
@@ -112,13 +107,11 @@ def validate_draft(draft, sources):
     for field in ("question", "material_text"):
         if not draft[field].strip():
             add(field, "请填写此项")
-    if "followup_answers" in draft["intake"]:
-        add("intake", "评测草稿不得包含原案补充回答")
     if case:
-        for field, message in review_case_errors(case):
+        for field, message in completeness_errors(case):
             add(field, message)
         for field in ("must_cover_sources", "forbidden_clause_sources"):
-            for index, identifier in enumerate(getattr(case.rubric, field)):
+            for index, identifier in enumerate(getattr(case.agent_rubric, field)):
                 if identifier not in sources:
                     add(f"rubric.{field}", f"第 {index + 1} 项法源不在当前语料清单")
     patterns = (*PATTERNS, *(("原申报主体", re.compile(re.escape(name), re.IGNORECASE)) for name in draft["original_entities"] if name))

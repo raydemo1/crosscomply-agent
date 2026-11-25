@@ -191,19 +191,26 @@ def bind_source(document: Document, source: SourceRecord) -> Document:
     )
 
 
+def parse_document(path: Path, *, parser: str, source: SourceRecord | None = None) -> Document:
+    """The parsed body before cleaning: it still carries the page's own dateline and headers,
+    which metadata inference reads (see :mod:`law_agent.kb.source_inference`)."""
+
+    return normalize_source(source if source is not None else provisional_source(path), path, parser=parser)
+
+
 def prepare_document_for_ingest(
-    path: Path, *, parser: str, source: SourceRecord | None = None
+    path: Path, *, parser: str, source: SourceRecord | None = None, parsed: Document | None = None,
 ) -> Document:
     """Parse, clean and quality-gate one ingest request.
 
     A body that is still damaged after every parser has been tried is refused
     here rather than published and filtered later. ``source`` carries the
     governed identity when the caller already knows it; without one a
-    provisional record is used, and the caller rebinds later.
+    provisional record is used, and the caller rebinds later. ``parsed`` is a
+    parse the caller already made, so a file is not parsed twice.
     """
 
-    record = source if source is not None else provisional_source(path)
-    document = clean_document(normalize_source(record, path, parser=parser))
+    document = clean_document(parsed if parsed is not None else parse_document(path, parser=parser, source=source))
     if document.doc_type in {"law", "regulation"} and _APPENDED_INTERPRETATION_RE.search(document.text):
         raise ValueError(
             f"拒绝入库 {document.source_id}：法条正文后混入独立解读，"
@@ -529,6 +536,7 @@ __all__ = [
     "PreparedSource",
     "bind_source",
     "check_chunk_coverage",
+    "parse_document",
     "prepare_bound_document",
     "prepare_chunks_for_publish",
     "prepare_document_for_ingest",

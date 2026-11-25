@@ -1,0 +1,96 @@
+{
+  "scenario_id": "boundary_gdpr_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "德国客户把欧盟员工数据发给我们分析，欧盟那边要求我们签什么合同？我们分析完回传又要办什么？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "德国客户",
+    "destination_region": "德国",
+    "processing_purpose": "员工数据分析及回传",
+    "exemption_facts": "数据由客户在欧盟收集。",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "客户邮件.txt",
+      "kind": "email",
+      "text": "主题：数据处理协议\n\n我们是德国公司，将把欧盟员工的绩效数据传给贵司在南京分析。按照GDPR，我们需要和贵司签署标准合同条款（SCC）并做传输影响评估，请贵司确认能否接受相关条款。分析完成后数据回传德国。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "boundary.out_of_corpus",
+    "exemption.foreign_origin"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验受控法律库不含欧盟法时不就GDPR义务给出结论，同时正确判断中国法下的回传。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验受控法律库不含欧盟法时不就GDPR义务给出结论，同时正确判断中国法下的回传。",
+  "reference_basis": [
+    "2024规定第四条；受控法律库未收录GDPR。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "境外收集和产生的个人信息 传输至境内处理后向境外提供 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第四条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第四条",
+        "note": "回传免予",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [
+      "不得假设受控法律库收录了欧盟法。"
+    ],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "受控法律库未收录GDPR，无法就欧盟法下的SCC或传输影响评估要求给出结论，应建议由欧盟法律顾问确认；中国法下，数据在境外收集、境内处理未引入境内个人信息的，回传可依第四条免予三种机制。"
+    ],
+    "forbidden_judgments": [
+      "凭模型记忆具体陈述GDPR的条款要求并作为确定结论。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

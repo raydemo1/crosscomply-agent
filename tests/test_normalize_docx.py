@@ -161,3 +161,45 @@ def test_tableformer_rejects_v1_artifacts(tmp_path: Path) -> None:
         (model_dir / name).touch()
 
     assert normalize_module._docling_tableformer_available(tmp_path) is False
+
+
+def test_vertically_merged_cells_repeat_the_text_they_continue() -> None:
+    w = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+    restart = '<w:tcPr><w:vMerge w:val="restart"/></w:tcPr>'
+    cont = "<w:tcPr><w:vMerge/></w:tcPr>"
+    rows = (
+        f"<w:tr><w:tc>{restart}{_paragraph_xml('个人信息')}</w:tc><w:tc>{_paragraph_xml('第一项')}</w:tc></w:tr>"
+        f"<w:tr><w:tc>{cont}<w:p/></w:tc><w:tc>{_paragraph_xml('第二项')}</w:tc></w:tr>"
+        f"<w:tr><w:tc>{_paragraph_xml('重要数据')}</w:tc><w:tc>{_paragraph_xml('第三项')}</w:tc></w:tr>"
+    )
+    xml = f'<?xml version="1.0" encoding="UTF-8"?><w:document {w}><w:body><w:tbl>{rows}</w:tbl></w:body></w:document>'
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("word/document.xml", xml)
+
+    text = _docx_to_text(buffer.getvalue())
+
+    assert "<tr><td>个人信息</td><td>第二项</td></tr>" in text
+    assert "<tr><td>重要数据</td><td>第三项</td></tr>" in text
+
+
+def test_an_html_page_keeps_its_article_and_drops_the_site_around_it(tmp_path) -> None:
+    page = (
+        '<html><head><meta charset="gbk"><title>测试规定_中国政府网</title></head><body>'
+        '<div class="header"><a>首页</a>|<a>简</a>|<a>繁</a><a>登录</a></div>'
+        '<div class="crumb">首页 > 政策 > 测试</div>'
+        '<div id="UCAP-CONTENT"><h1>测试规定</h1><p>第一条 为了规范数据处理活动，保障数据安全，制定本规定。</p>'
+        '<p>第二条 本规定适用于在中华人民共和国境内开展的数据处理活动及其安全监管。</p>'
+        '<table><tr><td>类别</td><td>要求</td></tr><tr><td>重要数据</td><td>出境前申报安全评估</td></tr></table></div>'
+        '<div class="footer">主办单位：国务院办公厅 版权所有：中国政府网</div></body></html>'
+    )
+    path = tmp_path / "page.html"
+    path.write_bytes(page.encode("gb18030"))
+    source = SourceRecord(source_id="page", title="测试规定", source_url="https://www.gov.cn/x.htm",
+                          source_site="gov.cn", doc_type="regulation", file_format="html")
+
+    text = normalize_source(source, path).text
+
+    assert text.startswith("测试规定\n\n第一条 为了规范数据处理活动")
+    assert "<table><tr><td>类别</td><td>要求</td></tr><tr><td>重要数据</td><td>出境前申报安全评估</td></tr></table>" in text
+    assert not any(word in text for word in ("登录", "首页", "主办单位", "版权所有"))

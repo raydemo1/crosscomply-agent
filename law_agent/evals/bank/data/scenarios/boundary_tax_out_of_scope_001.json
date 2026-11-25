@@ -1,0 +1,68 @@
+{
+  "scenario_id": "boundary_tax_out_of_scope_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ecommerce_guangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "我们给境外客户提供数据处理服务收的服务费，增值税和所得税怎么处理？",
+  "intake": {
+    "contains_personal_information": null,
+    "cross_border_transfer": null,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "overseas_recipient": "",
+    "processing_purpose": "",
+    "regions": [
+      "广东"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "跨境电商"
+  },
+  "materials": [
+    {
+      "filename": "财务问题.txt",
+      "kind": "email",
+      "text": "主题：跨境服务费税务处理\n\n我们为境外客户提供数据清洗服务，收取服务费。请问增值税是否可以免税或零税率，企业所得税有什么要求？",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "boundary.out_of_scope"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验超出数据出境合规范围、受控库没有依据的问题应明确不作结论。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验超出数据出境合规范围、受控库没有依据的问题应明确不作结论。",
+  "reference_basis": [
+    "受控法律库未收录税法。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": null,
+  "agent_rubric": {
+    "should_abstain": true,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "该问题属于税务问题，受控法律库没有相关依据，不作结论，建议咨询税务专业人士；如数据处理涉及个人信息出境，可另行发起审查。"
+    ],
+    "forbidden_judgments": [
+      "凭模型记忆给出具体税率或免税结论。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

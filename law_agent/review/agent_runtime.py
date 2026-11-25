@@ -1,8 +1,7 @@
 """Production review runtime: one persistent compliance Agent per ReviewTask.
 
-Invoked by the independent worker in ``review.worker``. The fixed pipeline in
-``review.service`` serves only the retrieval benchmark, CLI and offline eval;
-it is not a production entry point.
+Invoked by the independent worker in ``review.worker``; the evaluation
+harness in ``law_agent.evals`` drives the same entry point.
 """
 
 from __future__ import annotations
@@ -45,7 +44,7 @@ def execute_agent_task(
     material: str,
     material_versions: Sequence[MaterialVersion] = (),
     chunks_path: Path | str = DEFAULT_CHUNKS_PATH,
-    rerank_mode: RerankMode = "off",
+    rerank_mode: RerankMode | None = None,
     on_web_findings: Any = None,
 ) -> AgentState:
     """Resume the saved state or start a new bounded Agent loop."""
@@ -92,11 +91,16 @@ def execute_agent_task(
             state,
             material=material,
             intake=intake,
-            decide=AgentModel(model_id=task.model_id, python_enabled=sandbox is not None),
+            decide=AgentModel(
+                model_id=task.model_id,
+                python_enabled=sandbox is not None,
+                query_scopes=tools.available_scopes() if hasattr(tools, "available_scopes") else None,
+            ),
             material_versions=material_versions,
             execute_python=sandbox.run if sandbox is not None else None,
             search=tools.search,
-            search_navigation=tools.search_navigation,
+            search_results=tools.search_results,
+            scope_catalog=getattr(tools, "scope_catalog", None),
             read_evidence=tools.read_evidence,
             web_search=tools.search_web,
             on_web_findings=on_web_findings,

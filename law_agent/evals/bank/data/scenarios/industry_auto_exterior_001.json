@@ -1,0 +1,168 @@
+{
+  "scenario_id": "industry_auto_exterior_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "auto_shiyan",
+  "as_of_date": "2026-10-15",
+  "question": "德国研发伙伴要我们的车外摄像头视频和激光雷达点云来训练感知算法，大约600小时，可以直接传吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "under_review",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": true,
+    "overseas_recipient": "德国研发合作伙伴",
+    "destination_region": "德国",
+    "processing_purpose": "感知算法训练",
+    "regions": [
+      "湖北"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "汽车"
+  },
+  "materials": [
+    {
+      "filename": "数据样本说明.xlsx",
+      "kind": "data_inventory",
+      "text": null,
+      "sheets": [
+        {
+          "name": "数据集",
+          "rows": [
+            [
+              "数据集",
+              "规模",
+              "说明"
+            ],
+            [
+              "车外前视视频",
+              "约600小时",
+              "城市道路采集，未做人脸和车牌模糊处理，人脸框多在32像素以上"
+            ],
+            [
+              "激光雷达点云",
+              "约1.2TB",
+              "含道路及周边设施的空间坐标"
+            ],
+            [
+              "采集车辆",
+              "86台测试车",
+              "湖北、广东道路测试"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "filename": "研发部说明.txt",
+      "kind": "business_memo",
+      "text": "研发部认为数据不到2000小时、车辆不到10万台，不属于重要数据，也没有收到任何部门告知，可以按普通数据传输。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "industry.automotive",
+    "mechanism.important_data"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验汽车指引的重要数据判定规则（车外人脸像素阈值）及测绘地理信息出境的前置审批。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验汽车指引的重要数据判定规则（车外人脸像素阈值）及测绘地理信息出境的前置审批。",
+  "reference_basis": [
+    "汽车数据出境安全指引（2026版）重要数据判定规则与注3；自然资源部关于加强智能网联汽车有关测绘地理信息安全管理的通知（2024）第五点；2024规定第七条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "汽车数据出境安全指引 车外人脸 像素 重要数据 判定",
+        "targets": [
+          "cac_automotive_data_export_security_guide_2026"
+        ]
+      },
+      {
+        "text": "智能网联汽车 地理信息数据 存储于境内 对外提供审批 地图审核",
+        "targets": [
+          "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024"
+        ]
+      },
+      {
+        "text": "重要数据 向境外提供 申报数据出境安全评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "重要数据出境申报评估",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+              "article_no": "第三十七条"
+            }
+          ],
+          [
+            {
+              "source_id": "cac_automotive_data_security_provisions_2021",
+              "article_no": "第十一条"
+            }
+          ]
+        ]
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_automotive_data_export_security_guide_2026",
+        "article_no": null,
+        "note": "车外真实人脸边界框32像素以上等判定为重要数据；测绘数据需先履行审批",
+        "equivalents": []
+      },
+      {
+        "source_id": "mnr_intelligent_connected_vehicle_geoinformation_security_notice_2024",
+        "article_no": null,
+        "note": "地理信息数据必须境内存储，出境须审批或地图审核",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [
+      "不得在未处理人脸的情况下认定视频已匿名化。"
+    ],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "未做模糊处理且人脸框达到32像素以上的车外视频，按汽车指引的判定规则属于重要数据，点云含空间坐标属于测绘地理信息，须先履行对外提供审批或地图审核，并申报数据出境安全评估；在完成前不能直接传输。可考虑对人脸、车牌做处理以降低数据级别。"
+    ],
+    "forbidden_judgments": [
+      "仅以不满2000小时、不满10万台为由认定不属于重要数据。",
+      "认定点云数据可以直接出境。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

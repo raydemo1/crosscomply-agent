@@ -1,0 +1,140 @@
+{
+  "scenario_id": "exempt_counting_excluded_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "今年境外机票酒店订单涉及70万人，营销名单另外给了8万人，加起来78万，是不是要签标准合同？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "780000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "境外航司酒店；日本营销服务商",
+    "destination_region": "多国",
+    "processing_purpose": "预订履约；营销",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "出境统计.xlsx",
+      "kind": "data_inventory",
+      "text": null,
+      "sheets": [
+        {
+          "name": "2026",
+          "rows": [
+            [
+              "业务",
+              "去重人数",
+              "接收方"
+            ],
+            [
+              "境外机票酒店预订（履约必需字段）",
+              700000,
+              "境外航司、酒店"
+            ],
+            [
+              "会员营销短信",
+              80000,
+              "日本营销服务商"
+            ],
+            [
+              "两类合并去重",
+              765000,
+              "数据组统计"
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "judgment_points": [
+    "exemption.counting",
+    "exemption.contract"
+  ],
+  "noise_types": [
+    "count_unit_mismatch"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验合同履行豁免情形不计入累计数量，剩余部分单独判断门槛。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验合同履行豁免情形不计入累计数量，剩余部分单独判断门槛。",
+  "reference_basis": [
+    "2024规定第五条；2024年答记者问问11。"
+  ],
+  "answer_leak_sources": [
+    "cac_cross_border_flow_rules_qna_2024"
+  ],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "免予情形 不计入累计数量 第一项至第三项",
+        "targets": [
+          "cac_cross_border_flow_rules_qna_2024"
+        ]
+      },
+      {
+        "text": "累计不满10万人 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "豁免情形与不满10万人免予",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_cross_border_flow_rules_qna_2024",
+        "article_no": null,
+        "note": "问11：豁免情形不计入累计",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_cross_border_flow_rules_qna_2024"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "境外预订履约部分属于合同履行豁免，不计入累计数量；营销部分8万人不满10万人，可免予三种机制（需确认公司当年无其他计入的出境），仍须履行告知、单独同意和影响评估。"
+    ],
+    "forbidden_judgments": [
+      "把预订履约人数计入累计，认定需要订立标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

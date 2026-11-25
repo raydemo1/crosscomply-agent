@@ -1,0 +1,107 @@
+{
+  "scenario_id": "exempt_foreign_origin_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "新加坡客户把其东南亚员工的敬业度调查数据发给我们分析，做完再把报告和明细回传，这个回传要办出境手续吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "23000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡客户",
+    "destination_region": "新加坡",
+    "processing_purpose": "员工敬业度分析回传",
+    "exemption_facts": "数据由客户在境外收集，境内只做分析。",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "项目说明.txt",
+      "kind": "business_memo",
+      "text": "敬业度调研项目说明\n\n客户为新加坡公司，提供其泰国、越南、马来西亚三地2.3万名员工的敬业度问卷数据（含员工编号、部门、岗位、作答）。南京团队在境内服务器完成清洗和分析，分析过程中不引入任何境内个人信息，完成后把明细和报告回传客户。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "exemption.foreign_origin"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验境外收集的个人信息在境内处理后回传，未引入境内个人信息时免予。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验境外收集的个人信息在境内处理后回传，未引入境内个人信息时免予。",
+  "reference_basis": [
+    "2024规定第四条；2024年答记者问问7。"
+  ],
+  "answer_leak_sources": [
+    "cac_cross_border_flow_rules_qna_2024"
+  ],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "境外收集和产生的个人信息 传输至境内处理后向境外提供 未引入境内个人信息 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第四条",
+          "cac_cross_border_flow_rules_qna_2024"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第四条",
+        "note": "境外来源数据回传免予",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_cross_border_flow_rules_qna_2024",
+        "article_no": null,
+        "note": "问7列明六种免予情形",
+        "equivalents": []
+      }
+    ],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_cross_border_flow_rules_qna_2024"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "数据在境外收集、境内处理过程中未引入境内个人信息或重要数据，回传可依第四条免予三种机制。"
+    ],
+    "forbidden_judgments": [
+      "要求按2.3万人另行办理标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

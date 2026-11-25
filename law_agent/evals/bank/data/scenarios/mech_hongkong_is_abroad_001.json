@@ -1,0 +1,133 @@
+{
+  "scenario_id": "mech_hongkong_is_abroad_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "把会员信息同步给香港的关联公司，是不是不算出境？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "180000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "香港关联公司",
+    "destination_region": "中国香港",
+    "processing_purpose": "港澳地区营销",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "邮件.txt",
+      "kind": "email",
+      "text": "发件人：市场部\n收件人：法务合规部\n主题：会员信息同步香港\n\n我们计划把18万名会员（去重）的姓名、手机号和消费偏好同步给香港关联公司，做港澳营销。香港是中国的一部分，我们理解不算出境，对吗？",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "mechanism.threshold"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验向香港提供个人信息同样属于数据出境。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验向香港提供个人信息同样属于数据出境。",
+  "reference_basis": [
+    "2024规定第八条；评估办法答记者问关于数据出境活动；粤港澳大湾区标准合同实施指引（仅大湾区内适用）。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "向香港提供个人信息 数据出境",
+        "targets": [
+          "cac_data_export_assessment_qna_2022",
+          "cac_gba_hk_standard_contract_guide_2023"
+        ]
+      },
+      {
+        "text": "累计10万人以上不满100万人 标准合同",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第八条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "18万人走标准合同或认证",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_assessment_qna_2022",
+        "article_no": null,
+        "note": "数据出境活动的范围",
+        "equivalents": [
+          [
+            {
+              "source_id": "cac_data_export_security_assessment_filing_guide_v3_2025",
+              "article_no": null
+            }
+          ],
+          [
+            {
+              "source_id": "cac_personal_info_export_standard_contract_filing_guide_v2_2024",
+              "article_no": null
+            }
+          ]
+        ]
+      }
+    ],
+    "optional": [
+      {
+        "source_id": "cac_gba_hk_standard_contract_guide_2023",
+        "article_no": null,
+        "note": "大湾区标准合同仅适用于大湾区内主体",
+        "equivalents": []
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_assessment_qna_2022"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "向香港关联公司提供个人信息属于数据出境；18万人应订立标准合同或通过认证。公司注册在成都，不能使用粤港澳大湾区标准合同。"
+    ],
+    "forbidden_judgments": [
+      "认定向香港提供个人信息不属于出境。",
+      "认定可以使用粤港澳大湾区标准合同。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

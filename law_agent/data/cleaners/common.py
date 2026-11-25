@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 # ``CleanedDocument.cleaning_version`` and the knowledge-base processing
 # signature both read this, so the cache can never claim compatibility with a
 # body this pipeline would no longer produce.
-CLEANING_VERSION = "legal-cleaning-v4"
+CLEANING_VERSION = "legal-cleaning-v5"
 
 CONTROL_CHARS_RE = re.compile(r"[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]")
 TRAILING_SPACE_RE = re.compile(r"[ \t]+\n")
@@ -56,13 +56,17 @@ WEB_BOILERPLATE_PATTERNS = [
         r"^URL Source:\s+",
         r"^Markdown Content:\s*$",
         r"^\d{4}年\d{2}月\d{2}日 星期[一二三四五六日天]$",
+        # The page's own dateline: "2023年12月13日 09:00 来源：中国网信网"
+        r"^\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日\s+\d{1,2}:\d{2}\s+来源\s*[:：]",
         r"^\[设为首页\].*\[加入收藏\].*",
         r"^\[搜索\]\(",
         r"^\*?\s*!\[Image\b",
+        r"^\*?\s*!Image\b",
         r"^\[!\[Image\b",
         r"^!\[Image\b",
         r"^\*?\s*### \[?(首 页|首页|时政要闻|网信政务|互动服务|热点专题)",
         r"^\*?\s*\[(首页|时政要闻|网信政务|互动服务|热点专题)\]",
+        r"^\*\s+(?:首\s*页|时政要闻|网信政务|互动服务|热点专题)\s*$",
         r"^当前位置：",
         r"^\[\]\(",
         r"^\[【打印】\]",
@@ -72,15 +76,31 @@ WEB_BOILERPLATE_PATTERNS = [
         r"^承办：",
         r"^技术支持",
         r"^京ICP备",
-        r"^\[京公网安备",
+        r"^\[?京公网安备",
         r"^Produced By CMS",
         r"^分享到微信",
         r"^打开微信",
         r"^使用“扫一扫”",
         r"^\*\s+######\s*(学习强国|微信|返回顶部)",
         r"^_◆_◆",
+        # A government page's own chrome, as a plain HTML download renders it line by line:
+        # navigation entries, account links, the leave-site prompt and the footer.
+        r"^(?:\|+|首\s*页|简|繁|EN|登录|注册|退出|个人中心|邮箱|无障碍|小程序|微博|微信|搜索|网站纠错|放弃|继续|下载"
+        r"|评价建议|时政要闻|网信政务|互动服务|热点专题|-->|<!--|【打印】.*|【关闭】|打印本页|关闭窗口)$",
+        r"^设为首页",
+        # Page tools and the page's own filing labels: "【返回顶部】", "发文字号：工信部网安〔2024〕82号".
+        r"^【(?:返回顶部|关闭窗口|打印本页|打印|关闭|收藏|分享)】$",
+        r"^扫一扫在手机打开当前页",
+        r"^(?:发文机关|标\s*题|发文字号|成文日期|发布日期|发布机构|分\s*类|索\s*引\s*号|主\s*题\s*词|主题分类|公文种类)\s*[:：]",
+        r"^发布时间\s*[:：]\s*(?:\d{4}-\d{2}-\d{2}[\d: ]*)?(?:\s*来源\s*[:：].*)?$",
+        # An attachment's file name standing alone: "《公共数据资源登记管理暂行办法》.pdf".
+        r"^\S.*\.(?:pdf|docx?|ofd|wps|xlsx?|zip|rar)$",
+        r"^(?:主办单位|运行维护单位|版权所有|网站标识码|您访问的链接即将离开|如您对本服务有任何意见)",
     ]
 ]
+# A page's filing card rendered as a table: 索引号 / 发文字号 / 发布机构 / 成文日期 ….
+INFO_TABLE_LABEL_RE = re.compile(
+    r"<td>\s*(?:索\s*引\s*号|发文字号|文\s*号|发布机构|发文机关|成文日期|发布日期|主题分类|分\s*类|主\s*题\s*词|名\s*称)\s*[:：]?\s*</td>")
 IMAGE_PLACEHOLDER_RE = re.compile(r"^<!--\s*image\s*-->$", re.IGNORECASE)
 MARKDOWN_TABLE_DIVIDER_RE = re.compile(r"^\|[\s:|-]+\|?$")
 PDF_PAGE_COUNT_RE = re.compile(r"^Number of Pages:\s*\d+\s*$", re.IGNORECASE)
@@ -93,6 +113,8 @@ MARKDOWN_SOURCE_LINK_RE = re.compile(
     r"^\[[^\]]*(?:tc260\.org\.cn|cac\.gov\.cn|flk\.npc\.gov\.cn)[^\]]*\]\([^)]+\)$",
     re.IGNORECASE,
 )
+# A Markdown link keeps its words and loses its address: "[附件1：标准合同](https://…)".
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]\n]*)\]\((?:https?:)?//[^)\s]*\)")
 STANDALONE_YEAR_MONTH_RE = re.compile(r"^20\d{2}\s*年\s*\d{1,2}\s*月$")
 PDF_COVER_FRAGMENT_RE = re.compile(r"^(?:TECHNICAL COMMITTEE|Cyber|维化技术|术委员会|[会委])$")
 
@@ -290,7 +312,8 @@ def _remove_mechanical_lines(lines: list[str]) -> tuple[list[str], dict[str, int
         if DOT_LEADER_TOC_RE.match(stripped):
             hits["dot_leader_toc_lines"] += 1
             continue
-        if any(pattern.search(stripped) for pattern in WEB_BOILERPLATE_PATTERNS):
+        if any(pattern.search(stripped) for pattern in WEB_BOILERPLATE_PATTERNS) or (
+                stripped.startswith("<table>") and len(INFO_TABLE_LABEL_RE.findall(stripped)) >= 2):
             hits["web_boilerplate_lines"] += 1
             continue
         cleaned.append(line)
@@ -371,6 +394,10 @@ def clean_text(text: str, *, title: str | None = None) -> CleanResult:
     hits["trailing_space"] = count
 
     if title:
+        # The page's <title> line is the document title followed by the site: "标题_中国政府网".
+        site_title = re.compile(rf"^{re.escape(title.strip())}\s*_.*$")
+        text, count = _apply_counted_sub(re.compile(site_title.pattern, re.MULTILINE), "", text)
+        hits["page_title_line"] = count
         lines = text.split("\n")
         cleaned_lines: list[str] = []
         seen_title = False
@@ -384,6 +411,9 @@ def clean_text(text: str, *, title: str | None = None) -> CleanResult:
             cleaned_lines.append(line)
         text = "\n".join(cleaned_lines)
         hits["duplicate_title"] = duplicate_title_count
+
+    text, count = _apply_counted_sub(MARKDOWN_LINK_RE, r"\1", text)
+    hits["markdown_link_targets"] = count
 
     lines, count = _remove_contents_table(text.split("\n"))
     lines, line_hits = _remove_mechanical_lines(lines)

@@ -1,0 +1,108 @@
+{
+  "scenario_id": "duty_recipient_list_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "隐私政策里写的是“我们可能与境外合作伙伴共享信息”，需要把接收方一个个列出来吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "86000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "新加坡数据分析服务商、日本客服外包公司",
+    "destination_region": "新加坡、日本",
+    "processing_purpose": "数据分析、客服",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
+  },
+  "materials": [
+    {
+      "filename": "隐私政策节选.txt",
+      "kind": "privacy_policy",
+      "text": "五、信息共享\n我们可能与境外合作伙伴共享您的信息，以提供更好的服务。合作伙伴均受严格的保密义务约束。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "duty.notice_consent",
+    "duty.network_data_regulation"
+  ],
+  "noise_types": [],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验向其他处理者提供个人信息时应以清单形式列明接收方，出境告知须列明接收方名称和联系方式。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验向其他处理者提供个人信息时应以清单形式列明接收方，出境告知须列明接收方名称和联系方式。",
+  "reference_basis": [
+    "网络数据安全管理条例第二十一条；个人信息保护法第三十九条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "个人信息处理规则 网络数据接收方信息 以清单等形式予以列明",
+        "targets": [
+          "flk_npc_ff808181927f0e7b0192949a1da4355d 第二十一条"
+        ]
+      },
+      {
+        "text": "告知境外接收方的名称或者姓名 联系方式",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "flk_npc_ff808181927f0e7b0192949a1da4355d",
+        "article_no": "第二十一条",
+        "note": "以清单形式列明接收方",
+        "equivalents": []
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十九条",
+        "note": "告知境外接收方名称和联系方式",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "flk_npc_ff808181927f0e7b0192949a1da4355d",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "概括写“境外合作伙伴”不够：应以清单形式列明各境外接收方名称、联系方式、处理目的、方式和信息种类等，并就出境取得单独同意；8.6万人非敏感出境虽可免予三种机制，告知义务不能省略。"
+    ],
+    "forbidden_judgments": [
+      "认定概括描述“境外合作伙伴”即满足告知要求。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

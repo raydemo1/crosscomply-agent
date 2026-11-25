@@ -1,0 +1,94 @@
+{
+  "scenario_id": "duty_cyber_review_us_ipo_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "game_hangzhou",
+  "as_of_date": "2026-10-15",
+  "question": "公司有800万用户，计划去纽约上市，除了数据出境，还需要办什么？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "overseas_recipient": "（上市相关）",
+    "destination_region": "美国",
+    "processing_purpose": "境外上市",
+    "regions": [
+      "浙江"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "工业和信息化"
+  },
+  "materials": [
+    {
+      "filename": "上市筹备会议纪要.txt",
+      "kind": "meeting_notes",
+      "text": "上市筹备会议纪要\n\n公司注册用户约800万人。计划明年在纽约证券交易所上市。券商提到审计底稿可能需要提供给境外审计机构。财务认为只要数据不出境就不涉及网信部门的程序。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "duty.cybersecurity_review"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验掌握超过100万用户个人信息的网络平台运营者赴国外上市须申报网络安全审查。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验掌握超过100万用户个人信息的网络平台运营者赴国外上市须申报网络安全审查。",
+  "reference_basis": [
+    "网络安全审查办法第二、七条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "掌握超过100万用户个人信息的网络平台运营者赴国外上市 申报网络安全审查",
+        "targets": [
+          "cac_cybersecurity_review_measures_2022 第七条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cybersecurity_review_measures_2022",
+        "article_no": "第七条",
+        "note": "超过100万用户赴国外上市须申报审查",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cybersecurity_review_measures_2022"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "公司掌握约800万用户个人信息，赴纽约上市必须向网络安全审查办公室申报网络安全审查，与数据是否出境无关；审计底稿等数据向境外提供还需另行按数据出境规定判断。"
+    ],
+    "forbidden_judgments": [
+      "认定数据不出境就不需要网络安全审查。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

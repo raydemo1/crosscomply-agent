@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, FileText, Paperclip, X } from 'lucide-react';
-import type { CaseIntake, CaseTemplateApi } from '../types/api';
+import { INTAKE_INDUSTRIES, type CaseIntake, type CaseTemplateApi } from '../types/api';
 import {
   ApiError,
   ALLOWED_UPLOAD_SUFFIXES,
@@ -122,6 +122,7 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
   const [material, setMaterial] = useState('');
   const [intake, setIntake] = useState<CaseIntake>({ ...EMPTY_INTAKE });
   const [dataTypesDraft, setDataTypesDraft] = useState<string | null>(null);
+  const [regionsDraft, setRegionsDraft] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -406,6 +407,13 @@ export default function WorkbenchPage({ editSeed, seed }: WorkbenchPageProps): J
     sensitive_personal_info: <label className="form-field"><span>是否涉及敏感个人信息</span><select value={triStateValue(intake.sensitive_personal_info)} onChange={(event) => updateIntake(intake, setIntake, 'sensitive_personal_info', triStateUpdate(event.target.value))}><option value="">尚不确定</option><option value="yes">涉及</option><option value="no">不涉及</option></select></label>,
     overseas_recipient: <label className="form-field"><span>境外接收方</span><input value={intake.overseas_recipient} onChange={(event) => updateIntake(intake, setIntake, 'overseas_recipient', event.target.value)} placeholder="例如：境外供应商、集团关联公司" /></label>,
     ...(transferReview ? { vendor_name: <label className="form-field"><span>供应商</span><input value={intake.vendor_name} onChange={(event) => updateIntake(intake, setIntake, 'vendor_name', event.target.value)} /></label> } : {}),
+    regions: <label className="form-field"><span>注册地或经营地（境内）</span><input value={regionsDraft ?? intake.regions.join('、')} onChange={(event) => {
+      const text = event.target.value;
+      setRegionsDraft(text);
+      updateIntake(intake, setIntake, 'regions', text.split(/[、,，]/).map((item) => item.trim()).filter(Boolean));
+    }} onBlur={() => setRegionsDraft(null)} placeholder="例如：上海、深圳" /></label>,
+    in_free_trade_zone: <label className="form-field"><span>是否位于自由贸易试验区</span><select value={triStateValue(intake.in_free_trade_zone)} onChange={(event) => updateIntake(intake, setIntake, 'in_free_trade_zone', triStateUpdate(event.target.value))}><option value="">尚不确定</option><option value="yes">是</option><option value="no">否</option></select></label>,
+    industry: <label className="form-field"><span>所属行业</span><select value={intake.industry ?? ''} onChange={(event) => updateIntake(intake, setIntake, 'industry', (event.target.value || null) as CaseIntake['industry'])}><option value="">尚不确定</option>{INTAKE_INDUSTRIES.map((industry) => <option key={industry} value={industry}>{industry}</option>)}</select></label>,
     destination_region: <label className="form-field"><span>境外接收地</span><input value={intake.destination_region} onChange={(event) => updateIntake(intake, setIntake, 'destination_region', event.target.value)} placeholder="例如：新加坡" /></label>,
     legal_basis_or_consent: <label className="form-field form-field--wide"><span>告知、同意及其他处理依据</span><textarea value={intake.legal_basis_or_consent} onChange={(event) => updateIntake(intake, setIntake, 'legal_basis_or_consent', event.target.value)} placeholder="请说明已履行的手续或所依据的其他事由" rows={3} /></label>,
     important_data_status: <label className="form-field"><span>重要数据识别状态</span><select value={intake.important_data_status} onChange={(event) => updateIntake(intake, setIntake, 'important_data_status', event.target.value as CaseIntake['important_data_status'])}><option value="unknown">尚不确定</option><option value="not_important">已确认不涉及</option><option value="important">已确认涉及</option><option value="under_review">正在核实</option></select></label>,

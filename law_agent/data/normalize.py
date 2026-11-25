@@ -10,7 +10,7 @@ import subprocess
 import zipfile
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from html import escape, unescape
+from html import escape
 from importlib.metadata import PackageNotFoundError, version
 from io import BytesIO
 from pathlib import Path
@@ -20,12 +20,6 @@ from xml.etree import ElementTree as ET
 from law_agent.data.quality import evaluate_text, is_degraded
 from law_agent.data.schemas import Document, IngestMeta, SourceRecord
 
-HTML_TAG_RE = re.compile(r"<[^>]+>")
-SCRIPT_STYLE_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
-BLOCK_CLOSE_RE = re.compile(r"</(p|div|tr|li|h[1-6]|ul|ol|table)\s*>", re.IGNORECASE)
-BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
-CELL_OPEN_RE = re.compile(r"<(td|th)[^>]*>", re.IGNORECASE)
-CELL_CLOSE_RE = re.compile(r"</(td|th)\s*>", re.IGNORECASE)
 WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 ParserEngine = Literal["auto", "plain", "docx", "docling", "mineru", "pdf_text"]
 DOC_PARSER_FORMATS = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
@@ -33,30 +27,20 @@ DEFAULT_DOCLING_ARTIFACTS_PATH = Path("data/models/docling")
 # Bumped whenever the routing below changes what a source is parsed from.
 # ``processing_signature`` reads it so a cached vector can never claim
 # compatibility with a body this pipeline would no longer produce.
-PARSER_PIPELINE_VERSION = "auto-text-first-v2"
+PARSER_PIPELINE_VERSION = "auto-text-first-v4"  # v4: HTML main content only; v3: PDF tables as cell grids
 
 
-def _html_to_text(raw: str) -> str:
-    """Convert HTML to readable text while preserving table structure.
+def _decode_html(content: bytes) -> str:
+    """Decode a page in its declared or detected encoding; Chinese government sites still serve GBK."""
 
-    Drops ``<script>``/``<style>`` blocks (which otherwise leak CSS/JS noise
-    into the extracted text), inserts newlines for block-level closers, turns
-    table cells into ``|``-separated columns, then strips remaining tags and
-    unescapes entities. This keeps tables and lists readable for downstream
-    chunking instead of concatenating all cell text into one run.
-    """
-    raw = SCRIPT_STYLE_RE.sub("", raw)
-    raw = BR_RE.sub("\n", raw)
-    raw = BLOCK_CLOSE_RE.sub("\n", raw)
-    # Opening cell tag -> "" , closing cell tag -> " | " so a row becomes
-    # "A | B | C | " (clean single pipes) rather than " | A | | B | ".
-    raw = CELL_OPEN_RE.sub("", raw)
-    raw = CELL_CLOSE_RE.sub(" | ", raw)
-    raw = HTML_TAG_RE.sub("", raw)
-    raw = unescape(raw)
-    raw = re.sub(r"[ \t]+", " ", raw)
-    raw = re.sub(r"\n{3,}", "\n\n", raw)
-    return raw.strip()
+    declared = re.search(rb"charset=[\"']?([A-Za-z0-9_-]+)", content[:2048])
+    candidates = [declared.group(1).decode("ascii", "ignore")] if declared else []
+    for encoding in [*candidates, "utf-8", "gb18030"]:
+        try:
+            return content.decode("gb18030" if encoding.lower() in {"gbk", "gb2312"} else encoding)
+        except (LookupError, UnicodeDecodeError):
+            continue
+    return content.decode("utf-8", errors="replace")
 
 
 @dataclass(frozen=True)
@@ -108,8 +92,10 @@ def _read_text(
     if suffix == ".docx":
         return ParsedText(_docx_to_text(path.read_bytes()), "docx_parser", "0.1.0", strategy="docx")
     if suffix in {".html", ".htm"}:
-        raw = path.read_text(encoding="utf-8", errors="replace")
-        return ParsedText(_html_to_text(raw), "html_text_parser", "0.1.0", strategy="html")
+        from law_agent.data.html_content import extract_main_text
+
+        return ParsedText(extract_main_text(_decode_html(path.read_bytes())), "html_main_content_parser", "0.2.0",
+                          strategy="html")
     if suffix == ".pdf":
         return _pdf_to_text(path)
     if suffix in DOC_PARSER_FORMATS:
@@ -124,20 +110,17 @@ def _read_text(
 
 
 def _pdf_native_text(path: Path) -> ParsedText:
-    """Read a PDF's embedded text layer without layout models or OCR."""
+    """Read a PDF's embedded text layer with its layout, without layout models or OCR.
 
-    try:
-        from pypdf import PdfReader
-    except ImportError as exc:
-        raise RuntimeError(
-            "Reading a PDF text layer requires pypdf: `pip install pypdf`."
-        ) from exc
-    reader = PdfReader(str(path))
-    pages = [(page.extract_text() or "").strip() for page in reader.pages]
+    Tables are read as cell grids and wrapped lines rejoined (see :mod:`law_agent.data.pdf_layout`).
+    """
+
+    from law_agent.data.pdf_layout import read_pdf_layout
+
     return ParsedText(
-        text="\n\n".join(page for page in pages if page),
-        parser="pdf_text_parser",
-        parser_version=_package_version("pypdf"),
+        text=read_pdf_layout(path),
+        parser="pdf_layout_parser",
+        parser_version=_package_version("pdfplumber"),
         strategy="native_text",
     )
 
@@ -145,7 +128,7 @@ def _pdf_native_text(path: Path) -> ParsedText:
 def _pdf_native_text_or_empty(path: Path) -> ParsedText:
     """Read the embedded text layer, treating any read failure as "no text".
 
-    A damaged or image-only PDF makes pypdf raise; that is exactly the case
+    A damaged or image-only PDF makes the reader raise; that is exactly the case
     where OCR has to take over, so the failure is reported as an empty layer
     rather than propagated.
     """
@@ -155,8 +138,8 @@ def _pdf_native_text_or_empty(path: Path) -> ParsedText:
     except Exception:  # noqa: BLE001 - an unreadable layer means "use OCR"
         return ParsedText(
             text="",
-            parser="pdf_text_parser",
-            parser_version=_package_version("pypdf"),
+            parser="pdf_layout_parser",
+            parser_version=_package_version("pdfplumber"),
             strategy="native_text_unreadable",
         )
 
@@ -480,16 +463,36 @@ def _paragraph_text(paragraph: ET.Element) -> str:
 
 
 def _table_to_html(table: ET.Element) -> str:
+    """Render a Word table, giving a vertically merged cell the text of the cell it continues.
+
+    Word stores a vertical merge as one cell that restarts the merge and empty cells
+    below it marked as its continuation; on the page they are one cell, so each row
+    carries that text (a negative list's 数据类别 column is written this way).
+    """
+
     rows: list[str] = []
+    merged: dict[int, str] = {}  # grid column -> text of the merge that is open there
     for row in table.findall(f"{WORD_NS}tr"):
         cells: list[str] = []
+        column = 0
         for cell in row.findall(f"{WORD_NS}tc"):
+            properties = cell.find(f"{WORD_NS}tcPr")
+            span_node = properties.find(f"{WORD_NS}gridSpan") if properties is not None else None
+            span = int(span_node.get(f"{WORD_NS}val", "1")) if span_node is not None else 1
+            vmerge = properties.find(f"{WORD_NS}vMerge") if properties is not None else None
             cell_text = "\n".join(
                 text
                 for paragraph in cell.findall(f"{WORD_NS}p")
                 if (text := _paragraph_text(paragraph))
             )
+            if vmerge is not None and vmerge.get(f"{WORD_NS}val", "continue") == "continue":
+                cell_text = merged.get(column, cell_text)
+            elif vmerge is not None:
+                merged[column] = cell_text
+            else:
+                merged.pop(column, None)
             cells.append(f"<td>{escape(cell_text)}</td>")
+            column += span
         if cells:
             rows.append(f"<tr>{''.join(cells)}</tr>")
     return f"<table>{''.join(rows)}</table>" if rows else ""

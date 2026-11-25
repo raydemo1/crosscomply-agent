@@ -1,0 +1,122 @@
+{
+  "scenario_id": "duty_pia_content_001",
+  "split": "test",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "consulting_nanjing",
+  "as_of_date": "2026-10-15",
+  "question": "外包机构给我们出的个人信息保护影响评估报告只写了数据清单和加密措施，备案标准合同够用吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "150000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "美国客户关系管理服务商",
+    "destination_region": "美国",
+    "processing_purpose": "客户关系管理",
+    "regions": [
+      "江苏"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "影响评估报告目录.txt",
+      "kind": "pia_draft",
+      "text": "个人信息保护影响评估报告（草稿）目录\n一、出境数据清单（字段、数量15万人）\n二、传输加密与访问控制措施\n三、结论：风险可控\n\n（报告未涉及：处理目的与必要性分析、境外接收方的承诺与能力、美国个人信息保护法规对合同履行的影响、个人维权渠道）",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "duty.pia",
+    "procedure.standard_contract"
+  ],
+  "noise_types": [
+    "missing_fact"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验标准合同备案所需影响评估的法定重点内容与保存要求。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验标准合同备案所需影响评估的法定重点内容与保存要求。",
+  "reference_basis": [
+    "标准合同办法第五、七条；个人信息保护法第五十五、五十六条。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "个人信息保护影响评估 重点评估 境外接收方所在国家或者地区 政策法规",
+        "targets": [
+          "cac_personal_info_export_standard_contract_measures_2023 第五条"
+        ]
+      },
+      {
+        "text": "影响评估报告 处理情况记录 至少保存三年",
+        "targets": [
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十六条"
+        ]
+      },
+      {
+        "text": "标准合同生效之日起10个工作日内 备案 提交材料",
+        "targets": [
+          "cac_personal_info_export_standard_contract_measures_2023 第七条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_personal_info_export_standard_contract_measures_2023",
+        "article_no": "第五条",
+        "note": "影响评估重点内容",
+        "equivalents": []
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第五十六条",
+        "note": "影响评估内容与保存三年",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_personal_info_export_standard_contract_measures_2023",
+        "article_no": "第七条",
+        "note": "备案须提交影响评估报告",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [],
+    "optional": [],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_personal_info_export_standard_contract_measures_2023",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "现有报告缺少目的必要性、境外接收方义务和能力、美国法律环境对合同履行的影响、维权渠道等法定重点内容，不足以支持备案；应补充后再随标准合同备案，并至少保存三年。"
+    ],
+    "forbidden_judgments": [
+      "认定只有数据清单和加密措施的报告满足备案要求。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

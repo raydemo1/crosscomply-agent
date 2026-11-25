@@ -1,0 +1,328 @@
+{
+  "scenario_id": "bank_ota_flows_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "ota_chengdu",
+  "as_of_date": "2026-10-15",
+  "question": "会员运营部希望保持现有三条数据出境链路不变，请判断各链路是否需要履行数据出境程序、应走哪条路径，以及上线前还缺什么。",
+  "intake": {
+    "business_activity": "在线旅游平台的订单履约、境外酒店集团会员积分同步、集团营销分析",
+    "data_types": [
+      "姓名",
+      "手机号",
+      "邮箱",
+      "证件号码",
+      "入住与航班信息",
+      "历史订单",
+      "浏览偏好"
+    ],
+    "contains_personal_information": true,
+    "sensitive_personal_info": false,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "overseas_recipient": "境外酒店、航司及全球分销系统；某国际酒店集团中央预订系统；新加坡母公司数据中心",
+    "destination_region": "新加坡、美国等",
+    "processing_purpose": "订单履约、酒店会员积分、集团营销分析",
+    "exemption_facts": "业务部门认为属于机票酒店预订，可整体免予；未经法务确认。",
+    "regions": [
+      "四川"
+    ],
+    "in_free_trade_zone": false,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "邮件_会员数据出境事项.txt",
+      "kind": "email",
+      "text": "发件人：会员运营部 总监\n收件人：法务合规部\n抄送：数字化部、信息安全部\n日期：2026年10月12日\n主题：关于会员数据出境的几个问题，麻烦尽快给个结论\n\n法务同事好，\n\n集团这边要求本季度内把中国区会员数据全部接入新加坡的数据湖，统一做用户分群和营销分析，下周集团IT会来对接接口。顺便把现在已经在跑的两条链路也一起过一下：\n\n1. 出境游、国际机票和境外酒店的订单，我们一直在把旅客姓名、证件号、手机号和航班/入住信息推给境外的酒店、航司和GDS，这个是完成预订必须的。\n2. 国内酒店里有一部分是国际连锁品牌，对方要求我们把订单同步到他们在美国的中央预订系统，用来给会员累计积分，合同里写了这一条。\n3. 新的集团数据湖，打算把会员账号、联系方式、历史订单和App浏览偏好全量同步过去。\n\n我们理解OTA本身就是做机票酒店预订的，规定里明确列了“机票酒店预订”可以豁免，集团法务也说中国区整体不需要申报。会员体量的话，系统里大概186万左右，真正活跃的大概九十来万，应该还不到100万这条线。\n\n如果确实要做什么手续，请告诉我们最晚什么时候必须完成，别影响集团的上线排期。\n\n谢谢！\n\n——\n本邮件及其附件含有澜程旅行的保密信息，仅限于发送给上面地址中列出的个人或群组。禁止任何其他人以任何形式使用（包括但不限于全部或部分地泄露、复制、或散发）本邮件中的信息。如果您错收了本邮件，请您立即电话或邮件通知发件人并删除本邮件。",
+      "sheets": null
+    },
+    {
+      "filename": "数据出境流转清单_2026Q3.xlsx",
+      "kind": "data_inventory",
+      "text": null,
+      "sheets": [
+        {
+          "name": "数据流",
+          "rows": [
+            [
+              "流向编号",
+              "业务场景",
+              "境外接收方",
+              "所在国家/地区",
+              "出境数据项",
+              "2026年1-9月出境量",
+              "统计口径",
+              "备注"
+            ],
+            [
+              "F1",
+              "出境游、国际机票、境外酒店预订",
+              "境外酒店、航司、全球分销系统（GDS）",
+              "多国",
+              "旅客姓名、证件类型及号码、手机号、航班/入住日期",
+              284316,
+              "订单笔数",
+              "仅推送履约所需字段"
+            ],
+            [
+              "F2",
+              "国内酒店预订（国际连锁品牌）",
+              "某国际酒店集团中央预订系统",
+              "美国",
+              "姓名、手机号、入住/离店日期、会员等级、房型偏好备注",
+              417052,
+              "订单笔数",
+              "酒店集团要求同步，用于其会员积分"
+            ],
+            [
+              "F3",
+              "集团会员数据湖（计划2026年11月上线）",
+              "新加坡母公司数据中心",
+              "新加坡",
+              "会员ID、姓名、手机号、邮箱、历史订单（目的地、日期、金额）、App浏览偏好",
+              1861904,
+              "账号记录数（含注销、重复注册账号）",
+              "用于集团统一营销分析；上线前已做过两次测试同步"
+            ]
+          ]
+        },
+        {
+          "name": "去重统计（数据组2026-10-09）",
+          "rows": [
+            [
+              "流向",
+              "统计对象",
+              "去重后自然人数",
+              "统计说明"
+            ],
+            [
+              "F1",
+              "2026年1-9月下单旅客",
+              196402,
+              "按证件号去重"
+            ],
+            [
+              "F2",
+              "2026年1-9月下单入住人",
+              "约31万",
+              "按手机号粗略去重，未与会员库关联"
+            ],
+            [
+              "F3",
+              "有效会员（剔除注销及重复注册）",
+              1214560,
+              "按实名信息去重"
+            ],
+            [
+              "F2与F3合并",
+              "—",
+              null,
+              "尚未统计"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "filename": "隐私政策节选_v5.2.txt",
+      "kind": "privacy_policy",
+      "text": "澜程旅行隐私政策（v5.2，2025年3月1日更新）节选\n\n六、您的个人信息如何在全球范围转移\n\n我们在中华人民共和国境内收集和产生的个人信息，将存储在中华人民共和国境内。\n\n为向您提供您所选择的境外酒店、机票、签证等产品和服务，我们需要将完成该预订所必需的信息（如出行人姓名、证件信息、联系方式、出行日期）提供给位于境外的产品或服务提供者。具体的境外接收方名称、联系方式将在您提交订单时的确认页面中展示，您确认提交即表示您同意前述提供行为。\n\n您可以通过本政策第十条所列方式联系我们，行使查阅、复制、更正、删除等权利。\n\n七、本政策如何更新\n\n我们可能适时修订本政策内容。如该等变更会导致您在本政策项下权利的实质减损，我们将在变更生效前，通过在页面显著位置提示、向您发送电子邮件等方式通知您。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "exemption.contract",
+    "exemption.counting",
+    "mechanism.threshold",
+    "duty.notice_consent",
+    "duty.pia",
+    "boundary.material_conflict"
+  ],
+  "noise_types": [
+    "count_unit_mismatch",
+    "approximate_count",
+    "material_conflict",
+    "business_legal_claim",
+    "mixed_population",
+    "boilerplate"
+  ],
+  "fact_pattern_source": {
+    "kind": "enforcement",
+    "urls": [
+      "https://www.ithome.com/0/963/803.htm",
+      "https://www.secrss.com/articles/87969",
+      "https://www.cac.gov.cn/2025-10/31/c_1763633376984070.htm"
+    ],
+    "public_facts": "上海市网信办2026年6月对一家在线旅游企业以未落实数据出境安全评估要求、违法向境外提供个人信息处罚1000万元并责令改正，公开报道未披露数据类型、接收方和数量；上海2025年典型案例中，一家酒店管理企业在评估结果指出部分数据项出境必要性不足后仍继续出境，一家物业管理企业通过酒店预订和会员App向境外提供住宿信息而未履行任何出境程序；网信办2025年10月政策问答明确境内个人预定境内酒店出境个人信息不适用合同履行豁免。",
+    "synthesized": "主体名称、三条链路的划分、各链路数据项与人数、去重统计、邮件与隐私政策文本均为虚构，用以复现“以机票酒店预订豁免覆盖全部出境链路”的错误。主体设在成都（非自贸片区），以排除上海全市适用的数据出境负面清单，使本题聚焦国家规则。"
+  },
+  "selection_reason": "检验能否逐条拆分出境链路：区分合同履行豁免与不豁免部分，豁免部分不计入累计，并正确处理去重人数口径冲突。",
+  "reference_basis": [
+    "2024规定第五、七、十条；个人信息保护法第三十九、五十五条；网信办2024年答记者问问11；2025年10月政策问答第1、2问。"
+  ],
+  "answer_leak_sources": [
+    "cac_data_export_policy_qna_2025_10",
+    "cac_cross_border_flow_rules_qna_2024"
+  ],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "机票酒店预订 向境外提供个人信息 免予申报 确需 条件",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第五条",
+          "cac_data_export_policy_qna_2025_10"
+        ]
+      },
+      {
+        "text": "境内个人预定境内酒店 个人信息出境 是否适用豁免",
+        "targets": [
+          "cac_data_export_policy_qna_2025_10"
+        ]
+      },
+      {
+        "text": "免予情形 不计入累计数量 自然人去重 100万人 申报安全评估",
+        "targets": [
+          "cac_cross_border_flow_rules_qna_2024",
+          "cac_cross_border_data_flow_rules_2024 第七条"
+        ]
+      },
+      {
+        "text": "免予申报 仍应履行 告知 单独同意 个人信息保护影响评估",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第十条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第三十九条",
+          "flk_npc_ff8081817b6472a3017b656cc2040044 第五十五条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第五条",
+        "note": "F1可能适用合同履行豁免，F2、F3不适用",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "非CIIO累计100万人以上应申报安全评估",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第十条",
+        "note": "豁免不免除告知、单独同意、影响评估义务",
+        "equivalents": [
+          [
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第三十九条"
+            },
+            {
+              "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+              "article_no": "第五十五条"
+            }
+          ]
+        ]
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十九条",
+        "note": "告知境外接收方并取得单独同意",
+        "equivalents": []
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第五十五条",
+        "note": "向境外提供个人信息须事前做影响评估",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "cac_data_export_policy_qna_2025_10",
+        "article_no": null,
+        "note": "合同履行豁免的两个条件；境内个人预定境内酒店不适用豁免",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_cross_border_flow_rules_qna_2024",
+        "article_no": null,
+        "note": "问11：第五条第一款第一项至第三项情形不计入累计数量，按自然人去重",
+        "equivalents": []
+      }
+    ],
+    "optional": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第八条",
+        "note": "若去重后不满100万人，走标准合同或认证",
+        "equivalents": []
+      },
+      {
+        "source_id": "flk_npc_ff8081817b6472a3017b656cc2040044",
+        "article_no": "第三十八条",
+        "note": "个人信息出境的法定条件",
+        "equivalents": []
+      },
+      {
+        "source_id": "cac_data_export_security_assessment_filing_guide_v3_2025",
+        "article_no": null,
+        "note": "申报材料与流程",
+        "equivalents": []
+      }
+    ],
+    "must_not_cite": [
+      {
+        "source_id": "cac_data_export_security_assessment_measures_2022",
+        "article_no": "第四条",
+        "note": "2022年门槛（自上年1月1日起累计10万人）已被2024年规定第十三条确立的规则取代",
+        "equivalents": [],
+        "reason": "conflict_rule_overridden"
+      }
+    ]
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024",
+      "flk_npc_ff8081817b6472a3017b656cc2040044"
+    ],
+    "forbidden_clause_sources": [
+      "cac_data_export_policy_qna_2025_10",
+      "cac_cross_border_flow_rules_qna_2024"
+    ],
+    "expect_freshness_hold": false,
+    "must_not_assume": [
+      "不得把186万账号记录数当作去重后的自然人数。",
+      "不得把邮件中“九十来万活跃会员”当作已核实的出境人数。",
+      "不得认定F3测试同步已构成违法并给出处罚结论。"
+    ],
+    "required_exceptions": [
+      "F1仅在确需、最小必要的范围内适用第五条第一款第一项，且不计入累计数量。"
+    ],
+    "clarification_expectations": [
+      "要求核实F2与F3合并去重后的自然人数及统计口径。",
+      "指出隐私政策未覆盖F2、F3的境外接收方，需要补充告知并取得单独同意。"
+    ],
+    "allowed_judgments": [
+      "逐条链路判断：F1可在最小必要范围内适用合同履行豁免；F2、F3不适用豁免并计入累计数量。",
+      "以数据组去重统计（约121万有效会员）为准，F2、F3合计已达100万人以上，应在F3上线前申报数据出境安全评估；同时说明人数口径仍需确认，若确认不满100万则改为标准合同或认证。"
+    ],
+    "forbidden_judgments": [
+      "以“机票酒店预订”豁免覆盖全部三条链路，认定无需任何出境程序。",
+      "把F1的出境人数计入累计门槛。",
+      "依据“九十来万活跃会员”直接确定只需标准合同。"
+    ],
+    "notes": "出境门槛按自当年1月1日起计划与实际向境外提供的去重自然人数判断：F3按计划将在2026年11月把约121万有效会员同步到新加坡，因此应在上线前按合计规模确定路径，不能以“尚未上线”为由只按已出境人数判断。F3已有两次测试同步，报告可以提示核查已发生的出境，但不需要作出处罚判断。"
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

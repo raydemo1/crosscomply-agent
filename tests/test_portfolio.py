@@ -1,13 +1,16 @@
+from dataclasses import asdict
 from types import SimpleNamespace
 
+from law_agent.evals.arms.crosscomply import enqueue_eval_task
 from law_agent.review.dates import business_today
 from law_agent.review.enterprise_store import InMemoryEnterpriseStore
-from law_agent.review.evalset.agent_cases import get_agent_cases
-from law_agent.review.evalset.agent_runner import build_case_task
 from law_agent.review.portfolio import (
+    PortfolioContribution,
+    PortfolioSummary,
     _contribution,
     band_for,
     entity_key,
+    fingerprint_summary,
     parse_count,
     portfolio_ledger,
 )
@@ -41,11 +44,17 @@ def test_contribution_uses_business_year_and_explicit_counts():
 
 def test_eval_builds_frozen_snapshot_and_derived_refs():
     store = InMemoryEnterpriseStore()
-    case = get_agent_cases("portfolio")[0]
-    task = build_case_task(store, case, model_id="fake")
+    payload = asdict(fingerprint_summary(PortfolioSummary(
+        "示例公司", "示例公司", 2026, False,
+        [PortfolioContribution("transfer_example", "境外工单归档", "case_example", "intake_example", 2026,
+                               50_000, 0, "current_year_cumulative", True, "counted")],
+        50_000, 50_000, 0, 0, band_for(50_000, 0), band_for(50_000, 0),
+    )))
+    task = enqueue_eval_task(store, case_id="portfolio_case", files=[("材料.txt", "示例材料")],
+                             intake={"business_entity": "示例公司"}, model_id="fake", portfolio=payload)
     snapshot = store.get_portfolio_snapshot(task.portfolio_snapshot_id)
     entries = portfolio_ledger(snapshot)
-    assert snapshot.payload == case.portfolio
+    assert snapshot.payload == payload
     assert all((row.source_type, row.status, row.source_ref) == ("transfer_register", "derived", snapshot.id) for row in entries)
     assert next(row.value for row in entries if row.field == "entity_other_non_sensitive_sum") == 50_000
     snapshot.payload["non_sensitive_sum"] = 0

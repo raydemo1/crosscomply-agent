@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import date
-from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, JsonValue, field_validator
@@ -42,6 +41,9 @@ IssueKind = Literal["material_conflict", "missing_information", "legal_gap"]
 ImportantDataStatus = Literal["unknown", "not_important", "important", "under_review"]
 CIIOStatus = Literal["unknown", "not_ciio", "ciio", "under_review"]
 CountPeriod = Literal["unknown", "current_year_cumulative", "annual_estimate", "other"]
+# Fixed industry choices for the confirmed intake. Each named industry has its own
+# keyword set in retrieval/boosts.py; "其他" names none and boosts nothing.
+Industry = Literal["汽车", "金融", "工业和信息化", "医疗健康", "跨境电商", "教育", "其他"]
 IntakeFactField = Literal[
     "cross_border_transfer", "contains_personal_information", "sensitive_personal_info",
     "important_data_status", "ciio_status", "annual_non_sensitive_count",
@@ -53,7 +55,7 @@ ConfirmableFactField = Literal[
     "sensitive_personal_info", "cross_border_transfer", "overseas_recipient",
     "processing_purpose", "legal_basis_or_consent", "important_data_status", "ciio_status",
     "annual_non_sensitive_count", "annual_sensitive_count", "count_period",
-    "destination_region", "exemption_facts",
+    "destination_region", "exemption_facts", "regions", "in_free_trade_zone", "industry",
 ]
 
 
@@ -80,6 +82,7 @@ LEGAL_ANALYSIS_GUIDANCE = """## 法律分析方法
 
 ## 专业表达
 使用审慎、客观、自然易懂的中文。区分法定要求、官方解释、推荐性标准、合同约束和实践建议，不将其混写为法定义务；建议须有对应前提。
+法定要求、数量门槛和程序义务以规定它的条文为引用依据；官方问答、解读用于说明适用口径，可与条文并列引用，不替代条文。
 避免无依据的概率性或绝对判断、套话、空泛风险提示、重复免责声明和无关延伸。
 """
 
@@ -133,6 +136,7 @@ class ReviewFacts(StrictModel):
     ))
     industry: str | None = None
     regions: list[str] = Field(default_factory=list)
+    in_free_trade_zone: bool | None = None
     missing_information: list[str] = Field(default_factory=list)
     as_of_date: date | None = None
 
@@ -213,6 +217,7 @@ class RetrievalQuery(StrictModel):
     query_type: RetrievalQueryType
     text: str
     pathway: str | None = None
+    scope: str | None = None
 
 
 class RetrievalHit(StrictModel):
@@ -250,6 +255,9 @@ class RetrievalHit(StrictModel):
     # retrieval passage; this field is the complete article assembled from
     # all chunks belonging to the same source/article.
     full_article_text: str | None = None
+    # Later provisions in force at the review date that name this hit's source in
+    # precedence language (see ``retrieval.later_provisions``); shown as they are.
+    later_provisions: list[dict[str, str | None]] = Field(default_factory=list)
 
 
 class SourceEvidencePacket(StrictModel):
@@ -402,66 +410,5 @@ class ReviewResult(StrictModel):
     citations: list[Citation] = Field(default_factory=list)
     applicable_evidence: list[CitationGroup] = Field(default_factory=list)
     issues: list[ReviewIssue] = Field(default_factory=list)
-
-
-class ReviewCase(StrictModel):
-    """A material-driven compliance review case."""
-
-    review_case_id: str
-    created_at: str
-    question: str
-    material: MaterialRecord
-    review_facts: ReviewFacts
-    trace_id: str
-    latest_result_id: str | None = None
-    user_feedback: dict[str, str] = Field(default_factory=dict)
-
-    @field_validator("question")
-    @classmethod
-    def question_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("question must not be blank")
-        return value
-
-
-class RetrievalTrace(StrictModel):
-    """Verbose retrieval and evidence trace for review debugging and eval."""
-
-    trace_id: str
-    review_case_id: str
-    created_at: str
-    evidence_self_check: EvidenceSelfCheck
-    queries: list[RetrievalQuery] = Field(default_factory=list)
-    filters: dict[str, object] = Field(default_factory=dict)
-    metadata_boosts: dict[str, float] = Field(default_factory=dict)
-    keyword_results: list[RetrievalHit] = Field(default_factory=list)
-    vector_results: list[RetrievalHit] = Field(default_factory=list)
-    hybrid_results: list[RetrievalHit] = Field(default_factory=list)
-    candidate_results: list[RetrievalHit] = Field(
-        default_factory=list,
-        description="Unique fused chunk candidates before final source allocation.",
-    )
-    neighbor_chunks: list[RetrievalHit] = Field(default_factory=list)
-    rerank: dict[str, object] = Field(default_factory=dict)
-    second_retrieval: dict[str, object] = Field(default_factory=dict)
-    final_evidence: list[RetrievalHit] = Field(default_factory=list)
-    source_evidence_packets: list[SourceEvidencePacket] = Field(default_factory=list)
-    citation_validation: dict[str, object] = Field(default_factory=dict)
-    latency_ms: int | None = None
-    total_latency_ms: int | None = None
-    retrieval_latency_ms: int | None = None
-    llm_call_count: int = 0
-    retry_count: int = 0
-
-
-class ReviewRunResponse(StrictModel):
-    """Response returned after creating a review skeleton."""
-
-    review_case: ReviewCase
-    trace: RetrievalTrace
-    result: ReviewResult
-    case_path: Path
-    trace_path: Path
-    result_path: Path
 
 

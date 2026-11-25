@@ -43,7 +43,7 @@ def _marker(identity: str) -> str:
 def citation_repair_tool(error: CitationReferenceError, citations: list[dict]) -> dict:
     return {"type": "function", "function": {
         "name": "repair_citations", "strict": True,
-        "description": "仅选择已取得且支持原段落的引用，修复给定的无效标记。不得修改正文或猜测来源；不能确定时返回空数组。",
+        "description": "仅选择已取得且支持原段落的引用，修复给定的无效标记。不得修改正文或猜测来源；不能确定的标记不要列出，它们不会展示。",
         "parameters": {"type": "object", "additionalProperties": False, "required": ["replacements"],
             "properties": {"replacements": {"type": "array", "items": {
                 "type": "object", "additionalProperties": False, "required": ["old", "new"],
@@ -64,10 +64,39 @@ def apply_citation_repairs(text: str, error: CitationReferenceError, citations: 
                 or item["old"] not in error.references or item["new"] not in allowed or item["old"] in edits):
             raise CitationReferenceError("引用修复补丁包含无效来源或重复替换")
         edits[item["old"]] = item["new"]
-    if set(edits) != set(error.references):
-        raise CitationReferenceError("引用修复未覆盖全部无效标记", error.references)
+    if not edits:
+        return text
     pattern = re.compile("|".join(re.escape(key) for key in sorted(edits, key=len, reverse=True)))
     return pattern.sub(lambda match: edits[match[0]], text)
+
+
+_INCOMPLETE_MARKER_RE = re.compile(r"\[\s*(?:\[\s*)?cite\s*:[0-9a-zA-Z:_\s-]*(?=[^\]0-9a-zA-Z:_\s-]|\Z)", re.IGNORECASE)
+
+
+def render_without_unverified(text: str, citations: list[dict]) -> tuple[str, list[dict], list[str]]:
+    """Render the answer, leaving out every marker that cannot be verified against acquired sources.
+
+    An unverifiable marker is not shown: the sentence stays, like any other uncited sentence,
+    and only verified sources reach the citation list. Returns the removed markers for the audit trail.
+    """
+
+    removed: list[str] = []
+    for _ in range(5):
+        try:
+            answer, used = render_qa_citations(text, citations)
+            return answer, used, removed
+        except CitationReferenceError as exc:
+            before = text
+            if exc.references:
+                for reference in exc.references:
+                    text = text.replace(reference, "")
+                removed += exc.references
+            else:
+                removed += _INCOMPLETE_MARKER_RE.findall(text)
+                text = _INCOMPLETE_MARKER_RE.sub("", text)
+            if text == before:
+                raise
+    raise CitationReferenceError("引用标记无法整理")
 
 
 def render_qa_citations(text: str, citations: list[dict], *, final: bool = True) -> tuple[str, list[dict]]:

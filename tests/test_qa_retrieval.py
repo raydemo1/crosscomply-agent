@@ -27,6 +27,11 @@ from tests.test_review_agent import _chunk, _search_tools
 from tests.test_review_llm import tool_message
 
 
+def _previews(tools):
+    """Listed locations whose text was not acquired."""
+    return [loc for source in tools.search_results() for loc in source["locations"] if not loc.get("acquired")]
+
+
 def query(text="规则", query_id="q"):
     return RetrievalQuery(query_id=query_id, text=text, query_type="legal_issue")
 
@@ -72,7 +77,7 @@ def test_search_assembles_the_matched_article_without_adding_adjacent_clauses():
     assert [h.chunk_id for h in explicit.hits] == ["before"]
 
 
-def test_short_clause_preview_does_not_admit_citation_evidence():
+def test_short_whole_clause_in_the_results_is_acquired_without_a_read():
     main = _chunk("main", "第一条", "一般规则" * 50, index=0)
     common = _chunk("common", "第二条", "共同说明" * 50, index=1)
     repeated = _chunk("repeated", "第三条", "重复说明" * 50, index=2)
@@ -88,23 +93,23 @@ def test_short_clause_preview_does_not_admit_citation_evidence():
     tools = _search_tools([main, common, repeated, specific, target], lambda *_a, **_kw: batches, top_k=1)
     result = tools.search([query("定向问题", "q1"), query("一般问题", "q2")], ReviewFacts())
 
-    assert "target" not in {h.chunk_id for h in result}
-    location = next(loc for source in tools.search_navigation() for loc in source["locations"]
+    # It fits in a preview, so it is handed over whole and citable, outside the one body slot.
+    target_hit = next(h for h in result if h.chunk_id == "target")
+    assert target_hit.text == "短条文" and target_hit.matched_query_ids == ["q1", "q2"]
+    location = next(loc for source in tools.search_results() for loc in source["locations"]
                     if loc["chunk_id"] == "target")
-    assert location["article_no"] == "第五条"
-    assert location["preview"] == "短条文"
-    assert tools.read_evidence("other", "第五条", None, ReviewFacts()).hits[0].text == "短条文"
+    assert location["article_no"] == "第五条" and location["acquired"] and "preview" not in location
 
 
 def test_search_limit_requires_explicit_read_for_an_unselected_complete_article():
     main = _chunk("main", "第一条", "主要命中", index=0)
-    target = _chunk("target", "第五十六条", "第五十六条 完整的条件、要求及例外。", index=0).model_copy(update={"source_id": "other"})
+    target = _chunk("target", "第五十六条", "第五十六条 完整的条件、要求及例外。" * 8, index=0).model_copy(update={"source_id": "other"})
     hits = [hit_from_chunk(c, i) for i, c in enumerate([main, target])]
     tools = _search_tools([main, target], lambda *_a, **_k: [hits], top_k=1)
     qa = tools.search([query()], ReviewFacts(), coarse_scope=True)
     assert [h.chunk_id for h in qa] == ["main"]
-    location = tools.search_navigation()[0]["locations"][0]
-    assert location["chunk_id"] == "target" and location["preview"] == target.text
+    location = tools.search_results()[1]["locations"][0]
+    assert location["chunk_id"] == "target" and location["preview"] == target.text[:100]
     read = tools.read_evidence("other", "第五十六条", None, ReviewFacts())
     assert read.hits[0].text == target.text and read.hits[0].can_cite_clause == target.can_cite_clause
     citations, _ = prepare_citations(QAState(goal="q", evidence=qa + read.hits),
@@ -115,7 +120,7 @@ def test_search_limit_requires_explicit_read_for_an_unselected_complete_article(
 
 @pytest.mark.parametrize("coarse_scope", [False, True])
 @pytest.mark.parametrize("mode", ["split_article", "truncated", "reference_only", "no_article"])
-def test_navigation_does_not_automatically_admit_other_passages_or_upgrade_source_qualification(mode, coarse_scope):
+def test_results_acquire_only_whole_short_passages_and_never_upgrade_source_qualification(mode, coarse_scope):
     main = _chunk("main", "第一条", "主要命中", index=0)
     target = _chunk("target", "第五十六条", "短原文", index=0).model_copy(update={"source_id": "other"})
     chunks = [main, target]
@@ -129,8 +134,14 @@ def test_navigation_does_not_automatically_admit_other_passages_or_upgrade_sourc
         chunks[-1] = target = target.model_copy(update={"article_no": None})
     hits = [hit_from_chunk(c, i) for i, c in enumerate([main, target])]
     tools = _search_tools(chunks, lambda *_a, **_k: [hits], top_k=1)
-    assert [h.chunk_id for h in tools.search([query()], ReviewFacts(), coarse_scope=coarse_scope)] == ["main"]
-    assert tools.search_navigation()[0]["locations"][0]["chunk_id"] == "target"
+    result = tools.search([query()], ReviewFacts(), coarse_scope=coarse_scope)
+    location = tools.search_results()[1]["locations"][0]
+    assert location["chunk_id"] == "target"
+    if mode in {"split_article", "truncated"}:  # part of a longer article: preview only, read to cite
+        assert [h.chunk_id for h in result] == ["main"] and "preview" in location
+    else:  # a whole short passage is acquired as it is, with its own citation qualification
+        assert [h.chunk_id for h in result] == ["main", "target"] and location["acquired"]
+        assert result[1].can_cite_clause == target.can_cite_clause
 
 
 def test_coarse_search_delivers_supporting_rules_without_requiring_extra_reads():
@@ -156,7 +167,7 @@ def test_coarse_search_delivers_supporting_rules_without_requiring_extra_reads()
     assert len(delivered) == 3
     assert any("一般规则" in (h.full_article_text or "") and "但满足条件时除外" in h.full_article_text for h in delivered)
     assert {"main", "related", "other"} <= set(tools._candidate_hits)
-    assert tools.search_navigation() == []
+    assert _previews(tools) == []
     state = QAState(goal="q", evidence=delivered)
     citations, _ = prepare_citations(state, QADecision(action="finish", summary="结束", chunk_ids=["other"]), [])
     assert citations[0]["kind"] == "context" and citations[0]["can_cite_clause"] is False
@@ -175,7 +186,7 @@ def test_coarse_search_keeps_multi_query_sources_and_excludes_future_navigation(
     result = tools.search([query("一般规则", "q1"), query("解释", "q2")],
                           ReviewFacts(as_of_date="2026-10-08"), coarse_scope=True)
     assert {h.chunk_id for h in result} == {"a", "b"}
-    assert "future" not in json.dumps(tools.search_navigation())
+    assert "future" not in json.dumps(tools.search_results())
     assert "future" not in tools._candidate_hits
 
 
@@ -213,7 +224,7 @@ def test_coarse_scope_applies_to_both_retrievers_but_review_keeps_existing_resul
     tools = _search_tools([national, local, uncertain], lambda *a, **k: [hits], top_k=10)
     filtered = tools.search([query("上海数据出境")], ReviewFacts(regions=["上海"]), coarse_scope=True)
     assert {h.chunk_id for h in filtered} == {"national", "uncertain"}
-    assert "local-source" not in json.dumps(tools.search_navigation())
+    assert "local-source" not in json.dumps(tools.search_results())
     expanded = tools.search([query("上海数据出境")], ReviewFacts(regions=["上海"]))
     assert {h.chunk_id for h in expanded} == {"national", "local", "uncertain"}
 
@@ -250,7 +261,7 @@ def test_excluded_scope_terms_apply_before_both_retrievers_and_leave_review_unch
     tools = _search_tools([national, local], lambda *a, **k: [hits], top_k=10)
     result = tools.search([query()], ReviewFacts(), coarse_scope=True, excluded_scope_terms=["自由贸易试验区"])
     assert [h.chunk_id for h in result] == ["national"]
-    assert tools.search_navigation() == []
+    assert _previews(tools) == []
     assert {h.chunk_id for h in tools.search([query()], ReviewFacts())} == {"national", "local"}
 
 
@@ -303,16 +314,16 @@ def test_coarse_search_preserves_sources_named_in_original_question(question):
     assert [h.chunk_id for h in result] == ["local"]
 
 
-def test_navigation_only_candidates_still_require_reading():
+def test_previewed_candidates_still_require_reading():
     main = _chunk("main", "第一条", "一般规则", index=0)
     other = _chunk("other", "第一条", "可能改变结论的例外。" * 30, index=0).model_copy(update={"source_id": "other-source"})
     hits = [hit_from_chunk(c, i) for i, c in enumerate([main, other])]
     tools = _search_tools([main, other], lambda *a, **k: [hits], top_k=1)
     delivered = tools.search([query()], ReviewFacts(), coarse_scope=True)
-    candidates = tools.search_navigation()
-    assert candidates[0]["source_id"] == "other-source"
+    candidates = tools.search_results()
+    assert [loc["chunk_id"] for loc in _previews(tools)] == ["other"]
     state = QAState(goal="q", evidence=delivered, steps=[AgentStep(
-        number=1, action="search_evidence", summary="检索", observation={"candidate_navigation": candidates},
+        number=1, action="search_evidence", summary="检索", observation={"results": candidates},
     )])
     decision = QADecision(action="finish", summary="作答", chunk_ids=["other"])
     with pytest.raises(ValueError, match="本次调查已取得的正文"):
@@ -327,25 +338,25 @@ def test_navigation_projection_removes_repeats_and_read_locations_but_keeps_upda
     source = {"source_id": "s1", "title": "来源", "source_has_articles": True, "locations": [
         {"chunk_id": "unread", "article_no": "第一条", "preview": "待精读原文"},
     ]}
-    old = {"candidate_navigation": [source]}
+    old = {"results": [source]}
     previous = [AgentStep(number=1, action="search_evidence", summary="检索", observation=old)]
     observation = deepcopy(old)
-    observation["candidate_navigation"][0]["locations"].append({"chunk_id": "new", "preview": "新候选"})
+    observation["results"][0]["locations"].append({"chunk_id": "new", "preview": "新候选"})
     snapshot = deepcopy(observation)
     projected = search_observation_context(observation, previous, [])
-    assert [loc["chunk_id"] for loc in projected["candidate_navigation"][0]["locations"]] == ["new"]
+    assert [loc["chunk_id"] for loc in projected["results"][0]["locations"]] == ["new"]
     assert observation == snapshot and previous[0].observation == old
-    observation["candidate_navigation"][0]["locations"][0]["preview"] = "原文预览已更新"
+    observation["results"][0]["locations"][0]["preview"] = "原文预览已更新"
     projected = search_observation_context(observation, previous, [])
-    assert len(projected["candidate_navigation"][0]["locations"]) == 2
+    assert len(projected["results"][0]["locations"]) == 2
     read = [hit_from_chunk(_chunk("new", "第二条", "已取得的原文", index=0), 0)]
     projected = search_observation_context(observation, previous, read)
-    assert [loc["chunk_id"] for loc in projected["candidate_navigation"][0]["locations"]] == ["unread"]
+    assert [loc["chunk_id"] for loc in projected["results"][0]["locations"]] == ["unread"]
 
 
 def test_repeated_navigation_is_saved_but_not_resent_in_native_tool_results():
     class NavigationTools(Tools):
-        def search_navigation(self):
+        def search_results(self):
             return [{"source_id": "other", "title": "其他来源", "source_has_articles": True, "locations": [
                 {"chunk_id": "unread", "article_no": "第一条", "preview": "候选原文"},
             ]}]
@@ -362,10 +373,10 @@ def test_repeated_navigation_is_saved_but_not_resent_in_native_tool_results():
     execute_qa(store.get(cid), run, checkpoint=lambda **kw: updates.append(kw), chunks_path="unused",
                client=client, tools=NavigationTools())
     results = [json.loads(m.content)["observation"] for m in client.answer_messages if m.role == "tool"]
-    assert results[0]["candidate_navigation"][0]["source_id"] == "other"
-    assert results[1]["candidate_navigation"] == []
+    assert results[0]["results"][0]["source_id"] == "other"
+    assert results[1]["results"] == []
     saved = [u["state"]["steps"] for u in updates if "state" in u][-1]
-    assert all(s["observation"]["candidate_navigation"] for s in saved)
+    assert all(s["observation"]["results"] for s in saved)
     assert client.answer_messages[:len(client.calls[-1])] == client.calls[-1]
 
 
@@ -520,5 +531,5 @@ def test_generated_query_does_not_override_user_scope_but_user_comparison_does()
     tools = _search_tools([chunk], lambda *a, **k: [hits], top_k=10)
     tools._question = "不在自贸区"
     assert tools.search([query(chunk.title)], facts, coarse_scope=True, excluded_scope_terms=terms) == []
-    assert tools.search_navigation() == []
+    assert _previews(tools) == []
     assert tools.search([query(chunk.title)], facts)

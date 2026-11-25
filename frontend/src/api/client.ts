@@ -515,7 +515,6 @@ export async function createCase(input: CreateCaseInput): Promise<CaseDetailApi>
       material_text: input.materialText,
       material_source: input.materialSource ?? null,
       intake: input.intake,
-      rerank_mode: 'off',
     }),
   });
 }

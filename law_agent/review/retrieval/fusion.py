@@ -5,7 +5,7 @@ RRF formula: ``rrf_score = sum(1 / (k + rank))`` over all retrievers where
 the chunk appears. Each input list is ranked by its score, including any
 metadata weights already applied by the caller.
 
-The fused results are stored in ``RetrievalTrace.hybrid_results`` with
+The fused results are stored in the search debug payload with
 component scores preserved for traceability.
 """
 

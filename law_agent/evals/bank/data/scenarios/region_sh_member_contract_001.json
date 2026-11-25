@@ -1,0 +1,118 @@
+{
+  "scenario_id": "region_sh_member_contract_001",
+  "split": "dev",
+  "label_status": "draft",
+  "reviewer": null,
+  "persona_id": "retail_shanghai_ftz",
+  "as_of_date": "2026-10-15",
+  "question": "法国总部要把中国区会员数据同步过去做全球会员分析，今年约150万人，按国家规定要申报安全评估吗？",
+  "intake": {
+    "contains_personal_information": true,
+    "cross_border_transfer": true,
+    "important_data_status": "not_important",
+    "ciio_status": "not_ciio",
+    "count_period": "current_year_cumulative",
+    "sensitive_personal_info": false,
+    "annual_non_sensitive_count": "1500000",
+    "annual_sensitive_count": "0",
+    "overseas_recipient": "法国母公司",
+    "destination_region": "法国",
+    "processing_purpose": "全球会员管理与分析",
+    "regions": [
+      "上海"
+    ],
+    "in_free_trade_zone": true,
+    "industry": "其他"
+  },
+  "materials": [
+    {
+      "filename": "同步方案.txt",
+      "kind": "business_memo",
+      "text": "会员数据同步方案\n\n同步字段：会员姓名、手机号、会员等级、积分余额、购买记录（商品、时间、金额）、偏好门店。不含支付卡信息和密码。今年计划同步约150万名会员（去重）。公司注册在临港新片区，经营会员制门店，不是关键信息基础设施运营者。IT部门按国家规定认为超过100万人必须申报安全评估。",
+      "sheets": null
+    }
+  ],
+  "judgment_points": [
+    "region.ftz",
+    "exemption.ftz_negative_list"
+  ],
+  "noise_types": [
+    "business_legal_claim"
+  ],
+  "fact_pattern_source": {
+    "kind": "synthetic",
+    "urls": [],
+    "public_facts": "模拟常见错误：检验上海负面清单对零售企业会员管理场景放宽门槛：100万以上不满1000万人走标准合同或认证。",
+    "synthesized": "主体、材料与数字均为虚构。"
+  },
+  "selection_reason": "检验上海负面清单对零售企业会员管理场景放宽门槛：100万以上不满1000万人走标准合同或认证。",
+  "reference_basis": [
+    "2024规定第六条；上海数据出境负面清单（2025版）商贸领域第4项。"
+  ],
+  "answer_leak_sources": [],
+  "retrieval": {
+    "queries": [
+      {
+        "text": "上海 数据出境负面清单 零售 会员管理场景 门槛",
+        "targets": [
+          "shanghai_free_trade_zone_data_export_negative_list_2025"
+        ]
+      },
+      {
+        "text": "自由贸易试验区 负面清单外的数据 免予",
+        "targets": [
+          "cac_cross_border_data_flow_rules_2024 第六条"
+        ]
+      }
+    ],
+    "must_cite": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第六条",
+        "note": "自贸区负面清单制度",
+        "equivalents": []
+      }
+    ],
+    "must_retrieve": [
+      {
+        "source_id": "shanghai_free_trade_zone_data_export_negative_list_2025",
+        "article_no": null,
+        "note": "商贸领域会员管理场景：100万以上不满1000万人走标准合同或认证",
+        "equivalents": []
+      }
+    ],
+    "optional": [
+      {
+        "source_id": "cac_cross_border_data_flow_rules_2024",
+        "article_no": "第七条",
+        "note": "国家规则下的门槛（用于对比）",
+        "equivalents": []
+      }
+    ],
+    "must_not_cite": []
+  },
+  "agent_rubric": {
+    "should_abstain": null,
+    "acceptable_outcomes": [],
+    "must_cover_sources": [
+      "cac_cross_border_data_flow_rules_2024"
+    ],
+    "forbidden_clause_sources": [],
+    "expect_freshness_hold": false,
+    "must_not_assume": [],
+    "required_exceptions": [],
+    "clarification_expectations": [],
+    "allowed_judgments": [
+      "公司注册在上海、非CIIO，属于面向消费者的零售企业，会员管理字段在上海负面清单商贸领域范围内：150万人属于100万以上不满1000万人，应订立标准合同或通过认证，而不是申报安全评估；仍须履行告知、单独同意和影响评估。"
+    ],
+    "forbidden_judgments": [
+      "忽略上海负面清单，按国家规则认定必须申报安全评估。",
+      "认定可以免予三种机制。"
+    ],
+    "notes": ""
+  },
+  "portfolio": null,
+  "scripted_answers": [],
+  "controlled_web": null,
+  "tags": []
+}

@@ -260,3 +260,13 @@ def test_clean_text_leaves_spaced_digits_alone() -> None:
     assert "4 3 6 9 7 - 2 0 2 4" in result.text
     assert "123" not in result.text
     assert "spaced_digit_runs" not in result.rule_hits
+
+
+def test_clean_text_drops_the_page_dateline_and_keeps_link_words_without_the_address() -> None:
+    result = clean_text(
+        "## 实施指引\n2024年09月10日 14:30 来源：[中国网信网](https://www.cac.gov.cn/)\n"
+        "附件1：[粤港澳大湾区标准合同](https://www.cac.gov.cn/cms/pub/download.jsp?f=1)\n第一条 正文。"
+    )
+    assert "来源" not in result.text
+    assert "附件1：粤港澳大湾区标准合同\n" in result.text
+    assert "https://" not in result.text
